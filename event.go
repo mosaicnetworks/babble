@@ -18,18 +18,18 @@ package hashgraph
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"crypto/rand"
-	"crypto/sha256"
 	"encoding/gob"
 	"math/big"
 	"time"
+
+	"github.com/arrivets/go-swirlds/crypto"
 )
 
 type EventBody struct {
-	Transactions [][]byte        //the payload
-	Parents      [][]byte        //hashes of the event's parents, self-parent first
-	Creator      ecdsa.PublicKey //creator's public key
-	Timestamp    time.Time       //creator's claimed timestamp of the event's creation
+	Transactions [][]byte  //the payload
+	Parents      [][]byte  //hashes of the event's parents, self-parent first
+	Creator      []byte    //creator's public key
+	Timestamp    time.Time //creator's claimed timestamp of the event's creation
 }
 
 //gob encoding of body only
@@ -53,10 +53,7 @@ func (e *EventBody) Hash() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	hasher := sha256.New()
-	hasher.Write(hashBytes)
-	hash := hasher.Sum(nil)
-	return hash, nil
+	return crypto.SHA256(hashBytes), nil
 }
 
 type Event struct {
@@ -70,17 +67,20 @@ func (e *Event) Sign(privKey *ecdsa.PrivateKey) error {
 	if err != nil {
 		return err
 	}
-	e.R, e.S, err = ecdsa.Sign(rand.Reader, privKey, signBytes)
+	e.R, e.S, err = crypto.Sign(privKey, signBytes)
 	return err
 }
 
-func (e *Event) Verify() bool {
-	pub := e.Body.Creator
+func (e *Event) Verify() (bool, error) {
+	pubBytes := e.Body.Creator
+	pubKey := crypto.ToECDSAPub(pubBytes)
+
 	signBytes, err := e.Body.Hash()
 	if err != nil {
-		return false
+		return false, err
 	}
-	return ecdsa.Verify(&pub, signBytes, e.R, e.S)
+
+	return crypto.Verify(pubKey, signBytes, e.R, e.S), nil
 }
 
 //gob encoding of body and signature
@@ -99,8 +99,5 @@ func (e *Event) Hash() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	hasher := sha256.New()
-	hasher.Write(hashBytes)
-	hash := hasher.Sum(nil)
-	return hash, nil
+	return crypto.SHA256(hashBytes), nil
 }

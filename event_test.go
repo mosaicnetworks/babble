@@ -16,17 +16,18 @@ limitations under the License.
 package hashgraph
 
 import (
-	"crypto/ecdsa"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/arrivets/go-swirlds/crypto"
 )
 
 func createDummyEventBody() EventBody {
 	body := EventBody{}
 	body.Transactions = [][]byte{[]byte("abc"), []byte("def")}
 	body.Parents = [][]byte{[]byte("self"), []byte("other")}
-	body.Creator = ecdsa.PublicKey{}
+	body.Creator = []byte("public key")
 	body.Timestamp = time.Now()
 	return body
 }
@@ -57,4 +58,25 @@ func TestMarshallBody(t *testing.T) {
 		t.Fatalf("Timestamps do not match. Expected %#v, got %#v", body.Timestamp, newBody.Timestamp)
 	}
 
+}
+
+func TestSignEvent(t *testing.T) {
+	privateKey, _ := crypto.GenerateECDSAKey()
+	publicKeyBytes := crypto.FromECDSAPub(&privateKey.PublicKey)
+
+	body := createDummyEventBody()
+	body.Creator = publicKeyBytes
+
+	event := Event{Body: body}
+	if err := event.Sign(privateKey); err != nil {
+		t.Fatalf("Error signing Event: %s", err)
+	}
+
+	res, err := event.Verify()
+	if err != nil {
+		t.Fatalf("Error verifying signature: %s", err)
+	}
+	if !res {
+		t.Fatalf("Verify returned false")
+	}
 }
