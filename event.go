@@ -22,12 +22,14 @@ import (
 	"math/big"
 	"time"
 
+	"fmt"
+
 	"github.com/arrivets/go-swirlds/crypto"
 )
 
 type EventBody struct {
 	Transactions [][]byte  //the payload
-	Parents      [][]byte  //hashes of the event's parents, self-parent first
+	Parents      []string  //hashes of the event's parents, self-parent first
 	Creator      []byte    //creator's public key
 	Timestamp    time.Time //creator's claimed timestamp of the event's creation
 }
@@ -59,6 +61,16 @@ func (e *EventBody) Hash() ([]byte, error) {
 type Event struct {
 	Body EventBody
 	R, S *big.Int //creator's digital signature of body
+}
+
+func NewEvent(transactions [][]byte, parents []string, creator []byte) Event {
+	body := EventBody{
+		Transactions: transactions,
+		Parents:      parents,
+		Creator:      creator,
+		Timestamp:    time.Now(),
+	}
+	return Event{Body: body}
 }
 
 //ecdsa sig
@@ -100,4 +112,9 @@ func (e *Event) Hash() ([]byte, error) {
 		return nil, err
 	}
 	return crypto.SHA256(hashBytes), nil
+}
+
+func (e *Event) Hex() string {
+	hash, _ := e.Hash()
+	return fmt.Sprintf("0x%X", hash)
 }

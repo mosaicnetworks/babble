@@ -26,7 +26,7 @@ import (
 func createDummyEventBody() EventBody {
 	body := EventBody{}
 	body.Transactions = [][]byte{[]byte("abc"), []byte("def")}
-	body.Parents = [][]byte{[]byte("self"), []byte("other")}
+	body.Parents = []string{"self", "other"}
 	body.Creator = []byte("public key")
 	body.Timestamp = time.Now()
 	return body
