@@ -24,7 +24,7 @@ import (
 )
 
 /*
-|   e12 |
+|  e12  |
 |   | \ |
 |   |   e20
 |   | / |
@@ -85,12 +85,16 @@ func initHashgraph() (Hashgraph, map[string]string) {
 	nodes[1].Events = append(nodes[1].Events, event12)
 	index["e12"] = event12.Hex()
 
-	hashgraph := NewHashgraph()
+	participants := []string{}
+	events := make(map[string]Event)
 	for _, node := range nodes {
+		participants = append(participants, node.PubHex)
 		for _, ev := range node.Events {
-			hashgraph.Events[ev.Hex()] = ev
+			events[ev.Hex()] = ev
 		}
 	}
+	hashgraph := NewHashgraph(participants)
+	hashgraph.Events = events
 	return hashgraph, index
 }
 
@@ -257,12 +261,16 @@ func initForkHashgraph() (Hashgraph, map[string]string) {
 	nodes[1].Events = append(nodes[1].Events, event12)
 	index["e12"] = event12.Hex()
 
-	hashgraph := NewHashgraph()
+	participants := []string{}
+	events := make(map[string]Event)
 	for _, node := range nodes {
+		participants = append(participants, node.PubHex)
 		for _, ev := range node.Events {
-			hashgraph.Events[ev.Hex()] = ev
+			events[ev.Hex()] = ev
 		}
 	}
+	hashgraph := NewHashgraph(participants)
+	hashgraph.Events = events
 	return hashgraph, index
 }
 
@@ -356,6 +364,62 @@ func TestSee(t *testing.T) {
 	}
 	if h.See(index["e12"], index["e20"]) {
 		t.Fatal("e12 should not see e20 because of fork")
+	}
+
+}
+
+func TestStronglySee(t *testing.T) {
+	h, index := initHashgraph()
+
+	if ss, c := h.StronglySee(index["e12"], index["e0"]); !ss {
+		t.Fatalf("e12 should strongly see e0. %d sentinels", c)
+	}
+	if ss, c := h.StronglySee(index["e12"], index["e1"]); !ss {
+		t.Fatalf("e12 should strongly see e1. %d sentinels", c)
+	}
+	if ss, c := h.StronglySee(index["e12"], index["e01"]); !ss {
+		t.Fatalf("e12 should strongly see e01. %d sentinels", c)
+	}
+	if ss, c := h.StronglySee(index["e20"], index["e1"]); !ss {
+		t.Fatalf("e20 should strongly see e1. %d sentinels", c)
+	}
+
+	//false negatives
+	if ss, c := h.StronglySee(index["e12"], index["e2"]); ss {
+		t.Fatalf("e12 should not strongly see e2. %d sentinels", c)
+	}
+	if ss, c := h.StronglySee(index["e12"], index["e20"]); ss {
+		t.Fatalf("e12 should not strongly see e20. %d sentinels", c)
+	}
+	if ss, c := h.StronglySee(index["e20"], index["e01"]); ss {
+		t.Fatalf("e20 should not strongly see e01. %d sentinels", c)
+	}
+	if ss, c := h.StronglySee(index["e20"], index["e0"]); ss {
+		t.Fatalf("e20 should not strongly see e0. %d sentinels", c)
+	}
+	if ss, c := h.StronglySee(index["e20"], index["e2"]); ss {
+		t.Fatalf("e20 should not strongly see e2. %d sentinels", c)
+	}
+	if ss, c := h.StronglySee(index["e01"], index["e0"]); ss {
+		t.Fatalf("e01 should not strongly see e0. %d sentinels", c)
+	}
+	if ss, c := h.StronglySee(index["e01"], index["e1"]); ss {
+		t.Fatalf("e01 should not strongly see e1. %d sentinels", c)
+	}
+	if ss, c := h.StronglySee(index["e01"], index["e2"]); ss {
+		t.Fatalf("e01 should not strongly see e2. %d sentinels", c)
+	}
+	if ss, c := h.StronglySee(index["e0"], index["e0"]); ss {
+		t.Fatalf("e0 should not strongly see e0. %d sentinels", c)
+	}
+
+	//fork
+	h, index = initForkHashgraph()
+	if ss, c := h.StronglySee(index["e12"], index["a"]); ss {
+		t.Fatalf("e12 should not strongly see 'a' because of fork. %d sentinels", c)
+	}
+	if ss, c := h.StronglySee(index["e12"], index["e2"]); ss {
+		t.Fatalf("e12 should not strongly see e2 because of fork. %d sentinels", c)
 	}
 
 }

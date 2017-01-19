@@ -16,17 +16,24 @@ limitations under the License.
 package hashgraph
 
 import (
+	"fmt"
 	"reflect"
 )
 
 type Hashgraph struct {
-	Events map[string]Event //hash => event
+	Participants []string         //particant public keys
+	Events       map[string]Event //hash => event
 }
 
-func NewHashgraph() Hashgraph {
+func NewHashgraph(participants []string) Hashgraph {
 	return Hashgraph{
-		Events: make(map[string]Event),
+		Participants: participants,
+		Events:       make(map[string]Event),
 	}
+}
+
+func (h *Hashgraph) SuperMajority() int {
+	return 2*len(h.Participants)/3 + 1
 }
 
 //true if y is an ancestor of x
@@ -106,8 +113,44 @@ func (h *Hashgraph) DetectFork(x, y string) bool {
 
 //true if x sees y
 func (h *Hashgraph) See(x, y string) bool {
-	if !h.Ancestor(x, y) {
-		return false
+	return h.Ancestor(x, y) && !h.DetectFork(x, y)
+}
+
+//participants in x's ancestry that see y
+func (h *Hashgraph) MapSentinels(x, y string, sentinels map[string]bool) {
+	if x == "" {
+		return
 	}
-	return !h.DetectFork(x, y)
+	ex, ok := h.Events[x]
+	if !ok {
+		return
+	}
+	if !h.See(x, y) {
+		return
+	}
+	sentinels[fmt.Sprintf("0x%X", ex.Body.Creator)] = true
+	if x == y {
+		return
+	}
+
+	h.MapSentinels(ex.Body.Parents[0], y, sentinels)
+	h.MapSentinels(ex.Body.Parents[1], y, sentinels)
+}
+
+//true if x strongly sees y
+func (h *Hashgraph) StronglySee(x, y string) (bool, int) {
+	sentinels := make(map[string]bool)
+	for i := 0; i < len(h.Participants); i++ {
+		sentinels[h.Participants[i]] = false
+	}
+
+	h.MapSentinels(x, y, sentinels)
+
+	c := 0
+	for _, v := range sentinels {
+		if v {
+			c++
+		}
+	}
+	return c >= h.SuperMajority(), c
 }
