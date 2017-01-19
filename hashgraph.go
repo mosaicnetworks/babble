@@ -17,18 +17,21 @@ package hashgraph
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 )
 
 type Hashgraph struct {
-	Participants []string         //particant public keys
-	Events       map[string]Event //hash => event
+	Participants   []string         //particant public keys
+	Events         map[string]Event //hash => event
+	RoundWitnesses [][]string       // [round][witness1Hash,witness2Hash ...]
 }
 
 func NewHashgraph(participants []string) Hashgraph {
 	return Hashgraph{
-		Participants: participants,
-		Events:       make(map[string]Event),
+		Participants:   participants,
+		Events:         make(map[string]Event),
+		RoundWitnesses: make([][]string, 20),
 	}
 }
 
@@ -153,4 +156,112 @@ func (h *Hashgraph) StronglySee(x, y string) (bool, int) {
 		}
 	}
 	return c >= h.SuperMajority(), c
+}
+
+//max of parent rounds
+func (h *Hashgraph) ParentRound(x string) int {
+	if x == "" {
+		return -1
+	}
+	ex, ok := h.Events[x]
+	if !ok {
+		return -1
+	}
+	if ex.Body.Parents[0] == "" && ex.Body.Parents[1] == "" {
+		return 0
+	}
+	sp, ok := h.Events[ex.Body.Parents[0]]
+	if !ok {
+		return 0
+	}
+	op, ok := h.Events[ex.Body.Parents[1]]
+	if !ok {
+		return 0
+	}
+
+	if sp.round > op.round {
+		return sp.round
+	}
+	return op.round
+}
+
+//true if x is a witness (first event of a round for the owner)
+func (h *Hashgraph) Witness(x string) bool {
+	if x == "" {
+		return false
+	}
+	ex, ok := h.Events[x]
+	if !ok {
+		return false
+	}
+	if ex.Body.Parents[0] == "" {
+		return true
+	}
+	sp, ok := h.Events[ex.Body.Parents[0]]
+	if !ok {
+		return false
+	}
+	return ex.round > sp.round
+}
+
+//true if round of x should be incremented
+func (h *Hashgraph) RoundInc(x string) bool {
+	if x == "" {
+		return false
+	}
+
+	parentRound := h.ParentRound(x)
+	if parentRound < 0 {
+		return false
+	}
+
+	if len(h.RoundWitnesses) < parentRound+1 {
+		return false
+	}
+
+	roundWitnesses := h.RoundWitnesses[parentRound]
+	c := 0
+	for i := 0; i < len(roundWitnesses); i++ {
+		if ss, _ := h.StronglySee(x, roundWitnesses[i]); ss {
+			c++
+		}
+	}
+
+	return c >= h.SuperMajority()
+}
+
+func (h *Hashgraph) Round(x string) int {
+	round := h.ParentRound(x)
+	if h.RoundInc(x) {
+		round++
+	}
+	return round
+}
+
+func (h *Hashgraph) RoundDiff(x, y string) (int, error) {
+	if x == "" {
+		return math.MinInt64, fmt.Errorf("x is empty")
+	}
+	if y == "" {
+		return math.MinInt64, fmt.Errorf("y is empty")
+	}
+	_, ok := h.Events[x]
+	if !ok {
+		return math.MinInt64, fmt.Errorf("event %s not found", x)
+	}
+	_, ok = h.Events[y]
+	if !ok {
+		return math.MinInt64, fmt.Errorf("event %s not found", y)
+	}
+
+	xRound := h.Round(x)
+	if xRound < 0 {
+		return math.MinInt64, fmt.Errorf("event %s has negative round", x)
+	}
+	yRound := h.Round(y)
+	if yRound < 0 {
+		return math.MinInt64, fmt.Errorf("event %s has negative round", y)
+	}
+
+	return xRound - yRound, nil
 }

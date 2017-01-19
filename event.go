@@ -19,10 +19,9 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/gob"
+	"fmt"
 	"math/big"
 	"time"
-
-	"fmt"
 
 	"github.com/arrivets/go-swirlds/crypto"
 )
@@ -61,6 +60,8 @@ func (e *EventBody) Hash() ([]byte, error) {
 type Event struct {
 	Body EventBody
 	R, S *big.Int //creator's digital signature of body
+
+	round int
 }
 
 func NewEvent(transactions [][]byte, parents []string, creator []byte) Event {
