@@ -22,16 +22,17 @@ import (
 )
 
 type Hashgraph struct {
-	Participants   []string         //particant public keys
-	Events         map[string]Event //hash => event
-	RoundWitnesses [][]string       // [round][witness1Hash,witness2Hash ...]
+	Participants []string          //particant public keys
+	Events       map[string]Event  //hash => event
+	EventIndex   []string          //[index] => hash
+	Rounds       map[int]RoundInfo //number => RoundInfo
 }
 
 func NewHashgraph(participants []string) Hashgraph {
 	return Hashgraph{
-		Participants:   participants,
-		Events:         make(map[string]Event),
-		RoundWitnesses: make([][]string, 20),
+		Participants: participants,
+		Events:       make(map[string]Event),
+		Rounds:       make(map[int]RoundInfo),
 	}
 }
 
@@ -197,11 +198,11 @@ func (h *Hashgraph) Witness(x string) bool {
 	if ex.Body.Parents[0] == "" {
 		return true
 	}
-	sp, ok := h.Events[ex.Body.Parents[0]]
+	_, ok = h.Events[ex.Body.Parents[0]]
 	if !ok {
 		return false
 	}
-	return ex.round > sp.round
+	return h.Round(x) > h.Round(ex.Body.Parents[0])
 }
 
 //true if round of x should be incremented
@@ -215,11 +216,11 @@ func (h *Hashgraph) RoundInc(x string) bool {
 		return false
 	}
 
-	if len(h.RoundWitnesses) < parentRound+1 {
+	if len(h.Rounds) < parentRound+1 {
 		return false
 	}
 
-	roundWitnesses := h.RoundWitnesses[parentRound]
+	roundWitnesses := h.Rounds[parentRound].Witnesses
 	c := 0
 	for i := 0; i < len(roundWitnesses); i++ {
 		if ss, _ := h.StronglySee(x, roundWitnesses[i]); ss {
@@ -238,6 +239,7 @@ func (h *Hashgraph) Round(x string) int {
 	return round
 }
 
+//round(x) - round(y)
 func (h *Hashgraph) RoundDiff(x, y string) (int, error) {
 	if x == "" {
 		return math.MinInt64, fmt.Errorf("x is empty")
@@ -264,4 +266,22 @@ func (h *Hashgraph) RoundDiff(x, y string) (int, error) {
 	}
 
 	return xRound - yRound, nil
+}
+
+func (h *Hashgraph) InsertEvent(event Event) {
+	hash := event.Hex()
+	h.Events[hash] = event
+	h.EventIndex = append(h.EventIndex, hash)
+}
+
+func (h *Hashgraph) DivideRounds() {
+	h.Rounds = make(map[int]RoundInfo)
+	for i := 0; i < len(h.EventIndex); i++ {
+		hash := h.EventIndex[i]
+		roundNumber := h.Round(hash)
+		witness := h.Witness(hash)
+		roundInfo, _ := h.Rounds[roundNumber]
+		roundInfo.AddEvent(hash, witness)
+		h.Rounds[roundNumber] = roundInfo
+	}
 }
