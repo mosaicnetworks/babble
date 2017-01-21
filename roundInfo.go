@@ -16,7 +16,7 @@ limitations under the License.
 package hashgraph
 
 type RoundInfo struct {
-	Witnesses []string
+	Witnesses map[string]bool //witness => famous
 	Events    []string
 }
 
@@ -28,5 +28,15 @@ func (r *RoundInfo) AddEvent(x string, witness bool) {
 }
 
 func (r *RoundInfo) AddWitness(x string) {
-	r.Witnesses = append(r.Witnesses, x)
+	if r.Witnesses == nil {
+		r.Witnesses = make(map[string]bool)
+	}
+	r.Witnesses[x] = false
+}
+
+func (r *RoundInfo) SetFame(x string) {
+	if r.Witnesses == nil {
+		r.Witnesses = make(map[string]bool)
+	}
+	r.Witnesses[x] = true
 }

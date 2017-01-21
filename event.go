@@ -60,8 +60,6 @@ func (e *EventBody) Hash() ([]byte, error) {
 type Event struct {
 	Body EventBody
 	R, S *big.Int //creator's digital signature of body
-
-	round int
 }
 
 func NewEvent(transactions [][]byte, parents []string, creator []byte) Event {

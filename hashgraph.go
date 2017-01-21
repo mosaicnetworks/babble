@@ -16,6 +16,7 @@ limitations under the License.
 package hashgraph
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math"
 	"reflect"
@@ -171,19 +172,19 @@ func (h *Hashgraph) ParentRound(x string) int {
 	if ex.Body.Parents[0] == "" && ex.Body.Parents[1] == "" {
 		return 0
 	}
-	sp, ok := h.Events[ex.Body.Parents[0]]
-	if !ok {
+	if _, ok := h.Events[ex.Body.Parents[0]]; !ok {
 		return 0
 	}
-	op, ok := h.Events[ex.Body.Parents[1]]
-	if !ok {
+	if _, ok := h.Events[ex.Body.Parents[1]]; !ok {
 		return 0
 	}
+	spRound := h.Round(ex.Body.Parents[0])
+	opRound := h.Round(ex.Body.Parents[1])
 
-	if sp.round > op.round {
-		return sp.round
+	if spRound > opRound {
+		return spRound
 	}
-	return op.round
+	return opRound
 }
 
 //true if x is a witness (first event of a round for the owner)
@@ -222,8 +223,8 @@ func (h *Hashgraph) RoundInc(x string) bool {
 
 	roundWitnesses := h.Rounds[parentRound].Witnesses
 	c := 0
-	for i := 0; i < len(roundWitnesses); i++ {
-		if ss, _ := h.StronglySee(x, roundWitnesses[i]); ss {
+	for w := range roundWitnesses {
+		if ss, _ := h.StronglySee(x, w); ss {
 			c++
 		}
 	}
@@ -284,4 +285,79 @@ func (h *Hashgraph) DivideRounds() {
 		roundInfo.AddEvent(hash, witness)
 		h.Rounds[roundNumber] = roundInfo
 	}
+}
+
+func (h *Hashgraph) DecideFame() {
+	votes := make(map[string](map[string]bool)) //[x][y]=>vote(x,y)
+	for i := 0; i < len(h.Rounds)-1; i++ {
+		roundInfo := h.Rounds[i]
+		for j := i + 1; j < len(h.Rounds); j++ {
+			for x := range roundInfo.Witnesses {
+				for y := range h.Rounds[j].Witnesses {
+					diff := j - i
+					if diff == 1 {
+						setVote(votes, y, x, h.See(y, x))
+					} else {
+						//count votes
+						ssWitnesses := []string{}
+						for w := range h.Rounds[j-1].Witnesses {
+							if ss, _ := h.StronglySee(y, w); ss {
+								ssWitnesses = append(ssWitnesses, w)
+							}
+						}
+						yays := 0
+						nays := 0
+						for _, w := range ssWitnesses {
+							if votes[w][x] {
+								yays++
+							} else {
+								nays++
+							}
+						}
+						v := false
+						t := nays
+						if yays >= nays {
+							v = true
+							t = yays
+						}
+
+						//normal round
+						if math.Mod(float64(diff), float64(len(h.Participants))) > 0 {
+							if t >= h.SuperMajority() {
+								roundInfo.SetFame(x)
+								break //break out of y loop
+							} else {
+								setVote(votes, y, x, v)
+							}
+						} else { //coin round
+							if t >= h.SuperMajority() {
+								setVote(votes, y, x, v)
+							} else {
+								setVote(votes, y, x, middleBit(y)) //middle bit of y's hash
+							}
+						}
+					}
+				}
+			}
+		}
+		h.Rounds[i] = roundInfo
+	}
+}
+
+func middleBit(ehex string) bool {
+	hash, err := hex.DecodeString(ehex)
+	if err == nil {
+		fmt.Printf("ERROR decoding hex string: %s\n", err)
+	}
+	if hash[len(hash)/2] == 0 {
+		return false
+	}
+	return true
+}
+
+func setVote(votes map[string]map[string]bool, x, y string, vote bool) {
+	if votes[x] == nil {
+		votes[x] = make(map[string]bool)
+	}
+	votes[x][y] = vote
 }
