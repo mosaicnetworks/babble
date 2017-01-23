@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"sort"
+	"time"
 )
 
 type Hashgraph struct {
@@ -119,6 +121,19 @@ func (h *Hashgraph) DetectFork(x, y string) bool {
 //true if x sees y
 func (h *Hashgraph) See(x, y string) bool {
 	return h.Ancestor(x, y) && !h.DetectFork(x, y)
+}
+
+//oldest self-ancestor of x to see y
+func (h *Hashgraph) OldestSelfAncestorToSee(x, y string) string {
+	if !h.See(x, y) {
+		return ""
+	}
+	ex, _ := h.Events[x]
+	a := h.OldestSelfAncestorToSee(ex.Body.Parents[0], y)
+	if a == "" {
+		return x
+	}
+	return a
 }
 
 //participants in x's ancestry that see y
@@ -287,6 +302,7 @@ func (h *Hashgraph) DivideRounds() {
 	}
 }
 
+//decide if witnesses are famous
 func (h *Hashgraph) DecideFame() {
 	votes := make(map[string](map[string]bool)) //[x][y]=>vote(x,y)
 	for i := 0; i < len(h.Rounds)-1; i++ {
@@ -324,7 +340,7 @@ func (h *Hashgraph) DecideFame() {
 						//normal round
 						if math.Mod(float64(diff), float64(len(h.Participants))) > 0 {
 							if t >= h.SuperMajority() {
-								roundInfo.SetFame(x)
+								roundInfo.SetFame(x, v)
 								break //break out of y loop
 							} else {
 								setVote(votes, y, x, v)
@@ -342,6 +358,55 @@ func (h *Hashgraph) DecideFame() {
 		}
 		h.Rounds[i] = roundInfo
 	}
+}
+
+//assign round received and timestamp to all events
+func (h *Hashgraph) DecideRoundReceived() {
+	for _, x := range h.EventIndex {
+		r := h.Round(x)
+		for i := r + 1; i < len(h.Rounds); i++ {
+			tr, ok := h.Rounds[i]
+			if !ok {
+				break
+			}
+			//no witnesses are left undecided
+			if !tr.WitnessesDecided() {
+				break
+			}
+			fws := tr.FamousWitnesses()
+			//set of famous witnesses that see x
+			s := []string{}
+			for _, w := range fws {
+				if h.See(w, x) {
+					s = append(s, w)
+				}
+			}
+			if len(s) > len(fws)/2 {
+				fmt.Printf("event %s round received %d\n", x, i)
+				ex, _ := h.Events[x]
+				ex.roundReceived = i
+
+				t := []string{}
+				for _, a := range s {
+					t = append(t, h.OldestSelfAncestorToSee(a, x))
+				}
+
+				ex.consensusTimestamp = h.MedianTimestamp(t)
+
+				h.Events[x] = ex
+				break
+			}
+		}
+	}
+}
+
+func (h *Hashgraph) MedianTimestamp(eventHashes []string) time.Time {
+	events := []Event{}
+	for _, x := range eventHashes {
+		events = append(events, h.Events[x])
+	}
+	sort.Sort(ByTimestamp(events))
+	return events[len(events)/2].Body.Timestamp
 }
 
 func middleBit(ehex string) bool {

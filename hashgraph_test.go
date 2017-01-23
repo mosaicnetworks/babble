@@ -527,14 +527,14 @@ func initRoundHashgraph() (Hashgraph, map[string]string) {
 func TestParentRound(t *testing.T) {
 	h, index := initRoundHashgraph()
 
-	round0Witnesses := make(map[string]bool)
-	round0Witnesses[index["e0"]] = false
-	round0Witnesses[index["e1"]] = false
-	round0Witnesses[index["e2"]] = false
+	round0Witnesses := make(map[string]Trilean)
+	round0Witnesses[index["e0"]] = Undefined
+	round0Witnesses[index["e1"]] = Undefined
+	round0Witnesses[index["e2"]] = Undefined
 	h.Rounds[0] = RoundInfo{Witnesses: round0Witnesses}
 
-	round1Witnesses := make(map[string]bool)
-	round1Witnesses[index["f1"]] = false
+	round1Witnesses := make(map[string]Trilean)
+	round1Witnesses[index["f1"]] = Undefined
 	h.Rounds[1] = RoundInfo{Witnesses: round1Witnesses}
 
 	if r := h.ParentRound(index["e0"]); r != 0 {
@@ -554,14 +554,14 @@ func TestParentRound(t *testing.T) {
 func TestWitness(t *testing.T) {
 	h, index := initRoundHashgraph()
 
-	round0Witnesses := make(map[string]bool)
-	round0Witnesses[index["e0"]] = false
-	round0Witnesses[index["e1"]] = false
-	round0Witnesses[index["e2"]] = false
+	round0Witnesses := make(map[string]Trilean)
+	round0Witnesses[index["e0"]] = Undefined
+	round0Witnesses[index["e1"]] = Undefined
+	round0Witnesses[index["e2"]] = Undefined
 	h.Rounds[0] = RoundInfo{Witnesses: round0Witnesses}
 
-	round1Witnesses := make(map[string]bool)
-	round1Witnesses[index["f1"]] = false
+	round1Witnesses := make(map[string]Trilean)
+	round1Witnesses[index["f1"]] = Undefined
 	h.Rounds[1] = RoundInfo{Witnesses: round1Witnesses}
 
 	if !h.Witness(index["e0"]) {
@@ -595,10 +595,10 @@ func TestWitness(t *testing.T) {
 func TestRoundInc(t *testing.T) {
 	h, index := initRoundHashgraph()
 
-	round0Witnesses := make(map[string]bool)
-	round0Witnesses[index["e0"]] = false
-	round0Witnesses[index["e1"]] = false
-	round0Witnesses[index["e2"]] = false
+	round0Witnesses := make(map[string]Trilean)
+	round0Witnesses[index["e0"]] = Undefined
+	round0Witnesses[index["e1"]] = Undefined
+	round0Witnesses[index["e2"]] = Undefined
 	h.Rounds[0] = RoundInfo{Witnesses: round0Witnesses}
 
 	if !h.RoundInc(index["f1"]) {
@@ -613,10 +613,10 @@ func TestRoundInc(t *testing.T) {
 func TestRound(t *testing.T) {
 	h, index := initRoundHashgraph()
 
-	round0Witnesses := make(map[string]bool)
-	round0Witnesses[index["e0"]] = false
-	round0Witnesses[index["e1"]] = false
-	round0Witnesses[index["e2"]] = false
+	round0Witnesses := make(map[string]Trilean)
+	round0Witnesses[index["e0"]] = Undefined
+	round0Witnesses[index["e1"]] = Undefined
+	round0Witnesses[index["e2"]] = Undefined
 	h.Rounds[0] = RoundInfo{Witnesses: round0Witnesses}
 
 	if r := h.Round(index["f1"]); r != 1 {
@@ -631,10 +631,10 @@ func TestRound(t *testing.T) {
 func TestRoundDiff(t *testing.T) {
 	h, index := initRoundHashgraph()
 
-	round0Witnesses := make(map[string]bool)
-	round0Witnesses[index["e0"]] = false
-	round0Witnesses[index["e1"]] = false
-	round0Witnesses[index["e2"]] = false
+	round0Witnesses := make(map[string]Trilean)
+	round0Witnesses[index["e0"]] = Undefined
+	round0Witnesses[index["e1"]] = Undefined
+	round0Witnesses[index["e2"]] = Undefined
 	h.Rounds[0] = RoundInfo{Witnesses: round0Witnesses}
 
 	if d, err := h.RoundDiff(index["f1"], index["e02"]); d != 1 {
@@ -697,7 +697,7 @@ func TestDivideRounds(t *testing.T) {
 
 }
 
-func contains(s map[string]bool, x string) bool {
+func contains(s map[string]Trilean, x string) bool {
 	_, ok := s[x]
 	return ok
 }
@@ -901,11 +901,331 @@ func TestDecideFame(t *testing.T) {
 	h.DivideRounds()
 	h.DecideFame()
 
+	if r := h.Round(index["g0"]); r != 2 {
+		t.Fatalf("g0 round should be 2, not %d", r)
+	}
+	if r := h.Round(index["g1"]); r != 2 {
+		t.Fatalf("g1 round should be 2, not %d", r)
+	}
+	if r := h.Round(index["g2"]); r != 2 {
+		t.Fatalf("g2 round should be 2, not %d", r)
+	}
+
+	if f := h.Rounds[0].Witnesses[index["e0"]]; f != True {
+		t.Fatalf("e0 should be famous; got %s", f)
+	}
+	if f := h.Rounds[0].Witnesses[index["e1"]]; f != True {
+		t.Fatalf("e1 should be famous; got %s", f)
+	}
+	if f := h.Rounds[0].Witnesses[index["e2"]]; f != True {
+		t.Fatalf("e2 should be famous; got %s", f)
+	}
+}
+
+func TestOldestSelfAncestorToSee(t *testing.T) {
+	h, index := init2RoundHashgraph()
+
+	if a := h.OldestSelfAncestorToSee(index["f0"], index["e1"]); a != index["e01"] {
+		t.Fatalf("oldest self ancestor of f0 to see e1 should be e01 not %s", getName(index, a))
+	}
+	if a := h.OldestSelfAncestorToSee(index["f1"], index["e0"]); a != index["e12"] {
+		t.Fatalf("oldest self ancestor of f1 to see e0 should be e12 not %s", getName(index, a))
+	}
+	if a := h.OldestSelfAncestorToSee(index["e20"], index["e1"]); a != index["e20"] {
+		t.Fatalf("oldest self ancestor of e20 to see e1 should be e20 not %s", a)
+	}
+	if a := h.OldestSelfAncestorToSee(index["e2"], index["e1"]); a != "" {
+		t.Fatalf("oldest self ancestor of e2 to see e1 should be '' not %s", a)
+	}
+
+}
+
+/*
+|     |   h2
+h0    | / |
+| \   h1  |
+|  \ /|   |
+|   \ |   |
+|  / g12  |
+| /   | \ |
+g02   |   g20
+| \   | / |
+|  \  |/  |
+|   \ /   |
+|    /|   |
+|   / \   |
+|  /  |\  |
+g01   | \ |
+| \   |  \|
+|  \  |   g2
+g0  \ | / |
+| \   g1  |
+|  \ /|   |
+|   \ |   |
+|  / f12  |
+| /   | \ |
+f02   |   f20
+| \   | / |
+|  \  |/  |
+|   \ /   |
+|    /|   |
+|   / \   |
+|  /  |\  |
+f01   | \ |
+| \   |  \|
+|  \  |   f2
+|   \ | / |
+f0    f1  |
+| \  /|   |
+|  \/ |   |
+|  / e12  |
+| /   | \ |
+e02   |   e20
+|\    | / |
+| \   |/  |
+|  \  /   |
+|   \/|   |
+|   /\|   |
+e01   \   |
+| \   |\  |
+|  \  | \ |
+e0   e1   e2
+0     1   2
+*/
+func initConsensusHashgraph() (Hashgraph, map[string]string) {
+	n := 3
+	index := make(map[string]string)
+
+	nodes := []struct {
+		Pub    []byte
+		PubHex string
+		Key    *ecdsa.PrivateKey
+		Events []Event
+	}{}
+	orderedEvents := []Event{}
+
+	for i := 0; i < n; i++ {
+		key, _ := crypto.GenerateECDSAKey()
+		pub := crypto.FromECDSAPub(&key.PublicKey)
+		pubHex := fmt.Sprintf("0x%X", pub)
+		event := NewEvent([][]byte{}, []string{"", ""}, pub)
+		event.Sign(key)
+		name := fmt.Sprintf("e%d", i)
+		index[name] = event.Hex()
+		events := []Event{event}
+		node := struct {
+			Pub    []byte
+			PubHex string
+			Key    *ecdsa.PrivateKey
+			Events []Event
+		}{Pub: pub, PubHex: pubHex, Key: key, Events: events}
+		nodes = append(nodes, node)
+		orderedEvents = append(orderedEvents, event)
+	}
+
+	event01 := NewEvent([][]byte{},
+		[]string{nodes[0].Events[0].Hex(), nodes[1].Events[0].Hex()}, //e0 and e1
+		nodes[0].Pub)
+	event01.Sign(nodes[0].Key)
+	nodes[0].Events = append(nodes[0].Events, event01)
+	index["e01"] = event01.Hex()
+	orderedEvents = append(orderedEvents, event01)
+
+	event20 := NewEvent([][]byte{},
+		[]string{nodes[2].Events[0].Hex(), nodes[0].Events[1].Hex()}, //e2 and e01
+		nodes[2].Pub)
+	event20.Sign(nodes[2].Key)
+	nodes[2].Events = append(nodes[2].Events, event20)
+	index["e20"] = event20.Hex()
+	orderedEvents = append(orderedEvents, event20)
+
+	event12 := NewEvent([][]byte{},
+		[]string{nodes[1].Events[0].Hex(), nodes[2].Events[1].Hex()}, //e1 and e20
+		nodes[1].Pub)
+	event12.Sign(nodes[1].Key)
+	nodes[1].Events = append(nodes[1].Events, event12)
+	index["e12"] = event12.Hex()
+	orderedEvents = append(orderedEvents, event12)
+
+	event02 := NewEvent([][]byte{},
+		[]string{nodes[0].Events[1].Hex(), nodes[2].Events[0].Hex()}, //e01 and e2
+		nodes[0].Pub)
+	event02.Sign(nodes[0].Key)
+	nodes[0].Events = append(nodes[0].Events, event02)
+	index["e02"] = event02.Hex()
+	orderedEvents = append(orderedEvents, event02)
+
+	eventf1 := NewEvent([][]byte{},
+		[]string{nodes[1].Events[1].Hex(), nodes[0].Events[2].Hex()}, //e12 and e02
+		nodes[1].Pub)
+	eventf1.Sign(nodes[1].Key)
+	nodes[1].Events = append(nodes[1].Events, eventf1)
+	index["f1"] = eventf1.Hex()
+	orderedEvents = append(orderedEvents, eventf1)
+
+	eventf0 := NewEvent([][]byte{},
+		[]string{nodes[0].Events[2].Hex(), nodes[1].Events[1].Hex()}, //e02 and e12
+		nodes[0].Pub)
+	eventf0.Sign(nodes[0].Key)
+	nodes[0].Events = append(nodes[0].Events, eventf0)
+	index["f0"] = eventf0.Hex()
+	orderedEvents = append(orderedEvents, eventf0)
+
+	eventf2 := NewEvent([][]byte{},
+		[]string{nodes[2].Events[1].Hex(), nodes[1].Events[2].Hex()}, //e20 and f1
+		nodes[2].Pub)
+	eventf2.Sign(nodes[2].Key)
+	nodes[2].Events = append(nodes[2].Events, eventf2)
+	index["f2"] = eventf2.Hex()
+	orderedEvents = append(orderedEvents, eventf2)
+
+	eventf01 := NewEvent([][]byte{},
+		[]string{nodes[0].Events[3].Hex(), nodes[1].Events[2].Hex()}, //f0 and f1
+		nodes[0].Pub)
+	eventf01.Sign(nodes[0].Key)
+	nodes[0].Events = append(nodes[0].Events, eventf01)
+	index["f01"] = eventf01.Hex()
+	orderedEvents = append(orderedEvents, eventf01)
+
+	eventf20 := NewEvent([][]byte{},
+		[]string{nodes[2].Events[2].Hex(), nodes[0].Events[3].Hex()}, //f2 and f0
+		nodes[2].Pub)
+	eventf20.Sign(nodes[2].Key)
+	nodes[2].Events = append(nodes[2].Events, eventf20)
+	index["f20"] = eventf20.Hex()
+	orderedEvents = append(orderedEvents, eventf20)
+
+	eventf02 := NewEvent([][]byte{},
+		[]string{nodes[0].Events[4].Hex(), nodes[2].Events[2].Hex()}, //f01 and f2
+		nodes[0].Pub)
+	eventf02.Sign(nodes[0].Key)
+	nodes[0].Events = append(nodes[0].Events, eventf02)
+	index["f02"] = eventf02.Hex()
+	orderedEvents = append(orderedEvents, eventf02)
+
+	eventf12 := NewEvent([][]byte{},
+		[]string{nodes[1].Events[2].Hex(), nodes[2].Events[3].Hex()}, //f1 and f20
+		nodes[1].Pub)
+	eventf12.Sign(nodes[1].Key)
+	nodes[1].Events = append(nodes[1].Events, eventf12)
+	index["f12"] = eventf12.Hex()
+	orderedEvents = append(orderedEvents, eventf12)
+
+	eventg0 := NewEvent([][]byte{},
+		[]string{nodes[0].Events[5].Hex(), nodes[1].Events[3].Hex()}, //f02 and f12
+		nodes[0].Pub)
+	eventg0.Sign(nodes[0].Key)
+	nodes[0].Events = append(nodes[0].Events, eventg0)
+	index["g0"] = eventg0.Hex()
+	orderedEvents = append(orderedEvents, eventg0)
+
+	eventg1 := NewEvent([][]byte{},
+		[]string{nodes[1].Events[3].Hex(), nodes[0].Events[5].Hex()}, //f12 and f02
+		nodes[1].Pub)
+	eventg1.Sign(nodes[1].Key)
+	nodes[1].Events = append(nodes[1].Events, eventg1)
+	index["g1"] = eventg1.Hex()
+	orderedEvents = append(orderedEvents, eventg1)
+
+	eventg2 := NewEvent([][]byte{},
+		[]string{nodes[2].Events[3].Hex(), nodes[1].Events[4].Hex()}, //f20 and g1
+		nodes[2].Pub)
+	eventg2.Sign(nodes[2].Key)
+	nodes[2].Events = append(nodes[2].Events, eventg2)
+	index["g2"] = eventg2.Hex()
+	orderedEvents = append(orderedEvents, eventg2)
+
+	eventg01 := NewEvent([][]byte{},
+		[]string{nodes[0].Events[6].Hex(), nodes[1].Events[4].Hex()}, //g0 and g1
+		nodes[0].Pub)
+	eventg01.Sign(nodes[0].Key)
+	nodes[0].Events = append(nodes[0].Events, eventg01)
+	index["g01"] = eventg01.Hex()
+	orderedEvents = append(orderedEvents, eventg01)
+
+	eventg20 := NewEvent([][]byte{},
+		[]string{nodes[2].Events[4].Hex(), nodes[0].Events[7].Hex()}, //g2 and g0
+		nodes[2].Pub)
+	eventg20.Sign(nodes[2].Key)
+	nodes[2].Events = append(nodes[2].Events, eventg20)
+	index["g20"] = eventg20.Hex()
+	orderedEvents = append(orderedEvents, eventg20)
+
+	eventg02 := NewEvent([][]byte{},
+		[]string{nodes[0].Events[7].Hex(), nodes[2].Events[4].Hex()}, //g01 and g2
+		nodes[0].Pub)
+	eventg02.Sign(nodes[0].Key)
+	nodes[0].Events = append(nodes[0].Events, eventg02)
+	index["g02"] = eventg02.Hex()
+	orderedEvents = append(orderedEvents, eventg02)
+
+	eventg12 := NewEvent([][]byte{},
+		[]string{nodes[1].Events[4].Hex(), nodes[2].Events[5].Hex()}, //g1 and g20
+		nodes[1].Pub)
+	eventg12.Sign(nodes[1].Key)
+	nodes[1].Events = append(nodes[1].Events, eventg12)
+	index["g12"] = eventg12.Hex()
+	orderedEvents = append(orderedEvents, eventg12)
+
+	eventh0 := NewEvent([][]byte{},
+		[]string{nodes[0].Events[8].Hex(), nodes[1].Events[5].Hex()}, //g02 and g12
+		nodes[0].Pub)
+	eventh0.Sign(nodes[0].Key)
+	nodes[0].Events = append(nodes[0].Events, eventh0)
+	index["h0"] = eventh0.Hex()
+	orderedEvents = append(orderedEvents, eventh0)
+
+	eventh1 := NewEvent([][]byte{},
+		[]string{nodes[1].Events[5].Hex(), nodes[0].Events[8].Hex()}, //g12 and g02
+		nodes[1].Pub)
+	eventh1.Sign(nodes[1].Key)
+	nodes[1].Events = append(nodes[1].Events, eventh1)
+	index["h1"] = eventh1.Hex()
+	orderedEvents = append(orderedEvents, eventh1)
+
+	eventh2 := NewEvent([][]byte{},
+		[]string{nodes[2].Events[5].Hex(), nodes[1].Events[6].Hex()}, //g20 and h1
+		nodes[2].Pub)
+	eventh2.Sign(nodes[2].Key)
+	nodes[2].Events = append(nodes[2].Events, eventh2)
+	index["h2"] = eventh2.Hex()
+	orderedEvents = append(orderedEvents, eventh2)
+
+	//add other nodes
+
+	participants := []string{}
+	for _, node := range nodes {
+		participants = append(participants, node.PubHex)
+	}
+
+	hashgraph := NewHashgraph(participants)
+	for _, ev := range orderedEvents {
+		hashgraph.InsertEvent(ev)
+	}
+	return hashgraph, index
+}
+
+func TestDecideRoundReceived(t *testing.T) {
+	h, index := initConsensusHashgraph()
+
+	h.DivideRounds()
+	h.DecideFame()
+
 	for r, ri := range h.Rounds {
 		fmt.Printf("round %d witnesses:\n", r)
 		for w, f := range ri.Witnesses {
 			fmt.Printf("%s, famous: %v\n", getName(index, w), f)
 		}
+	}
+
+	if r := h.Round(index["h0"]); r != 3 {
+		t.Fatalf("h0 round should be 3, not %d", r)
+	}
+	if r := h.Round(index["h1"]); r != 3 {
+		t.Fatalf("h1 round should be 3, not %d", r)
+	}
+	if r := h.Round(index["h2"]); r != 3 {
+		t.Fatalf("h2 round should be 3, not %d", r)
 	}
 
 	if r := h.Round(index["g0"]); r != 2 {
@@ -918,14 +1238,35 @@ func TestDecideFame(t *testing.T) {
 		t.Fatalf("g2 round should be 2, not %d", r)
 	}
 
-	if !h.Rounds[0].Witnesses[index["e0"]] {
-		t.Fatal("e0 should be famous")
+	if f := h.Rounds[0].Witnesses[index["e0"]]; f != True {
+		t.Fatalf("e0 should be famous; got %s", f)
 	}
-	if !h.Rounds[0].Witnesses[index["e1"]] {
-		t.Fatal("e1 should be famous")
+	if f := h.Rounds[0].Witnesses[index["e1"]]; f != True {
+		t.Fatalf("e1 should be famous; got %s", f)
 	}
-	if !h.Rounds[0].Witnesses[index["e2"]] {
-		t.Fatal("e2 should be famous")
+	if f := h.Rounds[0].Witnesses[index["e2"]]; f != True {
+		t.Fatalf("e2 should be famous; got %s", f)
+	}
+
+	if f := h.Rounds[1].Witnesses[index["f0"]]; f != True {
+		t.Fatalf("f0 should be famous; got %s", f)
+	}
+	if f := h.Rounds[1].Witnesses[index["f1"]]; f != True {
+		t.Fatalf("f1 should be famous; got %s", f)
+	}
+	if f := h.Rounds[1].Witnesses[index["f2"]]; f != True {
+		t.Fatalf("f2 should be famous; got %s", f)
+	}
+
+	h.DecideRoundReceived()
+
+	for name, hash := range index {
+		e, _ := h.Events[hash]
+		if rune(name[0]) == rune('e') {
+			if r := e.roundReceived; r != 1 {
+				t.Fatalf("%s round received should be 1 not %d", name, r)
+			}
+		}
 	}
 
 }

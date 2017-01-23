@@ -60,6 +60,10 @@ func (e *EventBody) Hash() ([]byte, error) {
 type Event struct {
 	Body EventBody
 	R, S *big.Int //creator's digital signature of body
+
+	round              int
+	roundReceived      int
+	consensusTimestamp time.Time
 }
 
 func NewEvent(transactions [][]byte, parents []string, creator []byte) Event {
@@ -117,3 +121,13 @@ func (e *Event) Hex() string {
 	hash, _ := e.Hash()
 	return fmt.Sprintf("0x%X", hash)
 }
+
+//Sorting
+
+// ByTimestamp implements sort.Interface for []Event based on
+// the timestamp field.
+type ByTimestamp []Event
+
+func (a ByTimestamp) Len() int           { return len(a) }
+func (a ByTimestamp) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByTimestamp) Less(i, j int) bool { return a[i].Body.Timestamp.Sub(a[j].Body.Timestamp) < 0 }

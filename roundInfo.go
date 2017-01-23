@@ -15,8 +15,22 @@ limitations under the License.
 */
 package hashgraph
 
+type Trilean int
+
+const (
+	Undefined Trilean = iota
+	True
+	False
+)
+
+var trileans = []string{"Undefined", "True", "False"}
+
+func (t Trilean) String() string {
+	return trileans[t]
+}
+
 type RoundInfo struct {
-	Witnesses map[string]bool //witness => famous
+	Witnesses map[string]Trilean //witness => famous
 	Events    []string
 }
 
@@ -29,14 +43,40 @@ func (r *RoundInfo) AddEvent(x string, witness bool) {
 
 func (r *RoundInfo) AddWitness(x string) {
 	if r.Witnesses == nil {
-		r.Witnesses = make(map[string]bool)
+		r.Witnesses = make(map[string]Trilean)
 	}
-	r.Witnesses[x] = false
+	r.Witnesses[x] = Undefined
 }
 
-func (r *RoundInfo) SetFame(x string) {
+func (r *RoundInfo) SetFame(x string, f bool) {
 	if r.Witnesses == nil {
-		r.Witnesses = make(map[string]bool)
+		r.Witnesses = make(map[string]Trilean)
 	}
-	r.Witnesses[x] = true
+	if f {
+		r.Witnesses[x] = True
+	} else {
+		r.Witnesses[x] = False
+	}
+
+}
+
+//return true if no witnesses' fame is left undefined
+func (r *RoundInfo) WitnessesDecided() bool {
+	for _, f := range r.Witnesses {
+		if f == Undefined {
+			return false
+		}
+	}
+	return true
+}
+
+//return famous witnesses
+func (r *RoundInfo) FamousWitnesses() []string {
+	res := []string{}
+	for w, f := range r.Witnesses {
+		if f == True {
+			res = append(res, w)
+		}
+	}
+	return res
 }
