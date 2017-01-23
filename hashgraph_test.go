@@ -371,55 +371,55 @@ func TestSee(t *testing.T) {
 func TestStronglySee(t *testing.T) {
 	h, index := initHashgraph()
 
-	if ss, c := h.StronglySee(index["e12"], index["e0"]); !ss {
-		t.Fatalf("e12 should strongly see e0. %d sentinels", c)
+	if !h.StronglySee(index["e12"], index["e0"]) {
+		t.Fatalf("e12 should strongly see e0")
 	}
-	if ss, c := h.StronglySee(index["e12"], index["e1"]); !ss {
-		t.Fatalf("e12 should strongly see e1. %d sentinels", c)
+	if !h.StronglySee(index["e12"], index["e1"]) {
+		t.Fatalf("e12 should strongly see e1")
 	}
-	if ss, c := h.StronglySee(index["e12"], index["e01"]); !ss {
-		t.Fatalf("e12 should strongly see e01. %d sentinels", c)
+	if !h.StronglySee(index["e12"], index["e01"]) {
+		t.Fatalf("e12 should strongly see e01")
 	}
-	if ss, c := h.StronglySee(index["e20"], index["e1"]); !ss {
-		t.Fatalf("e20 should strongly see e1. %d sentinels", c)
+	if !h.StronglySee(index["e20"], index["e1"]) {
+		t.Fatalf("e20 should strongly see e1")
 	}
 
 	//false negatives
-	if ss, c := h.StronglySee(index["e12"], index["e2"]); ss {
-		t.Fatalf("e12 should not strongly see e2. %d sentinels", c)
+	if h.StronglySee(index["e12"], index["e2"]) {
+		t.Fatalf("e12 should not strongly see e2")
 	}
-	if ss, c := h.StronglySee(index["e12"], index["e20"]); ss {
-		t.Fatalf("e12 should not strongly see e20. %d sentinels", c)
+	if h.StronglySee(index["e12"], index["e20"]) {
+		t.Fatalf("e12 should not strongly see e20")
 	}
-	if ss, c := h.StronglySee(index["e20"], index["e01"]); ss {
-		t.Fatalf("e20 should not strongly see e01. %d sentinels", c)
+	if h.StronglySee(index["e20"], index["e01"]) {
+		t.Fatalf("e20 should not strongly see e01")
 	}
-	if ss, c := h.StronglySee(index["e20"], index["e0"]); ss {
-		t.Fatalf("e20 should not strongly see e0. %d sentinels", c)
+	if h.StronglySee(index["e20"], index["e0"]) {
+		t.Fatalf("e20 should not strongly see e0")
 	}
-	if ss, c := h.StronglySee(index["e20"], index["e2"]); ss {
-		t.Fatalf("e20 should not strongly see e2. %d sentinels", c)
+	if h.StronglySee(index["e20"], index["e2"]) {
+		t.Fatalf("e20 should not strongly see e2")
 	}
-	if ss, c := h.StronglySee(index["e01"], index["e0"]); ss {
-		t.Fatalf("e01 should not strongly see e0. %d sentinels", c)
+	if h.StronglySee(index["e01"], index["e0"]) {
+		t.Fatalf("e01 should not strongly see e0")
 	}
-	if ss, c := h.StronglySee(index["e01"], index["e1"]); ss {
-		t.Fatalf("e01 should not strongly see e1. %d sentinels", c)
+	if h.StronglySee(index["e01"], index["e1"]) {
+		t.Fatalf("e01 should not strongly see e1")
 	}
-	if ss, c := h.StronglySee(index["e01"], index["e2"]); ss {
-		t.Fatalf("e01 should not strongly see e2. %d sentinels", c)
+	if h.StronglySee(index["e01"], index["e2"]) {
+		t.Fatalf("e01 should not strongly see e2")
 	}
-	if ss, c := h.StronglySee(index["e0"], index["e0"]); ss {
-		t.Fatalf("e0 should not strongly see e0. %d sentinels", c)
+	if h.StronglySee(index["e0"], index["e0"]) {
+		t.Fatalf("e0 should not strongly see e0")
 	}
 
 	//fork
 	h, index = initForkHashgraph()
-	if ss, c := h.StronglySee(index["e12"], index["a"]); ss {
-		t.Fatalf("e12 should not strongly see 'a' because of fork. %d sentinels", c)
+	if h.StronglySee(index["e12"], index["a"]) {
+		t.Fatalf("e12 should not strongly see 'a' because of fork")
 	}
-	if ss, c := h.StronglySee(index["e12"], index["e2"]); ss {
-		t.Fatalf("e12 should not strongly see e2 because of fork. %d sentinels", c)
+	if h.StronglySee(index["e12"], index["e2"]) {
+		t.Fatalf("e12 should not strongly see e2 because of fork")
 	}
 
 }
@@ -1210,54 +1210,6 @@ func TestDecideRoundReceived(t *testing.T) {
 
 	h.DivideRounds()
 	h.DecideFame()
-
-	for r, ri := range h.Rounds {
-		fmt.Printf("round %d witnesses:\n", r)
-		for w, f := range ri.Witnesses {
-			fmt.Printf("%s, famous: %v\n", getName(index, w), f)
-		}
-	}
-
-	if r := h.Round(index["h0"]); r != 3 {
-		t.Fatalf("h0 round should be 3, not %d", r)
-	}
-	if r := h.Round(index["h1"]); r != 3 {
-		t.Fatalf("h1 round should be 3, not %d", r)
-	}
-	if r := h.Round(index["h2"]); r != 3 {
-		t.Fatalf("h2 round should be 3, not %d", r)
-	}
-
-	if r := h.Round(index["g0"]); r != 2 {
-		t.Fatalf("g0 round should be 2, not %d", r)
-	}
-	if r := h.Round(index["g1"]); r != 2 {
-		t.Fatalf("g1 round should be 2, not %d", r)
-	}
-	if r := h.Round(index["g2"]); r != 2 {
-		t.Fatalf("g2 round should be 2, not %d", r)
-	}
-
-	if f := h.Rounds[0].Witnesses[index["e0"]]; f != True {
-		t.Fatalf("e0 should be famous; got %s", f)
-	}
-	if f := h.Rounds[0].Witnesses[index["e1"]]; f != True {
-		t.Fatalf("e1 should be famous; got %s", f)
-	}
-	if f := h.Rounds[0].Witnesses[index["e2"]]; f != True {
-		t.Fatalf("e2 should be famous; got %s", f)
-	}
-
-	if f := h.Rounds[1].Witnesses[index["f0"]]; f != True {
-		t.Fatalf("f0 should be famous; got %s", f)
-	}
-	if f := h.Rounds[1].Witnesses[index["f1"]]; f != True {
-		t.Fatalf("f1 should be famous; got %s", f)
-	}
-	if f := h.Rounds[1].Witnesses[index["f2"]]; f != True {
-		t.Fatalf("f2 should be famous; got %s", f)
-	}
-
 	h.DecideRoundReceived()
 
 	for name, hash := range index {

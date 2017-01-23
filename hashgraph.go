@@ -24,18 +24,38 @@ import (
 	"time"
 )
 
+type Key struct {
+	x string
+	y string
+}
+
 type Hashgraph struct {
 	Participants []string          //particant public keys
 	Events       map[string]Event  //hash => event
 	EventIndex   []string          //[index] => hash
 	Rounds       map[int]RoundInfo //number => RoundInfo
+
+	ancestorCache           map[Key]bool
+	selfAncestorCache       map[Key]bool
+	forkCache               map[Key]bool
+	oldestSelfAncestorCache map[Key]string
+	stronglySeeCache        map[Key]bool
+	parentRoundCache        map[string]int
+	roundCache              map[string]int
 }
 
 func NewHashgraph(participants []string) Hashgraph {
 	return Hashgraph{
-		Participants: participants,
-		Events:       make(map[string]Event),
-		Rounds:       make(map[int]RoundInfo),
+		Participants:            participants,
+		Events:                  make(map[string]Event),
+		Rounds:                  make(map[int]RoundInfo),
+		ancestorCache:           make(map[Key]bool),
+		selfAncestorCache:       make(map[Key]bool),
+		forkCache:               make(map[Key]bool),
+		oldestSelfAncestorCache: make(map[Key]string),
+		stronglySeeCache:        make(map[Key]bool),
+		parentRoundCache:        make(map[string]int),
+		roundCache:              make(map[string]int),
 	}
 }
 
@@ -45,6 +65,16 @@ func (h *Hashgraph) SuperMajority() int {
 
 //true if y is an ancestor of x
 func (h *Hashgraph) Ancestor(x, y string) bool {
+	if c, ok := h.ancestorCache[Key{x, y}]; ok {
+		return c
+	}
+	a := h.ancestor(x, y)
+	h.ancestorCache[Key{x, y}] = a
+	return a
+}
+
+func (h *Hashgraph) ancestor(x, y string) bool {
+
 	if x == "" {
 		return false
 	}
@@ -64,6 +94,15 @@ func (h *Hashgraph) Ancestor(x, y string) bool {
 
 //true if y is a self-ancestor of x
 func (h *Hashgraph) SelfAncestor(x, y string) bool {
+	if c, ok := h.selfAncestorCache[Key{x, y}]; ok {
+		return c
+	}
+	a := h.selfAncestor(x, y)
+	h.selfAncestorCache[Key{x, y}] = a
+	return a
+}
+
+func (h *Hashgraph) selfAncestor(x, y string) bool {
 	if x == "" {
 		return false
 	}
@@ -84,6 +123,15 @@ func (h *Hashgraph) SelfAncestor(x, y string) bool {
 //true if x detects a fork under y. also returns the hash of the event which
 //is not a self-ancestor of y and caused the fork
 func (h *Hashgraph) DetectFork(x, y string) bool {
+	if c, ok := h.forkCache[Key{x, y}]; ok {
+		return c
+	}
+	f := h.detectFork(x, y)
+	h.forkCache[Key{x, y}] = f
+	return f
+}
+
+func (h *Hashgraph) detectFork(x, y string) bool {
 	if x == "" || y == "" {
 		return false
 	}
@@ -125,6 +173,15 @@ func (h *Hashgraph) See(x, y string) bool {
 
 //oldest self-ancestor of x to see y
 func (h *Hashgraph) OldestSelfAncestorToSee(x, y string) string {
+	if c, ok := h.oldestSelfAncestorCache[Key{x, y}]; ok {
+		return c
+	}
+	res := h.oldestSelfAncestorToSee(x, y)
+	h.oldestSelfAncestorCache[Key{x, y}] = res
+	return res
+}
+
+func (h *Hashgraph) oldestSelfAncestorToSee(x, y string) string {
 	if !h.See(x, y) {
 		return ""
 	}
@@ -158,7 +215,16 @@ func (h *Hashgraph) MapSentinels(x, y string, sentinels map[string]bool) {
 }
 
 //true if x strongly sees y
-func (h *Hashgraph) StronglySee(x, y string) (bool, int) {
+func (h *Hashgraph) StronglySee(x, y string) bool {
+	if c, ok := h.stronglySeeCache[Key{x, y}]; ok {
+		return c
+	}
+	ss := h.stronglySee(x, y)
+	h.stronglySeeCache[Key{x, y}] = ss
+	return ss
+}
+
+func (h *Hashgraph) stronglySee(x, y string) bool {
 	sentinels := make(map[string]bool)
 	for i := 0; i < len(h.Participants); i++ {
 		sentinels[h.Participants[i]] = false
@@ -172,11 +238,20 @@ func (h *Hashgraph) StronglySee(x, y string) (bool, int) {
 			c++
 		}
 	}
-	return c >= h.SuperMajority(), c
+	return c >= h.SuperMajority()
 }
 
 //max of parent rounds
 func (h *Hashgraph) ParentRound(x string) int {
+	if c, ok := h.parentRoundCache[x]; ok {
+		return c
+	}
+	pr := h.parentRound(x)
+	h.parentRoundCache[x] = pr
+	return pr
+}
+
+func (h *Hashgraph) parentRound(x string) int {
 	if x == "" {
 		return -1
 	}
@@ -239,7 +314,7 @@ func (h *Hashgraph) RoundInc(x string) bool {
 	roundWitnesses := h.Rounds[parentRound].Witnesses
 	c := 0
 	for w := range roundWitnesses {
-		if ss, _ := h.StronglySee(x, w); ss {
+		if h.StronglySee(x, w) {
 			c++
 		}
 	}
@@ -248,6 +323,15 @@ func (h *Hashgraph) RoundInc(x string) bool {
 }
 
 func (h *Hashgraph) Round(x string) int {
+	if c, ok := h.roundCache[x]; ok {
+		return c
+	}
+	r := h.round(x)
+	h.roundCache[x] = r
+	return r
+}
+
+func (h *Hashgraph) round(x string) int {
 	round := h.ParentRound(x)
 	if h.RoundInc(x) {
 		round++
@@ -317,7 +401,7 @@ func (h *Hashgraph) DecideFame() {
 						//count votes
 						ssWitnesses := []string{}
 						for w := range h.Rounds[j-1].Witnesses {
-							if ss, _ := h.StronglySee(y, w); ss {
+							if h.StronglySee(y, w) {
 								ssWitnesses = append(ssWitnesses, w)
 							}
 						}
@@ -382,7 +466,6 @@ func (h *Hashgraph) DecideRoundReceived() {
 				}
 			}
 			if len(s) > len(fws)/2 {
-				fmt.Printf("event %s round received %d\n", x, i)
 				ex, _ := h.Events[x]
 				ex.roundReceived = i
 
