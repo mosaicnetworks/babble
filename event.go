@@ -73,7 +73,11 @@ func NewEvent(transactions [][]byte, parents []string, creator []byte) Event {
 		Creator:      creator,
 		Timestamp:    time.Now(),
 	}
-	return Event{Body: body}
+	return Event{
+		Body:          body,
+		round:         -1,
+		roundReceived: -1,
+	}
 }
 
 //ecdsa sig

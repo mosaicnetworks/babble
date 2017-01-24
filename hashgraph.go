@@ -31,9 +31,10 @@ type Key struct {
 
 type Hashgraph struct {
 	Participants []string          //particant public keys
-	Events       map[string]Event  //hash => event
+	Events       map[string]Event  //hash => event, in arrival order
 	EventIndex   []string          //[index] => hash
 	Rounds       map[int]RoundInfo //number => RoundInfo
+	Consensus    []string          //[index] => hash, in consensus
 
 	ancestorCache           map[Key]bool
 	selfAncestorCache       map[Key]bool
@@ -480,6 +481,24 @@ func (h *Hashgraph) DecideRoundReceived() {
 				break
 			}
 		}
+	}
+}
+
+func (h *Hashgraph) FindOrder() {
+	h.DecideRoundReceived()
+
+	consensusEvents := []Event{}
+	for _, e := range h.Events {
+		if e.roundReceived != -1 {
+			consensusEvents = append(consensusEvents, e)
+		}
+	}
+
+	sorter := NewConsensusSorter(consensusEvents)
+	sort.Sort(sorter)
+
+	for _, e := range consensusEvents {
+		h.Consensus = append(h.Consensus, e.Hex())
 	}
 }
 

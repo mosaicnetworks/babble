@@ -15,6 +15,8 @@ limitations under the License.
 */
 package hashgraph
 
+import "math/big"
+
 type Trilean int
 
 const (
@@ -76,6 +78,17 @@ func (r *RoundInfo) FamousWitnesses() []string {
 	for w, f := range r.Witnesses {
 		if f == True {
 			res = append(res, w)
+		}
+	}
+	return res
+}
+
+func (r *RoundInfo) PseudoRandomNumber() *big.Int {
+	res := new(big.Int)
+	for w, t := range r.Witnesses {
+		if t == True {
+			s, _ := new(big.Int).SetString(w, 16)
+			res = res.Xor(res, s)
 		}
 	}
 	return res

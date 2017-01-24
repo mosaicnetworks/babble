@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"testing"
 
+	"strings"
+
 	"github.com/arrivets/go-swirlds/crypto"
 )
 
@@ -1223,6 +1225,44 @@ func TestDecideRoundReceived(t *testing.T) {
 
 }
 
+func TestFindOrder(t *testing.T) {
+	h, index := initConsensusHashgraph()
+
+	h.DivideRounds()
+	h.DecideFame()
+	h.FindOrder()
+
+	for i, e := range h.Consensus {
+		ev, _ := h.Events[e]
+		fmt.Printf("%d %s %s\n", i, getName(index, e), ev.consensusTimestamp)
+	}
+
+	if l := len(h.Consensus); l != 7 {
+		t.Fatalf("length of consensus should be 7 not %d", l)
+	}
+
+	if n := getName(index, h.Consensus[0]); n != "e1" {
+		t.Fatalf("1st element should be e1 not %s", n)
+	}
+
+	//e01 and e0 have the same consensusTimestamp. Their whitened signatures might change with every test run
+	//so we need to account for both possible outcomes
+	n, m := getName(index, h.Consensus[1]), getName(index, h.Consensus[2])
+	if !((n == "e01" && m == "e0") || (n == "e0" && m == "e01")) {
+		t.Fatalf("2nd and 3rd elements should be e01 and e0 in whichever order, not %s and %s", n, m)
+	}
+	n, m = getName(index, h.Consensus[3]), getName(index, h.Consensus[4])
+	if !((n == "e2" && m == "e20") || (n == "e20" && m == "e2")) {
+		t.Fatalf("4th and 5th elements should be e2 and e20 in whichever order, not %s and %s", n, m)
+	}
+	if n := getName(index, h.Consensus[5]); n != "e02" {
+		t.Fatalf("6th element should be e02 not %s", n)
+	}
+	if n := getName(index, h.Consensus[6]); n != "e12" {
+		t.Fatalf("7th element should be e12 not %s", n)
+	}
+}
+
 func getName(index map[string]string, hash string) string {
 	for name, h := range index {
 		if h == hash {
@@ -1230,4 +1270,12 @@ func getName(index map[string]string, hash string) string {
 		}
 	}
 	return ""
+}
+
+func disp(index map[string]string, events []string) string {
+	names := []string{}
+	for _, h := range events {
+		names = append(names, getName(index, h))
+	}
+	return fmt.Sprintf("[%s]", strings.Join(names, " "))
 }
