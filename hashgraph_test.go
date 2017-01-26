@@ -520,8 +520,10 @@ func initRoundHashgraph() (Hashgraph, map[string]string) {
 	}
 
 	hashgraph := NewHashgraph(participants)
-	for _, ev := range orderedEvents {
-		hashgraph.InsertEvent(ev)
+	for i, ev := range orderedEvents {
+		if err := hashgraph.InsertEvent(ev); err != nil {
+			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
+		}
 	}
 	return hashgraph, index
 }
@@ -891,8 +893,10 @@ func init2RoundHashgraph() (Hashgraph, map[string]string) {
 	}
 
 	hashgraph := NewHashgraph(participants)
-	for _, ev := range orderedEvents {
-		hashgraph.InsertEvent(ev)
+	for i, ev := range orderedEvents {
+		if err := hashgraph.InsertEvent(ev); err != nil {
+			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
+		}
 	}
 	return hashgraph, index
 }
@@ -1201,8 +1205,10 @@ func initConsensusHashgraph() (Hashgraph, map[string]string) {
 	}
 
 	hashgraph := NewHashgraph(participants)
-	for _, ev := range orderedEvents {
-		hashgraph.InsertEvent(ev)
+	for i, ev := range orderedEvents {
+		if err := hashgraph.InsertEvent(ev); err != nil {
+			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
+		}
 	}
 	return hashgraph, index
 }
@@ -1232,11 +1238,6 @@ func TestFindOrder(t *testing.T) {
 	h.DecideFame()
 	h.FindOrder()
 
-	for i, e := range h.Consensus {
-		ev, _ := h.Events[e]
-		fmt.Printf("%d %s %s\n", i, getName(index, e), ev.consensusTimestamp)
-	}
-
 	if l := len(h.Consensus); l != 7 {
 		t.Fatalf("length of consensus should be 7 not %d", l)
 	}
@@ -1260,6 +1261,20 @@ func TestFindOrder(t *testing.T) {
 	}
 	if n := getName(index, h.Consensus[6]); n != "e12" {
 		t.Fatalf("7th element should be e12 not %s", n)
+	}
+}
+
+func TestHeight(t *testing.T) {
+	h, _ := initConsensusHashgraph()
+
+	if l := len(h.ParticipantEvents[h.Participants[0]]); l != 10 {
+		t.Fatalf("0 should have 10 events, not %d", l)
+	}
+	if l := len(h.ParticipantEvents[h.Participants[1]]); l != 7 {
+		t.Fatalf("1 should have 10 events, not %d", l)
+	}
+	if l := len(h.ParticipantEvents[h.Participants[2]]); l != 7 {
+		t.Fatalf("2 should have 10 events, not %d", l)
 	}
 }
 

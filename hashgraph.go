@@ -30,11 +30,12 @@ type Key struct {
 }
 
 type Hashgraph struct {
-	Participants []string          //particant public keys
-	Events       map[string]Event  //hash => event, in arrival order
-	EventIndex   []string          //[index] => hash
-	Rounds       map[int]RoundInfo //number => RoundInfo
-	Consensus    []string          //[index] => hash, in consensus
+	Participants      []string            //participant public keys
+	Events            map[string]Event    //hash => Event, in arrival order
+	EventIndex        []string            //[index] => hash
+	Rounds            map[int]RoundInfo   //number => RoundInfo
+	Consensus         []string            //[index] => hash, in consensus
+	ParticipantEvents map[string][]string //particpant => []hash in arrival order
 
 	ancestorCache           map[Key]bool
 	selfAncestorCache       map[Key]bool
@@ -46,10 +47,15 @@ type Hashgraph struct {
 }
 
 func NewHashgraph(participants []string) Hashgraph {
+	participantEvents := make(map[string][]string)
+	for _, p := range participants {
+		participantEvents[p] = []string{}
+	}
 	return Hashgraph{
 		Participants:            participants,
 		Events:                  make(map[string]Event),
 		Rounds:                  make(map[int]RoundInfo),
+		ParticipantEvents:       participantEvents,
 		ancestorCache:           make(map[Key]bool),
 		selfAncestorCache:       make(map[Key]bool),
 		forkCache:               make(map[Key]bool),
@@ -227,8 +233,8 @@ func (h *Hashgraph) StronglySee(x, y string) bool {
 
 func (h *Hashgraph) stronglySee(x, y string) bool {
 	sentinels := make(map[string]bool)
-	for i := 0; i < len(h.Participants); i++ {
-		sentinels[h.Participants[i]] = false
+	for _, p := range h.Participants {
+		sentinels[p] = false
 	}
 
 	h.MapSentinels(x, y, sentinels)
@@ -369,10 +375,58 @@ func (h *Hashgraph) RoundDiff(x, y string) (int, error) {
 	return xRound - yRound, nil
 }
 
-func (h *Hashgraph) InsertEvent(event Event) {
+func (h *Hashgraph) InsertEvent(event Event) error {
+
+	//verify signature
+	if ok, err := event.Verify(); !ok {
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("Invalid signature")
+	}
+
+	if err := h.FromParentsLatest(event); err != nil {
+		return fmt.Errorf("ERROR: %s", err)
+	}
+
 	hash := event.Hex()
 	h.Events[hash] = event
 	h.EventIndex = append(h.EventIndex, hash)
+
+	creator := fmt.Sprintf("0x%X", event.Body.Creator)
+	h.ParticipantEvents[creator] = append(h.ParticipantEvents[creator], hash)
+
+	return nil
+
+}
+
+//true if parents are last known events of respective creators
+func (h *Hashgraph) FromParentsLatest(event Event) error {
+	selfParent, otherParent := event.Body.Parents[0], event.Body.Parents[1]
+	creator := fmt.Sprintf("0x%X", event.Body.Creator)
+	if selfParent == "" && otherParent == "" &&
+		len(h.ParticipantEvents[creator]) == 0 {
+		return nil
+	}
+	selfParentEvent, selfParentExists := h.Events[selfParent]
+	if !selfParentExists {
+		return fmt.Errorf("Self-parent not known")
+	}
+	if fmt.Sprintf("0x%X", selfParentEvent.Body.Creator) != creator {
+		return fmt.Errorf("Self-parent has different creator")
+	}
+
+	_, otherParentExists := h.Events[otherParent]
+	if !otherParentExists {
+		return fmt.Errorf("Other-parent not known")
+	}
+
+	selfParentLegit := selfParent == h.ParticipantEvents[creator][len(h.ParticipantEvents[creator])-1]
+	if !selfParentLegit {
+		return fmt.Errorf("Self-parent not last known event by creator")
+	}
+
+	return nil
 }
 
 func (h *Hashgraph) DivideRounds() {
