@@ -376,7 +376,6 @@ func (h *Hashgraph) RoundDiff(x, y string) (int, error) {
 }
 
 func (h *Hashgraph) InsertEvent(event Event) error {
-
 	//verify signature
 	if ok, err := event.Verify(); !ok {
 		if err != nil {
@@ -563,6 +562,15 @@ func (h *Hashgraph) MedianTimestamp(eventHashes []string) time.Time {
 	}
 	sort.Sort(ByTimestamp(events))
 	return events[len(events)/2].Body.Timestamp
+}
+
+//number of events per participants
+func (h *Hashgraph) Known() map[string]int {
+	known := make(map[string]int)
+	for p, evs := range h.ParticipantEvents {
+		known[p] = len(evs)
+	}
+	return known
 }
 
 func middleBit(ehex string) bool {

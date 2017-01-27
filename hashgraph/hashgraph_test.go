@@ -1278,6 +1278,20 @@ func TestHeight(t *testing.T) {
 	}
 }
 
+func TestKnown(t *testing.T) {
+	h, _ := initConsensusHashgraph()
+	known := h.Known()
+	if l := known[h.Participants[0]]; l != 10 {
+		t.Fatalf("0 should have 10 events, not %d", l)
+	}
+	if l := known[h.Participants[1]]; l != 7 {
+		t.Fatalf("1 should have 7 events, not %d", l)
+	}
+	if l := known[h.Participants[2]]; l != 7 {
+		t.Fatalf("2 should have 7 events, not %d", l)
+	}
+}
+
 func getName(index map[string]string, hash string) string {
 	for name, h := range index {
 		if h == hash {
