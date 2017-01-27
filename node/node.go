@@ -19,6 +19,8 @@ import (
 	"crypto/ecdsa"
 	"sort"
 
+	"fmt"
+
 	"github.com/arrivets/go-swirlds/crypto"
 	hg "github.com/arrivets/go-swirlds/hashgraph"
 )
@@ -44,6 +46,10 @@ func (n *Node) PubKey() []byte {
 
 func (n *Node) GetHead() hg.Event {
 	return n.hg.Events[n.Head]
+}
+
+func (n *Node) GetEvent(hash string) hg.Event {
+	return n.hg.Events[hash]
 }
 
 func (n *Node) Init() error {
@@ -72,39 +78,39 @@ func (n *Node) Known() map[string]int {
 	return n.hg.Known()
 }
 
-func (n *Node) AskDiff(otherKnown map[string]int) (head hg.Event, otherUnknown []hg.Event) {
-	head = n.hg.Events[n.Head]
+//returns events that n knowns about that are not in 'known' along with n's head
+func (n *Node) Diff(known map[string]int) (head string, unknown []hg.Event) {
+	head = n.Head
 
-	otherUnknown = []hg.Event{}
-	//otherKnown represents the index of last known event for every participant
-	//compare this to our view of events and fill otherUnknown with event that we known of and the other doesnt
-	for p, c := range otherKnown {
+	unknown = []hg.Event{}
+	//known represents the index of last known event for every participant
+	//compare this to our view of events and fill unknown with event that we known of and the other doesnt
+	for p, c := range known {
 		if c < len(n.hg.ParticipantEvents[p]) {
 			for i := c; i < len(n.hg.ParticipantEvents[p]); i++ {
-				otherUnknown = append(otherUnknown, n.hg.Events[n.hg.ParticipantEvents[p][i]])
+				unknown = append(unknown, n.hg.Events[n.hg.ParticipantEvents[p][i]])
 			}
 		}
 	}
-	sort.Sort(hg.ByTimestamp(otherUnknown))
+	sort.Sort(hg.ByTimestamp(unknown))
 
-	return head, otherUnknown
+	return head, unknown
 }
 
-func (n *Node) Sync(otherHead hg.Event, unknown []hg.Event) error {
+func (n *Node) Sync(otherHead string, unknown []hg.Event) error {
 	//add unknown events
 	for _, e := range unknown {
 		if err := n.InsertEvent(e); err != nil {
 			return err
 		}
 	}
-	if err := n.InsertEvent(otherHead); err != nil {
-		return err
-	}
+
 	//create new event with self head and other head
 	newHead := hg.NewEvent([][]byte{},
-		[]string{n.Head, otherHead.Hex()},
+		[]string{n.Head, otherHead},
 		n.PubKey())
 	if err := n.SignAndInsertSelfEvent(newHead); err != nil {
+		fmt.Printf("error inserting new head")
 		return err
 	}
 
