@@ -173,7 +173,7 @@ func TestSync(t *testing.T) {
 	*/
 
 	//node 1 is going to tell node 0 everything it knows
-	if err := sync(nodes, 1, 0); err != nil {
+	if err := sync(nodes, 1, 0, [][]byte{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -206,7 +206,7 @@ func TestSync(t *testing.T) {
 	index["e01"] = node0Head.Hex()
 
 	//node 0 is going to tell node 2 everything it knows
-	if err := sync(nodes, 0, 2); err != nil {
+	if err := sync(nodes, 0, 2, [][]byte{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -244,7 +244,7 @@ func TestSync(t *testing.T) {
 	index["e20"] = node2Head.Hex()
 
 	//node 2 is going to tell node 1 everything it knows
-	if err := sync(nodes, 2, 1); err != nil {
+	if err := sync(nodes, 2, 1, [][]byte{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -285,10 +285,114 @@ func TestSync(t *testing.T) {
 
 }
 
-func sync(nodes []Node, from int, to int) error {
+/*
+h0  |   h2
+| \ | / |
+|   h1  |
+|  /|   |
+g02 |   |
+| \ |   |
+|   \   |
+|   | \ |
+|   |  g21
+|   | / |
+|  g10  |
+| / |   |
+g0  |   g2
+| \ | / |
+|   g1  |
+|  /|   |
+f02 |   |
+| \ |   |
+|   \   |
+|   | \ |
+|   |  f21
+|   | / |
+|  f10  |
+| / |   |
+f0  |   f2
+| \ | / |
+|   f1  |
+|  /|   |
+e02 |   |
+| \ |   |
+|   \   |
+|   | \ |
+|   |  e21
+|   | / |
+|  e10  |
+| / |   |
+e0  e1  e2
+0   1    2
+*/
+type play struct {
+	from    int
+	to      int
+	payload [][]byte
+}
+
+func TestConsensus(t *testing.T) {
+	nodes, _, _ := initNodes()
+
+	playbook := []play{
+		play{from: 0, to: 1, payload: [][]byte{[]byte("e10")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("e21")}},
+		play{from: 2, to: 0, payload: [][]byte{[]byte("e02")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("f1")}},
+		play{from: 1, to: 0, payload: [][]byte{[]byte("f0")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("f2")}},
+
+		play{from: 0, to: 1, payload: [][]byte{[]byte("f10")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("f21")}},
+		play{from: 2, to: 0, payload: [][]byte{[]byte("f02")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("g1")}},
+		play{from: 1, to: 0, payload: [][]byte{[]byte("g0")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("g2")}},
+
+		play{from: 0, to: 1, payload: [][]byte{[]byte("g10")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("g21")}},
+		play{from: 2, to: 0, payload: [][]byte{[]byte("g02")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("h1")}},
+		play{from: 1, to: 0, payload: [][]byte{[]byte("h0")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("h2")}},
+	}
+
+	for _, play := range playbook {
+		if err := syncAndRunConsensus(nodes, play.from, play.to, play.payload); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if l := len(nodes[0].GetConsensus()); l != 6 {
+		t.Fatalf("length of consensus should be 6 not %d", l)
+	}
+
+	node0Consensus := nodes[0].GetConsensus()
+	node1Consensus := nodes[1].GetConsensus()
+	node2Consensus := nodes[2].GetConsensus()
+
+	for i, e := range node0Consensus {
+		if node1Consensus[i] != e {
+			t.Fatalf("node 1 consensus[%d] does not match node 0's", i)
+		}
+		if node2Consensus[i] != e {
+			t.Fatalf("node 2 consensus[%d] does not match node 0's", i)
+		}
+	}
+}
+
+func sync(nodes []Node, from int, to int, payload [][]byte) error {
 	knownByTo := nodes[to].Known()
 	toHead, unknownByTo := nodes[from].Diff(knownByTo)
-	return nodes[to].Sync(toHead, unknownByTo)
+	return nodes[to].Sync(toHead, unknownByTo, payload)
+}
+
+func syncAndRunConsensus(nodes []Node, from int, to int, payload [][]byte) error {
+	if err := sync(nodes, from, to, payload); err != nil {
+		return err
+	}
+	nodes[to].RunConsensus()
+	return nil
 }
 
 func getName(index map[string]string, hash string) string {

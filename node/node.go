@@ -97,7 +97,7 @@ func (n *Node) Diff(known map[string]int) (head string, unknown []hg.Event) {
 	return head, unknown
 }
 
-func (n *Node) Sync(otherHead string, unknown []hg.Event) error {
+func (n *Node) Sync(otherHead string, unknown []hg.Event, payload [][]byte) error {
 	//add unknown events
 	for _, e := range unknown {
 		if err := n.InsertEvent(e); err != nil {
@@ -106,7 +106,7 @@ func (n *Node) Sync(otherHead string, unknown []hg.Event) error {
 	}
 
 	//create new event with self head and other head
-	newHead := hg.NewEvent([][]byte{},
+	newHead := hg.NewEvent(payload,
 		[]string{n.Head, otherHead},
 		n.PubKey())
 	if err := n.SignAndInsertSelfEvent(newHead); err != nil {
@@ -115,4 +115,14 @@ func (n *Node) Sync(otherHead string, unknown []hg.Event) error {
 	}
 
 	return nil
+}
+
+func (n *Node) RunConsensus() {
+	n.hg.DivideRounds()
+	n.hg.DecideFame()
+	n.hg.FindOrder()
+}
+
+func (n *Node) GetConsensus() []string {
+	return n.hg.Consensus
 }
