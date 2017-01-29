@@ -550,6 +550,7 @@ func (h *Hashgraph) FindOrder() {
 	sorter := NewConsensusSorter(consensusEvents)
 	sort.Sort(sorter)
 
+	h.Consensus = []string{}
 	for _, e := range consensusEvents {
 		h.Consensus = append(h.Consensus, e.Hex())
 	}
