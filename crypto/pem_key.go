@@ -17,14 +17,10 @@ package crypto
 
 import (
 	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
-	"math/big"
 	"os"
 	"path/filepath"
 	"sync"
@@ -83,40 +79,30 @@ func (k *PemKey) WriteKey(key *ecdsa.PrivateKey) error {
 	return ioutil.WriteFile(k.path, data, 0755)
 }
 
-func SHA256(hashBytes []byte) []byte {
-	hasher := sha256.New()
-	hasher.Write(hashBytes)
-	hash := hasher.Sum(nil)
-	return hash
+type PemDump struct {
+	PublicKey  string
+	PrivateKey string
 }
 
-func GenerateECDSAKey() (*ecdsa.PrivateKey, error) {
-	return ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-}
-
-func ToECDSAPriv(key []byte) (*ecdsa.PrivateKey, error) {
-	return x509.ParseECPrivateKey(key)
-}
-
-func ToECDSAPub(pub []byte) *ecdsa.PublicKey {
-	if len(pub) == 0 {
-		return nil
+func GeneratePemKey() (*PemDump, error) {
+	key, err := GenerateECDSAKey()
+	if err != nil {
+		return nil, err
 	}
-	x, y := elliptic.Unmarshal(elliptic.P256(), pub)
-	return &ecdsa.PublicKey{Curve: elliptic.P256(), X: x, Y: y}
-}
 
-func FromECDSAPub(pub *ecdsa.PublicKey) []byte {
-	if pub == nil || pub.X == nil || pub.Y == nil {
-		return nil
+	pub := fmt.Sprintf("0x%X", FromECDSAPub(&key.PublicKey))
+
+	b, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		return nil, err
 	}
-	return elliptic.Marshal(elliptic.P256(), pub.X, pub.Y)
-}
+	pemBlock := &pem.Block{Type: "EC PRIVATE KEY", Bytes: b}
+	data := pem.EncodeToMemory(pemBlock)
 
-func Sign(priv *ecdsa.PrivateKey, hash []byte) (r, s *big.Int, err error) {
-	return ecdsa.Sign(rand.Reader, priv, hash)
-}
+	pemDump := PemDump{
+		PublicKey:  pub,
+		PrivateKey: string(data),
+	}
 
-func Verify(pub *ecdsa.PublicKey, hash []byte, r, s *big.Int) bool {
-	return ecdsa.Verify(pub, hash, r, s)
+	return &pemDump, err
 }

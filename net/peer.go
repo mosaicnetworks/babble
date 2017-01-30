@@ -17,6 +17,7 @@ package net
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"io/ioutil"
 	"os"
@@ -29,8 +30,12 @@ const (
 )
 
 type Peer struct {
-    NetAddr string
-    PubKey  string
+	NetAddr   string
+	PubKeyHex string
+}
+
+func (p *Peer) PubKeyBytes() ([]byte, error) {
+	return hex.DecodeString(p.PubKeyHex[2:])
 }
 
 // PeerStore provides an interface for persistent storage and
@@ -69,15 +74,15 @@ func (s *StaticPeers) SetPeers(p []Peer) error {
 // JSONPeers is used to provide peer persistence on disk in the form
 // of a JSON file. This allows human operators to manipulate the file.
 type JSONPeers struct {
-	l     sync.Mutex
-	path  string
+	l    sync.Mutex
+	path string
 }
 
 // NewJSONPeers creates a new JSONPeers store.
 func NewJSONPeers(base string) *JSONPeers {
 	path := filepath.Join(base, jsonPeerPath)
 	store := &JSONPeers{
-		path:  path,
+		path: path,
 	}
 	return store
 }

@@ -16,9 +16,16 @@ limitations under the License.
 package net
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"crypto/ecdsa"
+
+	"reflect"
+
+	scrypto "github.com/arrivets/go-swirlds/crypto"
 )
 
 func TestJSONPeers(t *testing.T) {
@@ -41,12 +48,18 @@ func TestJSONPeers(t *testing.T) {
 		t.Fatalf("peers: %v", peers)
 	}
 
-	// Initialize some peers
-	newPeers := []Peer{
-		Peer{NetAddr: "addr0", PubKey: "pubkey0"},
-		Peer{NetAddr: "addr1", PubKey: "pubkey1"},
-		Peer{NetAddr: "addr2", PubKey: "pubkey2"},
+	keys := []*ecdsa.PrivateKey{}
+	newPeers := []Peer{}
+	for i := 0; i < 3; i++ {
+		key, _ := scrypto.GenerateECDSAKey()
+		peer := Peer{
+			NetAddr:   fmt.Sprintf("addr%d", i),
+			PubKeyHex: fmt.Sprintf("0x%X", scrypto.FromECDSAPub(&key.PublicKey)),
+		}
+		keys = append(keys, key)
+		newPeers = append(newPeers, peer)
 	}
+
 	if err := store.SetPeers(newPeers); err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -59,10 +72,27 @@ func TestJSONPeers(t *testing.T) {
 	if len(peers) != 3 {
 		t.Fatalf("peers: %v", peers)
 	}
-	if rp0A := peers[0].NetAddr; rp0A != newPeers[0].NetAddr {
-		t.Fatalf("peers[0] NetAddr should be %s, not %s", newPeers[0].NetAddr, rp0A)
+
+	for i := 0; i < 3; i++ {
+		if peers[i].NetAddr != newPeers[i].NetAddr {
+			t.Fatalf("peers[%d] NetAddr should be %s, not %s", i,
+				newPeers[i].NetAddr, peers[i].NetAddr)
+		}
+		if peers[i].PubKeyHex != newPeers[i].PubKeyHex {
+			t.Fatalf("peers[%d] PubKeyHex should be %s, not %s", i,
+				newPeers[i].PubKeyHex, peers[i].PubKeyHex)
+		}
+		pubKeyBytes, err := peers[i].PubKeyBytes()
+		if err != nil {
+			t.Fatal(err)
+		}
+		pubKey := scrypto.ToECDSAPub(pubKeyBytes)
+		if !reflect.DeepEqual(*pubKey, keys[i].PublicKey) {
+			t.Fatalf("peers[%d] PublicKey not parsed correctly", i)
+		}
 	}
-	if rp0P := peers[0].PubKey; rp0P != newPeers[0].PubKey {
-		t.Fatalf("peers[0] PubKey should be %s, not %s", newPeers[0].PubKey, rp0P)
+
+	for _, p := range peers {
+		t.Logf("%s: %s\n", p.NetAddr, p.PubKeyHex)
 	}
 }
