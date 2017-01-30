@@ -34,15 +34,22 @@ func NewConsensusSorter(events []Event) ConsensusSorter {
 func (b ConsensusSorter) Len() int      { return len(b.a) }
 func (b ConsensusSorter) Swap(i, j int) { b.a[i], b.a[j] = b.a[j], b.a[i] }
 func (b ConsensusSorter) Less(i, j int) bool {
-	if b.a[i].roundReceived != b.a[j].roundReceived {
-		return b.a[i].roundReceived < b.a[j].roundReceived
+	irr, jrr := -1, -1
+	if b.a[i].roundReceived != nil {
+		irr = *b.a[i].roundReceived
+	}
+	if b.a[j].roundReceived != nil {
+		jrr = *b.a[j].roundReceived
+	}
+	if irr != jrr {
+		return irr < jrr
 	}
 
 	if b.a[i].consensusTimestamp != b.a[j].consensusTimestamp {
 		return b.a[i].consensusTimestamp.Sub(b.a[j].consensusTimestamp) < 0
 	}
 
-	w := b.GetPseudoRandomNumber(b.a[i].roundReceived)
+	w := b.GetPseudoRandomNumber(*b.a[i].roundReceived)
 
 	wsi := new(big.Int)
 	wsi = wsi.Xor(b.a[i].S, w)

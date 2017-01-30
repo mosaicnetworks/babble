@@ -61,8 +61,7 @@ type Event struct {
 	Body EventBody
 	R, S *big.Int //creator's digital signature of body
 
-	round              int
-	roundReceived      int
+	roundReceived      *int
 	consensusTimestamp time.Time
 }
 
@@ -74,9 +73,7 @@ func NewEvent(transactions [][]byte, parents []string, creator []byte) Event {
 		Timestamp:    time.Now(),
 	}
 	return Event{
-		Body:          body,
-		round:         -1,
-		roundReceived: -1,
+		Body: body,
 	}
 }
 
@@ -124,6 +121,13 @@ func (e *Event) Hash() ([]byte, error) {
 func (e *Event) Hex() string {
 	hash, _ := e.Hash()
 	return fmt.Sprintf("0x%X", hash)
+}
+
+func (e *Event) SetRoundReceived(rr int) {
+	if e.roundReceived == nil {
+		e.roundReceived = new(int)
+	}
+	*e.roundReceived = rr
 }
 
 //Sorting

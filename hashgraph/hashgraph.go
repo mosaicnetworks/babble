@@ -521,7 +521,7 @@ func (h *Hashgraph) DecideRoundReceived() {
 			}
 			if len(s) > len(fws)/2 {
 				ex, _ := h.Events[x]
-				ex.roundReceived = i
+				ex.SetRoundReceived(i)
 
 				t := []string{}
 				for _, a := range s {
@@ -542,7 +542,7 @@ func (h *Hashgraph) FindOrder() {
 
 	consensusEvents := []Event{}
 	for _, e := range h.Events {
-		if e.roundReceived != -1 {
+		if e.roundReceived != nil {
 			consensusEvents = append(consensusEvents, e)
 		}
 	}

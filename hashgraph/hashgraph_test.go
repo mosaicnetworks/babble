@@ -849,7 +849,7 @@ func TestDecideRoundReceived(t *testing.T) {
 	for name, hash := range index {
 		e, _ := h.Events[hash]
 		if rune(name[0]) == rune('e') {
-			if r := e.roundReceived; r != 1 {
+			if r := *e.roundReceived; r != 1 {
 				t.Fatalf("%s round received should be 1 not %d", name, r)
 			}
 		}
@@ -866,6 +866,10 @@ func TestFindOrder(t *testing.T) {
 
 	if l := len(h.Consensus); l != 6 {
 		t.Fatalf("length of consensus should be 6 not %d", l)
+	}
+
+	for i, e := range h.Consensus {
+		t.Logf("consensus[%d]: %s\n", i, getName(index, e))
 	}
 
 	//events which have the same consensus timestamp are ordered by whitened signature
