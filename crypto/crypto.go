@@ -20,8 +20,68 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
+	"io/ioutil"
 	"math/big"
+	"os"
+	"path/filepath"
+	"sync"
 )
+
+const (
+	pemKeyPath = "priv_key.pem"
+)
+
+type PemKey struct {
+	l    sync.Mutex
+	path string
+}
+
+func NewPemKey(base string) *PemKey {
+	path := filepath.Join(base, pemKeyPath)
+	pemKey := &PemKey{
+		path: path,
+	}
+	return pemKey
+}
+
+func (k *PemKey) ReadKey() (*ecdsa.PrivateKey, error) {
+	k.l.Lock()
+	defer k.l.Unlock()
+
+	// Read the file
+	buf, err := ioutil.ReadFile(k.path)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+
+	// Check for no key
+	if len(buf) == 0 {
+		return nil, nil
+	}
+
+	// Decode the PEM key
+	block, _ := pem.Decode(buf)
+	if block == nil {
+		return nil, fmt.Errorf("Error decoding PEM block from data")
+	}
+	return x509.ParseECPrivateKey(block.Bytes)
+}
+
+func (k *PemKey) WriteKey(key *ecdsa.PrivateKey) error {
+	k.l.Lock()
+	defer k.l.Unlock()
+
+	b, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		return err
+	}
+	pemBlock := &pem.Block{Type: "EC PRIVATE KEY", Bytes: b}
+	data := pem.EncodeToMemory(pemBlock)
+	return ioutil.WriteFile(k.path, data, 0755)
+}
 
 func SHA256(hashBytes []byte) []byte {
 	hasher := sha256.New()
@@ -32,6 +92,10 @@ func SHA256(hashBytes []byte) []byte {
 
 func GenerateECDSAKey() (*ecdsa.PrivateKey, error) {
 	return ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+}
+
+func ToECDSAPriv(key []byte) (*ecdsa.PrivateKey, error) {
+	return x509.ParseECPrivateKey(key)
 }
 
 func ToECDSAPub(pub []byte) *ecdsa.PublicKey {
