@@ -127,3 +127,14 @@ func (j *JSONPeers) SetPeers(peers []Peer) error {
 	// Write out as JSON
 	return ioutil.WriteFile(j.path, buf.Bytes(), 0755)
 }
+
+// ExcludePeer is used to exclude a single peer from a list of peers.
+func ExcludePeer(peers []Peer, peer string) []Peer {
+	otherPeers := make([]Peer, 0, len(peers))
+	for _, p := range peers {
+		if p.PubKeyHex != peer {
+			otherPeers = append(otherPeers, p)
+		}
+	}
+	return otherPeers
+}

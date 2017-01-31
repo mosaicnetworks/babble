@@ -17,112 +17,57 @@ package node
 
 import (
 	"crypto/ecdsa"
-	"sort"
+	"log"
+	"os"
+	"sync"
 
-	"fmt"
-
-	"github.com/arrivets/go-swirlds/crypto"
-	hg "github.com/arrivets/go-swirlds/hashgraph"
+	"github.com/arrivets/go-swirlds/net"
 )
 
 type Node struct {
-	key *ecdsa.PrivateKey
-	hg  hg.Hashgraph
+	core Core
 
-	Head string
+	localAddr string
+	logger    *log.Logger
+
+	peers []net.Peer
+
+	// RPC chan comes from the transport layer
+	rpcCh <-chan net.RPC
+
+	// Shutdown channel to exit, protected to prevent concurrent exits
+	shutdown     bool
+	shutdownCh   chan struct{}
+	shutdownLock sync.Mutex
+
+	// The transport layer we use
+	trans net.Transport
+
+	// Tracks running goroutines
+	routinesGroup sync.WaitGroup
 }
 
-func NewNode(key *ecdsa.PrivateKey, participants []string) Node {
-	node := Node{
-		key: key,
-		hg:  hg.NewHashgraph(participants),
+func NewNode(key *ecdsa.PrivateKey, participants []net.Peer, trans net.Transport) *Node {
+	logger := log.New(os.Stderr, "", log.LstdFlags)
+
+	localAddr := trans.LocalAddr()
+
+	participantPubs := []string{}
+	for _, p := range participants {
+		participantPubs = append(participantPubs, p.PubKeyHex)
+	}
+	core := NewCore(key, participantPubs)
+
+	peers := net.ExcludePeer(participants, localAddr)
+
+	node := &Node{
+		core:       core,
+		localAddr:  localAddr,
+		logger:     logger,
+		peers:      peers,
+		rpcCh:      trans.Consumer(),
+		shutdownCh: make(chan struct{}),
+		trans:      trans,
 	}
 	return node
-}
-
-func (n *Node) PubKey() []byte {
-	return crypto.FromECDSAPub(&n.key.PublicKey)
-}
-
-func (n *Node) GetHead() hg.Event {
-	return n.hg.Events[n.Head]
-}
-
-func (n *Node) GetEvent(hash string) hg.Event {
-	return n.hg.Events[hash]
-}
-
-func (n *Node) Init() error {
-	initialEvent := hg.NewEvent([][]byte{},
-		[]string{"", ""},
-		n.PubKey())
-	return n.SignAndInsertSelfEvent(initialEvent)
-}
-
-func (n *Node) SignAndInsertSelfEvent(event hg.Event) error {
-	if err := event.Sign(n.key); err != nil {
-		return err
-	}
-	if err := n.InsertEvent(event); err != nil {
-		return err
-	}
-	n.Head = event.Hex()
-	return nil
-}
-
-func (n *Node) InsertEvent(event hg.Event) error {
-	return n.hg.InsertEvent(event)
-}
-
-func (n *Node) Known() map[string]int {
-	return n.hg.Known()
-}
-
-//returns events that n knowns about that are not in 'known' along with n's head
-func (n *Node) Diff(known map[string]int) (head string, unknown []hg.Event) {
-	head = n.Head
-
-	unknown = []hg.Event{}
-	//known represents the index of last known event for every participant
-	//compare this to our view of events and fill unknown with event that we known of and the other doesnt
-	for p, c := range known {
-		if c < len(n.hg.ParticipantEvents[p]) {
-			for i := c; i < len(n.hg.ParticipantEvents[p]); i++ {
-				unknown = append(unknown, n.hg.Events[n.hg.ParticipantEvents[p][i]])
-			}
-		}
-	}
-	sort.Sort(hg.ByTimestamp(unknown))
-
-	return head, unknown
-}
-
-func (n *Node) Sync(otherHead string, unknown []hg.Event, payload [][]byte) error {
-	//add unknown events
-	for _, e := range unknown {
-		if err := n.InsertEvent(e); err != nil {
-			return err
-		}
-	}
-
-	//create new event with self head and other head
-	newHead := hg.NewEvent(payload,
-		[]string{n.Head, otherHead},
-		n.PubKey())
-	if err := n.SignAndInsertSelfEvent(newHead); err != nil {
-		fmt.Printf("error inserting new head")
-		return err
-	}
-
-	return nil
-}
-
-func (n *Node) RunConsensus() {
-	n.hg.DivideRounds()
-	n.hg.DecideFame()
-	n.hg.FindOrder()
-}
-
-func (n *Node) GetConsensus() []string {
-	return n.hg.Consensus
 }

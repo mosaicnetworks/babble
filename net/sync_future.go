@@ -15,32 +15,25 @@ limitations under the License.
 */
 package net
 
-import "time"
+import (
+	"time"
 
-// Future is used to represent an action that may occur in the future.
-type Future interface {
-	// Error blocks until the future arrives and then
-	// returns the error status of the future.
-	// This may be called any number of times - all
-	// calls will return the same value.
-	// Note that it is not OK to call this method
-	// twice concurrently on the same Future instance.
-	Error() error
-}
+	"github.com/arrivets/go-swirlds/common"
+)
 
-// deferError can be embedded to allow a future
+// DeferError can be embedded to allow a future
 // to provide an error in the future.
-type deferError struct {
+type DeferError struct {
 	err       error
 	errCh     chan error
 	responded bool
 }
 
-func (d *deferError) init() {
+func (d *DeferError) init() {
 	d.errCh = make(chan error, 1)
 }
 
-func (d *deferError) Error() error {
+func (d *DeferError) Error() error {
 	if d.err != nil {
 		// Note that when we've received a nil error, this
 		// won't trigger, but the channel is closed after
@@ -54,7 +47,7 @@ func (d *deferError) Error() error {
 	return d.err
 }
 
-func (d *deferError) respond(err error) {
+func (d *DeferError) respond(err error) {
 	if d.errCh == nil {
 		return
 	}
@@ -68,7 +61,7 @@ func (d *deferError) respond(err error) {
 
 // SyncFuture is used to return information about a pipelined Sync request.
 type SyncFuture interface {
-	Future
+	common.Future
 
 	// Start returns the time that the append request was started.
 	// It is always OK to call this method.
@@ -86,7 +79,7 @@ type SyncFuture interface {
 
 //SyncFuture is used for waiting on a pipelined sync RPC.
 type syncFuture struct {
-	deferError
+	DeferError
 	start time.Time
 	args  *SyncRequest
 	resp  *SyncResponse

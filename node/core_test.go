@@ -29,15 +29,15 @@ func TestInit(t *testing.T) {
 	participants := []string{
 		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
 	}
-	node := NewNode(key, participants)
-	if err := node.Init(); err != nil {
+	core := NewCore(key, participants)
+	if err := core.Init(); err != nil {
 		t.Fatalf("Init returned and error: %s", err)
 	}
 }
 
-func initNodes() ([]Node, []*ecdsa.PrivateKey, map[string]string) {
+func initCores() ([]Core, []*ecdsa.PrivateKey, map[string]string) {
 	n := 3
-	nodes := []Node{}
+	cores := []Core{}
 	index := make(map[string]string)
 
 	participantKeys := []*ecdsa.PrivateKey{}
@@ -50,13 +50,13 @@ func initNodes() ([]Node, []*ecdsa.PrivateKey, map[string]string) {
 	}
 
 	for i := 0; i < n; i++ {
-		node := NewNode(participantKeys[i], participantPubs)
-		node.Init()
-		nodes = append(nodes, node)
-		index[fmt.Sprintf("e%d", i)] = node.Head
+		core := NewCore(participantKeys[i], participantPubs)
+		core.Init()
+		cores = append(cores, core)
+		index[fmt.Sprintf("e%d", i)] = core.Head
 	}
 
-	return nodes, participantKeys, index
+	return cores, participantKeys, index
 }
 
 /*
@@ -71,12 +71,12 @@ e01 |   |
 e0  e1  e2
 0   1   2
 */
-func initHashgraph(nodes []Node, keys []*ecdsa.PrivateKey, index map[string]string, participant int) {
+func initHashgraph(cores []Core, keys []*ecdsa.PrivateKey, index map[string]string, participant int) {
 
-	for i := 0; i < len(nodes); i++ {
+	for i := 0; i < len(cores); i++ {
 		if i != participant {
-			event := nodes[i].GetEvent(index[fmt.Sprintf("e%d", i)])
-			if err := nodes[participant].InsertEvent(event); err != nil {
+			event := cores[i].GetEvent(index[fmt.Sprintf("e%d", i)])
+			if err := cores[participant].InsertEvent(event); err != nil {
 				fmt.Printf("error inserting %s: %s\n", getName(index, event.Hex()), err)
 			}
 		}
@@ -84,38 +84,38 @@ func initHashgraph(nodes []Node, keys []*ecdsa.PrivateKey, index map[string]stri
 
 	event01 := hg.NewEvent([][]byte{},
 		[]string{index["e0"], index["e1"]}, //e0 and e1
-		nodes[0].PubKey())
-	if err := insertEvent(nodes, keys, index, event01, "e01", participant, 0); err != nil {
+		cores[0].PubKey())
+	if err := insertEvent(cores, keys, index, event01, "e01", participant, 0); err != nil {
 		fmt.Printf("error inserting e01: %s\n", err)
 	}
 
 	event20 := hg.NewEvent([][]byte{},
 		[]string{index["e2"], index["e01"]}, //e2 and e01
-		nodes[2].PubKey())
-	if err := insertEvent(nodes, keys, index, event20, "e20", participant, 2); err != nil {
+		cores[2].PubKey())
+	if err := insertEvent(cores, keys, index, event20, "e20", participant, 2); err != nil {
 		fmt.Printf("error inserting e20: %s\n", err)
 	}
 
 	event12 := hg.NewEvent([][]byte{},
 		[]string{index["e1"], index["e20"]}, //e1 and e20
-		nodes[1].PubKey())
-	if err := insertEvent(nodes, keys, index, event12, "e12", participant, 1); err != nil {
+		cores[1].PubKey())
+	if err := insertEvent(cores, keys, index, event12, "e12", participant, 1); err != nil {
 		fmt.Printf("error inserting e12: %s\n", err)
 	}
 }
 
-func insertEvent(nodes []Node, keys []*ecdsa.PrivateKey, index map[string]string,
+func insertEvent(cores []Core, keys []*ecdsa.PrivateKey, index map[string]string,
 	event hg.Event, name string, particant int, creator int) error {
 
 	if particant == creator {
-		if err := nodes[particant].SignAndInsertSelfEvent(event); err != nil {
+		if err := cores[particant].SignAndInsertSelfEvent(event); err != nil {
 			return err
 		}
 		//event is not signed because passed by value
-		index[name] = nodes[particant].Head
+		index[name] = cores[particant].Head
 	} else {
 		event.Sign(keys[creator])
-		if err := nodes[particant].InsertEvent(event); err != nil {
+		if err := cores[particant].InsertEvent(event); err != nil {
 			return err
 		}
 		index[name] = event.Hex()
@@ -124,9 +124,9 @@ func insertEvent(nodes []Node, keys []*ecdsa.PrivateKey, index map[string]string
 }
 
 func TestDiff(t *testing.T) {
-	nodes, keys, index := initNodes()
+	cores, keys, index := initCores()
 
-	initHashgraph(nodes, keys, index, 0)
+	initHashgraph(cores, keys, index, 0)
 
 	/*
 	   P0 knows
@@ -143,10 +143,10 @@ func TestDiff(t *testing.T) {
 	   0   1   2        0   1   2
 	*/
 
-	knownBy1 := nodes[1].Known()
-	head, unknownBy1 := nodes[0].Diff(knownBy1)
+	knownBy1 := cores[1].Known()
+	head, unknownBy1 := cores[0].Diff(knownBy1)
 	if head != index["e01"] {
-		t.Fatalf("head of node 0 should be e01")
+		t.Fatalf("head of core 0 should be e01")
 	}
 
 	if l := len(unknownBy1); l != 5 {
@@ -163,22 +163,22 @@ func TestDiff(t *testing.T) {
 }
 
 func TestSync(t *testing.T) {
-	nodes, _, index := initNodes()
+	cores, _, index := initCores()
 
 	/*
-	   node 0           node 1          node 2
+	   core 0           core 1          core 2
 
 	   e0  |   |        |   e1  |       |   |   e2
 	   0   1   2        0   1   2       0   1   2
 	*/
 
-	//node 1 is going to tell node 0 everything it knows
-	if err := sync(nodes, 1, 0, [][]byte{}); err != nil {
+	//core 1 is going to tell core 0 everything it knows
+	if err := synchronize(cores, 1, 0, [][]byte{}); err != nil {
 		t.Fatal(err)
 	}
 
 	/*
-	   node 0           node 1          node 2
+	   core 0           core 1          core 2
 
 	   e01 |   |
 	   | \ |   |
@@ -186,33 +186,33 @@ func TestSync(t *testing.T) {
 	   0   1   2        0   1   2       0   1   2
 	*/
 
-	knownBy0 := nodes[0].Known()
-	if k := knownBy0[fmt.Sprintf("0x%X", nodes[0].PubKey())]; k != 2 {
-		t.Fatalf("node 0 should have 2 events for node 0, not %d", k)
+	knownBy0 := cores[0].Known()
+	if k := knownBy0[fmt.Sprintf("0x%X", cores[0].PubKey())]; k != 2 {
+		t.Fatalf("core 0 should have 2 events for core 0, not %d", k)
 	}
-	if k := knownBy0[fmt.Sprintf("0x%X", nodes[1].PubKey())]; k != 1 {
-		t.Fatalf("node 0 should have 1 events for node 1, not %d", k)
+	if k := knownBy0[fmt.Sprintf("0x%X", cores[1].PubKey())]; k != 1 {
+		t.Fatalf("core 0 should have 1 events for core 1, not %d", k)
 	}
-	if k := knownBy0[fmt.Sprintf("0x%X", nodes[2].PubKey())]; k != 0 {
-		t.Fatalf("node 0 should have 0 events for node 2, not %d", k)
+	if k := knownBy0[fmt.Sprintf("0x%X", cores[2].PubKey())]; k != 0 {
+		t.Fatalf("core 0 should have 0 events for core 2, not %d", k)
 	}
-	node0Head := nodes[0].GetHead()
-	if node0Head.Body.Parents[0] != index["e0"] {
-		t.Fatalf("node 0 head self-parent should be e0")
+	core0Head := cores[0].GetHead()
+	if core0Head.Body.Parents[0] != index["e0"] {
+		t.Fatalf("core 0 head self-parent should be e0")
 	}
-	if node0Head.Body.Parents[1] != index["e1"] {
-		t.Fatalf("node 0 head other-parent should be e1")
+	if core0Head.Body.Parents[1] != index["e1"] {
+		t.Fatalf("core 0 head other-parent should be e1")
 	}
-	index["e01"] = node0Head.Hex()
+	index["e01"] = core0Head.Hex()
 
-	//node 0 is going to tell node 2 everything it knows
-	if err := sync(nodes, 0, 2, [][]byte{}); err != nil {
+	//core 0 is going to tell core 2 everything it knows
+	if err := synchronize(cores, 0, 2, [][]byte{}); err != nil {
 		t.Fatal(err)
 	}
 
 	/*
 
-	   node 0           node 1          node 2
+	   core 0           core 1          core 2
 
 	                                    |   |  e20
 	                                    |   | / |
@@ -224,33 +224,33 @@ func TestSync(t *testing.T) {
 	   0   1   2        0   1   2       0   1   2
 	*/
 
-	knownBy2 := nodes[2].Known()
-	if k := knownBy2[fmt.Sprintf("0x%X", nodes[0].PubKey())]; k != 2 {
-		t.Fatalf("node 2 should have 2 events for node 0, not %d", k)
+	knownBy2 := cores[2].Known()
+	if k := knownBy2[fmt.Sprintf("0x%X", cores[0].PubKey())]; k != 2 {
+		t.Fatalf("core 2 should have 2 events for core 0, not %d", k)
 	}
-	if k := knownBy2[fmt.Sprintf("0x%X", nodes[1].PubKey())]; k != 1 {
-		t.Fatalf("node 2 should have 1 events for node 1, not %d", k)
+	if k := knownBy2[fmt.Sprintf("0x%X", cores[1].PubKey())]; k != 1 {
+		t.Fatalf("core 2 should have 1 events for core 1, not %d", k)
 	}
-	if k := knownBy2[fmt.Sprintf("0x%X", nodes[2].PubKey())]; k != 2 {
-		t.Fatalf("node 2 should have 2 events for node 2, not %d", k)
+	if k := knownBy2[fmt.Sprintf("0x%X", cores[2].PubKey())]; k != 2 {
+		t.Fatalf("core 2 should have 2 events for core 2, not %d", k)
 	}
-	node2Head := nodes[2].GetHead()
-	if node2Head.Body.Parents[0] != index["e2"] {
-		t.Fatalf("node 2 head self-parent should be e2")
+	core2Head := cores[2].GetHead()
+	if core2Head.Body.Parents[0] != index["e2"] {
+		t.Fatalf("core 2 head self-parent should be e2")
 	}
-	if node2Head.Body.Parents[1] != index["e01"] {
-		t.Fatalf("node 2 head other-parent should be e01")
+	if core2Head.Body.Parents[1] != index["e01"] {
+		t.Fatalf("core 2 head other-parent should be e01")
 	}
-	index["e20"] = node2Head.Hex()
+	index["e20"] = core2Head.Hex()
 
-	//node 2 is going to tell node 1 everything it knows
-	if err := sync(nodes, 2, 1, [][]byte{}); err != nil {
+	//core 2 is going to tell core 1 everything it knows
+	if err := synchronize(cores, 2, 1, [][]byte{}); err != nil {
 		t.Fatal(err)
 	}
 
 	/*
 
-	   node 0           node 1          node 2
+	   core 0           core 1          core 2
 
 	                    |  e12  |
 	                    |   | \ |
@@ -264,24 +264,24 @@ func TestSync(t *testing.T) {
 	   0   1   2        0   1   2       0   1   2
 	*/
 
-	knownBy1 := nodes[1].Known()
-	if k := knownBy1[fmt.Sprintf("0x%X", nodes[0].PubKey())]; k != 2 {
-		t.Fatalf("node 1 should have 2 events for node 0, not %d", k)
+	knownBy1 := cores[1].Known()
+	if k := knownBy1[fmt.Sprintf("0x%X", cores[0].PubKey())]; k != 2 {
+		t.Fatalf("core 1 should have 2 events for core 0, not %d", k)
 	}
-	if k := knownBy1[fmt.Sprintf("0x%X", nodes[1].PubKey())]; k != 2 {
-		t.Fatalf("node 1 should have 2 events for node 1, not %d", k)
+	if k := knownBy1[fmt.Sprintf("0x%X", cores[1].PubKey())]; k != 2 {
+		t.Fatalf("core 1 should have 2 events for core 1, not %d", k)
 	}
-	if k := knownBy1[fmt.Sprintf("0x%X", nodes[2].PubKey())]; k != 2 {
-		t.Fatalf("node 1 should have 2 events for node 2, not %d", k)
+	if k := knownBy1[fmt.Sprintf("0x%X", cores[2].PubKey())]; k != 2 {
+		t.Fatalf("core 1 should have 2 events for core 2, not %d", k)
 	}
-	node1Head := nodes[1].GetHead()
-	if node1Head.Body.Parents[0] != index["e1"] {
-		t.Fatalf("node 1 head self-parent should be e1")
+	core1Head := cores[1].GetHead()
+	if core1Head.Body.Parents[0] != index["e1"] {
+		t.Fatalf("core 1 head self-parent should be e1")
 	}
-	if node1Head.Body.Parents[1] != index["e20"] {
-		t.Fatalf("node 1 head other-parent should be e20")
+	if core1Head.Body.Parents[1] != index["e20"] {
+		t.Fatalf("core 1 head other-parent should be e20")
 	}
-	index["e12"] = node1Head.Hex()
+	index["e12"] = core1Head.Hex()
 
 }
 
@@ -332,7 +332,7 @@ type play struct {
 }
 
 func TestConsensus(t *testing.T) {
-	nodes, _, _ := initNodes()
+	cores, _, _ := initCores()
 
 	playbook := []play{
 		play{from: 0, to: 1, payload: [][]byte{[]byte("e10")}},
@@ -358,40 +358,40 @@ func TestConsensus(t *testing.T) {
 	}
 
 	for _, play := range playbook {
-		if err := syncAndRunConsensus(nodes, play.from, play.to, play.payload); err != nil {
+		if err := syncAndRunConsensus(cores, play.from, play.to, play.payload); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	if l := len(nodes[0].GetConsensus()); l != 6 {
+	if l := len(cores[0].GetConsensus()); l != 6 {
 		t.Fatalf("length of consensus should be 6 not %d", l)
 	}
 
-	node0Consensus := nodes[0].GetConsensus()
-	node1Consensus := nodes[1].GetConsensus()
-	node2Consensus := nodes[2].GetConsensus()
+	core0Consensus := cores[0].GetConsensus()
+	core1Consensus := cores[1].GetConsensus()
+	core2Consensus := cores[2].GetConsensus()
 
-	for i, e := range node0Consensus {
-		if node1Consensus[i] != e {
-			t.Fatalf("node 1 consensus[%d] does not match node 0's", i)
+	for i, e := range core0Consensus {
+		if core1Consensus[i] != e {
+			t.Fatalf("core 1 consensus[%d] does not match core 0's", i)
 		}
-		if node2Consensus[i] != e {
-			t.Fatalf("node 2 consensus[%d] does not match node 0's", i)
+		if core2Consensus[i] != e {
+			t.Fatalf("core 2 consensus[%d] does not match core 0's", i)
 		}
 	}
 }
 
-func sync(nodes []Node, from int, to int, payload [][]byte) error {
-	knownByTo := nodes[to].Known()
-	toHead, unknownByTo := nodes[from].Diff(knownByTo)
-	return nodes[to].Sync(toHead, unknownByTo, payload)
+func synchronize(cores []Core, from int, to int, payload [][]byte) error {
+	knownByTo := cores[to].Known()
+	toHead, unknownByTo := cores[from].Diff(knownByTo)
+	return cores[to].Sync(toHead, unknownByTo, payload)
 }
 
-func syncAndRunConsensus(nodes []Node, from int, to int, payload [][]byte) error {
-	if err := sync(nodes, from, to, payload); err != nil {
+func syncAndRunConsensus(cores []Core, from int, to int, payload [][]byte) error {
+	if err := synchronize(cores, from, to, payload); err != nil {
 		return err
 	}
-	nodes[to].RunConsensus()
+	cores[to].RunConsensus()
 	return nil
 }
 
