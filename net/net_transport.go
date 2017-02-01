@@ -35,10 +35,6 @@ const (
 
 	// DefaultTimeoutScale is the default TimeoutScale in a NetworkTransport.
 	DefaultTimeoutScale = 256 * 1024 // 256KB
-
-	// rpcMaxPipeline controls the maximum number of outstanding
-	// Sync RPC calls.
-	rpcMaxPipeline = 128
 )
 
 var (
@@ -104,18 +100,6 @@ type netConn struct {
 
 func (n *netConn) Release() error {
 	return n.conn.Close()
-}
-
-type netPipeline struct {
-	conn  *netConn
-	trans *NetworkTransport
-
-	doneCh       chan SyncFuture
-	inprogressCh chan *syncFuture
-
-	shutdown     bool
-	shutdownCh   chan struct{}
-	shutdownLock sync.Mutex
 }
 
 // NewNetworkTransport creates a new network transport with the given dialer
@@ -193,7 +177,7 @@ func (n *NetworkTransport) IsShutdown() bool {
 	}
 }
 
-// getExistingConn is used to grab a pooled connection.
+// getPooledConn is used to grab a pooled connection.
 func (n *NetworkTransport) getPooledConn(target string) *netConn {
 	n.connPoolLock.Lock()
 	defer n.connPoolLock.Unlock()
@@ -252,19 +236,6 @@ func (n *NetworkTransport) returnConn(conn *netConn) {
 	} else {
 		conn.Release()
 	}
-}
-
-// SyncPipeline returns an interface that can be used to pipeline
-// Sync requests.
-func (n *NetworkTransport) SyncPipeline(target string) (SyncPipeline, error) {
-	// Get a connection
-	conn, err := n.getConn(target)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create the pipeline
-	return newNetPipeline(n, conn), nil
 }
 
 // Sync implements the Transport interface.
@@ -449,94 +420,5 @@ func sendRPC(conn *netConn, rpcType uint8, args interface{}) error {
 		conn.Release()
 		return err
 	}
-	return nil
-}
-
-// newNetPipeline is used to construct a netPipeline from a given
-// transport and connection.
-func newNetPipeline(trans *NetworkTransport, conn *netConn) *netPipeline {
-	n := &netPipeline{
-		conn:         conn,
-		trans:        trans,
-		doneCh:       make(chan SyncFuture, rpcMaxPipeline),
-		inprogressCh: make(chan *syncFuture, rpcMaxPipeline),
-		shutdownCh:   make(chan struct{}),
-	}
-	go n.decodeResponses()
-	return n
-}
-
-// decodeResponses is a long running routine that decodes the responses
-// sent on the connection.
-func (n *netPipeline) decodeResponses() {
-	timeout := n.trans.timeout
-	for {
-		select {
-		case future := <-n.inprogressCh:
-			if timeout > 0 {
-				n.conn.conn.SetReadDeadline(time.Now().Add(timeout))
-			}
-
-			_, err := decodeResponse(n.conn, future.resp)
-			future.respond(err)
-			select {
-			case n.doneCh <- future:
-			case <-n.shutdownCh:
-				return
-			}
-		case <-n.shutdownCh:
-			return
-		}
-	}
-}
-
-// AppendEntries is used to pipeline a new append entries request.
-func (n *netPipeline) Sync(args *SyncRequest, resp *SyncResponse) (SyncFuture, error) {
-	// Create a new future
-	future := &syncFuture{
-		start: time.Now(),
-		args:  args,
-		resp:  resp,
-	}
-	future.init()
-
-	// Add a send timeout
-	if timeout := n.trans.timeout; timeout > 0 {
-		n.conn.conn.SetWriteDeadline(time.Now().Add(timeout))
-	}
-
-	// Send the RPC
-	if err := sendRPC(n.conn, rpcSync, future.args); err != nil {
-		return nil, err
-	}
-
-	// Hand-off for decoding, this can also cause back-pressure
-	// to prevent too many inflight requests
-	select {
-	case n.inprogressCh <- future:
-		return future, nil
-	case <-n.shutdownCh:
-		return nil, ErrPipelineShutdown
-	}
-}
-
-// Consumer returns a channel that can be used to consume complete futures.
-func (n *netPipeline) Consumer() <-chan SyncFuture {
-	return n.doneCh
-}
-
-// Closed is used to shutdown the pipeline connection.
-func (n *netPipeline) Close() error {
-	n.shutdownLock.Lock()
-	defer n.shutdownLock.Unlock()
-	if n.shutdown {
-		return nil
-	}
-
-	// Release the connection
-	n.conn.Release()
-
-	n.shutdown = true
-	close(n.shutdownCh)
 	return nil
 }

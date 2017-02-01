@@ -45,10 +45,6 @@ type Transport interface {
 	// LocalAddr is used to return our local address to distinguish from our peers.
 	LocalAddr() string
 
-	// SyncPipeline returns an interface that can be used to pipeline
-	// Sync requests.
-	SyncPipeline(target string) (SyncPipeline, error)
-
 	// Sync sends the appropriate RPC to the target node.
 	Sync(target string, args *SyncRequest, resp *SyncResponse) error
 
@@ -74,20 +70,4 @@ type WithPeers interface {
 type LoopbackTransport interface {
 	Transport // Embedded transport reference
 	WithPeers // Embedded peer management
-}
-
-// SyncPipeline is used for pipelining Sync requests. It is used
-// to increase the syncing throughput by masking latency and better
-// utilizing bandwidth.
-type SyncPipeline interface {
-	// Sync is used to add another request to the pipeline.
-	// The send may block which is an effective form of back-pressure.
-	Sync(args *SyncRequest, resp *SyncResponse) (SyncFuture, error)
-
-	// Consumer returns a channel that can be used to consume
-	// response futures when they are ready.
-	Consumer() <-chan SyncFuture
-
-	// Close closes the pipeline and cancels all inflight RPCs
-	Close() error
 }

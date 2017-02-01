@@ -44,25 +44,6 @@ func generateUUID() string {
 		buf[10:16])
 }
 
-// inmemPipeline is used to pipeline requests for the in-mem transport.
-type inmemPipeline struct {
-	trans    *InmemTransport
-	peer     *InmemTransport
-	peerAddr string
-
-	doneCh       chan SyncFuture
-	inprogressCh chan *inmemPipelineInflight
-
-	shutdown     bool
-	shutdownCh   chan struct{}
-	shutdownLock sync.Mutex
-}
-
-type inmemPipelineInflight struct {
-	future *syncFuture
-	respCh <-chan RPCResponse
-}
-
 // InmemTransport Implements the Transport interface, to allow Swirlds to be
 // tested in-memory without going over a network.
 type InmemTransport struct {
@@ -70,7 +51,6 @@ type InmemTransport struct {
 	consumerCh chan RPC
 	localAddr  string
 	peers      map[string]*InmemTransport
-	pipelines  []*inmemPipeline
 	timeout    time.Duration
 }
 
@@ -97,22 +77,6 @@ func (i *InmemTransport) Consumer() <-chan RPC {
 // LocalAddr implements the Transport interface.
 func (i *InmemTransport) LocalAddr() string {
 	return i.localAddr
-}
-
-// SyncPipeline returns an interface that can be used to pipeline
-// Sync requests.
-func (i *InmemTransport) SyncPipeline(target string) (SyncPipeline, error) {
-	i.RLock()
-	peer, ok := i.peers[target]
-	i.RUnlock()
-	if !ok {
-		return nil, fmt.Errorf("failed to connect to peer: %v", target)
-	}
-	pipeline := newInmemPipeline(i, peer, target)
-	i.Lock()
-	i.pipelines = append(i.pipelines, pipeline)
-	i.Unlock()
-	return pipeline, nil
 }
 
 // Sync implements the Transport interface.
@@ -185,18 +149,6 @@ func (i *InmemTransport) Disconnect(peer string) {
 	i.Lock()
 	defer i.Unlock()
 	delete(i.peers, peer)
-
-	// Disconnect any pipelines
-	n := len(i.pipelines)
-	for idx := 0; idx < n; idx++ {
-		if i.pipelines[idx].peerAddr == peer {
-			i.pipelines[idx].Close()
-			i.pipelines[idx], i.pipelines[n-1] = i.pipelines[n-1], nil
-			idx--
-			n--
-		}
-	}
-	i.pipelines = i.pipelines[:n]
 }
 
 // DisconnectAll is used to remove all routes to peers.
@@ -204,122 +156,10 @@ func (i *InmemTransport) DisconnectAll() {
 	i.Lock()
 	defer i.Unlock()
 	i.peers = make(map[string]*InmemTransport)
-
-	// Handle pipelines
-	for _, pipeline := range i.pipelines {
-		pipeline.Close()
-	}
-	i.pipelines = nil
 }
 
 // Close is used to permanently disable the transport
 func (i *InmemTransport) Close() error {
 	i.DisconnectAll()
-	return nil
-}
-
-func newInmemPipeline(trans *InmemTransport, peer *InmemTransport, addr string) *inmemPipeline {
-	i := &inmemPipeline{
-		trans:        trans,
-		peer:         peer,
-		peerAddr:     addr,
-		doneCh:       make(chan SyncFuture, 16),
-		inprogressCh: make(chan *inmemPipelineInflight, 16),
-		shutdownCh:   make(chan struct{}),
-	}
-	go i.decodeResponses()
-	return i
-}
-
-func (i *inmemPipeline) decodeResponses() {
-	timeout := i.trans.timeout
-	for {
-		select {
-		case inp := <-i.inprogressCh:
-			var timeoutCh <-chan time.Time
-			if timeout > 0 {
-				timeoutCh = time.After(timeout)
-			}
-
-			select {
-			case rpcResp := <-inp.respCh:
-				// Copy the result back
-				*inp.future.resp = *rpcResp.Response.(*SyncResponse)
-				inp.future.respond(rpcResp.Error)
-
-				select {
-				case i.doneCh <- inp.future:
-				case <-i.shutdownCh:
-					return
-				}
-
-			case <-timeoutCh:
-				inp.future.respond(fmt.Errorf("command timed out"))
-				select {
-				case i.doneCh <- inp.future:
-				case <-i.shutdownCh:
-					return
-				}
-
-			case <-i.shutdownCh:
-				return
-			}
-		case <-i.shutdownCh:
-			return
-		}
-	}
-}
-
-func (i *inmemPipeline) Sync(args *SyncRequest, resp *SyncResponse) (SyncFuture, error) {
-	// Create a new future
-	future := &syncFuture{
-		start: time.Now(),
-		args:  args,
-		resp:  resp,
-	}
-	future.init()
-
-	// Handle a timeout
-	var timeout <-chan time.Time
-	if i.trans.timeout > 0 {
-		timeout = time.After(i.trans.timeout)
-	}
-
-	// Send the RPC over
-	respCh := make(chan RPCResponse, 1)
-	rpc := RPC{
-		Command:  args,
-		RespChan: respCh,
-	}
-	select {
-	case i.peer.consumerCh <- rpc:
-	case <-timeout:
-		return nil, fmt.Errorf("command enqueue timeout")
-	case <-i.shutdownCh:
-		return nil, ErrPipelineShutdown
-	}
-
-	// Send to be decoded
-	select {
-	case i.inprogressCh <- &inmemPipelineInflight{future, respCh}:
-		return future, nil
-	case <-i.shutdownCh:
-		return nil, ErrPipelineShutdown
-	}
-}
-
-func (i *inmemPipeline) Consumer() <-chan SyncFuture {
-	return i.doneCh
-}
-
-func (i *inmemPipeline) Close() error {
-	i.shutdownLock.Lock()
-	defer i.shutdownLock.Unlock()
-	if i.shutdown {
-		return nil
-	}
-
-	i.shutdown = true
-	close(i.shutdownCh)
 	return nil
 }
