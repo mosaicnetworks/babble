@@ -57,7 +57,7 @@ func TestTransport_Sync(t *testing.T) {
 
 		// Make the RPC request
 		args := SyncRequest{
-			Head: []byte("head"),
+			Head: "head",
 			Events: []hashgraph.Event{
 				hashgraph.NewEvent([][]byte{}, []string{"", ""}, []byte("creator")),
 			},

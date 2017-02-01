@@ -17,6 +17,7 @@ package net
 
 import (
 	"bufio"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"io"
@@ -25,8 +26,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"github.com/hashicorp/go-msgpack/codec"
 )
 
 const (
@@ -94,8 +93,8 @@ type netConn struct {
 	conn   net.Conn
 	r      *bufio.Reader
 	w      *bufio.Writer
-	dec    *codec.Decoder
-	enc    *codec.Encoder
+	dec    *gob.Decoder
+	enc    *gob.Encoder
 }
 
 func (n *netConn) Release() error {
@@ -214,10 +213,9 @@ func (n *NetworkTransport) getConn(target string) (*netConn, error) {
 		r:      bufio.NewReader(conn),
 		w:      bufio.NewWriter(conn),
 	}
-
 	// Setup encoder/decoders
-	netConn.dec = codec.NewDecoder(netConn.r, &codec.MsgpackHandle{})
-	netConn.enc = codec.NewEncoder(netConn.w, &codec.MsgpackHandle{})
+	netConn.dec = gob.NewDecoder(netConn.r)
+	netConn.enc = gob.NewEncoder(netConn.w)
 
 	// Done
 	return netConn, nil
@@ -298,8 +296,8 @@ func (n *NetworkTransport) handleConn(conn net.Conn) {
 	defer conn.Close()
 	r := bufio.NewReader(conn)
 	w := bufio.NewWriter(conn)
-	dec := codec.NewDecoder(r, &codec.MsgpackHandle{})
-	enc := codec.NewEncoder(w, &codec.MsgpackHandle{})
+	dec := gob.NewDecoder(r)
+	enc := gob.NewEncoder(w)
 
 	for {
 		if err := n.handleCommand(r, dec, enc); err != nil {
@@ -316,7 +314,7 @@ func (n *NetworkTransport) handleConn(conn net.Conn) {
 }
 
 // handleCommand is used to decode and dispatch a single command.
-func (n *NetworkTransport) handleCommand(r *bufio.Reader, dec *codec.Decoder, enc *codec.Encoder) error {
+func (n *NetworkTransport) handleCommand(r *bufio.Reader, dec *gob.Decoder, enc *gob.Encoder) error {
 	// Get the rpc type
 	rpcType, err := r.ReadByte()
 	if err != nil {

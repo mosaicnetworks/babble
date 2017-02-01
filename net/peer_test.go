@@ -91,8 +91,4 @@ func TestJSONPeers(t *testing.T) {
 			t.Fatalf("peers[%d] PublicKey not parsed correctly", i)
 		}
 	}
-
-	for _, p := range peers {
-		t.Logf("%s: %s\n", p.NetAddr, p.PubKeyHex)
-	}
 }

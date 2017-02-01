@@ -16,43 +16,17 @@ limitations under the License.
 package net
 
 import (
-	"log"
 	"reflect"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/arrivets/go-swirlds/common"
 	"github.com/arrivets/go-swirlds/hashgraph"
 )
 
-// This can be used as the destination for a logger and it'll
-// map them into calls to testing.T.Log, so that you only see
-// the logging for failed tests.
-type testLoggerAdapter struct {
-	t      *testing.T
-	prefix string
-}
-
-func (a *testLoggerAdapter) Write(d []byte) (int, error) {
-	if d[len(d)-1] == '\n' {
-		d = d[:len(d)-1]
-	}
-	if a.prefix != "" {
-		l := a.prefix + ": " + string(d)
-		a.t.Log(l)
-		return len(l), nil
-	}
-
-	a.t.Log(string(d))
-	return len(d), nil
-}
-
-func newTestLogger(t *testing.T) *log.Logger {
-	return log.New(&testLoggerAdapter{t: t}, "", log.Lmicroseconds)
-}
-
 func TestNetworkTransport_StartStop(t *testing.T) {
-	trans, err := NewTCPTransportWithLogger("127.0.0.1:0", nil, 2, time.Second, newTestLogger(t))
+	trans, err := NewTCPTransportWithLogger("127.0.0.1:0", nil, 2, time.Second, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -61,7 +35,7 @@ func TestNetworkTransport_StartStop(t *testing.T) {
 
 func TestNetworkTransport_Sync(t *testing.T) {
 	// Transport 1 is consumer
-	trans1, err := NewTCPTransportWithLogger("127.0.0.1:0", nil, 2, time.Second, newTestLogger(t))
+	trans1, err := NewTCPTransportWithLogger("127.0.0.1:0", nil, 2, time.Second, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -70,9 +44,9 @@ func TestNetworkTransport_Sync(t *testing.T) {
 
 	// Make the RPC request
 	args := SyncRequest{
-		Head: []byte("head"),
+		Head: "head",
 		Events: []hashgraph.Event{
-			hashgraph.NewEvent([][]byte{}, []string{"", ""}, []byte("creator")),
+			hashgraph.NewEvent([][]byte(nil), []string{"", ""}, []byte("creator")),
 		},
 	}
 	resp := SyncResponse{
@@ -97,7 +71,7 @@ func TestNetworkTransport_Sync(t *testing.T) {
 	}()
 
 	// Transport 2 makes outbound request
-	trans2, err := NewTCPTransportWithLogger("127.0.0.1:0", nil, 2, time.Second, newTestLogger(t))
+	trans2, err := NewTCPTransportWithLogger("127.0.0.1:0", nil, 2, time.Second, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -116,7 +90,7 @@ func TestNetworkTransport_Sync(t *testing.T) {
 
 func TestNetworkTransport_RequestKnown(t *testing.T) {
 	// Transport 1 is consumer
-	trans1, err := NewTCPTransportWithLogger("127.0.0.1:0", nil, 2, time.Second, newTestLogger(t))
+	trans1, err := NewTCPTransportWithLogger("127.0.0.1:0", nil, 2, time.Second, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -152,7 +126,7 @@ func TestNetworkTransport_RequestKnown(t *testing.T) {
 	}()
 
 	// Transport 2 makes outbound request
-	trans2, err := NewTCPTransportWithLogger("127.0.0.1:0", nil, 2, time.Second, newTestLogger(t))
+	trans2, err := NewTCPTransportWithLogger("127.0.0.1:0", nil, 2, time.Second, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -171,7 +145,7 @@ func TestNetworkTransport_RequestKnown(t *testing.T) {
 
 func TestNetworkTransport_PooledConn(t *testing.T) {
 	// Transport 1 is consumer
-	trans1, err := NewTCPTransportWithLogger("127.0.0.1:0", nil, 2, time.Second, newTestLogger(t))
+	trans1, err := NewTCPTransportWithLogger("127.0.0.1:0", nil, 2, time.Second, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -180,9 +154,9 @@ func TestNetworkTransport_PooledConn(t *testing.T) {
 
 	// Make the RPC request
 	args := SyncRequest{
-		Head: []byte("head"),
+		Head: "head",
 		Events: []hashgraph.Event{
-			hashgraph.NewEvent([][]byte{}, []string{"", ""}, []byte("creator")),
+			hashgraph.NewEvent([][]byte(nil), []string{"", ""}, []byte("creator")),
 		},
 	}
 	resp := SyncResponse{
@@ -208,7 +182,7 @@ func TestNetworkTransport_PooledConn(t *testing.T) {
 	}()
 
 	// Transport 2 makes outbound request, 3 conn pool
-	trans2, err := NewTCPTransportWithLogger("127.0.0.1:0", nil, 3, time.Second, newTestLogger(t))
+	trans2, err := NewTCPTransportWithLogger("127.0.0.1:0", nil, 3, time.Second, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

@@ -13,29 +13,35 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package net
+package common
 
 import (
-	"net"
+	"log"
 	"testing"
-
-	"github.com/arrivets/go-swirlds/common"
 )
 
-func TestTCPTransport_BadAddr(t *testing.T) {
-	_, err := NewTCPTransportWithLogger("0.0.0.0:0", nil, 1, 0, common.NewTestLogger(t))
-	if err != errNotAdvertisable {
-		t.Fatalf("err: %v", err)
-	}
+// This can be used as the destination for a logger and it'll
+// map them into calls to testing.T.Log, so that you only see
+// the logging for failed tests.
+type testLoggerAdapter struct {
+	t      *testing.T
+	prefix string
 }
 
-func TestTCPTransport_WithAdvertise(t *testing.T) {
-	addr := &net.TCPAddr{IP: []byte{127, 0, 0, 1}, Port: 12345}
-	trans, err := NewTCPTransportWithLogger("0.0.0.0:0", addr, 1, 0, common.NewTestLogger(t))
-	if err != nil {
-		t.Fatalf("err: %v", err)
+func (a *testLoggerAdapter) Write(d []byte) (int, error) {
+	if d[len(d)-1] == '\n' {
+		d = d[:len(d)-1]
 	}
-	if trans.LocalAddr() != "127.0.0.1:12345" {
-		t.Fatalf("bad: %v", trans.LocalAddr())
+	if a.prefix != "" {
+		l := a.prefix + ": " + string(d)
+		a.t.Log(l)
+		return len(l), nil
 	}
+
+	a.t.Log(string(d))
+	return len(d), nil
+}
+
+func NewTestLogger(t *testing.T) *log.Logger {
+	return log.New(&testLoggerAdapter{t: t}, "", log.Lmicroseconds)
 }

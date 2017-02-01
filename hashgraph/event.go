@@ -109,6 +109,12 @@ func (e *Event) Marshal() ([]byte, error) {
 	return b.Bytes(), nil
 }
 
+func (e *Event) Unmarshal(data []byte) error {
+	b := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(b) //will read from b
+	return dec.Decode(e)
+}
+
 //sha256 hash of body and signature
 func (e *Event) Hash() ([]byte, error) {
 	hashBytes, err := e.Marshal()

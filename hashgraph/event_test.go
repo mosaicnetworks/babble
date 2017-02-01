@@ -80,3 +80,30 @@ func TestSignEvent(t *testing.T) {
 		t.Fatalf("Verify returned false")
 	}
 }
+
+func TestMarshallEvent(t *testing.T) {
+	privateKey, _ := crypto.GenerateECDSAKey()
+	publicKeyBytes := crypto.FromECDSAPub(&privateKey.PublicKey)
+
+	body := createDummyEventBody()
+	body.Creator = publicKeyBytes
+
+	event := Event{Body: body}
+	if err := event.Sign(privateKey); err != nil {
+		t.Fatalf("Error signing Event: %s", err)
+	}
+
+	raw, err := event.Marshal()
+	if err != nil {
+		t.Fatalf("Error marshalling Event: %s", err)
+	}
+
+	newEvent := new(Event)
+	if err := newEvent.Unmarshal(raw); err != nil {
+		t.Fatalf("Error unmarshalling Event: %s", err)
+	}
+
+	if !reflect.DeepEqual(*newEvent, event) {
+		t.Fatalf("Events are not deeply equal")
+	}
+}

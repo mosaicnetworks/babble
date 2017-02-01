@@ -17,6 +17,7 @@ package node
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 	"log"
 	"os"
 	"sync"
@@ -70,4 +71,56 @@ func NewNode(key *ecdsa.PrivateKey, participants []net.Peer, trans net.Transport
 		trans:      trans,
 	}
 	return node
+}
+
+func (n *Node) Init() error {
+	return n.core.Init()
+}
+
+func (n *Node) StartAsync() {
+	go n.Listen()
+}
+
+func (n *Node) Listen() {
+	for {
+		select {
+		case rpc := <-n.rpcCh:
+			n.processRPC(rpc)
+		case <-n.shutdownCh:
+			return
+		}
+	}
+}
+
+func (n *Node) processRPC(rpc net.RPC) {
+	switch cmd := rpc.Command.(type) {
+	case *net.KnownRequest:
+		n.processKnown(rpc, cmd)
+	case *net.SyncRequest:
+		n.processSync(rpc, cmd)
+	default:
+		n.logger.Printf("[ERR] node: Got unexpected command: %#v", rpc.Command)
+		rpc.Respond(nil, fmt.Errorf("unexpected command"))
+	}
+}
+
+func (n *Node) processKnown(rpc net.RPC, cmd *net.KnownRequest) {
+	// Setup a response
+	known := n.core.Known()
+	resp := &net.KnownResponse{
+		Known: known,
+	}
+	rpc.Respond(resp, nil)
+}
+
+func (n *Node) processSync(rpc net.RPC, cmd *net.SyncRequest) {
+	success := true
+	err := n.core.Sync(cmd.Head, cmd.Events, [][]byte{})
+	if err != nil {
+		success = false
+	}
+	resp := &net.SyncResponse{
+		Success: success,
+	}
+	rpc.Respond(resp, err)
 }
