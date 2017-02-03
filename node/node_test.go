@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"log"
+
 	"github.com/arrivets/go-swirlds/common"
 	"github.com/arrivets/go-swirlds/crypto"
 	"github.com/arrivets/go-swirlds/net"
@@ -43,7 +45,7 @@ func initPeers() ([]*ecdsa.PrivateKey, []net.Peer) {
 	return keys, peers
 }
 
-func TestListen_Known(t *testing.T) {
+func TestProcessKnown(t *testing.T) {
 	keys, peers := initPeers()
 
 	peer0Trans, err := net.NewTCPTransportWithLogger(peers[0].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
@@ -55,7 +57,7 @@ func TestListen_Known(t *testing.T) {
 	node := NewNode(keys[0], peers, peer0Trans)
 	node.Init()
 
-	node.StartAsync()
+	node.RunAsync(false)
 
 	peer1Trans, err := net.NewTCPTransportWithLogger(peers[1].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
 	if err != nil {
@@ -79,9 +81,11 @@ func TestListen_Known(t *testing.T) {
 	if !reflect.DeepEqual(expectedResp, out) {
 		t.Fatalf("KnownResponse should be %#v, not %#v", expectedResp, out)
 	}
+
+	node.Shutdown()
 }
 
-func TestListen_Sync(t *testing.T) {
+func TestProcessSync(t *testing.T) {
 	keys, peers := initPeers()
 
 	peer0Trans, err := net.NewTCPTransportWithLogger(peers[0].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
@@ -93,7 +97,7 @@ func TestListen_Sync(t *testing.T) {
 	node0 := NewNode(keys[0], peers, peer0Trans)
 	node0.Init()
 
-	node0.StartAsync()
+	node0.RunAsync(false)
 
 	peer1Trans, err := net.NewTCPTransportWithLogger(peers[1].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
 	if err != nil {
@@ -105,7 +109,6 @@ func TestListen_Sync(t *testing.T) {
 	node1.Init()
 
 	head, unknown := node1.core.Diff(node0.core.Known())
-	fmt.Printf("\n unknown[0]: %#v\n", unknown[0])
 
 	args := net.SyncRequest{
 		Head:   head,
@@ -123,5 +126,70 @@ func TestListen_Sync(t *testing.T) {
 	// Verify the response
 	if !reflect.DeepEqual(expectedResp, out) {
 		t.Fatalf("SyncResponse should be %#v, not %#v", expectedResp, out)
+	}
+
+	node0.Shutdown()
+	node1.Shutdown()
+}
+
+func initNodes(logger *log.Logger) ([]*ecdsa.PrivateKey, []Node) {
+	keys, peers := initPeers()
+	nodes := []Node{}
+	for i := 0; i < len(peers); i++ {
+		trans, err := net.NewTCPTransportWithLogger(peers[i].NetAddr,
+			nil, 2, time.Second, logger)
+		if err != nil {
+			logger.Printf(err.Error())
+		}
+		node := NewNode(keys[i], peers, trans)
+		node.Init()
+		nodes = append(nodes, node)
+	}
+	return nil, nodes
+}
+
+func runNodes(nodes []Node) {
+	for _, n := range nodes {
+		go func(node Node) {
+			node.run(true)
+		}(n)
+	}
+}
+
+func shutdownNodes(nodes []Node) {
+	for _, n := range nodes {
+		n.Shutdown()
+	}
+}
+
+func BenchmarkGossip(b *testing.B) {
+	logger := common.NewBenchmarkLogger(b)
+	_, nodes := initNodes(logger)
+
+	runNodes(nodes)
+
+	//wait until all nodes have 5 consensus events
+	for {
+		time.Sleep(1 * time.Second)
+		done := true
+		for _, n := range nodes {
+			if len(n.GetConsensus()) < 5 {
+				done = false
+				break
+			}
+		}
+		if done {
+			break
+		}
+	}
+
+	shutdownNodes(nodes)
+
+	for i, e := range nodes[0].GetConsensus()[0:5] {
+		for j, n := range nodes[1:len(nodes)] {
+			if n.GetConsensus()[i] != e {
+				logger.Printf("nodes[%d].Consensus[%d] and nodes[0].Consensus[%d] are not equal", j, i, i)
+			}
+		}
 	}
 }

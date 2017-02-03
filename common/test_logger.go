@@ -45,3 +45,26 @@ func (a *testLoggerAdapter) Write(d []byte) (int, error) {
 func NewTestLogger(t *testing.T) *log.Logger {
 	return log.New(&testLoggerAdapter{t: t}, "", log.Lmicroseconds)
 }
+
+type benchmarkLoggerAdapter struct {
+	b      *testing.B
+	prefix string
+}
+
+func (b *benchmarkLoggerAdapter) Write(d []byte) (int, error) {
+	if d[len(d)-1] == '\n' {
+		d = d[:len(d)-1]
+	}
+	if b.prefix != "" {
+		l := b.prefix + ": " + string(d)
+		b.b.Log(l)
+		return len(l), nil
+	}
+
+	b.b.Log(string(d))
+	return len(d), nil
+}
+
+func NewBenchmarkLogger(b *testing.B) *log.Logger {
+	return log.New(&benchmarkLoggerAdapter{b: b}, "", log.Lmicroseconds)
+}

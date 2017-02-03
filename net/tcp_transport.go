@@ -118,4 +118,3 @@ func newTCPTransport(bindAddr string,
 	trans := transportCreator(stream)
 	return trans, nil
 }
-

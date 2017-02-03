@@ -132,7 +132,7 @@ func (j *JSONPeers) SetPeers(peers []Peer) error {
 func ExcludePeer(peers []Peer, peer string) []Peer {
 	otherPeers := make([]Peer, 0, len(peers))
 	for _, p := range peers {
-		if p.PubKeyHex != peer {
+		if p.NetAddr != peer {
 			otherPeers = append(otherPeers, p)
 		}
 	}

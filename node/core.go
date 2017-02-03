@@ -108,6 +108,7 @@ func (c *Core) Sync(otherHead string, unknown []hg.Event, payload [][]byte) erro
 	newHead := hg.NewEvent(payload,
 		[]string{c.Head, otherHead},
 		c.PubKey())
+
 	if err := c.SignAndInsertSelfEvent(newHead); err != nil {
 		fmt.Printf("error inserting new head")
 		return err

@@ -396,7 +396,6 @@ func (h *Hashgraph) InsertEvent(event Event) error {
 	h.ParticipantEvents[creator] = append(h.ParticipantEvents[creator], hash)
 
 	return nil
-
 }
 
 //true if parents are last known events of respective creators
@@ -409,7 +408,7 @@ func (h *Hashgraph) FromParentsLatest(event Event) error {
 	}
 	selfParentEvent, selfParentExists := h.Events[selfParent]
 	if !selfParentExists {
-		return fmt.Errorf("Self-parent not known")
+		return fmt.Errorf("Self-parent not known (%s)", selfParent)
 	}
 	if fmt.Sprintf("0x%X", selfParentEvent.Body.Creator) != creator {
 		return fmt.Errorf("Self-parent has different creator")
