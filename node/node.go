@@ -29,6 +29,8 @@ import (
 )
 
 type Node struct {
+	conf *Config
+
 	core *Core
 
 	localAddr string
@@ -48,8 +50,13 @@ type Node struct {
 	trans net.Transport
 }
 
-func NewNode(key *ecdsa.PrivateKey, participants []net.Peer, trans net.Transport) Node {
-	logger := log.New(os.Stderr, "", log.LstdFlags)
+func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans net.Transport) Node {
+	var logger *log.Logger
+	if conf.Logger != nil {
+		logger = conf.Logger
+	} else {
+		logger = log.New(os.Stderr, "", log.LstdFlags)
+	}
 
 	localAddr := trans.LocalAddr()
 
@@ -62,6 +69,7 @@ func NewNode(key *ecdsa.PrivateKey, participants []net.Peer, trans net.Transport
 	peers := net.ExcludePeer(participants, localAddr)
 
 	node := Node{
+		conf:       conf,
 		core:       &core,
 		localAddr:  localAddr,
 		logger:     logger,
@@ -88,8 +96,7 @@ func (n *Node) RunAsync(gossip bool) {
 }
 
 func (n *Node) run(gossip bool) {
-	minVal := 3 * time.Second
-	heartbeatTimer := randomTimeout(minVal)
+	heartbeatTimer := randomTimeout(n.conf.HeartbeatTimeout)
 	for {
 		select {
 		case rpc := <-n.rpcCh:
@@ -101,7 +108,7 @@ func (n *Node) run(gossip bool) {
 				n.gossip()
 			}
 			// Restart the heartbeat timer
-			heartbeatTimer = randomTimeout(minVal)
+			heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
 		case <-n.shutdownCh:
 			return
 		default:

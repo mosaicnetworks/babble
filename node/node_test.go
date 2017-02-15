@@ -54,7 +54,7 @@ func TestProcessKnown(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
-	node := NewNode(keys[0], peers, peer0Trans)
+	node := NewNode(DefaultConfig(), keys[0], peers, peer0Trans)
 	node.Init()
 
 	node.RunAsync(false)
@@ -94,7 +94,7 @@ func TestProcessSync(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
-	node0 := NewNode(keys[0], peers, peer0Trans)
+	node0 := NewNode(DefaultConfig(), keys[0], peers, peer0Trans)
 	node0.Init()
 
 	node0.RunAsync(false)
@@ -105,7 +105,7 @@ func TestProcessSync(t *testing.T) {
 	}
 	defer peer1Trans.Close()
 
-	node1 := NewNode(keys[1], peers, peer1Trans)
+	node1 := NewNode(DefaultConfig(), keys[1], peers, peer1Trans)
 	node1.Init()
 
 	head, unknown := node1.core.Diff(node0.core.Known())
@@ -133,6 +133,8 @@ func TestProcessSync(t *testing.T) {
 }
 
 func initNodes(logger *log.Logger) ([]*ecdsa.PrivateKey, []Node) {
+	conf := DefaultConfig()
+	conf.Logger = logger
 	keys, peers := initPeers()
 	nodes := []Node{}
 	for i := 0; i < len(peers); i++ {
@@ -141,7 +143,7 @@ func initNodes(logger *log.Logger) ([]*ecdsa.PrivateKey, []Node) {
 		if err != nil {
 			logger.Printf(err.Error())
 		}
-		node := NewNode(keys[i], peers, trans)
+		node := NewNode(conf, keys[i], peers, trans)
 		node.Init()
 		nodes = append(nodes, node)
 	}
