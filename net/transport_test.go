@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/arrivets/go-swirlds/hashgraph"
+	"github.com/arrivets/babble/hashgraph"
 )
 
 const (

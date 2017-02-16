@@ -15,7 +15,7 @@ limitations under the License.
 */
 package net
 
-import "github.com/arrivets/go-swirlds/hashgraph"
+import "github.com/arrivets/babble/hashgraph"
 
 type KnownRequest struct {
 	From string

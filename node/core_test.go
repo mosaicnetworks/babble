@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/arrivets/go-swirlds/crypto"
-	hg "github.com/arrivets/go-swirlds/hashgraph"
+	"github.com/arrivets/babble/crypto"
+	hg "github.com/arrivets/babble/hashgraph"
 )
 
 func TestInit(t *testing.T) {

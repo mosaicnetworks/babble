@@ -24,8 +24,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/arrivets/go-swirlds/hashgraph"
-	"github.com/arrivets/go-swirlds/net"
+	"github.com/arrivets/babble/hashgraph"
+	"github.com/arrivets/babble/net"
 )
 
 type Node struct {
@@ -92,10 +92,10 @@ func (n *Node) Init() error {
 
 func (n *Node) RunAsync(gossip bool) {
 	n.logger.Printf("[DEBUG] node: %s runasync", n.localAddr)
-	go n.run(gossip)
+	go n.Run(gossip)
 }
 
-func (n *Node) run(gossip bool) {
+func (n *Node) Run(gossip bool) {
 	heartbeatTimer := randomTimeout(n.conf.HeartbeatTimeout)
 	for {
 		select {

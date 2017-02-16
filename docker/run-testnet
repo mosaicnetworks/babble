@@ -1,0 +1,19 @@
+#!/bin/bash
+
+set -eux
+
+MPWD=$(pwd)
+
+docker network create \
+  --driver=bridge \
+  --subnet=172.77.0.0/16 \
+  --ip-range=172.77.5.0/24 \
+  --gateway=172.77.5.254 \
+  babblenet
+
+for i in $(seq 1 4)
+do
+    docker create --name=node$i --net=babblenet --ip=172.77.5.$i babble run --node_addr="172.77.5.$i:1337"
+    docker cp $MPWD/node$i node$i:/.babble
+    docker start node$i 
+done

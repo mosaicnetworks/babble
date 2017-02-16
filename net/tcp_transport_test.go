@@ -19,7 +19,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/arrivets/go-swirlds/common"
+	"github.com/arrivets/babble/common"
 )
 
 func TestTCPTransport_BadAddr(t *testing.T) {

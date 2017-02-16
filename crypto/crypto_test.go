@@ -24,7 +24,7 @@ import (
 
 func TestPem(t *testing.T) {
 	// Create a test dir
-	dir, err := ioutil.TempDir("", "swirld")
+	dir, err := ioutil.TempDir("", "babble")
 	if err != nil {
 		t.Fatalf("err: %v ", err)
 	}

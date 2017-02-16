@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/arrivets/go-swirlds/crypto"
-	hg "github.com/arrivets/go-swirlds/hashgraph"
+	"github.com/arrivets/babble/crypto"
+	hg "github.com/arrivets/babble/hashgraph"
 )
 
 type Core struct {

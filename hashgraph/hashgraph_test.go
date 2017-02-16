@@ -22,7 +22,7 @@ import (
 
 	"strings"
 
-	"github.com/arrivets/go-swirlds/crypto"
+	"github.com/arrivets/babble/crypto"
 )
 
 type Node struct {

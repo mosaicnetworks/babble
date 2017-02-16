@@ -23,7 +23,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/arrivets/go-swirlds/crypto"
+	"github.com/arrivets/babble/crypto"
 )
 
 type EventBody struct {

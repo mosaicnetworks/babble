@@ -25,12 +25,12 @@ import (
 
 	"reflect"
 
-	scrypto "github.com/arrivets/go-swirlds/crypto"
+	scrypto "github.com/arrivets/babble/crypto"
 )
 
 func TestJSONPeers(t *testing.T) {
 	// Create a test dir
-	dir, err := ioutil.TempDir("", "swirld")
+	dir, err := ioutil.TempDir("", "babble")
 	if err != nil {
 		t.Fatalf("err: %v ", err)
 	}

@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/arrivets/go-swirlds/common"
-	"github.com/arrivets/go-swirlds/hashgraph"
+	"github.com/arrivets/babble/common"
+	"github.com/arrivets/babble/hashgraph"
 )
 
 func TestNetworkTransport_StartStop(t *testing.T) {

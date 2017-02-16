@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/arrivets/go-swirlds/crypto"
+	"github.com/arrivets/babble/crypto"
 )
 
 func createDummyEventBody() EventBody {

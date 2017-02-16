@@ -24,9 +24,9 @@ import (
 
 	"log"
 
-	"github.com/arrivets/go-swirlds/common"
-	"github.com/arrivets/go-swirlds/crypto"
-	"github.com/arrivets/go-swirlds/net"
+	"github.com/arrivets/babble/common"
+	"github.com/arrivets/babble/crypto"
+	"github.com/arrivets/babble/net"
 )
 
 func initPeers() ([]*ecdsa.PrivateKey, []net.Peer) {
@@ -153,7 +153,7 @@ func initNodes(logger *log.Logger) ([]*ecdsa.PrivateKey, []Node) {
 func runNodes(nodes []Node) {
 	for _, n := range nodes {
 		go func(node Node) {
-			node.run(true)
+			node.Run(true)
 		}(n)
 	}
 }
