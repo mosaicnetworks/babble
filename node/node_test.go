@@ -164,8 +164,8 @@ func shutdownNodes(nodes []Node) {
 	}
 }
 
-func BenchmarkGossip(b *testing.B) {
-	logger := common.NewBenchmarkLogger(b)
+func TestGossip(t *testing.T) {
+	logger := common.NewTestLogger(t)
 	_, nodes := initNodes(logger)
 
 	runNodes(nodes)
@@ -187,10 +187,17 @@ func BenchmarkGossip(b *testing.B) {
 
 	shutdownNodes(nodes)
 
+	for i, n := range nodes {
+		logger.Printf("node %d:\n", i)
+		for _, e := range n.GetConsensus() {
+			logger.Println(e[0:10])
+		}
+	}
+
 	for i, e := range nodes[0].GetConsensus()[0:5] {
 		for j, n := range nodes[1:len(nodes)] {
 			if n.GetConsensus()[i] != e {
-				logger.Printf("nodes[%d].Consensus[%d] and nodes[0].Consensus[%d] are not equal", j, i, i)
+				t.Fatalf("nodes[%d].Consensus[%d] and nodes[0].Consensus[%d] are not equal", j, i, i)
 			}
 		}
 	}

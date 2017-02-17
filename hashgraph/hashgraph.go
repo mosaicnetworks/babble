@@ -30,12 +30,14 @@ type Key struct {
 }
 
 type Hashgraph struct {
-	Participants      []string            //participant public keys
-	Events            map[string]Event    //hash => Event, in arrival order
-	EventIndex        []string            //[index] => hash
-	Rounds            map[int]RoundInfo   //number => RoundInfo
-	Consensus         []string            //[index] => hash, in consensus
-	ParticipantEvents map[string][]string //particpant => []hash in arrival order
+	Participants       []string            //participant public keys
+	Events             map[string]Event    //hash => Event, in arrival order
+	EventIndex         []string            //[index] => hash
+	Rounds             map[int]RoundInfo   //number => RoundInfo
+	Consensus          []string            //[index] => hash, in consensus
+	ParticipantEvents  map[string][]string //particpant => []hash in arrival order
+	LastConsensusEvent *int
+	LastConsensusRound int
 
 	ancestorCache           map[Key]bool
 	selfAncestorCache       map[Key]bool
@@ -427,9 +429,18 @@ func (h *Hashgraph) FromParentsLatest(event Event) error {
 	return nil
 }
 
+func (h *Hashgraph) loopStart() int {
+	if h.LastConsensusEvent != nil {
+		if *h.LastConsensusEvent < len(h.EventIndex) {
+			return *h.LastConsensusEvent + 1
+		}
+		return *h.LastConsensusEvent
+	}
+	return 0
+}
+
 func (h *Hashgraph) DivideRounds() {
-	h.Rounds = make(map[int]RoundInfo)
-	for i := 0; i < len(h.EventIndex); i++ {
+	for i := h.loopStart(); i < len(h.EventIndex); i++ {
 		hash := h.EventIndex[i]
 		roundNumber := h.Round(hash)
 		witness := h.Witness(hash)
@@ -442,7 +453,7 @@ func (h *Hashgraph) DivideRounds() {
 //decide if witnesses are famous
 func (h *Hashgraph) DecideFame() {
 	votes := make(map[string](map[string]bool)) //[x][y]=>vote(x,y)
-	for i := 0; i < len(h.Rounds)-1; i++ {
+	for i := h.LastConsensusRound; i < len(h.Rounds)-1; i++ {
 		roundInfo := h.Rounds[i]
 		for j := i + 1; j < len(h.Rounds); j++ {
 			for x := range roundInfo.Witnesses {
@@ -499,7 +510,7 @@ func (h *Hashgraph) DecideFame() {
 
 //assign round received and timestamp to all events
 func (h *Hashgraph) DecideRoundReceived() {
-	for _, x := range h.EventIndex {
+	for _, x := range h.EventIndex[h.loopStart():] {
 		r := h.Round(x)
 		for i := r + 1; i < len(h.Rounds); i++ {
 			tr, ok := h.Rounds[i]
@@ -530,26 +541,40 @@ func (h *Hashgraph) DecideRoundReceived() {
 				ex.consensusTimestamp = h.MedianTimestamp(t)
 
 				h.Events[x] = ex
+
 				break
 			}
 		}
 	}
 }
 
+func (h *Hashgraph) setLastConsensusEvent(i int) {
+	if h.LastConsensusEvent == nil {
+		h.LastConsensusEvent = new(int)
+	}
+	*h.LastConsensusEvent = i
+}
+
 func (h *Hashgraph) FindOrder() {
 	h.DecideRoundReceived()
 
 	consensusEvents := []Event{}
-	for _, e := range h.Events {
-		if e.roundReceived != nil {
-			consensusEvents = append(consensusEvents, e)
+	for xind, x := range h.EventIndex[h.loopStart():] {
+		ex, _ := h.Events[x]
+		if ex.roundReceived != nil {
+			consensusEvents = append(consensusEvents, ex)
+			if h.LastConsensusEvent == nil || xind > *h.LastConsensusEvent {
+				h.setLastConsensusEvent(xind)
+				if *ex.roundReceived > h.LastConsensusRound {
+					h.LastConsensusRound = *ex.roundReceived
+				}
+			}
 		}
 	}
 
 	sorter := NewConsensusSorter(consensusEvents)
 	sort.Sort(sorter)
 
-	h.Consensus = []string{}
 	for _, e := range consensusEvents {
 		h.Consensus = append(h.Consensus, e.Hex())
 	}

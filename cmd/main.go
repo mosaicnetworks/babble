@@ -44,8 +44,23 @@ var (
 	}
 	LogLevelFlag = cli.StringFlag{
 		Name:  "log_level",
-		Usage: "Babble log level (debug, info, warn, error, fatal, panic)",
+		Usage: "debug, info, warn, error, fatal, panic",
 		Value: "debug",
+	}
+	HeartbeatFlag = cli.IntFlag{
+		Name:  "heartbeat",
+		Usage: "Heartbeat timer milliseconds (time between gossips)",
+		Value: 1000,
+	}
+	MaxPoolFlag = cli.IntFlag{
+		Name:  "max_pool",
+		Usage: "Max number of pooled connections",
+		Value: 2,
+	}
+	TcpTimeoutFlag = cli.IntFlag{
+		Name:  "tcp_timeout",
+		Usage: "TCP timeout milliseconds",
+		Value: 1000,
 	}
 )
 
@@ -67,6 +82,9 @@ func main() {
 				DataDirFlag,
 				NodeAddressFlag,
 				LogLevelFlag,
+				HeartbeatFlag,
+				MaxPoolFlag,
+				TcpTimeoutFlag,
 			},
 		},
 	}
@@ -93,15 +111,20 @@ func run(c *cli.Context) error {
 	logger := logrus.New()
 	logger.Level = logLevel(c.String(LogLevelFlag.Name))
 
-	conf := node.DefaultConfig()
-	conf.Logger = logger
-
 	datadir := c.String(DataDirFlag.Name)
 	addr := c.String(NodeAddressFlag.Name)
+	heartbeat := c.Int(HeartbeatFlag.Name)
+	maxPool := c.Int(MaxPoolFlag.Name)
+	tcpTimeout := c.Int(TcpTimeoutFlag.Name)
 	logger.WithFields(logrus.Fields{
-		"datadir":   datadir,
-		"node_addr": addr,
+		"datadir":     datadir,
+		"node_addr":   addr,
+		"heartbeat":   heartbeat,
+		"max_pool":    maxPool,
+		"tcp_timeout": tcpTimeout,
 	}).Debug("RUN")
+
+	conf := node.NewConfig(time.Duration(heartbeat)*time.Millisecond, logger)
 
 	// Create the PEM key
 	pemKey := crypto.NewPemKey(datadir)
@@ -122,7 +145,7 @@ func run(c *cli.Context) error {
 	}
 
 	trans, err := net.NewTCPTransport(addr,
-		nil, 2, time.Second, logger)
+		nil, maxPool, time.Duration(tcpTimeout)*time.Millisecond, logger)
 	if err != nil {
 		return err
 	}

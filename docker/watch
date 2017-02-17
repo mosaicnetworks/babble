@@ -1,0 +1,2 @@
+#!/bin/bash
+watch 'for i in $(seq 1 4);do echo node$i: $(docker logs node$i 2>&1 | grep Consensus | tail -1);done'

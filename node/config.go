@@ -28,6 +28,13 @@ type Config struct {
 	Logger           *logrus.Logger
 }
 
+func NewConfig(heartbeat time.Duration, logger *logrus.Logger) *Config {
+	return &Config{
+		HeartbeatTimeout: heartbeat,
+		Logger:           logger,
+	}
+}
+
 func DefaultConfig() *Config {
 	logger := logrus.New()
 	logger.Level = logrus.DebugLevel
