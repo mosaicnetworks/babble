@@ -17,10 +17,10 @@ package net
 
 import (
 	"errors"
-	"io"
-	"log"
 	"net"
 	"time"
+
+	"github.com/Sirupsen/logrus"
 )
 
 var (
@@ -59,30 +59,16 @@ func (t *TCPStreamLayer) Addr() net.Addr {
 }
 
 // NewTCPTransport returns a NetworkTransport that is built on top of
-// a TCP streaming transport layer.
+// a TCP streaming transport layer, with log output going to the supplied Logger
 func NewTCPTransport(
 	bindAddr string,
 	advertise net.Addr,
 	maxPool int,
 	timeout time.Duration,
-	logOutput io.Writer,
+	logger *logrus.Logger,
 ) (*NetworkTransport, error) {
 	return newTCPTransport(bindAddr, advertise, maxPool, timeout, func(stream StreamLayer) *NetworkTransport {
-		return NewNetworkTransport(stream, maxPool, timeout, logOutput)
-	})
-}
-
-// NewTCPTransportWithLogger returns a NetworkTransport that is built on top of
-// a TCP streaming transport layer, with log output going to the supplied Logger
-func NewTCPTransportWithLogger(
-	bindAddr string,
-	advertise net.Addr,
-	maxPool int,
-	timeout time.Duration,
-	logger *log.Logger,
-) (*NetworkTransport, error) {
-	return newTCPTransport(bindAddr, advertise, maxPool, timeout, func(stream StreamLayer) *NetworkTransport {
-		return NewNetworkTransportWithLogger(stream, maxPool, timeout, logger)
+		return NewNetworkTransport(stream, maxPool, timeout, logger)
 	})
 }
 

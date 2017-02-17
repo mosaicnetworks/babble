@@ -21,11 +21,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
-	"os"
 	"sync"
 	"time"
+
+	"github.com/Sirupsen/logrus"
 )
 
 const (
@@ -48,7 +48,7 @@ var (
 /*
 
 NetworkTransport provides a network based transport that can be
-used to communicate with Swirlds on remote machines. It requires
+used to communicate with babble on remote machines. It requires
 an underlying stream layer to provide a stream abstraction, which can
 be simple TCP, TLS, etc.
 
@@ -67,7 +67,7 @@ type NetworkTransport struct {
 
 	maxPool int
 
-	logger *log.Logger
+	logger *logrus.Logger
 
 	shutdown     bool
 	shutdownCh   chan struct{}
@@ -103,31 +103,17 @@ func (n *netConn) Release() error {
 
 // NewNetworkTransport creates a new network transport with the given dialer
 // and listener. The maxPool controls how many connections we will pool. The
-// timeout is used to apply I/O deadlines.
+// timeout is used to apply I/O deadlines. For InstallSnapshot, we multiply
+// the timeout by (SnapshotSize / TimeoutScale).
 func NewNetworkTransport(
 	stream StreamLayer,
 	maxPool int,
 	timeout time.Duration,
-	logOutput io.Writer,
-) *NetworkTransport {
-	if logOutput == nil {
-		logOutput = os.Stderr
-	}
-	return NewNetworkTransportWithLogger(stream, maxPool, timeout, log.New(logOutput, "", log.LstdFlags))
-}
-
-// NewNetworkTransportWithLogger creates a new network transport with the given dialer
-// and listener. The maxPool controls how many connections we will pool. The
-// timeout is used to apply I/O deadlines. For InstallSnapshot, we multiply
-// the timeout by (SnapshotSize / TimeoutScale).
-func NewNetworkTransportWithLogger(
-	stream StreamLayer,
-	maxPool int,
-	timeout time.Duration,
-	logger *log.Logger,
+	logger *logrus.Logger,
 ) *NetworkTransport {
 	if logger == nil {
-		logger = log.New(os.Stderr, "", log.LstdFlags)
+		logger = logrus.New()
+		logger.Level = logrus.DebugLevel
 	}
 	trans := &NetworkTransport{
 		connPool:     make(map[string][]*netConn),
@@ -281,10 +267,13 @@ func (n *NetworkTransport) listen() {
 			if n.IsShutdown() {
 				return
 			}
-			n.logger.Printf("[ERR] swirlds-net: Failed to accept connection: %v", err)
+			n.logger.WithField("error", err).Error("Failed to accept connection")
 			continue
 		}
-		n.logger.Printf("[DEBUG] swirlds-net: %v accepted connection from: %v", n.LocalAddr(), conn.RemoteAddr())
+		n.logger.WithFields(logrus.Fields{
+			"node": conn.LocalAddr(),
+			"from": conn.RemoteAddr(),
+		}).Debug("accepted connection")
 
 		// Handle the connection in dedicated routine
 		go n.handleConn(conn)
@@ -302,12 +291,12 @@ func (n *NetworkTransport) handleConn(conn net.Conn) {
 	for {
 		if err := n.handleCommand(r, dec, enc); err != nil {
 			if err != io.EOF {
-				n.logger.Printf("[ERR] swirlds-net: Failed to decode incoming command: %v", err)
+				n.logger.WithField("error", err).Error("Failed to decode incoming command")
 			}
 			return
 		}
 		if err := w.Flush(); err != nil {
-			n.logger.Printf("[ERR] swirlds-net: Failed to flush response: %v", err)
+			n.logger.WithField("error", err).Error("Failed to flush response")
 			return
 		}
 	}

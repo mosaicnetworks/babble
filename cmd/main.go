@@ -23,14 +23,33 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/Sirupsen/logrus"
+	"gopkg.in/urfave/cli.v1"
+
 	"github.com/arrivets/babble/crypto"
 	"github.com/arrivets/babble/net"
 	"github.com/arrivets/babble/node"
-	"gopkg.in/urfave/cli.v1"
+)
+
+var (
+	DataDirFlag = cli.StringFlag{
+		Name:  "datadir",
+		Usage: "Directory for the configuration",
+		Value: defaultDataDir(),
+	}
+	NodeAddressFlag = cli.StringFlag{
+		Name:  "node_addr",
+		Usage: "IP:Port to bind Babble",
+		Value: "127.0.0.1:1337",
+	}
+	LogLevelFlag = cli.StringFlag{
+		Name:  "log_level",
+		Usage: "Babble log level (debug, info, warn, error, fatal, panic)",
+		Value: "debug",
+	}
 )
 
 func main() {
-	fmt.Printf("XXX in main...")
 	app := cli.NewApp()
 	app.Name = "babble"
 	app.Usage = "hashgraph consensus"
@@ -45,16 +64,9 @@ func main() {
 			Usage:  "Run node",
 			Action: run,
 			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "datadir",
-					Usage: "Directory for the configuration",
-					Value: defaultDataDir(),
-				},
-				cli.StringFlag{
-					Name:  "node_addr",
-					Usage: "IP:Port to bind Babble",
-					Value: "127.0.0.1:1337",
-				},
+				DataDirFlag,
+				NodeAddressFlag,
+				LogLevelFlag,
 			},
 		},
 	}
@@ -78,12 +90,18 @@ func keygen(c *cli.Context) error {
 }
 
 func run(c *cli.Context) error {
-	fmt.Printf("XXX In run...")
+	logger := logrus.New()
+	logger.Level = logLevel(c.String(LogLevelFlag.Name))
 
 	conf := node.DefaultConfig()
+	conf.Logger = logger
 
-	datadir := c.String("datadir")
-	addr := c.String("node_addr")
+	datadir := c.String(DataDirFlag.Name)
+	addr := c.String(NodeAddressFlag.Name)
+	logger.WithFields(logrus.Fields{
+		"datadir":   datadir,
+		"node_addr": addr,
+	}).Debug("RUN")
 
 	// Create the PEM key
 	pemKey := crypto.NewPemKey(datadir)
@@ -103,8 +121,8 @@ func run(c *cli.Context) error {
 		return err
 	}
 
-	trans, err := net.NewTCPTransportWithLogger(addr,
-		nil, 2, time.Second, nil)
+	trans, err := net.NewTCPTransport(addr,
+		nil, 2, time.Second, logger)
 	if err != nil {
 		return err
 	}
@@ -139,4 +157,23 @@ func homeDir() string {
 		return usr.HomeDir
 	}
 	return ""
+}
+
+func logLevel(l string) logrus.Level {
+	switch l {
+	case "debug":
+		return logrus.DebugLevel
+	case "info":
+		return logrus.InfoLevel
+	case "warn":
+		return logrus.WarnLevel
+	case "error":
+		return logrus.ErrorLevel
+	case "fatal":
+		return logrus.FatalLevel
+	case "panic":
+		return logrus.PanicLevel
+	default:
+		return logrus.DebugLevel
+	}
 }

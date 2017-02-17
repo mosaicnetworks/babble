@@ -16,17 +16,29 @@ limitations under the License.
 package node
 
 import (
-	"log"
+	"testing"
 	"time"
+
+	"github.com/Sirupsen/logrus"
+	"github.com/arrivets/babble/common"
 )
 
 type Config struct {
 	HeartbeatTimeout time.Duration
-	Logger           *log.Logger
+	Logger           *logrus.Logger
 }
 
 func DefaultConfig() *Config {
+	logger := logrus.New()
+	logger.Level = logrus.DebugLevel
 	return &Config{
 		HeartbeatTimeout: 1000 * time.Millisecond,
+		Logger:           logger,
 	}
+}
+
+func TestConfig(t *testing.T) *Config {
+	config := DefaultConfig()
+	config.Logger = common.NewTestLogger(t)
+	return config
 }

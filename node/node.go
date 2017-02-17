@@ -18,11 +18,11 @@ package node
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"log"
 	"math/rand"
-	"os"
 	"sync"
 	"time"
+
+	"github.com/Sirupsen/logrus"
 
 	"github.com/arrivets/babble/hashgraph"
 	"github.com/arrivets/babble/net"
@@ -34,7 +34,7 @@ type Node struct {
 	core *Core
 
 	localAddr string
-	logger    *log.Logger
+	logger    *logrus.Entry
 
 	peers []net.Peer
 
@@ -51,13 +51,6 @@ type Node struct {
 }
 
 func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans net.Transport) Node {
-	var logger *log.Logger
-	if conf.Logger != nil {
-		logger = conf.Logger
-	} else {
-		logger = log.New(os.Stderr, "", log.LstdFlags)
-	}
-
 	localAddr := trans.LocalAddr()
 
 	participantPubs := []string{}
@@ -72,7 +65,7 @@ func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans
 		conf:       conf,
 		core:       &core,
 		localAddr:  localAddr,
-		logger:     logger,
+		logger:     conf.Logger.WithField("node", localAddr),
 		peers:      peers,
 		rpcCh:      trans.Consumer(),
 		shutdownCh: make(chan struct{}),
@@ -86,12 +79,12 @@ func (n *Node) Init() error {
 	for _, p := range n.peers {
 		peerAddresses = append(peerAddresses, p.NetAddr)
 	}
-	n.logger.Printf("[DEBUG] node: %s peers: %#v", n.localAddr, peerAddresses)
+	n.logger.WithField("peers", peerAddresses).Debug("Init Node")
 	return n.core.Init()
 }
 
 func (n *Node) RunAsync(gossip bool) {
-	n.logger.Printf("[DEBUG] node: %s runasync", n.localAddr)
+	n.logger.Debug("runasync")
 	go n.Run(gossip)
 }
 
@@ -100,11 +93,11 @@ func (n *Node) Run(gossip bool) {
 	for {
 		select {
 		case rpc := <-n.rpcCh:
-			n.logger.Printf("[DEBUG] node: %s processing RPC", n.localAddr)
+			n.logger.Debug("processing RPC")
 			n.processRPC(rpc)
 		case <-heartbeatTimer:
 			if gossip {
-				n.logger.Printf("[DEBUG] node: %s time to Gossip!", n.localAddr)
+				n.logger.Debug("time to Gossip!")
 				n.gossip()
 			}
 			// Restart the heartbeat timer
@@ -119,13 +112,13 @@ func (n *Node) Run(gossip bool) {
 func (n *Node) processRPC(rpc net.RPC) {
 	switch cmd := rpc.Command.(type) {
 	case *net.KnownRequest:
-		n.logger.Printf("[DEBUG] node: %s processing known", n.localAddr)
+		n.logger.Debug("processing known")
 		n.processKnown(rpc, cmd)
 	case *net.SyncRequest:
-		n.logger.Printf("[DEBUG] node: %s processing sync", n.localAddr)
+		n.logger.Debug("processing sync")
 		n.processSync(rpc, cmd)
 	default:
-		n.logger.Printf("[ERR] node: Got unexpected command: %#v", rpc.Command)
+		n.logger.WithField("cmd", rpc.Command).Error("Unexpected RPC command")
 		rpc.Respond(nil, fmt.Errorf("unexpected command"))
 	}
 }
@@ -146,6 +139,7 @@ func (n *Node) processSync(rpc net.RPC, cmd *net.SyncRequest) {
 	} else {
 		n.core.RunConsensus()
 	}
+	n.logger.WithField("events", len(n.GetConsensus())).Debug("Consensus")
 	resp := &net.SyncResponse{
 		Success: success,
 	}
@@ -158,11 +152,11 @@ func (n *Node) gossip() {
 
 	known, err := n.requestKnown(peer.NetAddr)
 	if err != nil {
-		n.logger.Printf("[ERR] node: Getting peer Known: %s", err)
+		n.logger.WithField("error", err).Error("Getting peer Known")
 	} else {
 		head, diff := n.core.Diff(known)
 		if err := n.requestSync(peer.NetAddr, head, diff); err != nil {
-			n.logger.Printf("[ERR] node: Triggering peer Sync: %s", err)
+			n.logger.WithField("error", err).Error("Triggering peer Sync")
 		}
 	}
 }
@@ -175,7 +169,10 @@ func (n *Node) requestKnown(target string) (map[string]int, error) {
 	if err := n.trans.RequestKnown(target, &args, &out); err != nil {
 		return nil, err
 	}
-	n.logger.Printf("[DEBUG] node: %s replied to Known with %#v", target, out.Known)
+	n.logger.WithFields(logrus.Fields{
+		"target": target,
+		"known":  out.Known,
+	}).Debug("Known Response")
 	return out.Known, nil
 }
 
@@ -188,8 +185,10 @@ func (n *Node) requestSync(target string, head string, events []hashgraph.Event)
 	if err := n.trans.Sync(target, &args, &out); err != nil {
 		return err
 	}
-
-	n.logger.Printf("[DEBUG] node: %s replied to Sync with %#v", target, out.Success)
+	n.logger.WithFields(logrus.Fields{
+		"target":  target,
+		"success": out.Success,
+	}).Debug("Sync Response")
 	return nil
 }
 
@@ -207,7 +206,7 @@ func (n *Node) Shutdown() {
 	defer n.shutdownLock.Unlock()
 
 	if !n.shutdown {
-		n.logger.Printf("[DEBUG] node: %s shutdown", n.localAddr)
+		n.logger.Debug("Shutdown")
 		close(n.shutdownCh)
 		n.shutdown = true
 	}

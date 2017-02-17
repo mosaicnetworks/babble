@@ -16,8 +16,9 @@ limitations under the License.
 package common
 
 import (
-	"log"
 	"testing"
+
+	"github.com/Sirupsen/logrus"
 )
 
 // This can be used as the destination for a logger and it'll
@@ -37,13 +38,15 @@ func (a *testLoggerAdapter) Write(d []byte) (int, error) {
 		a.t.Log(l)
 		return len(l), nil
 	}
-
 	a.t.Log(string(d))
 	return len(d), nil
 }
 
-func NewTestLogger(t *testing.T) *log.Logger {
-	return log.New(&testLoggerAdapter{t: t}, "", log.Lmicroseconds)
+func NewTestLogger(t *testing.T) *logrus.Logger {
+	logger := logrus.New()
+	logger.Out = &testLoggerAdapter{t: t}
+	logger.Level = logrus.DebugLevel
+	return logger
 }
 
 type benchmarkLoggerAdapter struct {
@@ -65,6 +68,9 @@ func (b *benchmarkLoggerAdapter) Write(d []byte) (int, error) {
 	return len(d), nil
 }
 
-func NewBenchmarkLogger(b *testing.B) *log.Logger {
-	return log.New(&benchmarkLoggerAdapter{b: b}, "", log.Lmicroseconds)
+func NewBenchmarkLogger(b *testing.B) *logrus.Logger {
+	logger := logrus.New()
+	logger.Out = &benchmarkLoggerAdapter{b: b}
+	logger.Level = logrus.DebugLevel
+	return logger
 }

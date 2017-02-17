@@ -22,8 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"log"
-
+	"github.com/Sirupsen/logrus"
 	"github.com/arrivets/babble/common"
 	"github.com/arrivets/babble/crypto"
 	"github.com/arrivets/babble/net"
@@ -48,18 +47,18 @@ func initPeers() ([]*ecdsa.PrivateKey, []net.Peer) {
 func TestProcessKnown(t *testing.T) {
 	keys, peers := initPeers()
 
-	peer0Trans, err := net.NewTCPTransportWithLogger(peers[0].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
+	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 	defer peer0Trans.Close()
 
-	node := NewNode(DefaultConfig(), keys[0], peers, peer0Trans)
+	node := NewNode(TestConfig(t), keys[0], peers, peer0Trans)
 	node.Init()
 
 	node.RunAsync(false)
 
-	peer1Trans, err := net.NewTCPTransportWithLogger(peers[1].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
+	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -88,24 +87,24 @@ func TestProcessKnown(t *testing.T) {
 func TestProcessSync(t *testing.T) {
 	keys, peers := initPeers()
 
-	peer0Trans, err := net.NewTCPTransportWithLogger(peers[0].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
+	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 	defer peer0Trans.Close()
 
-	node0 := NewNode(DefaultConfig(), keys[0], peers, peer0Trans)
+	node0 := NewNode(TestConfig(t), keys[0], peers, peer0Trans)
 	node0.Init()
 
 	node0.RunAsync(false)
 
-	peer1Trans, err := net.NewTCPTransportWithLogger(peers[1].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
+	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 	defer peer1Trans.Close()
 
-	node1 := NewNode(DefaultConfig(), keys[1], peers, peer1Trans)
+	node1 := NewNode(TestConfig(t), keys[1], peers, peer1Trans)
 	node1.Init()
 
 	head, unknown := node1.core.Diff(node0.core.Known())
@@ -132,13 +131,14 @@ func TestProcessSync(t *testing.T) {
 	node1.Shutdown()
 }
 
-func initNodes(logger *log.Logger) ([]*ecdsa.PrivateKey, []Node) {
+func initNodes(logger *logrus.Logger) ([]*ecdsa.PrivateKey, []Node) {
 	conf := DefaultConfig()
 	conf.Logger = logger
+
 	keys, peers := initPeers()
 	nodes := []Node{}
 	for i := 0; i < len(peers); i++ {
-		trans, err := net.NewTCPTransportWithLogger(peers[i].NetAddr,
+		trans, err := net.NewTCPTransport(peers[i].NetAddr,
 			nil, 2, time.Second, logger)
 		if err != nil {
 			logger.Printf(err.Error())
