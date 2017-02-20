@@ -2,3 +2,4 @@
 */debug.test
 cmd/debug
 docker/babble
+vendor

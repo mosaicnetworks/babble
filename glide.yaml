@@ -1,0 +1,4 @@
+package: github.com/arrivets/babble
+import:
+- package: github.com/Sirupsen/logrus
+- package: gopkg.in/urfave/cli.v1
