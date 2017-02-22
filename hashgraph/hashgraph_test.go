@@ -92,14 +92,19 @@ func initHashgraph() (Hashgraph, map[string]string) {
 
 	participants := []string{}
 	events := make(map[string]Event)
+	participantEvents := make(map[string][]string)
 	for _, node := range nodes {
 		participants = append(participants, node.PubHex)
+		pe := []string{}
 		for _, ev := range node.Events {
 			events[ev.Hex()] = ev
+			pe = append(pe, ev.Hex())
 		}
+		participantEvents[node.PubHex] = pe
 	}
 	hashgraph := NewHashgraph(participants)
 	hashgraph.Events = events
+	hashgraph.ParticipantEvents = participantEvents
 	return hashgraph, index
 }
 
@@ -245,14 +250,19 @@ func initForkHashgraph() (Hashgraph, map[string]string) {
 
 	participants := []string{}
 	events := make(map[string]Event)
+	participantEvents := make(map[string][]string)
 	for _, node := range nodes {
 		participants = append(participants, node.PubHex)
+		pe := []string{}
 		for _, ev := range node.Events {
 			events[ev.Hex()] = ev
+			pe = append(pe, ev.Hex())
 		}
+		participantEvents[node.PubHex] = pe
 	}
 	hashgraph := NewHashgraph(participants)
 	hashgraph.Events = events
+	hashgraph.ParticipantEvents = participantEvents
 	return hashgraph, index
 }
 
@@ -299,6 +309,10 @@ func TestDetectFork(t *testing.T) {
 	fork = h.DetectFork(index["e20"], index["e01"])
 	if fork {
 		t.Fatal("e20 should not detect a fork under e01")
+	}
+	fork = h.DetectFork(index["e20"], index["e0"])
+	if fork {
+		t.Fatal("e20 should not detect a fork under e0")
 	}
 	fork = h.DetectFork(index["e12"], index["e01"])
 	if fork {

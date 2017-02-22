@@ -132,8 +132,7 @@ func TestProcessSync(t *testing.T) {
 }
 
 func initNodes(logger *logrus.Logger) ([]*ecdsa.PrivateKey, []Node) {
-	conf := DefaultConfig()
-	conf.Logger = logger
+	conf := NewConfig(5*time.Millisecond, logger)
 
 	keys, peers := initPeers()
 	nodes := []Node{}

@@ -19,7 +19,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
-	"reflect"
 	"sort"
 	"time"
 )
@@ -27,6 +26,10 @@ import (
 type Key struct {
 	x string
 	y string
+}
+type Couple struct {
+	by   string
+	from string
 }
 
 type Hashgraph struct {
@@ -36,8 +39,8 @@ type Hashgraph struct {
 	Rounds             map[int]RoundInfo   //number => RoundInfo
 	Consensus          []string            //[index] => hash, in consensus
 	ParticipantEvents  map[string][]string //particpant => []hash in arrival order
-	LastConsensusEvent *int
-	LastConsensusRound int
+	LastConsensusEvent *int                //index of last event which was assigned a round-received
+	LastConsensusRound *int                //index of last round where the fame of all witnesses has been decided
 
 	ancestorCache           map[Key]bool
 	selfAncestorCache       map[Key]bool
@@ -98,7 +101,7 @@ func (h *Hashgraph) ancestor(x, y string) bool {
 	if !ok {
 		return false
 	}
-	return h.Ancestor(ex.Body.Parents[0], y) || h.Ancestor(ex.Body.Parents[1], y)
+	return h.Ancestor(ex.SelfParent(), y) || h.Ancestor(ex.OtherParent(), y)
 }
 
 //true if y is a self-ancestor of x
@@ -126,17 +129,15 @@ func (h *Hashgraph) selfAncestor(x, y string) bool {
 	if !ok {
 		return false
 	}
-	return h.SelfAncestor(ex.Body.Parents[0], y)
+	return h.SelfAncestor(ex.SelfParent(), y)
 }
 
-//true if x detects a fork under y. also returns the hash of the event which
-//is not a self-ancestor of y and caused the fork
+//true if x detects a fork under y
 func (h *Hashgraph) DetectFork(x, y string) bool {
 	if c, ok := h.forkCache[Key{x, y}]; ok {
 		return c
 	}
 	f := h.detectFork(x, y)
-	h.forkCache[Key{x, y}] = f
 	return f
 }
 
@@ -144,7 +145,12 @@ func (h *Hashgraph) detectFork(x, y string) bool {
 	if x == "" || y == "" {
 		return false
 	}
-	_, ok := h.Events[x]
+
+	if !h.Ancestor(x, y) {
+		return false
+	}
+
+	ex, ok := h.Events[x]
 	if !ok {
 		return false
 	}
@@ -153,26 +159,48 @@ func (h *Hashgraph) detectFork(x, y string) bool {
 		return false
 	}
 
-	//filter events satisfying the following criteria:
-	//- same creator as y
-	//- ancestors of x
-	filteredEvents := []Event{}
-	for hash, event := range h.Events {
-		if reflect.DeepEqual(event.Body.Creator, ey.Body.Creator) &&
-			h.Ancestor(x, hash) {
-			filteredEvents = append(filteredEvents, event)
-		}
+	//true if x's self-parent detects a fork under y
+	if h.DetectFork(ex.SelfParent(), y) {
+		return true
 	}
-	for i := 0; i < len(filteredEvents)-1; i++ {
-		a := filteredEvents[i].Hex()
-		for j := i + 1; j < len(filteredEvents); j++ {
-			b := filteredEvents[j].Hex()
-			if !((h.SelfAncestor(a, b)) || h.SelfAncestor(b, a)) {
-				return true
-			}
-		}
+
+	//If there is a fork, then the information must be contained
+	//in x's other-parent
+	//Also, the information cannot be in any of x's self-parent's ancestors
+	//so the set of events to look through is bounded
+	//We look for ancestors of x's other-parent which are not self parents
+	//of y's self-descendant and which are not ancestors of x's self-parent
+	whistleblower := ex.OtherParent()
+	yCreator := ey.Creator()
+	var yDescendant string
+	if ex.Creator() == yCreator {
+		yDescendant = x
+	} else {
+		yDescendant = y
 	}
-	return false
+	stopper := ex.SelfParent()
+
+	return h.blowWhistle(whistleblower, yDescendant, yCreator, stopper)
+}
+
+func (h *Hashgraph) blowWhistle(whistleblower string, yDescendant string, yCreator string, stopper string) bool {
+	if whistleblower == "" {
+		return false
+	}
+	ex, ok := h.Events[whistleblower]
+	if !ok {
+		return false
+	}
+	if h.Ancestor(stopper, whistleblower) {
+		return false
+	}
+	if ex.Creator() == yCreator &&
+		!(h.selfAncestor(yDescendant, whistleblower) || h.selfAncestor(whistleblower, yDescendant)) {
+		return true
+	}
+
+	return h.blowWhistle(ex.SelfParent(), yDescendant, yCreator, stopper) ||
+		h.blowWhistle(ex.OtherParent(), yDescendant, yCreator, stopper)
 }
 
 //true if x sees y
@@ -195,7 +223,7 @@ func (h *Hashgraph) oldestSelfAncestorToSee(x, y string) string {
 		return ""
 	}
 	ex, _ := h.Events[x]
-	a := h.OldestSelfAncestorToSee(ex.Body.Parents[0], y)
+	a := h.OldestSelfAncestorToSee(ex.SelfParent(), y)
 	if a == "" {
 		return x
 	}
@@ -214,13 +242,13 @@ func (h *Hashgraph) MapSentinels(x, y string, sentinels map[string]bool) {
 	if !h.See(x, y) {
 		return
 	}
-	sentinels[fmt.Sprintf("0x%X", ex.Body.Creator)] = true
+	sentinels[ex.Creator()] = true
 	if x == y {
 		return
 	}
 
-	h.MapSentinels(ex.Body.Parents[0], y, sentinels)
-	h.MapSentinels(ex.Body.Parents[1], y, sentinels)
+	h.MapSentinels(ex.SelfParent(), y, sentinels)
+	h.MapSentinels(ex.OtherParent(), y, sentinels)
 }
 
 //true if x strongly sees y
@@ -268,17 +296,17 @@ func (h *Hashgraph) parentRound(x string) int {
 	if !ok {
 		return -1
 	}
-	if ex.Body.Parents[0] == "" && ex.Body.Parents[1] == "" {
+	if ex.SelfParent() == "" && ex.OtherParent() == "" {
 		return 0
 	}
-	if _, ok := h.Events[ex.Body.Parents[0]]; !ok {
+	if _, ok := h.Events[ex.SelfParent()]; !ok {
 		return 0
 	}
-	if _, ok := h.Events[ex.Body.Parents[1]]; !ok {
+	if _, ok := h.Events[ex.OtherParent()]; !ok {
 		return 0
 	}
-	spRound := h.Round(ex.Body.Parents[0])
-	opRound := h.Round(ex.Body.Parents[1])
+	spRound := h.Round(ex.SelfParent())
+	opRound := h.Round(ex.OtherParent())
 
 	if spRound > opRound {
 		return spRound
@@ -295,14 +323,14 @@ func (h *Hashgraph) Witness(x string) bool {
 	if !ok {
 		return false
 	}
-	if ex.Body.Parents[0] == "" {
+	if ex.SelfParent() == "" {
 		return true
 	}
-	_, ok = h.Events[ex.Body.Parents[0]]
+	_, ok = h.Events[ex.SelfParent()]
 	if !ok {
 		return false
 	}
-	return h.Round(x) > h.Round(ex.Body.Parents[0])
+	return h.Round(x) > h.Round(ex.SelfParent())
 }
 
 //true if round of x should be incremented
@@ -394,7 +422,7 @@ func (h *Hashgraph) InsertEvent(event Event) error {
 	h.Events[hash] = event
 	h.EventIndex = append(h.EventIndex, hash)
 
-	creator := fmt.Sprintf("0x%X", event.Body.Creator)
+	creator := event.Creator()
 	h.ParticipantEvents[creator] = append(h.ParticipantEvents[creator], hash)
 
 	return nil
@@ -402,8 +430,8 @@ func (h *Hashgraph) InsertEvent(event Event) error {
 
 //true if parents are last known events of respective creators
 func (h *Hashgraph) FromParentsLatest(event Event) error {
-	selfParent, otherParent := event.Body.Parents[0], event.Body.Parents[1]
-	creator := fmt.Sprintf("0x%X", event.Body.Creator)
+	selfParent, otherParent := event.SelfParent(), event.OtherParent()
+	creator := event.Creator()
 	if selfParent == "" && otherParent == "" &&
 		len(h.ParticipantEvents[creator]) == 0 {
 		return nil
@@ -412,7 +440,7 @@ func (h *Hashgraph) FromParentsLatest(event Event) error {
 	if !selfParentExists {
 		return fmt.Errorf("Self-parent not known (%s)", selfParent)
 	}
-	if fmt.Sprintf("0x%X", selfParentEvent.Body.Creator) != creator {
+	if selfParentEvent.Creator() != creator {
 		return fmt.Errorf("Self-parent has different creator")
 	}
 
@@ -429,9 +457,9 @@ func (h *Hashgraph) FromParentsLatest(event Event) error {
 	return nil
 }
 
-func (h *Hashgraph) loopStart() int {
+func (h *Hashgraph) eventLoopStart() int {
 	if h.LastConsensusEvent != nil {
-		if *h.LastConsensusEvent < len(h.EventIndex) {
+		if *h.LastConsensusEvent < len(h.EventIndex)-1 {
 			return *h.LastConsensusEvent + 1
 		}
 		return *h.LastConsensusEvent
@@ -440,7 +468,7 @@ func (h *Hashgraph) loopStart() int {
 }
 
 func (h *Hashgraph) DivideRounds() {
-	for i := h.loopStart(); i < len(h.EventIndex); i++ {
+	for i := h.eventLoopStart(); i < len(h.EventIndex); i++ {
 		hash := h.EventIndex[i]
 		roundNumber := h.Round(hash)
 		witness := h.Witness(hash)
@@ -450,10 +478,17 @@ func (h *Hashgraph) DivideRounds() {
 	}
 }
 
+func (h *Hashgraph) roundLoopStart() int {
+	if h.LastConsensusRound != nil {
+		return *h.LastConsensusRound + 1
+	}
+	return 0
+}
+
 //decide if witnesses are famous
 func (h *Hashgraph) DecideFame() {
 	votes := make(map[string](map[string]bool)) //[x][y]=>vote(x,y)
-	for i := h.LastConsensusRound; i < len(h.Rounds)-1; i++ {
+	for i := h.roundLoopStart(); i < len(h.Rounds)-1; i++ {
 		roundInfo := h.Rounds[i]
 		for j := i + 1; j < len(h.Rounds); j++ {
 			for x := range roundInfo.Witnesses {
@@ -510,7 +545,7 @@ func (h *Hashgraph) DecideFame() {
 
 //assign round received and timestamp to all events
 func (h *Hashgraph) DecideRoundReceived() {
-	for _, x := range h.EventIndex[h.loopStart():] {
+	for _, x := range h.EventIndex[h.eventLoopStart():] {
 		r := h.Round(x)
 		for i := r + 1; i < len(h.Rounds); i++ {
 			tr, ok := h.Rounds[i]
@@ -521,6 +556,12 @@ func (h *Hashgraph) DecideRoundReceived() {
 			if !tr.WitnessesDecided() {
 				break
 			}
+
+			//update last consensus round if necessary
+			if h.LastConsensusRound == nil || i > *h.LastConsensusRound {
+				h.setLastConsensusRound(i)
+			}
+
 			fws := tr.FamousWitnesses()
 			//set of famous witnesses that see x
 			s := []string{}
@@ -548,36 +589,40 @@ func (h *Hashgraph) DecideRoundReceived() {
 	}
 }
 
-func (h *Hashgraph) setLastConsensusEvent(i int) {
-	if h.LastConsensusEvent == nil {
-		h.LastConsensusEvent = new(int)
+func (h *Hashgraph) setLastConsensusRound(i int) {
+	if h.LastConsensusRound == nil {
+		h.LastConsensusRound = new(int)
 	}
-	*h.LastConsensusEvent = i
+	*h.LastConsensusRound = i
 }
 
 func (h *Hashgraph) FindOrder() {
 	h.DecideRoundReceived()
 
-	consensusEvents := []Event{}
-	for xind, x := range h.EventIndex[h.loopStart():] {
+	newConsensusEvents := []Event{}
+	for xind, x := range h.EventIndex[h.eventLoopStart():] {
 		ex, _ := h.Events[x]
 		if ex.roundReceived != nil {
-			consensusEvents = append(consensusEvents, ex)
+			newConsensusEvents = append(newConsensusEvents, ex)
 			if h.LastConsensusEvent == nil || xind > *h.LastConsensusEvent {
 				h.setLastConsensusEvent(xind)
-				if *ex.roundReceived > h.LastConsensusRound {
-					h.LastConsensusRound = *ex.roundReceived
-				}
 			}
 		}
 	}
 
-	sorter := NewConsensusSorter(consensusEvents)
+	sorter := NewConsensusSorter(newConsensusEvents)
 	sort.Sort(sorter)
 
-	for _, e := range consensusEvents {
+	for _, e := range newConsensusEvents {
 		h.Consensus = append(h.Consensus, e.Hex())
 	}
+}
+
+func (h *Hashgraph) setLastConsensusEvent(i int) {
+	if h.LastConsensusEvent == nil {
+		h.LastConsensusEvent = new(int)
+	}
+	*h.LastConsensusEvent = i
 }
 
 func (h *Hashgraph) MedianTimestamp(eventHashes []string) time.Time {

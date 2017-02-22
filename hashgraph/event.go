@@ -77,6 +77,18 @@ func NewEvent(transactions [][]byte, parents []string, creator []byte) Event {
 	}
 }
 
+func (e *Event) Creator() string {
+	return fmt.Sprintf("0x%X", e.Body.Creator)
+}
+
+func (e *Event) SelfParent() string {
+	return e.Body.Parents[0]
+}
+
+func (e *Event) OtherParent() string {
+	return e.Body.Parents[1]
+}
+
 //ecdsa sig
 func (e *Event) Sign(privKey *ecdsa.PrivateKey) error {
 	signBytes, err := e.Body.Hash()

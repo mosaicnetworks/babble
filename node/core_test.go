@@ -197,10 +197,10 @@ func TestSync(t *testing.T) {
 		t.Fatalf("core 0 should have 0 events for core 2, not %d", k)
 	}
 	core0Head := cores[0].GetHead()
-	if core0Head.Body.Parents[0] != index["e0"] {
+	if core0Head.SelfParent() != index["e0"] {
 		t.Fatalf("core 0 head self-parent should be e0")
 	}
-	if core0Head.Body.Parents[1] != index["e1"] {
+	if core0Head.OtherParent() != index["e1"] {
 		t.Fatalf("core 0 head other-parent should be e1")
 	}
 	index["e01"] = core0Head.Hex()
@@ -235,10 +235,10 @@ func TestSync(t *testing.T) {
 		t.Fatalf("core 2 should have 2 events for core 2, not %d", k)
 	}
 	core2Head := cores[2].GetHead()
-	if core2Head.Body.Parents[0] != index["e2"] {
+	if core2Head.SelfParent() != index["e2"] {
 		t.Fatalf("core 2 head self-parent should be e2")
 	}
-	if core2Head.Body.Parents[1] != index["e01"] {
+	if core2Head.OtherParent() != index["e01"] {
 		t.Fatalf("core 2 head other-parent should be e01")
 	}
 	index["e20"] = core2Head.Hex()
@@ -275,10 +275,10 @@ func TestSync(t *testing.T) {
 		t.Fatalf("core 1 should have 2 events for core 2, not %d", k)
 	}
 	core1Head := cores[1].GetHead()
-	if core1Head.Body.Parents[0] != index["e1"] {
+	if core1Head.SelfParent() != index["e1"] {
 		t.Fatalf("core 1 head self-parent should be e1")
 	}
-	if core1Head.Body.Parents[1] != index["e20"] {
+	if core1Head.OtherParent() != index["e20"] {
 		t.Fatalf("core 1 head other-parent should be e20")
 	}
 	index["e12"] = core1Head.Hex()
