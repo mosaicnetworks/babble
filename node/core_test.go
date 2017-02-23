@@ -75,7 +75,7 @@ func initHashgraph(cores []Core, keys []*ecdsa.PrivateKey, index map[string]stri
 
 	for i := 0; i < len(cores); i++ {
 		if i != participant {
-			event := cores[i].GetEvent(index[fmt.Sprintf("e%d", i)])
+			event, _ := cores[i].GetEvent(index[fmt.Sprintf("e%d", i)])
 			if err := cores[participant].InsertEvent(event); err != nil {
 				fmt.Printf("error inserting %s: %s\n", getName(index, event.Hex()), err)
 			}
@@ -196,7 +196,7 @@ func TestSync(t *testing.T) {
 	if k := knownBy0[fmt.Sprintf("0x%X", cores[2].PubKey())]; k != 0 {
 		t.Fatalf("core 0 should have 0 events for core 2, not %d", k)
 	}
-	core0Head := cores[0].GetHead()
+	core0Head, _ := cores[0].GetHead()
 	if core0Head.SelfParent() != index["e0"] {
 		t.Fatalf("core 0 head self-parent should be e0")
 	}
@@ -234,7 +234,7 @@ func TestSync(t *testing.T) {
 	if k := knownBy2[fmt.Sprintf("0x%X", cores[2].PubKey())]; k != 2 {
 		t.Fatalf("core 2 should have 2 events for core 2, not %d", k)
 	}
-	core2Head := cores[2].GetHead()
+	core2Head, _ := cores[2].GetHead()
 	if core2Head.SelfParent() != index["e2"] {
 		t.Fatalf("core 2 head self-parent should be e2")
 	}
@@ -274,7 +274,7 @@ func TestSync(t *testing.T) {
 	if k := knownBy1[fmt.Sprintf("0x%X", cores[2].PubKey())]; k != 2 {
 		t.Fatalf("core 1 should have 2 events for core 2, not %d", k)
 	}
-	core1Head := cores[1].GetHead()
+	core1Head, _ := cores[1].GetHead()
 	if core1Head.SelfParent() != index["e1"] {
 		t.Fatalf("core 1 head self-parent should be e1")
 	}
@@ -363,13 +363,13 @@ func TestConsensus(t *testing.T) {
 		}
 	}
 
-	if l := len(cores[0].GetConsensus()); l != 6 {
+	if l := len(cores[0].GetConsensusEvents()); l != 6 {
 		t.Fatalf("length of consensus should be 6 not %d", l)
 	}
 
-	core0Consensus := cores[0].GetConsensus()
-	core1Consensus := cores[1].GetConsensus()
-	core2Consensus := cores[2].GetConsensus()
+	core0Consensus := cores[0].GetConsensusEvents()
+	core1Consensus := cores[1].GetConsensusEvents()
+	core2Consensus := cores[2].GetConsensusEvents()
 
 	for i, e := range core0Consensus {
 		if core1Consensus[i] != e {

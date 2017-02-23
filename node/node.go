@@ -41,6 +41,8 @@ type Node struct {
 	// RPC chan comes from the transport layer
 	rpcCh <-chan net.RPC
 
+	txCh chan []byte
+
 	// Shutdown channel to exit, protected to prevent concurrent exits
 	shutdown     bool
 	shutdownCh   chan struct{}
@@ -48,6 +50,8 @@ type Node struct {
 
 	// The transport layer we use
 	trans net.Transport
+
+	transactionPool [][]byte
 }
 
 func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans net.Transport) Node {
@@ -62,14 +66,16 @@ func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans
 	peers := net.ExcludePeer(participants, localAddr)
 
 	node := Node{
-		conf:       conf,
-		core:       &core,
-		localAddr:  localAddr,
-		logger:     conf.Logger.WithField("node", localAddr),
-		peers:      peers,
-		rpcCh:      trans.Consumer(),
-		shutdownCh: make(chan struct{}),
-		trans:      trans,
+		conf:            conf,
+		core:            &core,
+		localAddr:       localAddr,
+		logger:          conf.Logger.WithField("node", localAddr),
+		peers:           peers,
+		rpcCh:           trans.Consumer(),
+		txCh:            make(chan []byte),
+		shutdownCh:      make(chan struct{}),
+		trans:           trans,
+		transactionPool: [][]byte{},
 	}
 	return node
 }
@@ -93,15 +99,18 @@ func (n *Node) Run(gossip bool) {
 	for {
 		select {
 		case rpc := <-n.rpcCh:
-			n.logger.Debug("processing RPC")
+			n.logger.Debug("Processing RPC")
 			n.processRPC(rpc)
 		case <-heartbeatTimer:
 			if gossip {
-				n.logger.Debug("time to Gossip!")
+				n.logger.Debug("Time to gossip!")
 				n.gossip()
 			}
 			// Restart the heartbeat timer
 			heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
+		case t := <-n.txCh:
+			n.logger.WithField("tx", fmt.Sprintf("0x%X...", t[0:10])).Debug("Adding Transaction")
+			n.transactionPool = append(n.transactionPool, t)
 		case <-n.shutdownCh:
 			return
 		default:
@@ -133,13 +142,19 @@ func (n *Node) processKnown(rpc net.RPC, cmd *net.KnownRequest) {
 
 func (n *Node) processSync(rpc net.RPC, cmd *net.SyncRequest) {
 	success := true
-	err := n.core.Sync(cmd.Head, cmd.Events, [][]byte{})
+	n.logger.WithField("txPoolSize", len(n.transactionPool)).Debug("Sync")
+	err := n.core.Sync(cmd.Head, cmd.Events, n.transactionPool)
 	if err != nil {
 		success = false
 	} else {
+		n.transactionPool = [][]byte{}
 		n.core.RunConsensus()
 	}
-	n.logger.WithField("events", len(n.GetConsensus())).Debug("Consensus")
+	txs, _ := n.GetConsensusTransactions()
+	n.logger.WithFields(logrus.Fields{
+		"events": len(n.GetConsensusEvents()),
+		"txs":    len(txs),
+	}).Debug("Consensus")
 	resp := &net.SyncResponse{
 		Success: success,
 	}
@@ -201,6 +216,10 @@ func randomTimeout(minVal time.Duration) <-chan time.Time {
 	return time.After(minVal + extra)
 }
 
+func (n *Node) AddTransaction(t []byte) {
+	n.txCh <- t
+}
+
 func (n *Node) Shutdown() {
 	n.shutdownLock.Lock()
 	defer n.shutdownLock.Unlock()
@@ -212,7 +231,10 @@ func (n *Node) Shutdown() {
 	}
 }
 
-func (n *Node) GetConsensus() []string {
-	consensus := n.core.GetConsensus()
-	return consensus
+func (n *Node) GetConsensusEvents() []string {
+	return n.core.GetConsensusEvents()
+}
+
+func (n *Node) GetConsensusTransactions() ([][]byte, error) {
+	return n.core.GetConsensusTransactions()
 }

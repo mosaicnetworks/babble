@@ -18,6 +18,7 @@ package node
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"math/rand"
 	"reflect"
 	"testing"
 	"time"
@@ -131,6 +132,61 @@ func TestProcessSync(t *testing.T) {
 	node1.Shutdown()
 }
 
+func TestAddTransaction(t *testing.T) {
+	keys, peers := initPeers()
+
+	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	defer peer0Trans.Close()
+
+	node0 := NewNode(TestConfig(t), keys[0], peers, peer0Trans)
+	node0.Init()
+
+	node0.RunAsync(false)
+
+	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	defer peer1Trans.Close()
+
+	node1 := NewNode(TestConfig(t), keys[1], peers, peer1Trans)
+	node1.Init()
+
+	message := "Hello World!"
+	node0.AddTransaction([]byte(message))
+
+	head, unknown := node1.core.Diff(node0.core.Known())
+
+	args := net.SyncRequest{
+		Head:   head,
+		Events: unknown,
+	}
+
+	var out net.SyncResponse
+	if err := peer1Trans.Sync(peers[0].NetAddr, &args, &out); err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	if l := len(node0.transactionPool); l > 0 {
+		t.Fatalf("node0's transactionPool should have 0 elements, not %d\n", l)
+	}
+
+	node0Head, _ := node0.core.GetHead()
+	if l := len(node0Head.Transactions()); l != 1 {
+		t.Fatalf("node0's Head should have 1 element, not %d\n", l)
+	}
+
+	if m := string(node0Head.Transactions()[0]); m != message {
+		t.Fatalf("Transaction message should be '%s' not, not %s\n", message, m)
+	}
+
+	node0.Shutdown()
+	node1.Shutdown()
+}
+
 func initNodes(logger *logrus.Logger) ([]*ecdsa.PrivateKey, []Node) {
 	conf := NewConfig(5*time.Millisecond, logger)
 
@@ -160,6 +216,7 @@ func runNodes(nodes []Node) {
 func shutdownNodes(nodes []Node) {
 	for _, n := range nodes {
 		n.Shutdown()
+		n.trans.Close()
 	}
 }
 
@@ -174,7 +231,7 @@ func TestGossip(t *testing.T) {
 		time.Sleep(1 * time.Second)
 		done := true
 		for _, n := range nodes {
-			if len(n.GetConsensus()) < 5 {
+			if len(n.GetConsensusEvents()) < 5 {
 				done = false
 				break
 			}
@@ -186,17 +243,80 @@ func TestGossip(t *testing.T) {
 
 	shutdownNodes(nodes)
 
-	for i, n := range nodes {
-		logger.Printf("node %d:\n", i)
-		for _, e := range n.GetConsensus() {
-			logger.Println(e[0:10])
+	for i, e := range nodes[0].GetConsensusEvents()[0:5] {
+		for j, n := range nodes[1:len(nodes)] {
+			if n.GetConsensusEvents()[i] != e {
+				t.Fatalf("nodes[%d].Consensus[%d] and nodes[0].Consensus[%d] are not equal", j, i, i)
+			}
+		}
+	}
+}
+
+func makeRandomTransactions(nodes []Node, quit chan int) {
+	go func() {
+		seq := make(map[int]int)
+		for {
+			select {
+			case <-quit:
+				return
+			default:
+				n := rand.Intn(len(nodes))
+				node := nodes[n]
+				node.AddTransaction([]byte(fmt.Sprintf("node%d transaction %d", n, seq[n])))
+				seq[n] = seq[n] + 1
+				time.Sleep(3 * time.Millisecond)
+			}
+		}
+	}()
+}
+
+func TestTransactionOrdering(t *testing.T) {
+	logger := common.NewTestLogger(t)
+	_, nodes := initNodes(logger)
+
+	runNodes(nodes)
+	quit := make(chan int)
+	makeRandomTransactions(nodes, quit)
+	//wait until all nodes have 5 consensus events
+	for {
+		time.Sleep(1 * time.Second)
+		done := true
+		for _, n := range nodes {
+			if len(n.GetConsensusEvents()) < 5 {
+				done = false
+				break
+			}
+		}
+		if done {
+			break
 		}
 	}
 
-	for i, e := range nodes[0].GetConsensus()[0:5] {
-		for j, n := range nodes[1:len(nodes)] {
-			if n.GetConsensus()[i] != e {
-				t.Fatalf("nodes[%d].Consensus[%d] and nodes[0].Consensus[%d] are not equal", j, i, i)
+	close(quit)
+	shutdownNodes(nodes)
+
+	consTransactions := [][][]byte{}
+	for _, n := range nodes {
+		nodeTxs, err := n.GetConsensusTransactions()
+		if err != nil {
+			t.Fatal(err)
+		}
+		consTransactions = append(consTransactions, nodeTxs)
+	}
+
+	min := len(consTransactions[0])
+	for k := 1; k < len(consTransactions); k++ {
+		if len(consTransactions[k]) < min {
+			min = len(consTransactions[k])
+		}
+	}
+
+	t.Logf("min consensus transactions: %d", min)
+
+	for i, tx := range consTransactions[0][:min] {
+		for k, _ := range nodes[1:len(nodes)] {
+			if ot := string(consTransactions[k][i]); ot != string(tx) {
+				t.Fatalf("nodes[%d].Tx[%d] should be %s not %s", k, i, string(tx), ot)
 			}
 		}
 	}

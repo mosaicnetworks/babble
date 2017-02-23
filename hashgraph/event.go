@@ -89,6 +89,10 @@ func (e *Event) OtherParent() string {
 	return e.Body.Parents[1]
 }
 
+func (e *Event) Transactions() [][]byte {
+	return e.Body.Transactions
+}
+
 //ecdsa sig
 func (e *Event) Sign(privKey *ecdsa.PrivateKey) error {
 	signBytes, err := e.Body.Hash()
