@@ -24,6 +24,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 
+	"strconv"
+
 	"github.com/arrivets/babble/hashgraph"
 	"github.com/arrivets/babble/net"
 )
@@ -142,7 +144,6 @@ func (n *Node) processKnown(rpc net.RPC, cmd *net.KnownRequest) {
 
 func (n *Node) processSync(rpc net.RPC, cmd *net.SyncRequest) {
 	success := true
-	n.logger.WithField("txPoolSize", len(n.transactionPool)).Debug("Sync")
 	err := n.core.Sync(cmd.Head, cmd.Events, n.transactionPool)
 	if err != nil {
 		success = false
@@ -150,15 +151,11 @@ func (n *Node) processSync(rpc net.RPC, cmd *net.SyncRequest) {
 		n.transactionPool = [][]byte{}
 		n.core.RunConsensus()
 	}
-	txs, _ := n.GetConsensusTransactions()
-	n.logger.WithFields(logrus.Fields{
-		"events": len(n.GetConsensusEvents()),
-		"txs":    len(txs),
-	}).Debug("Consensus")
 	resp := &net.SyncResponse{
 		Success: success,
 	}
 	rpc.Respond(resp, err)
+	n.logStats()
 }
 
 func (n *Node) gossip() {
@@ -207,7 +204,7 @@ func (n *Node) requestSync(target string, head string, events []hashgraph.Event)
 	return nil
 }
 
-// randomTimeout returns a value that is between the minVal and 2x minVal.
+// randomTimeout returns a value that is between  minVal and 2x minVal.
 func randomTimeout(minVal time.Duration) <-chan time.Time {
 	if minVal == 0 {
 		return nil
@@ -237,4 +234,32 @@ func (n *Node) GetConsensusEvents() []string {
 
 func (n *Node) GetConsensusTransactions() ([][]byte, error) {
 	return n.core.GetConsensusTransactions()
+}
+
+func (n *Node) Stats() map[string]string {
+	toString := func(i *int) string {
+		if i == nil {
+			return "nil"
+		}
+		return strconv.Itoa(*i)
+	}
+	s := map[string]string{
+		"last_consensus_event":   toString(n.core.GetLastConsensusEventIndex()),
+		"last_consensus_round":   toString(n.core.GetLastConsensusRoundIndex()),
+		"consensus_transactions": strconv.Itoa(n.core.GetConsensusTransactionsCount()),
+		"transaction_pool":       strconv.Itoa(len(n.transactionPool)),
+		"num_peers":              strconv.Itoa(len(n.peers)),
+	}
+	return s
+}
+
+func (n *Node) logStats() {
+	stats := n.Stats()
+	n.logger.WithFields(logrus.Fields{
+		"last_consensus_event":   stats["last_consensus_event"],
+		"last_consensus_round":   stats["last_consensus_round"],
+		"consensus_transactions": stats["consensus_transactions"],
+		"transaction_pool":       stats["transaction_pool"],
+		"num_peers":              stats["num_peers"],
+	}).Debug("Stats")
 }

@@ -43,42 +43,6 @@ func (c *Core) PubKey() []byte {
 	return crypto.FromECDSAPub(&c.key.PublicKey)
 }
 
-func (c *Core) GetHead() (hg.Event, bool) {
-	head, ok := c.hg.Events[c.Head]
-	return head, ok
-}
-
-func (c *Core) GetEvent(hash string) (hg.Event, bool) {
-	res, ok := c.hg.Events[hash]
-	return res, ok
-}
-
-func (c *Core) GetEventTransactions(hash string) ([][]byte, error) {
-	var txs [][]byte
-	ex, ok := c.GetEvent(hash)
-	if !ok {
-		return txs, fmt.Errorf("Event not found")
-	}
-	txs = ex.Transactions()
-	return txs, nil
-}
-
-func (c *Core) GetConsensusEvents() []string {
-	return c.hg.Consensus
-}
-
-func (c *Core) GetConsensusTransactions() ([][]byte, error) {
-	txs := [][]byte{}
-	for _, e := range c.GetConsensusEvents() {
-		eTxs, err := c.GetEventTransactions(e)
-		if err != nil {
-			return txs, fmt.Errorf("Consensus event not found: %s", e)
-		}
-		txs = append(txs, eTxs...)
-	}
-	return txs, nil
-}
-
 func (c *Core) Init() error {
 	initialEvent := hg.NewEvent([][]byte{},
 		[]string{"", ""},
@@ -149,4 +113,52 @@ func (c *Core) RunConsensus() {
 	c.hg.DivideRounds()
 	c.hg.DecideFame()
 	c.hg.FindOrder()
+}
+
+func (c *Core) GetHead() (hg.Event, bool) {
+	head, ok := c.hg.Events[c.Head]
+	return head, ok
+}
+
+func (c *Core) GetEvent(hash string) (hg.Event, bool) {
+	res, ok := c.hg.Events[hash]
+	return res, ok
+}
+
+func (c *Core) GetEventTransactions(hash string) ([][]byte, error) {
+	var txs [][]byte
+	ex, ok := c.GetEvent(hash)
+	if !ok {
+		return txs, fmt.Errorf("Event not found")
+	}
+	txs = ex.Transactions()
+	return txs, nil
+}
+
+func (c *Core) GetConsensusEvents() []string {
+	return c.hg.Consensus
+}
+
+func (c *Core) GetConsensusTransactions() ([][]byte, error) {
+	txs := [][]byte{}
+	for _, e := range c.GetConsensusEvents() {
+		eTxs, err := c.GetEventTransactions(e)
+		if err != nil {
+			return txs, fmt.Errorf("Consensus event not found: %s", e)
+		}
+		txs = append(txs, eTxs...)
+	}
+	return txs, nil
+}
+
+func (c *Core) GetLastConsensusEventIndex() *int {
+	return c.hg.LastConsensusEvent
+}
+
+func (c *Core) GetLastConsensusRoundIndex() *int {
+	return c.hg.LastConsensusRound
+}
+
+func (c *Core) GetConsensusTransactionsCount() int {
+	return c.hg.ConsensusTransactions
 }

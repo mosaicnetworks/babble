@@ -33,14 +33,15 @@ type Couple struct {
 }
 
 type Hashgraph struct {
-	Participants       []string            //participant public keys
-	Events             map[string]Event    //hash => Event, in arrival order
-	EventIndex         []string            //[index] => hash
-	Rounds             map[int]RoundInfo   //number => RoundInfo
-	Consensus          []string            //[index] => hash, in consensus
-	ParticipantEvents  map[string][]string //particpant => []hash in arrival order
-	LastConsensusEvent *int                //index of last event which was assigned a round-received
-	LastConsensusRound *int                //index of last round where the fame of all witnesses has been decided
+	Participants          []string            //participant public keys
+	Events                map[string]Event    //hash => Event, in arrival order
+	EventIndex            []string            //[index] => hash
+	Rounds                map[int]RoundInfo   //number => RoundInfo
+	Consensus             []string            //[index] => hash, in consensus
+	ParticipantEvents     map[string][]string //particpant => []hash in arrival order
+	LastConsensusEvent    *int                //index of last event which was assigned a round-received
+	LastConsensusRound    *int                //index of last round where the fame of all witnesses has been decided
+	ConsensusTransactions int                 //number of consensus transactions
 
 	ancestorCache           map[Key]bool
 	selfAncestorCache       map[Key]bool
@@ -615,6 +616,7 @@ func (h *Hashgraph) FindOrder() {
 
 	for _, e := range newConsensusEvents {
 		h.Consensus = append(h.Consensus, e.Hex())
+		h.ConsensusTransactions += len(e.Transactions())
 	}
 }
 
