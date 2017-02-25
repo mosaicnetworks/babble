@@ -108,10 +108,9 @@ func (n *Node) Run(gossip bool) {
 				n.logger.Debug("Time to gossip!")
 				n.gossip()
 			}
-			// Restart the heartbeat timer
 			heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
 		case t := <-n.txCh:
-			n.logger.WithField("tx", fmt.Sprintf("0x%X...", t[0:10])).Debug("Adding Transaction")
+			n.logger.Debug("Adding Transaction")
 			n.transactionPool = append(n.transactionPool, t)
 		case <-n.shutdownCh:
 			return
@@ -204,15 +203,6 @@ func (n *Node) requestSync(target string, head string, events []hashgraph.Event)
 	return nil
 }
 
-// randomTimeout returns a value that is between  minVal and 2x minVal.
-func randomTimeout(minVal time.Duration) <-chan time.Time {
-	if minVal == 0 {
-		return nil
-	}
-	extra := (time.Duration(rand.Int63()) % minVal)
-	return time.After(minVal + extra)
-}
-
 func (n *Node) AddTransaction(t []byte) {
 	n.txCh <- t
 }
@@ -236,7 +226,7 @@ func (n *Node) GetConsensusTransactions() ([][]byte, error) {
 	return n.core.GetConsensusTransactions()
 }
 
-func (n *Node) Stats() map[string]string {
+func (n *Node) GetStats() map[string]string {
 	toString := func(i *int) string {
 		if i == nil {
 			return "nil"
@@ -244,8 +234,8 @@ func (n *Node) Stats() map[string]string {
 		return strconv.Itoa(*i)
 	}
 	s := map[string]string{
-		"last_consensus_event":   toString(n.core.GetLastConsensusEventIndex()),
 		"last_consensus_round":   toString(n.core.GetLastConsensusRoundIndex()),
+		"consensus_events":       strconv.Itoa(len(n.core.GetConsensusEvents())),
 		"consensus_transactions": strconv.Itoa(n.core.GetConsensusTransactionsCount()),
 		"transaction_pool":       strconv.Itoa(len(n.transactionPool)),
 		"num_peers":              strconv.Itoa(len(n.peers)),
@@ -254,12 +244,20 @@ func (n *Node) Stats() map[string]string {
 }
 
 func (n *Node) logStats() {
-	stats := n.Stats()
+	stats := n.GetStats()
 	n.logger.WithFields(logrus.Fields{
-		"last_consensus_event":   stats["last_consensus_event"],
 		"last_consensus_round":   stats["last_consensus_round"],
+		"consensus_events":       stats["consensus_events"],
 		"consensus_transactions": stats["consensus_transactions"],
 		"transaction_pool":       stats["transaction_pool"],
 		"num_peers":              stats["num_peers"],
 	}).Debug("Stats")
+}
+
+func randomTimeout(minVal time.Duration) <-chan time.Time {
+	if minVal == 0 {
+		return nil
+	}
+	extra := (time.Duration(rand.Int63()) % minVal)
+	return time.After(minVal + extra)
 }

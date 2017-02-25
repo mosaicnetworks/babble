@@ -173,7 +173,7 @@ func TestSync(t *testing.T) {
 	*/
 
 	//core 1 is going to tell core 0 everything it knows
-	if err := synchronize(cores, 1, 0, [][]byte{}); err != nil {
+	if err := synchronizeCores(cores, 1, 0, [][]byte{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -206,7 +206,7 @@ func TestSync(t *testing.T) {
 	index["e01"] = core0Head.Hex()
 
 	//core 0 is going to tell core 2 everything it knows
-	if err := synchronize(cores, 0, 2, [][]byte{}); err != nil {
+	if err := synchronizeCores(cores, 0, 2, [][]byte{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -244,7 +244,7 @@ func TestSync(t *testing.T) {
 	index["e20"] = core2Head.Hex()
 
 	//core 2 is going to tell core 1 everything it knows
-	if err := synchronize(cores, 2, 1, [][]byte{}); err != nil {
+	if err := synchronizeCores(cores, 2, 1, [][]byte{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -381,14 +381,14 @@ func TestConsensus(t *testing.T) {
 	}
 }
 
-func synchronize(cores []Core, from int, to int, payload [][]byte) error {
+func synchronizeCores(cores []Core, from int, to int, payload [][]byte) error {
 	knownByTo := cores[to].Known()
 	toHead, unknownByTo := cores[from].Diff(knownByTo)
 	return cores[to].Sync(toHead, unknownByTo, payload)
 }
 
 func syncAndRunConsensus(cores []Core, from int, to int, payload [][]byte) error {
-	if err := synchronize(cores, from, to, payload); err != nil {
+	if err := synchronizeCores(cores, from, to, payload); err != nil {
 		return err
 	}
 	cores[to].RunConsensus()

@@ -878,19 +878,19 @@ func TestFindOrder(t *testing.T) {
 	h.DecideFame()
 	h.FindOrder()
 
-	if l := len(h.Consensus); l != 6 {
-		t.Fatalf("length of consensus should be 6 not %d", l)
+	for i, e := range h.ConsensusEvents {
+		t.Logf("consensus[%d]: %s\n", i, getName(index, e))
 	}
 
-	for i, e := range h.Consensus {
-		t.Logf("consensus[%d]: %s\n", i, getName(index, e))
+	if l := len(h.ConsensusEvents); l != 6 {
+		t.Fatalf("length of consensus should be 6 not %d", l)
 	}
 
 	//events which have the same consensus timestamp are ordered by whitened signature
 	//which is not deterministic.
 	expected1 := []string{"e0", "e10", "e1", "e21", "e2", "e02"}
 	expected2 := []string{"e0", "e1", "e10", "e2", "e21", "e02"}
-	for i, e := range h.Consensus {
+	for i, e := range h.ConsensusEvents {
 		if name := getName(index, e); name != expected1[i] && name != expected2[i] {
 			more := ""
 			if expected1[i] != expected2[i] {

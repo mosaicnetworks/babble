@@ -69,7 +69,7 @@ func (c *Core) Known() map[string]int {
 	return c.hg.Known()
 }
 
-//returns events that n knowns about that are not in 'known' along with n's head
+//returns events that c knowns about that are not in 'known', along with c's head
 func (c *Core) Diff(known map[string]int) (head string, unknown []hg.Event) {
 	head = c.Head
 
@@ -102,8 +102,7 @@ func (c *Core) Sync(otherHead string, unknown []hg.Event, payload [][]byte) erro
 		c.PubKey())
 
 	if err := c.SignAndInsertSelfEvent(newHead); err != nil {
-		fmt.Printf("error inserting new head")
-		return err
+		return fmt.Errorf("Error inserting new head: %s", err)
 	}
 
 	return nil
@@ -136,7 +135,7 @@ func (c *Core) GetEventTransactions(hash string) ([][]byte, error) {
 }
 
 func (c *Core) GetConsensusEvents() []string {
-	return c.hg.Consensus
+	return c.hg.ConsensusEvents
 }
 
 func (c *Core) GetConsensusTransactions() ([][]byte, error) {
@@ -149,10 +148,6 @@ func (c *Core) GetConsensusTransactions() ([][]byte, error) {
 		txs = append(txs, eTxs...)
 	}
 	return txs, nil
-}
-
-func (c *Core) GetLastConsensusEventIndex() *int {
-	return c.hg.LastConsensusEvent
 }
 
 func (c *Core) GetLastConsensusRoundIndex() *int {

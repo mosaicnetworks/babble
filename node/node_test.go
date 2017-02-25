@@ -205,10 +205,10 @@ func initNodes(logger *logrus.Logger) ([]*ecdsa.PrivateKey, []Node) {
 	return nil, nodes
 }
 
-func runNodes(nodes []Node) {
+func runNodes(nodes []Node, gossip bool) {
 	for _, n := range nodes {
 		go func(node Node) {
-			node.Run(true)
+			node.Run(gossip)
 		}(n)
 	}
 }
@@ -220,18 +220,181 @@ func shutdownNodes(nodes []Node) {
 	}
 }
 
+/*
+h0  |   h2
+| \ | / |
+|   h1  |
+|  /|   |
+g02 |   |
+| \ |   |
+|   \   |
+|   | \ |
+|   |  g21
+|   | / |
+|  g10  |
+| / |   |
+g0  |   g2
+| \ | / |
+|   g1  |
+|  /|   |
+f02 |   |
+| \ |   |
+|   \   |
+|   | \ |
+|   |  f21
+|   | / |
+|  f10  |
+| / |   |
+f0  |   f2
+| \ | / |
+|   f1  |
+|  /|   |
+e02 |   |
+| \ |   |
+|   \   |
+|   | \ |
+|   |  e21
+|   | / |
+|  e10  |
+| / |   |
+e0  e1  e2
+0   1    2
+*/
+func TestTransactionOrdering(t *testing.T) {
+	logger := common.NewTestLogger(t)
+	_, nodes := initNodes(logger)
+	runNodes(nodes, false)
+
+	playbook := []play{
+		play{from: 0, to: 1, payload: [][]byte{[]byte("e10")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("e21")}},
+		play{from: 2, to: 0, payload: [][]byte{[]byte("e02")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("f1")}},
+		play{from: 1, to: 0, payload: [][]byte{[]byte("f0")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("f2")}},
+
+		play{from: 0, to: 1, payload: [][]byte{[]byte("f10")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("f21")}},
+		play{from: 2, to: 0, payload: [][]byte{[]byte("f02")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("g1")}},
+		play{from: 1, to: 0, payload: [][]byte{[]byte("g0")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("g2")}},
+
+		play{from: 0, to: 1, payload: [][]byte{[]byte("g10")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("g21")}},
+		play{from: 2, to: 0, payload: [][]byte{[]byte("g02")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("h1")}},
+		play{from: 1, to: 0, payload: [][]byte{[]byte("h0")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("h2")}},
+	}
+
+	for _, play := range playbook {
+		if err := synchronizeNodes(nodes[play.from], nodes[play.to], play.payload); err != nil {
+			t.Fatal(err)
+		}
+	}
+	shutdownNodes(nodes)
+
+	expectedConsTransactions := [][]byte{
+		[]byte("e10"),
+		[]byte("e21"),
+		[]byte("e02"),
+	}
+	for i, n := range nodes {
+		consTransactions, err := n.GetConsensusTransactions()
+		if err != nil {
+			t.Fatal(err)
+		}
+		for j, et := range expectedConsTransactions {
+			if at := string(consTransactions[j]); at != string(et) {
+				t.Fatalf("node[%d].ConsensusTransactions[%d] should be %s, not %s", i, j, string(et), at)
+			}
+		}
+	}
+}
+
+func TestStats(t *testing.T) {
+	logger := common.NewTestLogger(t)
+	_, nodes := initNodes(logger)
+	runNodes(nodes, false)
+
+	playbook := []play{
+		play{from: 0, to: 1, payload: [][]byte{[]byte("e10")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("e21")}},
+		play{from: 2, to: 0, payload: [][]byte{[]byte("e02")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("f1")}},
+		play{from: 1, to: 0, payload: [][]byte{[]byte("f0")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("f2")}},
+
+		play{from: 0, to: 1, payload: [][]byte{[]byte("f10")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("f21")}},
+		play{from: 2, to: 0, payload: [][]byte{[]byte("f02")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("g1")}},
+		play{from: 1, to: 0, payload: [][]byte{[]byte("g0")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("g2")}},
+
+		play{from: 0, to: 1, payload: [][]byte{[]byte("g10")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("g21")}},
+		play{from: 2, to: 0, payload: [][]byte{[]byte("g02")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("h1")}},
+		play{from: 1, to: 0, payload: [][]byte{[]byte("h0")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("h2")}},
+	}
+
+	for _, play := range playbook {
+		if err := synchronizeNodes(nodes[play.from], nodes[play.to], play.payload); err != nil {
+			t.Fatal(err)
+		}
+	}
+	shutdownNodes(nodes)
+
+	stats := nodes[0].GetStats()
+	expectedStats := map[string]string{
+		"last_consensus_round":   "1",
+		"consensus_events":       "6",
+		"consensus_transactions": "3",
+		"transaction_pool":       "0",
+		"num_peers":              "2",
+	}
+
+	t.Logf("%#v", stats)
+
+	if !reflect.DeepEqual(stats, expectedStats) {
+		t.Fatalf("Stats should be %#v, not %#v", expectedStats, stats)
+	}
+}
+
+func synchronizeNodes(from Node, to Node, payload [][]byte) error {
+	for _, t := range payload {
+		to.AddTransaction(t)
+	}
+	known, err := from.requestKnown(to.localAddr)
+	if err != nil {
+		return err
+	}
+
+	head, diff := from.core.Diff(known)
+	if err := from.requestSync(to.localAddr, head, diff); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func TestGossip(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	_, nodes := initNodes(logger)
 
-	runNodes(nodes)
+	runNodes(nodes, true)
+	quit := make(chan int)
+	makeRandomTransactions(nodes, quit)
 
-	//wait until all nodes have 5 consensus events
+	//wait until all nodes have at least 50 consensus events
 	for {
-		time.Sleep(1 * time.Second)
+		time.Sleep(10 * time.Millisecond)
 		done := true
 		for _, n := range nodes {
-			if len(n.GetConsensusEvents()) < 5 {
+			if len(n.GetConsensusEvents()) < 50 {
 				done = false
 				break
 			}
@@ -241,12 +404,45 @@ func TestGossip(t *testing.T) {
 		}
 	}
 
+	close(quit)
 	shutdownNodes(nodes)
 
-	for i, e := range nodes[0].GetConsensusEvents()[0:5] {
-		for j, n := range nodes[1:len(nodes)] {
-			if n.GetConsensusEvents()[i] != e {
+	consEvents := [][]string{}
+	consTransactions := [][][]byte{}
+	for _, n := range nodes {
+		consEvents = append(consEvents, n.GetConsensusEvents())
+		nodeTxs, err := n.GetConsensusTransactions()
+		if err != nil {
+			t.Fatal(err)
+		}
+		consTransactions = append(consTransactions, nodeTxs)
+	}
+
+	minE := len(consEvents[0])
+	minT := len(consTransactions[0])
+	for k := 1; k < len(nodes); k++ {
+		if len(consEvents[k]) < minE {
+			minE = len(consEvents[k])
+		}
+		if len(consTransactions[k]) < minT {
+			minT = len(consTransactions[k])
+		}
+	}
+
+	t.Logf("min consensus events: %d", minE)
+	for i, e := range consEvents[0][0:minE] {
+		for j := range nodes[1:len(nodes)] {
+			if consEvents[j][i] != e {
 				t.Fatalf("nodes[%d].Consensus[%d] and nodes[0].Consensus[%d] are not equal", j, i, i)
+			}
+		}
+	}
+
+	t.Logf("min consensus transactions: %d", minT)
+	for i, tx := range consTransactions[0][:minT] {
+		for k := range nodes[1:len(nodes)] {
+			if ot := string(consTransactions[k][i]); ot != string(tx) {
+				t.Fatalf("nodes[%d].ConsensusTransactions[%d] should be '%s' not '%s'", k, i, string(tx), ot)
 			}
 		}
 	}
@@ -268,56 +464,4 @@ func makeRandomTransactions(nodes []Node, quit chan int) {
 			}
 		}
 	}()
-}
-
-func TestTransactionOrdering(t *testing.T) {
-	logger := common.NewTestLogger(t)
-	_, nodes := initNodes(logger)
-
-	runNodes(nodes)
-	quit := make(chan int)
-	makeRandomTransactions(nodes, quit)
-	//wait until all nodes have 5 consensus events
-	for {
-		time.Sleep(1 * time.Second)
-		done := true
-		for _, n := range nodes {
-			if len(n.GetConsensusEvents()) < 5 {
-				done = false
-				break
-			}
-		}
-		if done {
-			break
-		}
-	}
-
-	close(quit)
-	shutdownNodes(nodes)
-
-	consTransactions := [][][]byte{}
-	for _, n := range nodes {
-		nodeTxs, err := n.GetConsensusTransactions()
-		if err != nil {
-			t.Fatal(err)
-		}
-		consTransactions = append(consTransactions, nodeTxs)
-	}
-
-	min := len(consTransactions[0])
-	for k := 1; k < len(consTransactions); k++ {
-		if len(consTransactions[k]) < min {
-			min = len(consTransactions[k])
-		}
-	}
-
-	t.Logf("min consensus transactions: %d", min)
-
-	for i, tx := range consTransactions[0][:min] {
-		for k, _ := range nodes[1:len(nodes)] {
-			if ot := string(consTransactions[k][i]); ot != string(tx) {
-				t.Fatalf("nodes[%d].Tx[%d] should be %s not %s", k, i, string(tx), ot)
-			}
-		}
-	}
 }
