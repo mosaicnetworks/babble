@@ -353,6 +353,7 @@ func TestStats(t *testing.T) {
 		"last_consensus_round":   "1",
 		"consensus_events":       "6",
 		"consensus_transactions": "3",
+		"undetermined_events":    "14",
 		"transaction_pool":       "0",
 		"num_peers":              "2",
 	}

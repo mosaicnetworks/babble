@@ -138,6 +138,10 @@ func (c *Core) GetConsensusEvents() []string {
 	return c.hg.ConsensusEvents
 }
 
+func (c *Core) GetUndeterminedEvents() []string {
+	return c.hg.UndeterminedEvents
+}
+
 func (c *Core) GetConsensusTransactions() ([][]byte, error) {
 	txs := [][]byte{}
 	for _, e := range c.GetConsensusEvents() {

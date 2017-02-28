@@ -4,6 +4,6 @@ for i in $(seq 1 4);
 do echo node$i: $(docker logs --tail 100 node$i 2>&1 |
     grep Stats |
     tail -1   |
-    awk '"'"'{print $6,"\t",$5,"\t",$4,"\t",$9}'"'"')  
+    awk '"'"'{print $6,"\t",$5,"\t",$4,"\t",$9, "\t", $10}'"'"')  
 done;
 '

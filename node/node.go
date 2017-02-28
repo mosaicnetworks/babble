@@ -237,6 +237,7 @@ func (n *Node) GetStats() map[string]string {
 		"last_consensus_round":   toString(n.core.GetLastConsensusRoundIndex()),
 		"consensus_events":       strconv.Itoa(len(n.core.GetConsensusEvents())),
 		"consensus_transactions": strconv.Itoa(n.core.GetConsensusTransactionsCount()),
+		"undetermined_events":    strconv.Itoa(len(n.core.GetUndeterminedEvents())),
 		"transaction_pool":       strconv.Itoa(len(n.transactionPool)),
 		"num_peers":              strconv.Itoa(len(n.peers)),
 	}
@@ -249,6 +250,7 @@ func (n *Node) logStats() {
 		"last_consensus_round":   stats["last_consensus_round"],
 		"consensus_events":       stats["consensus_events"],
 		"consensus_transactions": stats["consensus_transactions"],
+		"undetermined_events":    stats["undetermined_events"],
 		"transaction_pool":       stats["transaction_pool"],
 		"num_peers":              stats["num_peers"],
 	}).Debug("Stats")
