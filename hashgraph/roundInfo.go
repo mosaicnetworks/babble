@@ -31,53 +31,72 @@ func (t Trilean) String() string {
 	return trileans[t]
 }
 
+type RoundEvent struct {
+	Witness bool
+	Famous  Trilean
+}
+
 type RoundInfo struct {
-	Witnesses map[string]Trilean //witness => famous
-	Events    []string
+	Events map[string]RoundEvent
+}
+
+func NewRoundInfo() *RoundInfo {
+	return &RoundInfo{
+		Events: make(map[string]RoundEvent),
+	}
 }
 
 func (r *RoundInfo) AddEvent(x string, witness bool) {
-	r.Events = append(r.Events, x)
-	if witness {
-		r.AddWitness(x)
+	_, ok := r.Events[x]
+	if !ok {
+		r.Events[x] = RoundEvent{
+			Witness: witness,
+		}
 	}
-}
-
-func (r *RoundInfo) AddWitness(x string) {
-	if r.Witnesses == nil {
-		r.Witnesses = make(map[string]Trilean)
-	}
-	r.Witnesses[x] = Undefined
 }
 
 func (r *RoundInfo) SetFame(x string, f bool) {
-	if r.Witnesses == nil {
-		r.Witnesses = make(map[string]Trilean)
+	e, ok := r.Events[x]
+	if !ok {
+		e = RoundEvent{
+			Witness: true,
+		}
 	}
 	if f {
-		r.Witnesses[x] = True
+		e.Famous = True
 	} else {
-		r.Witnesses[x] = False
+		e.Famous = False
 	}
-
+	r.Events[x] = e
 }
 
 //return true if no witnesses' fame is left undefined
 func (r *RoundInfo) WitnessesDecided() bool {
-	for _, f := range r.Witnesses {
-		if f == Undefined {
+	for _, e := range r.Events {
+		if e.Witness && e.Famous == Undefined {
 			return false
 		}
 	}
 	return true
 }
 
+//return witnesses
+func (r *RoundInfo) Witnesses() []string {
+	res := []string{}
+	for x, e := range r.Events {
+		if e.Witness {
+			res = append(res, x)
+		}
+	}
+	return res
+}
+
 //return famous witnesses
 func (r *RoundInfo) FamousWitnesses() []string {
 	res := []string{}
-	for w, f := range r.Witnesses {
-		if f == True {
-			res = append(res, w)
+	for x, e := range r.Events {
+		if e.Witness && e.Famous == True {
+			res = append(res, x)
 		}
 	}
 	return res
@@ -85,9 +104,9 @@ func (r *RoundInfo) FamousWitnesses() []string {
 
 func (r *RoundInfo) PseudoRandomNumber() *big.Int {
 	res := new(big.Int)
-	for w, t := range r.Witnesses {
-		if t == True {
-			s, _ := new(big.Int).SetString(w, 16)
+	for x, e := range r.Events {
+		if e.Witness && e.Famous == True {
+			s, _ := new(big.Int).SetString(x, 16)
 			res = res.Xor(res, s)
 		}
 	}

@@ -485,15 +485,15 @@ func initRoundHashgraph() (Hashgraph, map[string]string) {
 func TestParentRound(t *testing.T) {
 	h, index := initRoundHashgraph()
 
-	round0Witnesses := make(map[string]Trilean)
-	round0Witnesses[index["e0"]] = Undefined
-	round0Witnesses[index["e1"]] = Undefined
-	round0Witnesses[index["e2"]] = Undefined
-	h.Rounds[0] = RoundInfo{Witnesses: round0Witnesses}
+	round0Witnesses := make(map[string]RoundEvent)
+	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
+	round0Witnesses[index["e1"]] = RoundEvent{Witness: true, Famous: Undefined}
+	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
+	h.Rounds[0] = &RoundInfo{Events: round0Witnesses}
 
-	round1Witnesses := make(map[string]Trilean)
-	round1Witnesses[index["f1"]] = Undefined
-	h.Rounds[1] = RoundInfo{Witnesses: round1Witnesses}
+	round1Witnesses := make(map[string]RoundEvent)
+	round1Witnesses[index["f1"]] = RoundEvent{Witness: true, Famous: Undefined}
+	h.Rounds[1] = &RoundInfo{Events: round1Witnesses}
 
 	if r := h.ParentRound(index["e0"]); r != 0 {
 		t.Fatalf("parent round of e0 should be 0, not %d", r)
@@ -512,15 +512,15 @@ func TestParentRound(t *testing.T) {
 func TestWitness(t *testing.T) {
 	h, index := initRoundHashgraph()
 
-	round0Witnesses := make(map[string]Trilean)
-	round0Witnesses[index["e0"]] = Undefined
-	round0Witnesses[index["e1"]] = Undefined
-	round0Witnesses[index["e2"]] = Undefined
-	h.Rounds[0] = RoundInfo{Witnesses: round0Witnesses}
+	round0Witnesses := make(map[string]RoundEvent)
+	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
+	round0Witnesses[index["e1"]] = RoundEvent{Witness: true, Famous: Undefined}
+	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
+	h.Rounds[0] = &RoundInfo{Events: round0Witnesses}
 
-	round1Witnesses := make(map[string]Trilean)
-	round1Witnesses[index["f1"]] = Undefined
-	h.Rounds[1] = RoundInfo{Witnesses: round1Witnesses}
+	round1Witnesses := make(map[string]RoundEvent)
+	round1Witnesses[index["f1"]] = RoundEvent{Witness: true, Famous: Undefined}
+	h.Rounds[1] = &RoundInfo{Events: round1Witnesses}
 
 	if !h.Witness(index["e0"]) {
 		t.Fatalf("e0 should be witness")
@@ -549,11 +549,11 @@ func TestWitness(t *testing.T) {
 func TestRoundInc(t *testing.T) {
 	h, index := initRoundHashgraph()
 
-	round0Witnesses := make(map[string]Trilean)
-	round0Witnesses[index["e0"]] = Undefined
-	round0Witnesses[index["e1"]] = Undefined
-	round0Witnesses[index["e2"]] = Undefined
-	h.Rounds[0] = RoundInfo{Witnesses: round0Witnesses}
+	round0Witnesses := make(map[string]RoundEvent)
+	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
+	round0Witnesses[index["e1"]] = RoundEvent{Witness: true, Famous: Undefined}
+	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
+	h.Rounds[0] = &RoundInfo{Events: round0Witnesses}
 
 	if !h.RoundInc(index["f1"]) {
 		t.Fatal("RoundInc f1 should be true")
@@ -567,11 +567,11 @@ func TestRoundInc(t *testing.T) {
 func TestRound(t *testing.T) {
 	h, index := initRoundHashgraph()
 
-	round0Witnesses := make(map[string]Trilean)
-	round0Witnesses[index["e0"]] = Undefined
-	round0Witnesses[index["e1"]] = Undefined
-	round0Witnesses[index["e2"]] = Undefined
-	h.Rounds[0] = RoundInfo{Witnesses: round0Witnesses}
+	round0Witnesses := make(map[string]RoundEvent)
+	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
+	round0Witnesses[index["e1"]] = RoundEvent{Witness: true, Famous: Undefined}
+	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
+	h.Rounds[0] = &RoundInfo{Events: round0Witnesses}
 
 	if r := h.Round(index["f1"]); r != 1 {
 		t.Fatalf("round of f1 should be 1 not %d", r)
@@ -585,11 +585,11 @@ func TestRound(t *testing.T) {
 func TestRoundDiff(t *testing.T) {
 	h, index := initRoundHashgraph()
 
-	round0Witnesses := make(map[string]Trilean)
-	round0Witnesses[index["e0"]] = Undefined
-	round0Witnesses[index["e1"]] = Undefined
-	round0Witnesses[index["e2"]] = Undefined
-	h.Rounds[0] = RoundInfo{Witnesses: round0Witnesses}
+	round0Witnesses := make(map[string]RoundEvent)
+	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
+	round0Witnesses[index["e1"]] = RoundEvent{Witness: true, Famous: Undefined}
+	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
+	h.Rounds[0] = &RoundInfo{Events: round0Witnesses}
 
 	if d, err := h.RoundDiff(index["f1"], index["e02"]); d != 1 {
 		if err != nil {
@@ -622,32 +622,36 @@ func TestDivideRounds(t *testing.T) {
 	}
 
 	round0 := h.Rounds[0]
-	if l := len(round0.Witnesses); l != 3 {
+	if l := len(round0.Witnesses()); l != 3 {
 		t.Fatalf("round 0 should have 3 witnesses, not %d", l)
 	}
-	if !contains(round0.Witnesses, index["e0"]) {
+	if !contains(round0.Witnesses(), index["e0"]) {
 		t.Fatalf("round 0 witnesses should contain e0")
 	}
-	if !contains(round0.Witnesses, index["e1"]) {
+	if !contains(round0.Witnesses(), index["e1"]) {
 		t.Fatalf("round 0 witnesses should contain e1")
 	}
-	if !contains(round0.Witnesses, index["e2"]) {
+	if !contains(round0.Witnesses(), index["e2"]) {
 		t.Fatalf("round 0 witnesses should contain e2")
 	}
 
 	round1 := h.Rounds[1]
-	if l := len(round1.Witnesses); l != 1 {
+	if l := len(round1.Witnesses()); l != 1 {
 		t.Fatalf("round 1 should have 1 witness, not %d", l)
 	}
-	if !contains(round1.Witnesses, index["f1"]) {
+	if !contains(round1.Witnesses(), index["f1"]) {
 		t.Fatalf("round 1 witnesses should contain f1")
 	}
 
 }
 
-func contains(s map[string]Trilean, x string) bool {
-	_, ok := s[x]
-	return ok
+func contains(s []string, x string) bool {
+	for _, e := range s {
+		if e == x {
+			return true
+		}
+	}
+	return false
 }
 
 /*
@@ -824,13 +828,13 @@ func TestDecideFame(t *testing.T) {
 		t.Fatalf("g2 round should be 2, not %d", r)
 	}
 
-	if f := h.Rounds[0].Witnesses[index["e0"]]; f != True {
+	if f := h.Rounds[0].Events[index["e0"]]; !(f.Witness && f.Famous == True) {
 		t.Fatalf("e0 should be famous; got %s", f)
 	}
-	if f := h.Rounds[0].Witnesses[index["e1"]]; f != True {
+	if f := h.Rounds[0].Events[index["e1"]]; !(f.Witness && f.Famous == True) {
 		t.Fatalf("e1 should be famous; got %s", f)
 	}
-	if f := h.Rounds[0].Witnesses[index["e2"]]; f != True {
+	if f := h.Rounds[0].Events[index["e2"]]; !(f.Witness && f.Famous == True) {
 		t.Fatalf("e2 should be famous; got %s", f)
 	}
 }

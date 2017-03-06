@@ -36,7 +36,7 @@ type Hashgraph struct {
 	Participants          []string            //participant public keys
 	Events                map[string]Event    //hash => Event, in arrival order
 	EventIndex            []string            //[index] => hash
-	Rounds                map[int]RoundInfo   //number => RoundInfo
+	Rounds                map[int]*RoundInfo  //number => RoundInfo
 	UndeterminedEvents    []string            //[index] => hash, not in consensus
 	ConsensusEvents       []string            //[index] => hash, in consensus
 	ParticipantEvents     map[string][]string //particpant => []hash in arrival order
@@ -60,7 +60,7 @@ func NewHashgraph(participants []string) Hashgraph {
 	return Hashgraph{
 		Participants:            participants,
 		Events:                  make(map[string]Event),
-		Rounds:                  make(map[int]RoundInfo),
+		Rounds:                  make(map[int]*RoundInfo),
 		ParticipantEvents:       participantEvents,
 		ancestorCache:           make(map[Key]bool),
 		selfAncestorCache:       make(map[Key]bool),
@@ -349,9 +349,9 @@ func (h *Hashgraph) RoundInc(x string) bool {
 		return false
 	}
 
-	roundWitnesses := h.Rounds[parentRound].Witnesses
+	roundWitnesses := h.Rounds[parentRound].Witnesses()
 	c := 0
-	for w := range roundWitnesses {
+	for _, w := range roundWitnesses {
 		if h.StronglySee(x, w) {
 			c++
 		}
@@ -464,9 +464,12 @@ func (h *Hashgraph) DivideRounds() {
 	for _, hash := range h.UndeterminedEvents {
 		roundNumber := h.Round(hash)
 		witness := h.Witness(hash)
-		roundInfo, _ := h.Rounds[roundNumber]
+		roundInfo, ok := h.Rounds[roundNumber]
+		if !ok {
+			roundInfo = NewRoundInfo()
+			h.Rounds[roundNumber] = roundInfo
+		}
 		roundInfo.AddEvent(hash, witness)
-		h.Rounds[roundNumber] = roundInfo
 	}
 }
 
@@ -483,15 +486,15 @@ func (h *Hashgraph) DecideFame() {
 	for i := h.fameLoopStart(); i < len(h.Rounds)-1; i++ {
 		roundInfo := h.Rounds[i]
 		for j := i + 1; j < len(h.Rounds); j++ {
-			for x := range roundInfo.Witnesses {
-				for y := range h.Rounds[j].Witnesses {
+			for _, x := range roundInfo.Witnesses() {
+				for _, y := range h.Rounds[j].Witnesses() {
 					diff := j - i
 					if diff == 1 {
 						setVote(votes, y, x, h.See(y, x))
 					} else {
 						//count votes
 						ssWitnesses := []string{}
-						for w := range h.Rounds[j-1].Witnesses {
+						for _, w := range h.Rounds[j-1].Witnesses() {
 							if h.StronglySee(y, w) {
 								ssWitnesses = append(ssWitnesses, w)
 							}
@@ -531,8 +534,6 @@ func (h *Hashgraph) DecideFame() {
 				}
 			}
 		}
-		h.Rounds[i] = roundInfo
-
 		if roundInfo.WitnessesDecided() &&
 			(h.LastConsensusRound == nil || i > *h.LastConsensusRound) {
 			h.setLastConsensusRound(i)
