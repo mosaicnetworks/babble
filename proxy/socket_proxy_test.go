@@ -23,10 +23,10 @@ import (
 	"github.com/arrivets/babble/common"
 )
 
-func TestProxyServer(t *testing.T) {
+func TestSokcetProxyServer(t *testing.T) {
 	clientAddr := "127.0.0.1:9990"
 	proxyAddr := "127.0.0.1:9991"
-	proxy := NewProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestLogger(t))
+	proxy := NewSocketProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestLogger(t))
 	consumeCh := proxy.Consumer()
 
 	tx := []byte("the test transaction")
@@ -46,7 +46,7 @@ func TestProxyServer(t *testing.T) {
 
 	// now client part connecting to RPC service
 	// and calling methods
-	dummyClient, err := NewDummyClient(clientAddr, proxyAddr, common.NewTestLogger(t))
+	dummyClient, err := NewDummySocketClient(clientAddr, proxyAddr, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,12 +59,12 @@ func TestProxyServer(t *testing.T) {
 	}
 }
 
-func TestProxyClient(t *testing.T) {
+func TestSocketProxyClient(t *testing.T) {
 	clientAddr := "127.0.0.1:9992"
 	proxyAddr := "127.0.0.1:9993"
-	proxy := NewProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestLogger(t))
+	proxy := NewSocketProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestLogger(t))
 
-	dummyClient, err := NewDummyClient(clientAddr, proxyAddr, common.NewTestLogger(t))
+	dummyClient, err := NewDummySocketClient(clientAddr, proxyAddr, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatal(err)
 	}

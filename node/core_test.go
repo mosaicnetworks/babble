@@ -29,7 +29,7 @@ func TestInit(t *testing.T) {
 	participants := []string{
 		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
 	}
-	core := NewCore(key, participants)
+	core := NewCore(key, participants, nil)
 	if err := core.Init(); err != nil {
 		t.Fatalf("Init returned and error: %s", err)
 	}
@@ -50,7 +50,7 @@ func initCores() ([]Core, []*ecdsa.PrivateKey, map[string]string) {
 	}
 
 	for i := 0; i < n; i++ {
-		core := NewCore(participantKeys[i], participantPubs)
+		core := NewCore(participantKeys[i], participantPubs, nil)
 		core.Init()
 		cores = append(cores, core)
 		index[fmt.Sprintf("e%d", i)] = core.Head

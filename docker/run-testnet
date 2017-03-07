@@ -13,7 +13,7 @@ docker network create \
 
 for i in $(seq 1 4)
 do
-    docker create --name=node$i --net=babblenet --ip=172.77.5.$i babble run --node_addr="172.77.5.$i:1337"
+    docker create --name=node$i --net=babblenet --ip=172.77.5.$i babble run --node_addr="172.77.5.$i:1337" --no_client=true
     docker cp $MPWD/node$i node$i:/.babble
     docker start node$i 
 done

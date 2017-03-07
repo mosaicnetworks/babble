@@ -37,7 +37,7 @@ func (a *State) CommitTx(tx []byte, ack *bool) error {
 
 //------------------------------------------------------
 
-type DummyClient struct {
+type DummySocketClient struct {
 	nodeAddr    string
 	netListener *net.Listener
 	rpcServer   *rpc.Server
@@ -45,14 +45,14 @@ type DummyClient struct {
 	logger      *logrus.Logger
 }
 
-func NewDummyClient(clientAddr string, nodeAddr string, logger *logrus.Logger) (*DummyClient, error) {
+func NewDummySocketClient(clientAddr string, nodeAddr string, logger *logrus.Logger) (*DummySocketClient, error) {
 	rpcServer := rpc.NewServer()
 	rpcServer.Register(&State{logger: logger})
 	l, err := net.Listen("tcp", clientAddr)
 	if err != nil {
 		return nil, err
 	}
-	client := &DummyClient{
+	client := &DummySocketClient{
 		nodeAddr:    nodeAddr,
 		netListener: &l,
 		rpcServer:   rpcServer,
@@ -64,7 +64,7 @@ func NewDummyClient(clientAddr string, nodeAddr string, logger *logrus.Logger) (
 	return client, nil
 }
 
-func (c *DummyClient) listen() {
+func (c *DummySocketClient) listen() {
 	for {
 		conn, err := (*c.netListener).Accept()
 		if err != nil {
@@ -75,7 +75,7 @@ func (c *DummyClient) listen() {
 	}
 }
 
-func (c *DummyClient) getConnection() (*rpc.Client, error) {
+func (c *DummySocketClient) getConnection() (*rpc.Client, error) {
 	conn, err := net.DialTimeout("tcp", c.nodeAddr, 1*time.Second)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func (c *DummyClient) getConnection() (*rpc.Client, error) {
 	return jsonrpc.NewClient(conn), nil
 }
 
-func (c *DummyClient) SubmitTx(tx []byte) (*bool, error) {
+func (c *DummySocketClient) SubmitTx(tx []byte) (*bool, error) {
 	rpcConn, err := c.getConnection()
 	if err != nil {
 		return nil, err
@@ -96,6 +96,6 @@ func (c *DummyClient) SubmitTx(tx []byte) (*bool, error) {
 	return &ack, nil
 }
 
-func (c *DummyClient) Consumer() chan []byte {
+func (c *DummySocketClient) Consumer() chan []byte {
 	return c.consumeCh
 }

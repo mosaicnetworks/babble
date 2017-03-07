@@ -24,21 +24,21 @@ import (
 	"github.com/Sirupsen/logrus"
 )
 
-type ProxyClient struct {
+type SocketProxyClient struct {
 	nodeAddr string
 	timeout  time.Duration
 	logger   *logrus.Logger
 }
 
-func NewProxyClient(nodeAddr string, timeout time.Duration, logger *logrus.Logger) *ProxyClient {
-	return &ProxyClient{
+func NewSocketProxyClient(nodeAddr string, timeout time.Duration, logger *logrus.Logger) *SocketProxyClient {
+	return &SocketProxyClient{
 		nodeAddr: nodeAddr,
 		timeout:  timeout,
 		logger:   logger,
 	}
 }
 
-func (p *ProxyClient) getConnection() (*rpc.Client, error) {
+func (p *SocketProxyClient) getConnection() (*rpc.Client, error) {
 	conn, err := net.DialTimeout("tcp", p.nodeAddr, p.timeout)
 	if err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func (p *ProxyClient) getConnection() (*rpc.Client, error) {
 	return jsonrpc.NewClient(conn), nil
 }
 
-func (p *ProxyClient) CommitTx(tx []byte) (*bool, error) {
+func (p *SocketProxyClient) CommitTx(tx []byte) (*bool, error) {
 	rpcConn, err := p.getConnection()
 	if err != nil {
 		return nil, err

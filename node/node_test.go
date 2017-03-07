@@ -27,6 +27,7 @@ import (
 	"github.com/arrivets/babble/common"
 	"github.com/arrivets/babble/crypto"
 	"github.com/arrivets/babble/net"
+	"github.com/arrivets/babble/proxy"
 )
 
 func initPeers() ([]*ecdsa.PrivateKey, []net.Peer) {
@@ -54,7 +55,7 @@ func TestProcessKnown(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
-	node := NewNode(TestConfig(t), keys[0], peers, peer0Trans)
+	node := NewNode(TestConfig(t), keys[0], peers, peer0Trans, proxy.NewInmemProxy(common.NewTestLogger(t)))
 	node.Init()
 
 	node.RunAsync(false)
@@ -87,25 +88,26 @@ func TestProcessKnown(t *testing.T) {
 
 func TestProcessSync(t *testing.T) {
 	keys, peers := initPeers()
+	testLogger := common.NewTestLogger(t)
 
-	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
+	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, testLogger)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 	defer peer0Trans.Close()
 
-	node0 := NewNode(TestConfig(t), keys[0], peers, peer0Trans)
+	node0 := NewNode(TestConfig(t), keys[0], peers, peer0Trans, proxy.NewInmemProxy(testLogger))
 	node0.Init()
 
 	node0.RunAsync(false)
 
-	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
+	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, testLogger)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 	defer peer1Trans.Close()
 
-	node1 := NewNode(TestConfig(t), keys[1], peers, peer1Trans)
+	node1 := NewNode(TestConfig(t), keys[1], peers, peer1Trans, proxy.NewInmemProxy(testLogger))
 	node1.Init()
 
 	head, unknown := node1.core.Diff(node0.core.Known())
@@ -134,14 +136,15 @@ func TestProcessSync(t *testing.T) {
 
 func TestAddTransaction(t *testing.T) {
 	keys, peers := initPeers()
-
+	testLogger := common.NewTestLogger(t)
 	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 	defer peer0Trans.Close()
+	peer0Proxy := proxy.NewInmemProxy(testLogger)
 
-	node0 := NewNode(TestConfig(t), keys[0], peers, peer0Trans)
+	node0 := NewNode(TestConfig(t), keys[0], peers, peer0Trans, peer0Proxy)
 	node0.Init()
 
 	node0.RunAsync(false)
@@ -151,12 +154,13 @@ func TestAddTransaction(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 	defer peer1Trans.Close()
+	peer1Proxy := proxy.NewInmemProxy(testLogger)
 
-	node1 := NewNode(TestConfig(t), keys[1], peers, peer1Trans)
+	node1 := NewNode(TestConfig(t), keys[1], peers, peer1Trans, peer1Proxy)
 	node1.Init()
 
 	message := "Hello World!"
-	node0.AddTransaction([]byte(message))
+	peer0Proxy.SubmitTx([]byte(message))
 
 	head, unknown := node1.core.Diff(node0.core.Known())
 
@@ -192,17 +196,20 @@ func initNodes(logger *logrus.Logger) ([]*ecdsa.PrivateKey, []Node) {
 
 	keys, peers := initPeers()
 	nodes := []Node{}
+	proxies := []*proxy.InmemProxy{}
 	for i := 0; i < len(peers); i++ {
 		trans, err := net.NewTCPTransport(peers[i].NetAddr,
 			nil, 2, time.Second, logger)
 		if err != nil {
 			logger.Printf(err.Error())
 		}
-		node := NewNode(conf, keys[i], peers, trans)
+		prox := proxy.NewInmemProxy(logger)
+		node := NewNode(conf, keys[i], peers, trans, prox)
 		node.Init()
 		nodes = append(nodes, node)
+		proxies = append(proxies, prox)
 	}
-	return nil, nodes
+	return keys, nodes
 }
 
 func runNodes(nodes []Node, gossip bool) {
@@ -218,6 +225,15 @@ func shutdownNodes(nodes []Node) {
 		n.Shutdown()
 		n.trans.Close()
 	}
+}
+
+func getCommittedTransactions(n Node) ([][]byte, error) {
+	inmemProxy, ok := n.proxy.(*proxy.InmemProxy)
+	if !ok {
+		return nil, fmt.Errorf("Error casting to InmemProp")
+	}
+	res := inmemProxy.GetCommittedTransactions()
+	return res, nil
 }
 
 /*
@@ -301,7 +317,7 @@ func TestTransactionOrdering(t *testing.T) {
 		[]byte("e02"),
 	}
 	for i, n := range nodes {
-		consTransactions, err := n.GetConsensusTransactions()
+		consTransactions, err := getCommittedTransactions(n)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -366,8 +382,12 @@ func TestStats(t *testing.T) {
 }
 
 func synchronizeNodes(from Node, to Node, payload [][]byte) error {
+	toProxy, ok := to.proxy.(*proxy.InmemProxy)
+	if !ok {
+		return fmt.Errorf("Error casting to InmemProxy")
+	}
 	for _, t := range payload {
-		to.AddTransaction(t)
+		toProxy.SubmitTx(t)
 	}
 	known, err := from.requestKnown(to.localAddr)
 	if err != nil {
@@ -412,7 +432,7 @@ func TestGossip(t *testing.T) {
 	consTransactions := [][][]byte{}
 	for _, n := range nodes {
 		consEvents = append(consEvents, n.GetConsensusEvents())
-		nodeTxs, err := n.GetConsensusTransactions()
+		nodeTxs, err := getCommittedTransactions(n)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -449,6 +469,15 @@ func TestGossip(t *testing.T) {
 	}
 }
 
+func submitTransaction(n Node, tx []byte) error {
+	prox, ok := n.proxy.(*proxy.InmemProxy)
+	if !ok {
+		return fmt.Errorf("Error casting to InmemProp")
+	}
+	prox.SubmitTx([]byte(tx))
+	return nil
+}
+
 func makeRandomTransactions(nodes []Node, quit chan int) {
 	go func() {
 		seq := make(map[int]int)
@@ -459,7 +488,7 @@ func makeRandomTransactions(nodes []Node, quit chan int) {
 			default:
 				n := rand.Intn(len(nodes))
 				node := nodes[n]
-				node.AddTransaction([]byte(fmt.Sprintf("node%d transaction %d", n, seq[n])))
+				submitTransaction(node, []byte(fmt.Sprintf("node%d transaction %d", n, seq[n])))
 				seq[n] = seq[n] + 1
 				time.Sleep(3 * time.Millisecond)
 			}

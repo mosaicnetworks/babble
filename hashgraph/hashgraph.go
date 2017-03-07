@@ -42,6 +42,7 @@ type Hashgraph struct {
 	ParticipantEvents     map[string][]string //particpant => []hash in arrival order
 	LastConsensusRound    *int                //index of last round where the fame of all witnesses has been decided
 	ConsensusTransactions int                 //number of consensus transactions
+	commitCh              chan Event          //channel for committing events
 
 	ancestorCache           map[Key]bool
 	selfAncestorCache       map[Key]bool
@@ -52,16 +53,18 @@ type Hashgraph struct {
 	roundCache              map[string]int
 }
 
-func NewHashgraph(participants []string) Hashgraph {
+func NewHashgraph(participants []string, commitCh chan Event) Hashgraph {
 	participantEvents := make(map[string][]string)
 	for _, p := range participants {
 		participantEvents[p] = []string{}
 	}
+
 	return Hashgraph{
 		Participants:            participants,
 		Events:                  make(map[string]Event),
 		Rounds:                  make(map[int]*RoundInfo),
 		ParticipantEvents:       participantEvents,
+		commitCh:                commitCh,
 		ancestorCache:           make(map[Key]bool),
 		selfAncestorCache:       make(map[Key]bool),
 		forkCache:               make(map[Key]bool),
@@ -609,6 +612,10 @@ func (h *Hashgraph) FindOrder() {
 	for _, e := range newConsensusEvents {
 		h.ConsensusEvents = append(h.ConsensusEvents, e.Hex())
 		h.ConsensusTransactions += len(e.Transactions())
+
+		if h.commitCh != nil {
+			h.commitCh <- e
+		}
 	}
 }
 

@@ -102,7 +102,7 @@ func initHashgraph() (Hashgraph, map[string]string) {
 		}
 		participantEvents[node.PubHex] = pe
 	}
-	hashgraph := NewHashgraph(participants)
+	hashgraph := NewHashgraph(participants, nil)
 	hashgraph.Events = events
 	hashgraph.ParticipantEvents = participantEvents
 	return hashgraph, index
@@ -260,7 +260,7 @@ func initForkHashgraph() (Hashgraph, map[string]string) {
 		}
 		participantEvents[node.PubHex] = pe
 	}
-	hashgraph := NewHashgraph(participants)
+	hashgraph := NewHashgraph(participants, nil)
 	hashgraph.Events = events
 	hashgraph.ParticipantEvents = participantEvents
 	return hashgraph, index
@@ -473,7 +473,7 @@ func initRoundHashgraph() (Hashgraph, map[string]string) {
 		participants = append(participants, node.PubHex)
 	}
 
-	hashgraph := NewHashgraph(participants)
+	hashgraph := NewHashgraph(participants, nil)
 	for i, ev := range *orderedEvents {
 		if err := hashgraph.InsertEvent(ev); err != nil {
 			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
@@ -803,7 +803,7 @@ func initConsensusHashgraph() (Hashgraph, map[string]string) {
 		participants = append(participants, node.PubHex)
 	}
 
-	hashgraph := NewHashgraph(participants)
+	hashgraph := NewHashgraph(participants, nil)
 	for i, ev := range *orderedEvents {
 		if err := hashgraph.InsertEvent(ev); err != nil {
 			fmt.Printf("ERROR inserting event %d: %s\n", i, err)

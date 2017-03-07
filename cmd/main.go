@@ -29,6 +29,7 @@ import (
 	"github.com/arrivets/babble/crypto"
 	"github.com/arrivets/babble/net"
 	"github.com/arrivets/babble/node"
+	"github.com/arrivets/babble/proxy"
 )
 
 var (
@@ -42,6 +43,22 @@ var (
 		Usage: "IP:Port to bind Babble",
 		Value: "127.0.0.1:1337",
 	}
+
+	NoClientFlag = cli.BoolFlag{
+		Name:  "no_client",
+		Usage: "Run Babble with dummy in-memory App client",
+	}
+	ProxyAddressFlag = cli.StringFlag{
+		Name:  "proxy_addr",
+		Usage: "IP:Port to bind Proxy Server",
+		Value: "127.0.0.1:1338",
+	}
+	ClientAddressFlag = cli.StringFlag{
+		Name:  "client_addr",
+		Usage: "IP:Port of Client App",
+		Value: "127.0.0.1:1339",
+	}
+
 	LogLevelFlag = cli.StringFlag{
 		Name:  "log_level",
 		Usage: "debug, info, warn, error, fatal, panic",
@@ -81,6 +98,9 @@ func main() {
 			Flags: []cli.Flag{
 				DataDirFlag,
 				NodeAddressFlag,
+				NoClientFlag,
+				ProxyAddressFlag,
+				ClientAddressFlag,
 				LogLevelFlag,
 				HeartbeatFlag,
 				MaxPoolFlag,
@@ -113,12 +133,18 @@ func run(c *cli.Context) error {
 
 	datadir := c.String(DataDirFlag.Name)
 	addr := c.String(NodeAddressFlag.Name)
+	noclient := c.Bool(NoClientFlag.Name)
+	proxyAddress := c.String(ProxyAddressFlag.Name)
+	clientAddress := c.String(ClientAddressFlag.Name)
 	heartbeat := c.Int(HeartbeatFlag.Name)
 	maxPool := c.Int(MaxPoolFlag.Name)
 	tcpTimeout := c.Int(TcpTimeoutFlag.Name)
 	logger.WithFields(logrus.Fields{
 		"datadir":     datadir,
 		"node_addr":   addr,
+		"no_client":   noclient,
+		"proxy_addr":  proxyAddress,
+		"client_addr": clientAddress,
 		"heartbeat":   heartbeat,
 		"max_pool":    maxPool,
 		"tcp_timeout": tcpTimeout,
@@ -150,7 +176,15 @@ func run(c *cli.Context) error {
 		return err
 	}
 
-	node := node.NewNode(conf, key, peers, trans)
+	var prox proxy.Proxy
+	if noclient {
+		prox = proxy.NewInmemProxy(logger)
+	} else {
+		prox = proxy.NewSocketProxy(clientAddress, proxyAddress,
+			time.Duration(tcpTimeout)*time.Millisecond, logger)
+	}
+
+	node := node.NewNode(conf, key, peers, trans, prox)
 	node.Init()
 	node.Run(true)
 	return nil

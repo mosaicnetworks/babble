@@ -15,56 +15,7 @@ limitations under the License.
 */
 package proxy
 
-import (
-	"time"
-
-	"fmt"
-
-	"github.com/Sirupsen/logrus"
-)
-
-type Proxy struct {
-	clientAddress string
-	bindAddress   string
-
-	client *ProxyClient
-	server *ProxyServer
-
-	logger *logrus.Logger
-}
-
-func NewProxy(clientAddr string, bindAddr string, timeout time.Duration, logger *logrus.Logger) *Proxy {
-	if logger == nil {
-		logger = logrus.New()
-		logger.Level = logrus.DebugLevel
-	}
-
-	client := NewProxyClient(clientAddr, timeout, logger)
-	server := NewProxyServer(bindAddr, logger)
-
-	proxy := &Proxy{
-		clientAddress: clientAddr,
-		bindAddress:   bindAddr,
-		client:        client,
-		server:        server,
-		logger:        logger,
-	}
-	go proxy.server.listen()
-
-	return proxy
-}
-
-func (p *Proxy) Consumer() chan []byte {
-	return p.server.consumeCh
-}
-
-func (p *Proxy) CommitTx(tx []byte) error {
-	ack, err := p.client.CommitTx(tx)
-	if err != nil {
-		return err
-	}
-	if !*ack {
-		return fmt.Errorf("App returned false to CommitTx")
-	}
-	return nil
+type Proxy interface {
+	Consumer() chan []byte
+	CommitTx(tx []byte) error
 }

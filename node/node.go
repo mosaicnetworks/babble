@@ -28,6 +28,7 @@ import (
 
 	"github.com/arrivets/babble/hashgraph"
 	"github.com/arrivets/babble/net"
+	"github.com/arrivets/babble/proxy"
 )
 
 type Node struct {
@@ -40,30 +41,32 @@ type Node struct {
 
 	peers []net.Peer
 
-	// RPC chan comes from the transport layer
-	rpcCh <-chan net.RPC
+	trans net.Transport
+	netCh <-chan net.RPC
 
-	txCh chan []byte
+	proxy    proxy.Proxy
+	submitCh chan []byte
+
+	commitCh chan hashgraph.Event
 
 	// Shutdown channel to exit, protected to prevent concurrent exits
 	shutdown     bool
 	shutdownCh   chan struct{}
 	shutdownLock sync.Mutex
 
-	// The transport layer we use
-	trans net.Transport
-
 	transactionPool [][]byte
 }
 
-func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans net.Transport) Node {
+func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans net.Transport, proxy proxy.Proxy) Node {
 	localAddr := trans.LocalAddr()
 
 	participantPubs := []string{}
 	for _, p := range participants {
 		participantPubs = append(participantPubs, p.PubKeyHex)
 	}
-	core := NewCore(key, participantPubs)
+
+	commitCh := make(chan hashgraph.Event, 20)
+	core := NewCore(key, participantPubs, commitCh)
 
 	peers := net.ExcludePeer(participants, localAddr)
 
@@ -73,10 +76,12 @@ func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans
 		localAddr:       localAddr,
 		logger:          conf.Logger.WithField("node", localAddr),
 		peers:           peers,
-		rpcCh:           trans.Consumer(),
-		txCh:            make(chan []byte),
-		shutdownCh:      make(chan struct{}),
 		trans:           trans,
+		netCh:           trans.Consumer(),
+		proxy:           proxy,
+		submitCh:        proxy.Consumer(),
+		commitCh:        commitCh,
+		shutdownCh:      make(chan struct{}),
 		transactionPool: [][]byte{},
 	}
 	return node
@@ -100,7 +105,7 @@ func (n *Node) Run(gossip bool) {
 	heartbeatTimer := randomTimeout(n.conf.HeartbeatTimeout)
 	for {
 		select {
-		case rpc := <-n.rpcCh:
+		case rpc := <-n.netCh:
 			n.logger.Debug("Processing RPC")
 			n.processRPC(rpc)
 		case <-heartbeatTimer:
@@ -109,9 +114,14 @@ func (n *Node) Run(gossip bool) {
 				n.gossip()
 			}
 			heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
-		case t := <-n.txCh:
+		case t := <-n.submitCh:
 			n.logger.Debug("Adding Transaction")
 			n.transactionPool = append(n.transactionPool, t)
+		case e := <-n.commitCh:
+			n.logger.Debug("Committing Event")
+			if err := n.Commit(e); err != nil {
+				n.logger.WithField("error", err).Error("Committing Event")
+			}
 		case <-n.shutdownCh:
 			return
 		default:
@@ -203,8 +213,13 @@ func (n *Node) requestSync(target string, head string, events []hashgraph.Event)
 	return nil
 }
 
-func (n *Node) AddTransaction(t []byte) {
-	n.txCh <- t
+func (n *Node) Commit(event hashgraph.Event) error {
+	for _, tx := range event.Transactions() {
+		if err := n.proxy.CommitTx(tx); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (n *Node) Shutdown() {

@@ -23,15 +23,15 @@ import (
 	"github.com/Sirupsen/logrus"
 )
 
-type ProxyServer struct {
+type SocketProxyServer struct {
 	netListener *net.Listener
 	rpcServer   *rpc.Server
 	consumeCh   chan []byte
 	logger      *logrus.Logger
 }
 
-func NewProxyServer(bindAddress string, logger *logrus.Logger) *ProxyServer {
-	server := &ProxyServer{
+func NewSocketProxyServer(bindAddress string, logger *logrus.Logger) *SocketProxyServer {
+	server := &SocketProxyServer{
 		consumeCh: make(chan []byte),
 		logger:    logger,
 	}
@@ -39,7 +39,7 @@ func NewProxyServer(bindAddress string, logger *logrus.Logger) *ProxyServer {
 	return server
 }
 
-func (p *ProxyServer) register(bindAddress string) {
+func (p *SocketProxyServer) register(bindAddress string) {
 	rpcServer := rpc.NewServer()
 	rpcServer.RegisterName("Babble", p)
 	p.rpcServer = rpcServer
@@ -51,7 +51,7 @@ func (p *ProxyServer) register(bindAddress string) {
 	p.netListener = &l
 }
 
-func (p *ProxyServer) listen() {
+func (p *SocketProxyServer) listen() {
 	for {
 		conn, err := (*p.netListener).Accept()
 		if err != nil {
@@ -62,7 +62,7 @@ func (p *ProxyServer) listen() {
 	}
 }
 
-func (p *ProxyServer) SubmitTx(tx []byte, ack *bool) error {
+func (p *SocketProxyServer) SubmitTx(tx []byte, ack *bool) error {
 	p.logger.Debug("SubmitTx")
 	p.consumeCh <- tx
 	*ack = true
