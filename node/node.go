@@ -26,7 +26,7 @@ import (
 
 	"strconv"
 
-	"github.com/arrivets/babble/hashgraph"
+	hg "github.com/arrivets/babble/hashgraph"
 	"github.com/arrivets/babble/net"
 	"github.com/arrivets/babble/proxy"
 )
@@ -47,7 +47,7 @@ type Node struct {
 	proxy    proxy.Proxy
 	submitCh chan []byte
 
-	commitCh chan hashgraph.Event
+	commitCh chan []hg.Event
 
 	// Shutdown channel to exit, protected to prevent concurrent exits
 	shutdown     bool
@@ -65,7 +65,7 @@ func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans
 		participantPubs = append(participantPubs, p.PubKeyHex)
 	}
 
-	commitCh := make(chan hashgraph.Event, 20)
+	commitCh := make(chan []hg.Event, 20)
 	core := NewCore(key, participantPubs, commitCh)
 
 	peers := net.ExcludePeer(participants, localAddr)
@@ -117,9 +117,9 @@ func (n *Node) Run(gossip bool) {
 		case t := <-n.submitCh:
 			n.logger.Debug("Adding Transaction")
 			n.transactionPool = append(n.transactionPool, t)
-		case e := <-n.commitCh:
-			n.logger.Debug("Committing Event")
-			if err := n.Commit(e); err != nil {
+		case events := <-n.commitCh:
+			n.logger.WithField("Events", len(events)).Debug("Committing Events")
+			if err := n.Commit(events); err != nil {
 				n.logger.WithField("error", err).Error("Committing Event")
 			}
 		case <-n.shutdownCh:
@@ -197,7 +197,7 @@ func (n *Node) requestKnown(target string) (map[string]int, error) {
 	return out.Known, nil
 }
 
-func (n *Node) requestSync(target string, head string, events []hashgraph.Event) error {
+func (n *Node) requestSync(target string, head string, events []hg.Event) error {
 	args := net.SyncRequest{
 		Head:   head,
 		Events: events,
@@ -213,10 +213,12 @@ func (n *Node) requestSync(target string, head string, events []hashgraph.Event)
 	return nil
 }
 
-func (n *Node) Commit(event hashgraph.Event) error {
-	for _, tx := range event.Transactions() {
-		if err := n.proxy.CommitTx(tx); err != nil {
-			return err
+func (n *Node) Commit(events []hg.Event) error {
+	for _, ev := range events {
+		for _, tx := range ev.Transactions() {
+			if err := n.proxy.CommitTx(tx); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

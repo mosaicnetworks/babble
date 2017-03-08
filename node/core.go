@@ -31,7 +31,7 @@ type Core struct {
 	Head string
 }
 
-func NewCore(key *ecdsa.PrivateKey, participants []string, commitCh chan hg.Event) Core {
+func NewCore(key *ecdsa.PrivateKey, participants []string, commitCh chan []hg.Event) Core {
 	core := Core{
 		key: key,
 		hg:  hg.NewHashgraph(participants, commitCh),
