@@ -43,7 +43,6 @@ var (
 		Usage: "IP:Port to bind Babble",
 		Value: "127.0.0.1:1337",
 	}
-
 	NoClientFlag = cli.BoolFlag{
 		Name:  "no_client",
 		Usage: "Run Babble with dummy in-memory App client",
@@ -58,7 +57,6 @@ var (
 		Usage: "IP:Port of Client App",
 		Value: "127.0.0.1:1339",
 	}
-
 	LogLevelFlag = cli.StringFlag{
 		Name:  "log_level",
 		Usage: "debug, info, warn, error, fatal, panic",

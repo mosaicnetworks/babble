@@ -1,6 +1,6 @@
 #!/bin/bash
 for i in $(seq 1 4)
 do
-    docker rm -f node$i
+    docker rm -f node$i client$i
 done
 docker network rm babblenet

@@ -1,3 +1,0 @@
-#!/bin/bash
-CGO_ENABLED=0 go build -o babble ../cmd/main.go
-docker build --no-cache=true -t babble .

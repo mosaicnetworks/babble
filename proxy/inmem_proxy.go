@@ -46,6 +46,8 @@ func (p *InmemProxy) CommitTx(tx []byte) error {
 	return nil
 }
 
+//-------------------------------------------------------
+
 func (p *InmemProxy) SubmitTx(tx []byte) {
 	p.consumer <- tx
 }
