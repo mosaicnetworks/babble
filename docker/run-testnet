@@ -22,6 +22,8 @@ do
     docker start node$i
 
     docker run -d --name=client$i --net=babblenet --ip=172.77.5.1$i -it dummy \
+    --name="client $i" \
     --client_addr="172.77.5.1$i:1339" \
-    --proxy_addr="172.77.5.$i:1338"  
+    --proxy_addr="172.77.5.$i:1338" \
+    --log_level="info"  
 done

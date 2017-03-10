@@ -16,9 +16,11 @@ limitations under the License.
 package proxy
 
 import (
+	"fmt"
 	"net"
 	"net/rpc"
 	"net/rpc/jsonrpc"
+	"os"
 
 	"time"
 
@@ -31,8 +33,32 @@ type State struct {
 
 func (a *State) CommitTx(tx []byte, ack *bool) error {
 	a.logger.WithField("Tx", string(tx)).Debug("CommitTx")
+	a.writeMessage(tx)
 	*ack = true
 	return nil
+}
+
+func (a *State) writeMessage(tx []byte) {
+	file, err := a.getFile()
+	if err != nil {
+		a.logger.Error(err)
+	}
+	defer file.Close()
+
+	// write some text to file
+	_, err = file.WriteString(fmt.Sprintf("%s\n", string(tx)))
+	if err != nil {
+		a.logger.Error(err)
+	}
+	err = file.Sync()
+	if err != nil {
+		a.logger.Error(err)
+	}
+}
+
+func (a *State) getFile() (*os.File, error) {
+	path := "messages.txt"
+	return os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
 }
 
 //------------------------------------------------------
@@ -47,6 +73,8 @@ type DummySocketClient struct {
 
 func NewDummySocketClient(clientAddr string, nodeAddr string, logger *logrus.Logger) (*DummySocketClient, error) {
 	rpcServer := rpc.NewServer()
+	state := &State{logger: logger}
+	state.writeMessage([]byte(clientAddr))
 	rpcServer.Register(&State{logger: logger})
 	l, err := net.Listen("tcp", clientAddr)
 	if err != nil {

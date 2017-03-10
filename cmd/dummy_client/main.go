@@ -27,6 +27,10 @@ import (
 )
 
 var (
+	NameFlag = cli.StringFlag{
+		Name:  "name",
+		Usage: "Client Name",
+	}
 	ProxyAddressFlag = cli.StringFlag{
 		Name:  "proxy_addr",
 		Usage: "IP:Port to bind Proxy Server",
@@ -49,6 +53,7 @@ func main() {
 	app.Name = "dummy"
 	app.Usage = "Dummy Socket Client for Babble"
 	app.Flags = []cli.Flag{
+		NameFlag,
 		ProxyAddressFlag,
 		ClientAddressFlag,
 		LogLevelFlag,
@@ -61,10 +66,12 @@ func run(c *cli.Context) error {
 	logger := logrus.New()
 	logger.Level = logLevel(c.String(LogLevelFlag.Name))
 
+	name := c.String(NameFlag.Name)
 	proxyAddress := c.String(ProxyAddressFlag.Name)
 	clientAddress := c.String(ClientAddressFlag.Name)
 
 	logger.WithFields(logrus.Fields{
+		"name":        name,
 		"proxy_addr":  proxyAddress,
 		"client_addr": clientAddress,
 	}).Debug("RUN")
@@ -74,18 +81,6 @@ func run(c *cli.Context) error {
 		return err
 	}
 
-	// for {
-	// 	ok, err := client.SubmitTx([]byte(fmt.Sprintf("Hello from %s\n", clientAddress)))
-	// 	if err != nil {
-	// 		if err != nil {
-	// 			fmt.Printf("Error in SubmitTx: %v\n", err)
-	// 		} else {
-	// 			fmt.Printf("OK? %v\n", *ok)
-	// 		}
-	// 	}
-	// 	time.Sleep(1 * time.Second)
-	// }
-
 	scanner := bufio.NewScanner(os.Stdin)
 	var text string
 	for text != "q" { // break the loop if text == "q"
@@ -93,12 +88,10 @@ func run(c *cli.Context) error {
 		scanner.Scan()
 		text = scanner.Text()
 		if text != "q" {
-			fmt.Println("Your text was: ", text)
-			ok, err := client.SubmitTx([]byte(text))
+			message := fmt.Sprintf("%s: %s", name, text)
+			_, err := client.SubmitTx([]byte(message))
 			if err != nil {
 				fmt.Printf("Error in SubmitTx: %v\n", err)
-			} else {
-				fmt.Printf("OK? %v\n", *ok)
 			}
 		}
 	}

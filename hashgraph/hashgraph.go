@@ -27,15 +27,11 @@ type Key struct {
 	x string
 	y string
 }
-type Couple struct {
-	by   string
-	from string
-}
 
 type Hashgraph struct {
 	Participants          []string            //participant public keys
-	Events                map[string]Event    //hash => Event, in arrival order
-	EventIndex            []string            //[index] => hash
+	Events                map[string]Event    //hash => Event
+	EventIndex            []string            //[index] => hash, in arrival order
 	Rounds                map[int]*RoundInfo  //number => RoundInfo
 	UndeterminedEvents    []string            //[index] => hash, not in consensus
 	ConsensusEvents       []string            //[index] => hash, in consensus
