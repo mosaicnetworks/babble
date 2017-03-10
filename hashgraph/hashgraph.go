@@ -638,11 +638,11 @@ func (h *Hashgraph) Known() map[string]int {
 }
 
 func middleBit(ehex string) bool {
-	hash, err := hex.DecodeString(ehex)
-	if err == nil {
+	hash, err := hex.DecodeString(ehex[2:])
+	if err != nil {
 		fmt.Printf("ERROR decoding hex string: %s\n", err)
 	}
-	if hash[len(hash)/2] == 0 {
+	if len(hash) > 0 && hash[len(hash)/2] == 0 {
 		return false
 	}
 	return true
