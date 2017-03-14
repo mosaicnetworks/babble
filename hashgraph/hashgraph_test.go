@@ -91,20 +91,16 @@ func initHashgraph() (Hashgraph, map[string]string) {
 	nodes[1].signAndAddEvent(event12, "e12", index, orderedEvents)
 
 	participants := []string{}
-	events := make(map[string]Event)
-	participantEvents := make(map[string][]string)
 	for _, node := range nodes {
 		participants = append(participants, node.PubHex)
-		pe := []string{}
-		for _, ev := range node.Events {
-			events[ev.Hex()] = ev
-			pe = append(pe, ev.Hex())
-		}
-		participantEvents[node.PubHex] = pe
 	}
-	hashgraph := NewHashgraph(participants, nil)
-	hashgraph.Events = events
-	hashgraph.ParticipantEvents = participantEvents
+	store := NewInmemStore(participants)
+	for _, node := range nodes {
+		for _, ev := range node.Events {
+			store.SetEvent(ev)
+		}
+	}
+	hashgraph := NewHashgraph(participants, store, nil)
 	return hashgraph, index
 }
 
@@ -249,20 +245,16 @@ func initForkHashgraph() (Hashgraph, map[string]string) {
 	nodes[1].signAndAddEvent(event12, "e12", index, orderedEvents)
 
 	participants := []string{}
-	events := make(map[string]Event)
-	participantEvents := make(map[string][]string)
 	for _, node := range nodes {
 		participants = append(participants, node.PubHex)
-		pe := []string{}
-		for _, ev := range node.Events {
-			events[ev.Hex()] = ev
-			pe = append(pe, ev.Hex())
-		}
-		participantEvents[node.PubHex] = pe
 	}
-	hashgraph := NewHashgraph(participants, nil)
-	hashgraph.Events = events
-	hashgraph.ParticipantEvents = participantEvents
+	store := NewInmemStore(participants)
+	for _, node := range nodes {
+		for _, ev := range node.Events {
+			store.SetEvent(ev)
+		}
+	}
+	hashgraph := NewHashgraph(participants, store, nil)
 	return hashgraph, index
 }
 
@@ -473,7 +465,7 @@ func initRoundHashgraph() (Hashgraph, map[string]string) {
 		participants = append(participants, node.PubHex)
 	}
 
-	hashgraph := NewHashgraph(participants, nil)
+	hashgraph := NewHashgraph(participants, NewInmemStore(participants), nil)
 	for i, ev := range *orderedEvents {
 		if err := hashgraph.InsertEvent(ev); err != nil {
 			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
@@ -489,11 +481,11 @@ func TestParentRound(t *testing.T) {
 	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
 	round0Witnesses[index["e1"]] = RoundEvent{Witness: true, Famous: Undefined}
 	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
-	h.Rounds[0] = &RoundInfo{Events: round0Witnesses}
+	h.Store.SetRound(0, RoundInfo{Events: round0Witnesses})
 
 	round1Witnesses := make(map[string]RoundEvent)
 	round1Witnesses[index["f1"]] = RoundEvent{Witness: true, Famous: Undefined}
-	h.Rounds[1] = &RoundInfo{Events: round1Witnesses}
+	h.Store.SetRound(1, RoundInfo{Events: round1Witnesses})
 
 	if r := h.ParentRound(index["e0"]); r != 0 {
 		t.Fatalf("parent round of e0 should be 0, not %d", r)
@@ -516,11 +508,11 @@ func TestWitness(t *testing.T) {
 	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
 	round0Witnesses[index["e1"]] = RoundEvent{Witness: true, Famous: Undefined}
 	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
-	h.Rounds[0] = &RoundInfo{Events: round0Witnesses}
+	h.Store.SetRound(0, RoundInfo{Events: round0Witnesses})
 
 	round1Witnesses := make(map[string]RoundEvent)
 	round1Witnesses[index["f1"]] = RoundEvent{Witness: true, Famous: Undefined}
-	h.Rounds[1] = &RoundInfo{Events: round1Witnesses}
+	h.Store.SetRound(1, RoundInfo{Events: round1Witnesses})
 
 	if !h.Witness(index["e0"]) {
 		t.Fatalf("e0 should be witness")
@@ -553,7 +545,7 @@ func TestRoundInc(t *testing.T) {
 	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
 	round0Witnesses[index["e1"]] = RoundEvent{Witness: true, Famous: Undefined}
 	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
-	h.Rounds[0] = &RoundInfo{Events: round0Witnesses}
+	h.Store.SetRound(0, RoundInfo{Events: round0Witnesses})
 
 	if !h.RoundInc(index["f1"]) {
 		t.Fatal("RoundInc f1 should be true")
@@ -571,7 +563,7 @@ func TestRound(t *testing.T) {
 	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
 	round0Witnesses[index["e1"]] = RoundEvent{Witness: true, Famous: Undefined}
 	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
-	h.Rounds[0] = &RoundInfo{Events: round0Witnesses}
+	h.Store.SetRound(0, RoundInfo{Events: round0Witnesses})
 
 	if r := h.Round(index["f1"]); r != 1 {
 		t.Fatalf("round of f1 should be 1 not %d", r)
@@ -589,7 +581,7 @@ func TestRoundDiff(t *testing.T) {
 	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
 	round0Witnesses[index["e1"]] = RoundEvent{Witness: true, Famous: Undefined}
 	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
-	h.Rounds[0] = &RoundInfo{Events: round0Witnesses}
+	h.Store.SetRound(0, RoundInfo{Events: round0Witnesses})
 
 	if d, err := h.RoundDiff(index["f1"], index["e02"]); d != 1 {
 		if err != nil {
@@ -617,11 +609,14 @@ func TestDivideRounds(t *testing.T) {
 
 	h.DivideRounds()
 
-	if l := len(h.Rounds); l != 2 {
+	if l := h.Store.Rounds(); l != 2 {
 		t.Fatalf("length of rounds should be 2 not %d", l)
 	}
 
-	round0 := h.Rounds[0]
+	round0, err := h.Store.GetRound(0)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if l := len(round0.Witnesses()); l != 3 {
 		t.Fatalf("round 0 should have 3 witnesses, not %d", l)
 	}
@@ -635,7 +630,10 @@ func TestDivideRounds(t *testing.T) {
 		t.Fatalf("round 0 witnesses should contain e2")
 	}
 
-	round1 := h.Rounds[1]
+	round1, err := h.Store.GetRound(1)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if l := len(round1.Witnesses()); l != 1 {
 		t.Fatalf("round 1 should have 1 witness, not %d", l)
 	}
@@ -803,7 +801,7 @@ func initConsensusHashgraph() (Hashgraph, map[string]string) {
 		participants = append(participants, node.PubHex)
 	}
 
-	hashgraph := NewHashgraph(participants, nil)
+	hashgraph := NewHashgraph(participants, NewInmemStore(participants), nil)
 	for i, ev := range *orderedEvents {
 		if err := hashgraph.InsertEvent(ev); err != nil {
 			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
@@ -828,13 +826,17 @@ func TestDecideFame(t *testing.T) {
 		t.Fatalf("g2 round should be 2, not %d", r)
 	}
 
-	if f := h.Rounds[0].Events[index["e0"]]; !(f.Witness && f.Famous == True) {
+	round0, err := h.Store.GetRound(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f := round0.Events[index["e0"]]; !(f.Witness && f.Famous == True) {
 		t.Fatalf("e0 should be famous; got %s", f)
 	}
-	if f := h.Rounds[0].Events[index["e1"]]; !(f.Witness && f.Famous == True) {
+	if f := round0.Events[index["e1"]]; !(f.Witness && f.Famous == True) {
 		t.Fatalf("e1 should be famous; got %s", f)
 	}
-	if f := h.Rounds[0].Events[index["e2"]]; !(f.Witness && f.Famous == True) {
+	if f := round0.Events[index["e2"]]; !(f.Witness && f.Famous == True) {
 		t.Fatalf("e2 should be famous; got %s", f)
 	}
 }
@@ -865,7 +867,7 @@ func TestDecideRoundReceived(t *testing.T) {
 	h.DecideRoundReceived()
 
 	for name, hash := range index {
-		e, _ := h.Events[hash]
+		e, _ := h.Store.GetEvent(hash)
 		if rune(name[0]) == rune('e') {
 			if r := *e.roundReceived; r != 1 {
 				t.Fatalf("%s round received should be 1 not %d", name, r)
@@ -882,11 +884,11 @@ func TestFindOrder(t *testing.T) {
 	h.DecideFame()
 	h.FindOrder()
 
-	for i, e := range h.ConsensusEvents {
+	for i, e := range h.ConsensusEvents() {
 		t.Logf("consensus[%d]: %s\n", i, getName(index, e))
 	}
 
-	if l := len(h.ConsensusEvents); l != 6 {
+	if l := len(h.ConsensusEvents()); l != 6 {
 		t.Fatalf("length of consensus should be 6 not %d", l)
 	}
 
@@ -894,7 +896,7 @@ func TestFindOrder(t *testing.T) {
 	//which is not deterministic.
 	expected1 := []string{"e0", "e10", "e1", "e21", "e2", "e02"}
 	expected2 := []string{"e0", "e1", "e10", "e2", "e21", "e02"}
-	for i, e := range h.ConsensusEvents {
+	for i, e := range h.ConsensusEvents() {
 		if name := getName(index, e); name != expected1[i] && name != expected2[i] {
 			more := ""
 			if expected1[i] != expected2[i] {
@@ -902,20 +904,6 @@ func TestFindOrder(t *testing.T) {
 			}
 			t.Fatalf("consensus[%d] should be %s %s, not %s", i, expected1[i], more, name)
 		}
-	}
-}
-
-func TestHeight(t *testing.T) {
-	h, _ := initConsensusHashgraph()
-
-	if l := len(h.ParticipantEvents[h.Participants[0]]); l != 7 {
-		t.Fatalf("0 should have 7 events, not %d", l)
-	}
-	if l := len(h.ParticipantEvents[h.Participants[1]]); l != 7 {
-		t.Fatalf("1 should have 7 events, not %d", l)
-	}
-	if l := len(h.ParticipantEvents[h.Participants[2]]); l != 7 {
-		t.Fatalf("2 should have 7 events, not %d", l)
 	}
 }
 

@@ -77,6 +77,10 @@ var (
 		Usage: "TCP timeout milliseconds",
 		Value: 1000,
 	}
+	InmemFlag = cli.BoolFlag{
+		Name:  "inmem",
+		Usage: "Run Babble with in-memory Hashgraph store",
+	}
 )
 
 func main() {
@@ -103,6 +107,7 @@ func main() {
 				HeartbeatFlag,
 				MaxPoolFlag,
 				TcpTimeoutFlag,
+				InmemFlag,
 			},
 		},
 	}
@@ -137,6 +142,7 @@ func run(c *cli.Context) error {
 	heartbeat := c.Int(HeartbeatFlag.Name)
 	maxPool := c.Int(MaxPoolFlag.Name)
 	tcpTimeout := c.Int(TcpTimeoutFlag.Name)
+	inmem := c.Bool(InmemFlag.Name)
 	logger.WithFields(logrus.Fields{
 		"datadir":     datadir,
 		"node_addr":   addr,
@@ -146,9 +152,10 @@ func run(c *cli.Context) error {
 		"heartbeat":   heartbeat,
 		"max_pool":    maxPool,
 		"tcp_timeout": tcpTimeout,
+		"inmem":       inmem,
 	}).Debug("RUN")
 
-	conf := node.NewConfig(time.Duration(heartbeat)*time.Millisecond, logger)
+	conf := node.NewConfig(inmem, time.Duration(heartbeat)*time.Millisecond, logger)
 
 	// Create the PEM key
 	pemKey := crypto.NewPemKey(datadir)

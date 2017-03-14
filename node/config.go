@@ -24,12 +24,14 @@ import (
 )
 
 type Config struct {
+	Inmem            bool
 	HeartbeatTimeout time.Duration
 	Logger           *logrus.Logger
 }
 
-func NewConfig(heartbeat time.Duration, logger *logrus.Logger) *Config {
+func NewConfig(inmem bool, heartbeat time.Duration, logger *logrus.Logger) *Config {
 	return &Config{
+		Inmem:            inmem,
 		HeartbeatTimeout: heartbeat,
 		Logger:           logger,
 	}
@@ -39,6 +41,7 @@ func DefaultConfig() *Config {
 	logger := logrus.New()
 	logger.Level = logrus.DebugLevel
 	return &Config{
+		Inmem:            false,
 		HeartbeatTimeout: 1000 * time.Millisecond,
 		Logger:           logger,
 	}
@@ -46,6 +49,7 @@ func DefaultConfig() *Config {
 
 func TestConfig(t *testing.T) *Config {
 	config := DefaultConfig()
+	config.Inmem = true
 	config.Logger = common.NewTestLogger(t)
 	return config
 }

@@ -31,10 +31,10 @@ type Core struct {
 	Head string
 }
 
-func NewCore(key *ecdsa.PrivateKey, participants []string, commitCh chan []hg.Event) Core {
+func NewCore(key *ecdsa.PrivateKey, participants []string, store hg.Store, commitCh chan []hg.Event) Core {
 	core := Core{
 		key: key,
-		hg:  hg.NewHashgraph(participants, commitCh),
+		hg:  hg.NewHashgraph(participants, store, commitCh),
 	}
 	return core
 }
@@ -75,11 +75,14 @@ func (c *Core) Diff(known map[string]int) (head string, unknown []hg.Event) {
 
 	unknown = []hg.Event{}
 	//known represents the index of last known event for every participant
-	//compare this to our view of events and fill unknown with event that we known of and the other doesnt
+	//compare this to our view of events and fill unknown with events that we know of
+	// and the other doesnt
 	for p, ct := range known {
-		if ct < len(c.hg.ParticipantEvents[p]) {
-			for i := ct; i < len(c.hg.ParticipantEvents[p]); i++ {
-				unknown = append(unknown, c.hg.Events[c.hg.ParticipantEvents[p][i]])
+		participantEvents, _ := c.hg.Store.ParticipantEvents(p)
+		if ct < len(participantEvents) {
+			for i := ct; i < len(participantEvents); i++ {
+				ev, _ := c.hg.Store.GetEvent(participantEvents[i])
+				unknown = append(unknown, ev)
 			}
 		}
 	}
@@ -114,28 +117,26 @@ func (c *Core) RunConsensus() {
 	c.hg.FindOrder()
 }
 
-func (c *Core) GetHead() (hg.Event, bool) {
-	head, ok := c.hg.Events[c.Head]
-	return head, ok
+func (c *Core) GetHead() (hg.Event, error) {
+	return c.hg.Store.GetEvent(c.Head)
 }
 
-func (c *Core) GetEvent(hash string) (hg.Event, bool) {
-	res, ok := c.hg.Events[hash]
-	return res, ok
+func (c *Core) GetEvent(hash string) (hg.Event, error) {
+	return c.hg.Store.GetEvent(hash)
 }
 
 func (c *Core) GetEventTransactions(hash string) ([][]byte, error) {
 	var txs [][]byte
-	ex, ok := c.GetEvent(hash)
-	if !ok {
-		return txs, fmt.Errorf("Event not found")
+	ex, err := c.GetEvent(hash)
+	if err != nil {
+		return txs, err
 	}
 	txs = ex.Transactions()
 	return txs, nil
 }
 
 func (c *Core) GetConsensusEvents() []string {
-	return c.hg.ConsensusEvents
+	return c.hg.ConsensusEvents()
 }
 
 func (c *Core) GetUndeterminedEvents() []string {

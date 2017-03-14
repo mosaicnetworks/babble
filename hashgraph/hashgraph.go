@@ -29,16 +29,12 @@ type Key struct {
 }
 
 type Hashgraph struct {
-	Participants          []string            //participant public keys
-	Events                map[string]Event    //hash => Event
-	EventIndex            []string            //[index] => hash, in arrival order
-	Rounds                map[int]*RoundInfo  //number => RoundInfo
-	UndeterminedEvents    []string            //[index] => hash, not in consensus
-	ConsensusEvents       []string            //[index] => hash, in consensus
-	ParticipantEvents     map[string][]string //particpant => []hash in arrival order
-	LastConsensusRound    *int                //index of last round where the fame of all witnesses has been decided
-	ConsensusTransactions int                 //number of consensus transactions
-	commitCh              chan []Event        //channel for committing events
+	Participants          []string     //participant public keys
+	Store                 Store        //Persistent store of Events and Rounds
+	UndeterminedEvents    []string     //[index] => hash
+	LastConsensusRound    *int         //index of last round where the fame of all witnesses has been decided
+	ConsensusTransactions int          //number of consensus transactions
+	commitCh              chan []Event //channel for committing events
 
 	ancestorCache           map[Key]bool
 	selfAncestorCache       map[Key]bool
@@ -49,17 +45,10 @@ type Hashgraph struct {
 	roundCache              map[string]int
 }
 
-func NewHashgraph(participants []string, commitCh chan []Event) Hashgraph {
-	participantEvents := make(map[string][]string)
-	for _, p := range participants {
-		participantEvents[p] = []string{}
-	}
-
+func NewHashgraph(participants []string, store Store, commitCh chan []Event) Hashgraph {
 	return Hashgraph{
 		Participants:            participants,
-		Events:                  make(map[string]Event),
-		Rounds:                  make(map[int]*RoundInfo),
-		ParticipantEvents:       participantEvents,
+		Store:                   store,
 		commitCh:                commitCh,
 		ancestorCache:           make(map[Key]bool),
 		selfAncestorCache:       make(map[Key]bool),
@@ -90,15 +79,15 @@ func (h *Hashgraph) ancestor(x, y string) bool {
 	if x == "" {
 		return false
 	}
-	ex, ok := h.Events[x]
-	if !ok {
+	ex, err := h.Store.GetEvent(x)
+	if err != nil {
 		return false
 	}
 	if x == y {
 		return true
 	}
-	_, ok = h.Events[y]
-	if !ok {
+	_, err = h.Store.GetEvent(y)
+	if err != nil {
 		return false
 	}
 	return h.Ancestor(ex.SelfParent(), y) || h.Ancestor(ex.OtherParent(), y)
@@ -118,15 +107,15 @@ func (h *Hashgraph) selfAncestor(x, y string) bool {
 	if x == "" {
 		return false
 	}
-	ex, ok := h.Events[x]
-	if !ok {
+	ex, err := h.Store.GetEvent(x)
+	if err != nil {
 		return false
 	}
 	if x == y {
 		return true
 	}
-	_, ok = h.Events[y]
-	if !ok {
+	_, err = h.Store.GetEvent(y)
+	if err != nil {
 		return false
 	}
 	return h.SelfAncestor(ex.SelfParent(), y)
@@ -150,12 +139,12 @@ func (h *Hashgraph) detectFork(x, y string) bool {
 		return false
 	}
 
-	ex, ok := h.Events[x]
-	if !ok {
+	ex, err := h.Store.GetEvent(x)
+	if err != nil {
 		return false
 	}
-	ey, ok := h.Events[y]
-	if !ok {
+	ey, err := h.Store.GetEvent(y)
+	if err != nil {
 		return false
 	}
 
@@ -187,8 +176,8 @@ func (h *Hashgraph) blowWhistle(whistleblower string, yDescendant string, yCreat
 	if whistleblower == "" {
 		return false
 	}
-	ex, ok := h.Events[whistleblower]
-	if !ok {
+	ex, err := h.Store.GetEvent(whistleblower)
+	if err != nil {
 		return false
 	}
 	if h.Ancestor(stopper, whistleblower) {
@@ -222,7 +211,7 @@ func (h *Hashgraph) oldestSelfAncestorToSee(x, y string) string {
 	if !h.See(x, y) {
 		return ""
 	}
-	ex, _ := h.Events[x]
+	ex, _ := h.Store.GetEvent(x)
 	a := h.OldestSelfAncestorToSee(ex.SelfParent(), y)
 	if a == "" {
 		return x
@@ -235,8 +224,8 @@ func (h *Hashgraph) MapSentinels(x, y string, sentinels map[string]bool) {
 	if x == "" {
 		return
 	}
-	ex, ok := h.Events[x]
-	if !ok {
+	ex, err := h.Store.GetEvent(x)
+	if err != nil {
 		return
 	}
 	if !h.See(x, y) {
@@ -292,17 +281,17 @@ func (h *Hashgraph) parentRound(x string) int {
 	if x == "" {
 		return -1
 	}
-	ex, ok := h.Events[x]
-	if !ok {
+	ex, err := h.Store.GetEvent(x)
+	if err != nil {
 		return -1
 	}
 	if ex.SelfParent() == "" && ex.OtherParent() == "" {
 		return 0
 	}
-	if _, ok := h.Events[ex.SelfParent()]; !ok {
+	if _, err := h.Store.GetEvent(ex.SelfParent()); err != nil {
 		return 0
 	}
-	if _, ok := h.Events[ex.OtherParent()]; !ok {
+	if _, err := h.Store.GetEvent(ex.OtherParent()); err != nil {
 		return 0
 	}
 	spRound := h.Round(ex.SelfParent())
@@ -319,15 +308,15 @@ func (h *Hashgraph) Witness(x string) bool {
 	if x == "" {
 		return false
 	}
-	ex, ok := h.Events[x]
-	if !ok {
+	ex, err := h.Store.GetEvent(x)
+	if err != nil {
 		return false
 	}
 	if ex.SelfParent() == "" {
 		return true
 	}
-	_, ok = h.Events[ex.SelfParent()]
-	if !ok {
+	_, err = h.Store.GetEvent(ex.SelfParent())
+	if err != nil {
 		return false
 	}
 	return h.Round(x) > h.Round(ex.SelfParent())
@@ -344,13 +333,12 @@ func (h *Hashgraph) RoundInc(x string) bool {
 		return false
 	}
 
-	if len(h.Rounds) < parentRound+1 {
+	if h.Store.Rounds() < parentRound+1 {
 		return false
 	}
 
-	roundWitnesses := h.Rounds[parentRound].Witnesses()
 	c := 0
-	for _, w := range roundWitnesses {
+	for _, w := range h.Store.RoundWitnesses(parentRound) {
 		if h.StronglySee(x, w) {
 			c++
 		}
@@ -384,13 +372,13 @@ func (h *Hashgraph) RoundDiff(x, y string) (int, error) {
 	if y == "" {
 		return math.MinInt64, fmt.Errorf("y is empty")
 	}
-	_, ok := h.Events[x]
-	if !ok {
-		return math.MinInt64, fmt.Errorf("event %s not found", x)
+	_, err := h.Store.GetEvent(x)
+	if err != nil {
+		return math.MinInt64, err
 	}
-	_, ok = h.Events[y]
-	if !ok {
-		return math.MinInt64, fmt.Errorf("event %s not found", y)
+	_, err = h.Store.GetEvent(y)
+	if err != nil {
+		return math.MinInt64, err
 	}
 
 	xRound := h.Round(x)
@@ -418,14 +406,11 @@ func (h *Hashgraph) InsertEvent(event Event) error {
 		return fmt.Errorf("ERROR: %s", err)
 	}
 
-	hash := event.Hex()
-	h.Events[hash] = event
-	h.EventIndex = append(h.EventIndex, hash)
+	if err := h.Store.SetEvent(event); err != nil {
+		return err
+	}
 
-	creator := event.Creator()
-	h.ParticipantEvents[creator] = append(h.ParticipantEvents[creator], hash)
-
-	h.UndeterminedEvents = append(h.UndeterminedEvents, hash)
+	h.UndeterminedEvents = append(h.UndeterminedEvents, event.Hex())
 
 	return nil
 }
@@ -434,24 +419,27 @@ func (h *Hashgraph) InsertEvent(event Event) error {
 func (h *Hashgraph) FromParentsLatest(event Event) error {
 	selfParent, otherParent := event.SelfParent(), event.OtherParent()
 	creator := event.Creator()
-	if selfParent == "" && otherParent == "" &&
-		len(h.ParticipantEvents[creator]) == 0 {
+	creatorEvents, err := h.Store.ParticipantEvents(creator)
+	if err != nil && err != ErrKeyNotFound {
+		return err
+	}
+	if selfParent == "" && otherParent == "" && len(creatorEvents) == 0 {
 		return nil
 	}
-	selfParentEvent, selfParentExists := h.Events[selfParent]
-	if !selfParentExists {
+	selfParentEvent, selfParentError := h.Store.GetEvent(selfParent)
+	if selfParentError != nil {
 		return fmt.Errorf("Self-parent not known (%s)", selfParent)
 	}
 	if selfParentEvent.Creator() != creator {
 		return fmt.Errorf("Self-parent has different creator")
 	}
 
-	_, otherParentExists := h.Events[otherParent]
-	if !otherParentExists {
+	_, otherParentError := h.Store.GetEvent(otherParent)
+	if otherParentError != nil {
 		return fmt.Errorf("Other-parent not known")
 	}
 
-	selfParentLegit := selfParent == h.ParticipantEvents[creator][len(h.ParticipantEvents[creator])-1]
+	selfParentLegit := selfParent == creatorEvents[len(creatorEvents)-1]
 	if !selfParentLegit {
 		return fmt.Errorf("Self-parent not last known event by creator")
 	}
@@ -463,12 +451,9 @@ func (h *Hashgraph) DivideRounds() {
 	for _, hash := range h.UndeterminedEvents {
 		roundNumber := h.Round(hash)
 		witness := h.Witness(hash)
-		roundInfo, ok := h.Rounds[roundNumber]
-		if !ok {
-			roundInfo = NewRoundInfo()
-			h.Rounds[roundNumber] = roundInfo
-		}
+		roundInfo, _ := h.Store.GetRound(roundNumber)
 		roundInfo.AddEvent(hash, witness)
+		h.Store.SetRound(roundNumber, roundInfo)
 	}
 }
 
@@ -482,18 +467,18 @@ func (h *Hashgraph) fameLoopStart() int {
 //decide if witnesses are famous
 func (h *Hashgraph) DecideFame() {
 	votes := make(map[string](map[string]bool)) //[x][y]=>vote(x,y)
-	for i := h.fameLoopStart(); i < len(h.Rounds)-1; i++ {
-		roundInfo := h.Rounds[i]
-		for j := i + 1; j < len(h.Rounds); j++ {
+	for i := h.fameLoopStart(); i < h.Store.Rounds()-1; i++ {
+		roundInfo, _ := h.Store.GetRound(i)
+		for j := i + 1; j < h.Store.Rounds(); j++ {
 			for _, x := range roundInfo.Witnesses() {
-				for _, y := range h.Rounds[j].Witnesses() {
+				for _, y := range h.Store.RoundWitnesses(j) {
 					diff := j - i
 					if diff == 1 {
 						setVote(votes, y, x, h.See(y, x))
 					} else {
 						//count votes
 						ssWitnesses := []string{}
-						for _, w := range h.Rounds[j-1].Witnesses() {
+						for _, w := range h.Store.RoundWitnesses(j - 1) {
 							if h.StronglySee(y, w) {
 								ssWitnesses = append(ssWitnesses, w)
 							}
@@ -537,6 +522,7 @@ func (h *Hashgraph) DecideFame() {
 			(h.LastConsensusRound == nil || i > *h.LastConsensusRound) {
 			h.setLastConsensusRound(i)
 		}
+		h.Store.SetRound(i, roundInfo)
 	}
 }
 
@@ -551,9 +537,9 @@ func (h *Hashgraph) setLastConsensusRound(i int) {
 func (h *Hashgraph) DecideRoundReceived() {
 	for _, x := range h.UndeterminedEvents {
 		r := h.Round(x)
-		for i := r + 1; i < len(h.Rounds); i++ {
-			tr, ok := h.Rounds[i]
-			if !ok {
+		for i := r + 1; i < h.Store.Rounds(); i++ {
+			tr, err := h.Store.GetRound(i)
+			if err != nil {
 				break
 			}
 			//no witnesses are left undecided
@@ -569,7 +555,7 @@ func (h *Hashgraph) DecideRoundReceived() {
 				}
 			}
 			if len(s) > len(fws)/2 {
-				ex, _ := h.Events[x]
+				ex, _ := h.Store.GetEvent(x)
 				ex.SetRoundReceived(i)
 
 				t := []string{}
@@ -579,7 +565,7 @@ func (h *Hashgraph) DecideRoundReceived() {
 
 				ex.consensusTimestamp = h.MedianTimestamp(t)
 
-				h.Events[x] = ex
+				h.Store.SetEvent(ex)
 
 				break
 			}
@@ -593,7 +579,7 @@ func (h *Hashgraph) FindOrder() {
 	newConsensusEvents := []Event{}
 	newUndeterminedEvents := []string{}
 	for _, x := range h.UndeterminedEvents {
-		ex, _ := h.Events[x]
+		ex, _ := h.Store.GetEvent(x)
 		if ex.roundReceived != nil {
 			newConsensusEvents = append(newConsensusEvents, ex)
 		} else {
@@ -606,7 +592,7 @@ func (h *Hashgraph) FindOrder() {
 	sort.Sort(sorter)
 
 	for _, e := range newConsensusEvents {
-		h.ConsensusEvents = append(h.ConsensusEvents, e.Hex())
+		h.Store.AddConsensusEvent(e.Hex())
 		h.ConsensusTransactions += len(e.Transactions())
 	}
 
@@ -618,19 +604,20 @@ func (h *Hashgraph) FindOrder() {
 func (h *Hashgraph) MedianTimestamp(eventHashes []string) time.Time {
 	events := []Event{}
 	for _, x := range eventHashes {
-		events = append(events, h.Events[x])
+		ex, _ := h.Store.GetEvent(x)
+		events = append(events, ex)
 	}
 	sort.Sort(ByTimestamp(events))
 	return events[len(events)/2].Body.Timestamp
 }
 
+func (h *Hashgraph) ConsensusEvents() []string {
+	return h.Store.ConsensusEvents()
+}
+
 //number of events per participants
 func (h *Hashgraph) Known() map[string]int {
-	known := make(map[string]int)
-	for p, evs := range h.ParticipantEvents {
-		known[p] = len(evs)
-	}
-	return known
+	return h.Store.Known()
 }
 
 func middleBit(ehex string) bool {
