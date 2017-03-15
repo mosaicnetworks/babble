@@ -15,7 +15,11 @@ limitations under the License.
 */
 package hashgraph
 
-import "math/big"
+import (
+	"bytes"
+	"encoding/gob"
+	"math/big"
+)
 
 type Trilean int
 
@@ -111,4 +115,19 @@ func (r *RoundInfo) PseudoRandomNumber() *big.Int {
 		}
 	}
 	return res
+}
+
+func (r *RoundInfo) Marshal() ([]byte, error) {
+	var b bytes.Buffer
+	enc := gob.NewEncoder(&b)
+	if err := enc.Encode(r); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
+}
+
+func (r *RoundInfo) Unmarshal(data []byte) error {
+	b := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(b) //will read from b
+	return dec.Decode(r)
 }

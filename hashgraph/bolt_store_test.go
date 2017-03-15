@@ -17,18 +17,18 @@ package hashgraph
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"testing"
 
 	"github.com/arrivets/babble/crypto"
 )
 
-type pub struct {
-	pubKey []byte
-	hex    string
-}
+var (
+	fn = "test.db"
+)
 
-func initInmemStore() (*InmemStore, []pub) {
+func initBoltStore() (*BoltStore, []pub) {
 	n := 3
 	participantPubs := []pub{}
 	participants := []string{}
@@ -40,16 +40,25 @@ func initInmemStore() (*InmemStore, []pub) {
 		participants = append(participants, fmt.Sprintf("0x%X", pubKey))
 	}
 
-	store := NewInmemStore(participants)
+	store, err := NewBoltStore(fn, participants)
+	if err != nil {
+		fmt.Println("ERROR creating BoltStore")
+	}
 	return store, participantPubs
 }
 
-func TestInmemEvents(t *testing.T) {
-	store, participants := initInmemStore()
+func closeBoltStore(s *BoltStore) {
+	s.Close()
+	os.Remove(fn)
+}
+
+func TestBoltEvents(t *testing.T) {
+	store, participants := initBoltStore()
+	defer closeBoltStore(store)
 
 	events := make(map[string]Event)
 	for _, p := range participants {
-		event := NewEvent([][]byte{}, []string{"", ""}, p.pubKey)
+		event := NewEvent([][]byte{[]byte("abc")}, []string{"", ""}, p.pubKey)
 		events[p.hex] = event
 		err := store.SetEvent(event)
 		if err != nil {
@@ -63,7 +72,7 @@ func TestInmemEvents(t *testing.T) {
 			t.Fatal(err)
 		}
 		if !reflect.DeepEqual(ev, rev) {
-			t.Fatalf("Stored Event from %s does not match", p)
+			t.Fatalf("Stored Event from %s... does not match", p[:10])
 		}
 	}
 
@@ -105,8 +114,9 @@ func TestInmemEvents(t *testing.T) {
 	}
 }
 
-func TestInmemRounds(t *testing.T) {
-	store, participants := initInmemStore()
+func TestBoltRounds(t *testing.T) {
+	store, participants := initBoltStore()
+	defer closeBoltStore(store)
 
 	round := NewRoundInfo()
 	events := make(map[string]Event)
