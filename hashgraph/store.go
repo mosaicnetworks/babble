@@ -15,6 +15,12 @@ limitations under the License.
 */
 package hashgraph
 
+import "errors"
+
+var (
+	ErrKeyNotFound = errors.New("not found")
+)
+
 type Store interface {
 	GetEvent(string) (Event, error)
 	SetEvent(Event) error

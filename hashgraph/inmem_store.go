@@ -15,14 +15,7 @@ limitations under the License.
 */
 package hashgraph
 
-import "errors"
-
-var (
-	ErrKeyNotFound = errors.New("not found")
-)
-
 type InmemStore struct {
-	fn                string
 	eventCache        map[string]Event    //hash => event
 	consensusEvents   []string            //[index] => hash, in consensus order
 	participantEvents map[string][]string //participant => []hash in arrival order
