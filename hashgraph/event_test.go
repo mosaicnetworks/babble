@@ -93,7 +93,7 @@ func TestMarshallEvent(t *testing.T) {
 		t.Fatalf("Error signing Event: %s", err)
 	}
 
-	raw, err := event.Marshal()
+	raw, err := event.MarshalWire()
 	if err != nil {
 		t.Fatalf("Error marshalling Event: %s", err)
 	}

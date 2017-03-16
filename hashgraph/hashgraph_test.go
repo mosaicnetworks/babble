@@ -22,7 +22,13 @@ import (
 
 	"strings"
 
+	"os"
+
 	"github.com/arrivets/babble/crypto"
+)
+
+var (
+	fn = "test.db"
 )
 
 type Node struct {
@@ -94,7 +100,7 @@ func initHashgraph() (Hashgraph, map[string]string) {
 	for _, node := range nodes {
 		participants = append(participants, node.PubHex)
 	}
-	store := NewInmemStore(participants)
+	store, _ := NewBoltStore(fn, participants)
 	for _, node := range nodes {
 		for _, ev := range node.Events {
 			store.SetEvent(ev)
@@ -104,8 +110,14 @@ func initHashgraph() (Hashgraph, map[string]string) {
 	return hashgraph, index
 }
 
+func close(h Hashgraph) {
+	h.Store.Close()
+	os.Remove(fn)
+}
+
 func TestAncestor(t *testing.T) {
 	h, index := initHashgraph()
+	defer close(h)
 
 	//1 generation
 	if !h.Ancestor(index["e01"], index["e0"]) {
@@ -158,6 +170,7 @@ func TestAncestor(t *testing.T) {
 
 func TestSelfAncestor(t *testing.T) {
 	h, index := initHashgraph()
+	defer close(h)
 
 	//1 generation
 	if !h.SelfAncestor(index["e01"], index["e0"]) {
@@ -248,7 +261,7 @@ func initForkHashgraph() (Hashgraph, map[string]string) {
 	for _, node := range nodes {
 		participants = append(participants, node.PubHex)
 	}
-	store := NewInmemStore(participants)
+	store, _ := NewBoltStore(fn, participants)
 	for _, node := range nodes {
 		for _, ev := range node.Events {
 			store.SetEvent(ev)
@@ -260,6 +273,7 @@ func initForkHashgraph() (Hashgraph, map[string]string) {
 
 func TestDetectFork(t *testing.T) {
 	h, index := initForkHashgraph()
+	defer close(h)
 
 	//1 generation
 	fork := h.DetectFork(index["e20"], index["a"])
@@ -314,6 +328,7 @@ func TestDetectFork(t *testing.T) {
 
 func TestSee(t *testing.T) {
 	h, index := initForkHashgraph()
+	defer close(h)
 
 	if !h.See(index["e01"], index["e0"]) {
 		t.Fatal("e01 should see e0")
@@ -358,6 +373,7 @@ func TestSee(t *testing.T) {
 
 func TestStronglySee(t *testing.T) {
 	h, index := initHashgraph()
+	defer close(h)
 
 	if !h.StronglySee(index["e12"], index["e0"]) {
 		t.Fatalf("e12 should strongly see e0")
@@ -400,6 +416,7 @@ func TestStronglySee(t *testing.T) {
 	if h.StronglySee(index["e0"], index["e0"]) {
 		t.Fatalf("e0 should not strongly see e0")
 	}
+	close(h)
 
 	//fork
 	h, index = initForkHashgraph()
@@ -465,7 +482,8 @@ func initRoundHashgraph() (Hashgraph, map[string]string) {
 		participants = append(participants, node.PubHex)
 	}
 
-	hashgraph := NewHashgraph(participants, NewInmemStore(participants), nil)
+	store, _ := NewBoltStore(fn, participants)
+	hashgraph := NewHashgraph(participants, store, nil)
 	for i, ev := range *orderedEvents {
 		if err := hashgraph.InsertEvent(ev); err != nil {
 			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
@@ -476,6 +494,7 @@ func initRoundHashgraph() (Hashgraph, map[string]string) {
 
 func TestParentRound(t *testing.T) {
 	h, index := initRoundHashgraph()
+	defer close(h)
 
 	round0Witnesses := make(map[string]RoundEvent)
 	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
@@ -503,6 +522,7 @@ func TestParentRound(t *testing.T) {
 
 func TestWitness(t *testing.T) {
 	h, index := initRoundHashgraph()
+	defer close(h)
 
 	round0Witnesses := make(map[string]RoundEvent)
 	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
@@ -540,6 +560,7 @@ func TestWitness(t *testing.T) {
 
 func TestRoundInc(t *testing.T) {
 	h, index := initRoundHashgraph()
+	defer close(h)
 
 	round0Witnesses := make(map[string]RoundEvent)
 	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
@@ -558,6 +579,7 @@ func TestRoundInc(t *testing.T) {
 
 func TestRound(t *testing.T) {
 	h, index := initRoundHashgraph()
+	defer close(h)
 
 	round0Witnesses := make(map[string]RoundEvent)
 	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
@@ -576,6 +598,7 @@ func TestRound(t *testing.T) {
 
 func TestRoundDiff(t *testing.T) {
 	h, index := initRoundHashgraph()
+	defer close(h)
 
 	round0Witnesses := make(map[string]RoundEvent)
 	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
@@ -606,6 +629,7 @@ func TestRoundDiff(t *testing.T) {
 
 func TestDivideRounds(t *testing.T) {
 	h, index := initRoundHashgraph()
+	defer close(h)
 
 	h.DivideRounds()
 
@@ -801,7 +825,8 @@ func initConsensusHashgraph() (Hashgraph, map[string]string) {
 		participants = append(participants, node.PubHex)
 	}
 
-	hashgraph := NewHashgraph(participants, NewInmemStore(participants), nil)
+	store, _ := NewBoltStore(fn, participants)
+	hashgraph := NewHashgraph(participants, store, nil)
 	for i, ev := range *orderedEvents {
 		if err := hashgraph.InsertEvent(ev); err != nil {
 			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
@@ -812,6 +837,7 @@ func initConsensusHashgraph() (Hashgraph, map[string]string) {
 
 func TestDecideFame(t *testing.T) {
 	h, index := initConsensusHashgraph()
+	defer close(h)
 
 	h.DivideRounds()
 	h.DecideFame()
@@ -843,6 +869,7 @@ func TestDecideFame(t *testing.T) {
 
 func TestOldestSelfAncestorToSee(t *testing.T) {
 	h, index := initConsensusHashgraph()
+	defer close(h)
 
 	if a := h.OldestSelfAncestorToSee(index["f0"], index["e1"]); a != index["e02"] {
 		t.Fatalf("oldest self ancestor of f0 to see e1 should be e02 not %s", getName(index, a))
@@ -861,6 +888,7 @@ func TestOldestSelfAncestorToSee(t *testing.T) {
 
 func TestDecideRoundReceived(t *testing.T) {
 	h, index := initConsensusHashgraph()
+	defer close(h)
 
 	h.DivideRounds()
 	h.DecideFame()
@@ -869,7 +897,7 @@ func TestDecideRoundReceived(t *testing.T) {
 	for name, hash := range index {
 		e, _ := h.Store.GetEvent(hash)
 		if rune(name[0]) == rune('e') {
-			if r := *e.roundReceived; r != 1 {
+			if r := *e.RoundReceived; r != 1 {
 				t.Fatalf("%s round received should be 1 not %d", name, r)
 			}
 		}
@@ -879,6 +907,7 @@ func TestDecideRoundReceived(t *testing.T) {
 
 func TestFindOrder(t *testing.T) {
 	h, index := initConsensusHashgraph()
+	defer close(h)
 
 	h.DivideRounds()
 	h.DecideFame()
@@ -909,6 +938,8 @@ func TestFindOrder(t *testing.T) {
 
 func TestKnown(t *testing.T) {
 	h, _ := initConsensusHashgraph()
+	defer close(h)
+
 	known := h.Known()
 	if l := known[h.Participants[0]]; l != 7 {
 		t.Fatalf("0 should have 7 events, not %d", l)

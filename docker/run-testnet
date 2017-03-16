@@ -14,11 +14,11 @@ docker network create \
 for i in $(seq 1 4)
 do
     docker create --name=node$i --net=babblenet --ip=172.77.5.$i babble run \
-    --inmem=true \
     --heartbeat=75 \
     --node_addr="172.77.5.$i:1337" \
     --proxy_addr="172.77.5.$i:1338" \
-    --client_addr="172.77.5.1$i:1339" 
+    --client_addr="172.77.5.1$i:1339" \
+    #--inmem=true \
     docker cp $MPWD/node$i node$i:/.babble
     docker start node$i
 

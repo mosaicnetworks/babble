@@ -23,9 +23,12 @@ import (
 	"testing"
 	"time"
 
+	"os"
+
 	"github.com/Sirupsen/logrus"
 	"github.com/arrivets/babble/common"
 	"github.com/arrivets/babble/crypto"
+	hg "github.com/arrivets/babble/hashgraph"
 	"github.com/arrivets/babble/net"
 	"github.com/arrivets/babble/proxy"
 )
@@ -46,6 +49,14 @@ func initPeers() ([]*ecdsa.PrivateKey, []net.Peer) {
 	return keys, peers
 }
 
+func pubs(peers []net.Peer) []string {
+	pubs := []string{}
+	for _, p := range peers {
+		pubs = append(pubs, p.PubKeyHex)
+	}
+	return pubs
+}
+
 func TestProcessKnown(t *testing.T) {
 	keys, peers := initPeers()
 
@@ -55,7 +66,13 @@ func TestProcessKnown(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
-	node := NewNode(TestConfig(t), keys[0], peers, peer0Trans, proxy.NewInmemProxy(common.NewTestLogger(t)))
+	peer0Store, err := hg.NewBoltStore("peer0.db", pubs(peers))
+	defer func() { peer0Store.Close(); os.Remove("peer0.db") }()
+
+	node := NewNode(TestConfig(t), keys[0], peers,
+		peer0Trans,
+		proxy.NewInmemProxy(common.NewTestLogger(t)),
+		peer0Store)
 	node.Init()
 
 	node.RunAsync(false)
@@ -96,7 +113,13 @@ func TestProcessSync(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
-	node0 := NewNode(TestConfig(t), keys[0], peers, peer0Trans, proxy.NewInmemProxy(testLogger))
+	peer0Store, err := hg.NewBoltStore("peer0.db", pubs(peers))
+	defer func() { peer0Store.Close(); os.Remove("peer0.db") }()
+
+	node0 := NewNode(TestConfig(t), keys[0], peers,
+		peer0Trans,
+		proxy.NewInmemProxy(testLogger),
+		peer0Store)
 	node0.Init()
 
 	node0.RunAsync(false)
@@ -107,7 +130,13 @@ func TestProcessSync(t *testing.T) {
 	}
 	defer peer1Trans.Close()
 
-	node1 := NewNode(TestConfig(t), keys[1], peers, peer1Trans, proxy.NewInmemProxy(testLogger))
+	peer1Store, err := hg.NewBoltStore("peer1.db", pubs(peers))
+	defer func() { peer1Store.Close(); os.Remove("peer1.db") }()
+
+	node1 := NewNode(TestConfig(t), keys[1], peers,
+		peer1Trans,
+		proxy.NewInmemProxy(testLogger),
+		peer1Store)
 	node1.Init()
 
 	head, unknown := node1.core.Diff(node0.core.Known())
@@ -137,14 +166,20 @@ func TestProcessSync(t *testing.T) {
 func TestAddTransaction(t *testing.T) {
 	keys, peers := initPeers()
 	testLogger := common.NewTestLogger(t)
+
 	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 	defer peer0Trans.Close()
 	peer0Proxy := proxy.NewInmemProxy(testLogger)
+	peer0Store, err := hg.NewBoltStore("peer0.db", pubs(peers))
+	defer func() { peer0Store.Close(); os.Remove("peer0.db") }()
 
-	node0 := NewNode(TestConfig(t), keys[0], peers, peer0Trans, peer0Proxy)
+	node0 := NewNode(TestConfig(t), keys[0], peers,
+		peer0Trans,
+		peer0Proxy,
+		peer0Store)
 	node0.Init()
 
 	node0.RunAsync(false)
@@ -155,8 +190,13 @@ func TestAddTransaction(t *testing.T) {
 	}
 	defer peer1Trans.Close()
 	peer1Proxy := proxy.NewInmemProxy(testLogger)
+	peer1Store, err := hg.NewBoltStore("peer1.db", pubs(peers))
+	defer func() { peer1Store.Close(); os.Remove("peer1.db") }()
 
-	node1 := NewNode(TestConfig(t), keys[1], peers, peer1Trans, peer1Proxy)
+	node1 := NewNode(TestConfig(t), keys[1], peers,
+		peer1Trans,
+		peer1Proxy,
+		peer1Store)
 	node1.Init()
 
 	message := "Hello World!"
@@ -192,19 +232,22 @@ func TestAddTransaction(t *testing.T) {
 }
 
 func initNodes(logger *logrus.Logger) ([]*ecdsa.PrivateKey, []Node) {
-	conf := NewConfig(true, 5*time.Millisecond, logger)
+	conf := NewConfig(5*time.Millisecond, logger)
 
 	keys, peers := initPeers()
+	pubs := pubs(peers)
 	nodes := []Node{}
 	proxies := []*proxy.InmemProxy{}
 	for i := 0; i < len(peers); i++ {
 		trans, err := net.NewTCPTransport(peers[i].NetAddr,
-			nil, 2, time.Second, logger)
+			nil, 2, 10*time.Second, logger)
 		if err != nil {
 			logger.Printf(err.Error())
 		}
 		prox := proxy.NewInmemProxy(logger)
-		node := NewNode(conf, keys[i], peers, trans, prox)
+		os.Remove(fmt.Sprintf("node%d.db", i))
+		store, _ := hg.NewBoltStore(fmt.Sprintf("node%d.db", i), pubs)
+		node := NewNode(conf, keys[i], peers, trans, prox, store)
 		node.Init()
 		nodes = append(nodes, node)
 		proxies = append(proxies, prox)
@@ -224,6 +267,13 @@ func shutdownNodes(nodes []Node) {
 	for _, n := range nodes {
 		n.Shutdown()
 		n.trans.Close()
+	}
+}
+
+func closeStores(nodes []Node) {
+	for i, n := range nodes {
+		n.store.Close()
+		os.Remove(fmt.Sprintf("node%d.db", i))
 	}
 }
 
@@ -280,6 +330,7 @@ func TestTransactionOrdering(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	_, nodes := initNodes(logger)
 	runNodes(nodes, false)
+	defer closeStores(nodes)
 
 	playbook := []play{
 		play{from: 0, to: 1, payload: [][]byte{[]byte("e10")}},
@@ -304,9 +355,9 @@ func TestTransactionOrdering(t *testing.T) {
 		play{from: 1, to: 2, payload: [][]byte{[]byte("h2")}},
 	}
 
-	for _, play := range playbook {
+	for i, play := range playbook {
 		if err := synchronizeNodes(nodes[play.from], nodes[play.to], play.payload); err != nil {
-			t.Fatal(err)
+			t.Fatalf("play %d: %s", i, err)
 		}
 	}
 	shutdownNodes(nodes)
@@ -333,6 +384,7 @@ func TestStats(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	_, nodes := initNodes(logger)
 	runNodes(nodes, false)
+	defer closeStores(nodes)
 
 	playbook := []play{
 		play{from: 0, to: 1, payload: [][]byte{[]byte("e10")}},
@@ -407,6 +459,8 @@ func TestGossip(t *testing.T) {
 	_, nodes := initNodes(logger)
 
 	runNodes(nodes, true)
+	defer closeStores(nodes)
+
 	quit := make(chan int)
 	makeRandomTransactions(nodes, quit)
 
@@ -415,7 +469,7 @@ func TestGossip(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		done := true
 		for _, n := range nodes {
-			if len(n.GetConsensusEvents()) < 50 {
+			if l := len(n.GetConsensusEvents()); l < 5 {
 				done = false
 				break
 			}

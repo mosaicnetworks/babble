@@ -122,3 +122,7 @@ func (s *InmemStore) RoundWitnesses(r int) []string {
 	}
 	return round.Witnesses()
 }
+
+func (s *InmemStore) Close() error {
+	return nil
+}

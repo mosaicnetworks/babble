@@ -27,6 +27,7 @@ import (
 	"gopkg.in/urfave/cli.v1"
 
 	"github.com/arrivets/babble/crypto"
+	hg "github.com/arrivets/babble/hashgraph"
 	"github.com/arrivets/babble/net"
 	"github.com/arrivets/babble/node"
 	"github.com/arrivets/babble/proxy"
@@ -155,7 +156,7 @@ func run(c *cli.Context) error {
 		"inmem":       inmem,
 	}).Debug("RUN")
 
-	conf := node.NewConfig(inmem, time.Duration(heartbeat)*time.Millisecond, logger)
+	conf := node.NewConfig(time.Duration(heartbeat)*time.Millisecond, logger)
 
 	// Create the PEM key
 	pemKey := crypto.NewPemKey(datadir)
@@ -167,10 +168,10 @@ func run(c *cli.Context) error {
 	}
 
 	// Create the peer store
-	store := net.NewJSONPeers(datadir)
+	peerStore := net.NewJSONPeers(datadir)
 
 	// Try a read
-	peers, err := store.Peers()
+	peers, err := peerStore.Peers()
 	if err != nil {
 		return err
 	}
@@ -189,7 +190,22 @@ func run(c *cli.Context) error {
 			time.Duration(tcpTimeout)*time.Millisecond, logger)
 	}
 
-	node := node.NewNode(conf, key, peers, trans, prox)
+	participantPubs := []string{}
+	for _, p := range peers {
+		participantPubs = append(participantPubs, p.PubKeyHex)
+	}
+	var store hg.Store
+	if inmem {
+		store = hg.NewInmemStore(participantPubs)
+	} else {
+		fn := filepath.Join(datadir, "data.db")
+		store, err = hg.NewBoltStore(fn, participantPubs)
+		if err != nil {
+			return err
+		}
+	}
+
+	node := node.NewNode(conf, key, peers, trans, prox, store)
 	node.Init()
 	node.Run(true)
 	return nil

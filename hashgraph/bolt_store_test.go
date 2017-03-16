@@ -24,10 +24,6 @@ import (
 	"github.com/arrivets/babble/crypto"
 )
 
-var (
-	fn = "test.db"
-)
-
 func initBoltStore() (*BoltStore, []pub) {
 	n := 3
 	participantPubs := []pub{}
@@ -40,7 +36,7 @@ func initBoltStore() (*BoltStore, []pub) {
 		participants = append(participants, fmt.Sprintf("0x%X", pubKey))
 	}
 
-	store, err := NewBoltStore(fn, participants)
+	store, err := NewBoltStore("test.db", participants)
 	if err != nil {
 		fmt.Println("ERROR creating BoltStore")
 	}
@@ -49,7 +45,7 @@ func initBoltStore() (*BoltStore, []pub) {
 
 func closeBoltStore(s *BoltStore) {
 	s.Close()
-	os.Remove(fn)
+	os.Remove(s.fn)
 }
 
 func TestBoltEvents(t *testing.T) {

@@ -78,10 +78,6 @@ func (s *BoltStore) init() error {
 	return tx.Commit()
 }
 
-func (s *BoltStore) Close() error {
-	return s.db.Close()
-}
-
 func (s *BoltStore) GetEvent(hash string) (Event, error) {
 	var event Event
 
@@ -105,19 +101,30 @@ func (s *BoltStore) GetEvent(hash string) (Event, error) {
 }
 
 func (s *BoltStore) SetEvent(event Event) error {
-	data, err := event.Marshal()
+	data, err := event.MarshalStore()
 	if err != nil {
 		return err
 	}
 	return s.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(eventBkt)
+
+		isNew := true
+		d := b.Get([]byte(event.Hex()))
+		if d != nil {
+			isNew = false
+		}
+
 		if err := b.Put([]byte(event.Hex()), data); err != nil {
 			return err
 		}
 
-		c := tx.Bucket([]byte(event.Creator()))
-		id, _ := c.NextSequence()
-		return c.Put(itob(int(id)), []byte(event.Hex()))
+		if isNew {
+			c := tx.Bucket([]byte(event.Creator()))
+			id, _ := c.NextSequence()
+			return c.Put(itob(int(id)), []byte(event.Hex()))
+		}
+
+		return nil
 	})
 }
 
@@ -185,7 +192,7 @@ func (s *BoltStore) AddConsensusEvent(key string) error {
 }
 
 func (s *BoltStore) GetRound(r int) (RoundInfo, error) {
-	var round RoundInfo
+	round := NewRoundInfo()
 
 	var data []byte
 	err := s.db.View(func(tx *bolt.Tx) error {
@@ -198,12 +205,12 @@ func (s *BoltStore) GetRound(r int) (RoundInfo, error) {
 		return nil
 	})
 	if err != nil {
-		return round, err
+		return *round, err
 	}
 
 	err = round.Unmarshal(data)
 
-	return round, err
+	return *round, err
 }
 
 func (s *BoltStore) SetRound(r int, round RoundInfo) error {
@@ -241,6 +248,10 @@ func (s *BoltStore) RoundWitnesses(r int) []string {
 		return []string{}
 	}
 	return round.Witnesses()
+}
+
+func (s *BoltStore) Close() error {
+	return s.db.Close()
 }
 
 func itob(v int) []byte {

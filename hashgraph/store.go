@@ -32,4 +32,5 @@ type Store interface {
 	SetRound(int, RoundInfo) error
 	Rounds() int
 	RoundWitnesses(int) []string
+	Close() error
 }

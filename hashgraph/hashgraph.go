@@ -563,7 +563,7 @@ func (h *Hashgraph) DecideRoundReceived() {
 					t = append(t, h.OldestSelfAncestorToSee(a, x))
 				}
 
-				ex.consensusTimestamp = h.MedianTimestamp(t)
+				ex.ConsensusTimestamp = h.MedianTimestamp(t)
 
 				h.Store.SetEvent(ex)
 
@@ -580,7 +580,7 @@ func (h *Hashgraph) FindOrder() {
 	newUndeterminedEvents := []string{}
 	for _, x := range h.UndeterminedEvents {
 		ex, _ := h.Store.GetEvent(x)
-		if ex.roundReceived != nil {
+		if ex.RoundReceived != nil {
 			newConsensusEvents = append(newConsensusEvents, ex)
 		} else {
 			newUndeterminedEvents = append(newUndeterminedEvents, x)

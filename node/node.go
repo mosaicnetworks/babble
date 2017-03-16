@@ -47,6 +47,8 @@ type Node struct {
 	proxy    proxy.Proxy
 	submitCh chan []byte
 
+	store hg.Store
+
 	commitCh chan []hg.Event
 
 	// Shutdown channel to exit, protected to prevent concurrent exits
@@ -57,17 +59,15 @@ type Node struct {
 	transactionPool [][]byte
 }
 
-func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans net.Transport, proxy proxy.Proxy) Node {
+func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer,
+	trans net.Transport,
+	proxy proxy.Proxy,
+	store hg.Store) Node {
 	localAddr := trans.LocalAddr()
 
 	participantPubs := []string{}
 	for _, p := range participants {
 		participantPubs = append(participantPubs, p.PubKeyHex)
-	}
-
-	var store hg.Store
-	if conf.Inmem {
-		store = hg.NewInmemStore(participantPubs)
 	}
 
 	commitCh := make(chan []hg.Event, 20)
@@ -86,6 +86,7 @@ func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans
 		netCh:           trans.Consumer(),
 		proxy:           proxy,
 		submitCh:        proxy.Consumer(),
+		store:           store,
 		commitCh:        commitCh,
 		shutdownCh:      make(chan struct{}),
 		transactionPool: [][]byte{},

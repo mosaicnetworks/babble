@@ -61,8 +61,8 @@ type Event struct {
 	Body EventBody
 	R, S *big.Int //creator's digital signature of body
 
-	roundReceived      *int
-	consensusTimestamp time.Time
+	RoundReceived      *int
+	ConsensusTimestamp time.Time
 }
 
 func NewEvent(transactions [][]byte, parents []string, creator []byte) Event {
@@ -116,7 +116,19 @@ func (e *Event) Verify() (bool, error) {
 }
 
 //gob encoding of body and signature
-func (e *Event) Marshal() ([]byte, error) {
+func (e *Event) MarshalWire() ([]byte, error) {
+	e.RoundReceived = nil
+	e.ConsensusTimestamp = time.Time{}
+
+	var b bytes.Buffer
+	enc := gob.NewEncoder(&b)
+	if err := enc.Encode(e); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
+}
+
+func (e *Event) MarshalStore() ([]byte, error) {
 	var b bytes.Buffer
 	enc := gob.NewEncoder(&b)
 	if err := enc.Encode(e); err != nil {
@@ -133,7 +145,7 @@ func (e *Event) Unmarshal(data []byte) error {
 
 //sha256 hash of body and signature
 func (e *Event) Hash() ([]byte, error) {
-	hashBytes, err := e.Marshal()
+	hashBytes, err := e.MarshalWire()
 	if err != nil {
 		return nil, err
 	}
@@ -146,10 +158,10 @@ func (e *Event) Hex() string {
 }
 
 func (e *Event) SetRoundReceived(rr int) {
-	if e.roundReceived == nil {
-		e.roundReceived = new(int)
+	if e.RoundReceived == nil {
+		e.RoundReceived = new(int)
 	}
-	*e.roundReceived = rr
+	*e.RoundReceived = rr
 }
 
 //Sorting

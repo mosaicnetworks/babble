@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"testing"
 
+	"os"
+
 	"github.com/arrivets/babble/crypto"
 	hg "github.com/arrivets/babble/hashgraph"
 )
@@ -50,14 +52,22 @@ func initCores() ([]Core, []*ecdsa.PrivateKey, map[string]string) {
 	}
 
 	for i := 0; i < n; i++ {
+		store, _ := hg.NewBoltStore(fmt.Sprintf("node%d.db", i), participantPubs)
 		core := NewCore(participantKeys[i], participantPubs,
-			hg.NewInmemStore(participantPubs), nil)
+			store, nil)
 		core.Init()
 		cores = append(cores, core)
 		index[fmt.Sprintf("e%d", i)] = core.Head
 	}
 
 	return cores, participantKeys, index
+}
+
+func closeCores(cores []Core) {
+	for i, c := range cores {
+		c.hg.Store.Close()
+		os.Remove(fmt.Sprintf("node%d.db", i))
+	}
 }
 
 /*
@@ -126,6 +136,7 @@ func insertEvent(cores []Core, keys []*ecdsa.PrivateKey, index map[string]string
 
 func TestDiff(t *testing.T) {
 	cores, keys, index := initCores()
+	defer closeCores(cores)
 
 	initHashgraph(cores, keys, index, 0)
 
@@ -165,6 +176,7 @@ func TestDiff(t *testing.T) {
 
 func TestSync(t *testing.T) {
 	cores, _, index := initCores()
+	defer closeCores(cores)
 
 	/*
 	   core 0           core 1          core 2
@@ -334,6 +346,7 @@ type play struct {
 
 func TestConsensus(t *testing.T) {
 	cores, _, _ := initCores()
+	defer closeCores(cores)
 
 	playbook := []play{
 		play{from: 0, to: 1, payload: [][]byte{[]byte("e10")}},
