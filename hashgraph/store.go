@@ -19,12 +19,14 @@ import "errors"
 
 var (
 	ErrKeyNotFound = errors.New("not found")
+	ErrTooLate     = errors.New("too late")
 )
 
 type Store interface {
 	GetEvent(string) (Event, error)
 	SetEvent(Event) error
-	ParticipantEvents(string) ([]string, error)
+	ParticipantEvents(string, int) ([]string, error)
+	LastFrom(string) (string, error)
 	Known() map[string]int
 	ConsensusEvents() []string
 	AddConsensusEvent(string) error

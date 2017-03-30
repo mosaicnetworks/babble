@@ -64,14 +64,8 @@ func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans
 	for _, p := range participants {
 		participantPubs = append(participantPubs, p.PubKeyHex)
 	}
-
-	var store hg.Store
-	if conf.Inmem {
-		store = hg.NewInmemStore(participantPubs)
-	}
-
+	store := hg.NewInmemStore(participantPubs)
 	commitCh := make(chan []hg.Event, 20)
-
 	core := NewCore(key, participantPubs, store, commitCh)
 
 	peers := net.ExcludePeer(participants, localAddr)
@@ -181,8 +175,13 @@ func (n *Node) gossip() {
 	if err != nil {
 		n.logger.WithField("error", err).Error("Getting peer Known")
 	} else {
-		head, diff := n.core.Diff(known)
-		if err := n.requestSync(peer.NetAddr, head, diff); err != nil {
+		head, diff, err := n.core.Diff(known)
+		if err != nil {
+			n.logger.WithField("error", err).Error("Calculating Diff")
+			return
+		}
+		err = n.requestSync(peer.NetAddr, head, diff)
+		if err != nil {
 			n.logger.WithField("error", err).Error("Triggering peer Sync")
 		}
 	}

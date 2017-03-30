@@ -70,25 +70,29 @@ func (c *Core) Known() map[string]int {
 }
 
 //returns events that c knowns about that are not in 'known', along with c's head
-func (c *Core) Diff(known map[string]int) (head string, unknown []hg.Event) {
+func (c *Core) Diff(known map[string]int) (head string, unknown []hg.Event, err error) {
 	head = c.Head
 
 	unknown = []hg.Event{}
-	//known represents the index of last known event for every participant
+	//known represents the number of events known for every participant
 	//compare this to our view of events and fill unknown with events that we know of
 	// and the other doesnt
 	for p, ct := range known {
-		participantEvents, _ := c.hg.Store.ParticipantEvents(p)
-		if ct < len(participantEvents) {
-			for i := ct; i < len(participantEvents); i++ {
-				ev, _ := c.hg.Store.GetEvent(participantEvents[i])
-				unknown = append(unknown, ev)
+		participantEvents, err := c.hg.Store.ParticipantEvents(p, ct)
+		if err != nil {
+			return "", []hg.Event{}, err
+		}
+		for _, e := range participantEvents {
+			ev, err := c.hg.Store.GetEvent(e)
+			if err != nil {
+				return "", []hg.Event{}, err
 			}
+			unknown = append(unknown, ev)
 		}
 	}
 	sort.Sort(hg.ByTimestamp(unknown))
 
-	return head, unknown
+	return head, unknown, nil
 }
 
 func (c *Core) Sync(otherHead string, unknown []hg.Event, payload [][]byte) error {

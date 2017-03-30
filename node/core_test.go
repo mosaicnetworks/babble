@@ -145,7 +145,10 @@ func TestDiff(t *testing.T) {
 	*/
 
 	knownBy1 := cores[1].Known()
-	head, unknownBy1 := cores[0].Diff(knownBy1)
+	head, unknownBy1, err := cores[0].Diff(knownBy1)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if head != index["e01"] {
 		t.Fatalf("head of core 0 should be e01")
 	}
@@ -384,7 +387,10 @@ func TestConsensus(t *testing.T) {
 
 func synchronizeCores(cores []Core, from int, to int, payload [][]byte) error {
 	knownByTo := cores[to].Known()
-	toHead, unknownByTo := cores[from].Diff(knownByTo)
+	toHead, unknownByTo, err := cores[from].Diff(knownByTo)
+	if err != nil {
+		return err
+	}
 	return cores[to].Sync(toHead, unknownByTo, payload)
 }
 

@@ -23,11 +23,6 @@ import (
 	"time"
 )
 
-type Key struct {
-	x string
-	y string
-}
-
 type Hashgraph struct {
 	Participants          []string     //participant public keys
 	Store                 Store        //Persistent store of Events and Rounds
@@ -36,27 +31,28 @@ type Hashgraph struct {
 	ConsensusTransactions int          //number of consensus transactions
 	commitCh              chan []Event //channel for committing events
 
-	ancestorCache           map[Key]bool
-	selfAncestorCache       map[Key]bool
-	forkCache               map[Key]bool
-	oldestSelfAncestorCache map[Key]string
-	stronglySeeCache        map[Key]bool
-	parentRoundCache        map[string]int
-	roundCache              map[string]int
+	ancestorCache           *KeyBoolMapCache
+	selfAncestorCache       *KeyBoolMapCache
+	forkCache               *KeyBoolMapCache
+	oldestSelfAncestorCache *KeyStringMapCache
+	stronglySeeCache        *KeyBoolMapCache
+	parentRoundCache        *StringIntMapCache
+	roundCache              *StringIntMapCache
 }
 
 func NewHashgraph(participants []string, store Store, commitCh chan []Event) Hashgraph {
+	cacheSize := 500
 	return Hashgraph{
 		Participants:            participants,
 		Store:                   store,
 		commitCh:                commitCh,
-		ancestorCache:           make(map[Key]bool),
-		selfAncestorCache:       make(map[Key]bool),
-		forkCache:               make(map[Key]bool),
-		oldestSelfAncestorCache: make(map[Key]string),
-		stronglySeeCache:        make(map[Key]bool),
-		parentRoundCache:        make(map[string]int),
-		roundCache:              make(map[string]int),
+		ancestorCache:           NewKeyBoolMapCache(cacheSize),
+		selfAncestorCache:       NewKeyBoolMapCache(cacheSize),
+		forkCache:               NewKeyBoolMapCache(cacheSize),
+		oldestSelfAncestorCache: NewKeyStringMapCache(cacheSize),
+		stronglySeeCache:        NewKeyBoolMapCache(cacheSize),
+		parentRoundCache:        NewStringIntMapCache(cacheSize),
+		roundCache:              NewStringIntMapCache(cacheSize),
 	}
 }
 
@@ -66,11 +62,11 @@ func (h *Hashgraph) SuperMajority() int {
 
 //true if y is an ancestor of x
 func (h *Hashgraph) Ancestor(x, y string) bool {
-	if c, ok := h.ancestorCache[Key{x, y}]; ok {
+	if c, ok := h.ancestorCache.Get(Key{x, y}); ok {
 		return c
 	}
 	a := h.ancestor(x, y)
-	h.ancestorCache[Key{x, y}] = a
+	h.ancestorCache.Set(Key{x, y}, a)
 	return a
 }
 
@@ -95,11 +91,11 @@ func (h *Hashgraph) ancestor(x, y string) bool {
 
 //true if y is a self-ancestor of x
 func (h *Hashgraph) SelfAncestor(x, y string) bool {
-	if c, ok := h.selfAncestorCache[Key{x, y}]; ok {
+	if c, ok := h.selfAncestorCache.Get(Key{x, y}); ok {
 		return c
 	}
 	a := h.selfAncestor(x, y)
-	h.selfAncestorCache[Key{x, y}] = a
+	h.selfAncestorCache.Set(Key{x, y}, a)
 	return a
 }
 
@@ -123,10 +119,12 @@ func (h *Hashgraph) selfAncestor(x, y string) bool {
 
 //true if x detects a fork under y
 func (h *Hashgraph) DetectFork(x, y string) bool {
-	if c, ok := h.forkCache[Key{x, y}]; ok {
+	if c, ok := h.forkCache.Get(Key{x, y}); ok {
 		return c
 	}
 	f := h.detectFork(x, y)
+	//XXX why wasnt this here before?
+	h.forkCache.Set(Key{x, y}, f)
 	return f
 }
 
@@ -199,11 +197,11 @@ func (h *Hashgraph) See(x, y string) bool {
 
 //oldest self-ancestor of x to see y
 func (h *Hashgraph) OldestSelfAncestorToSee(x, y string) string {
-	if c, ok := h.oldestSelfAncestorCache[Key{x, y}]; ok {
+	if c, ok := h.oldestSelfAncestorCache.Get(Key{x, y}); ok {
 		return c
 	}
 	res := h.oldestSelfAncestorToSee(x, y)
-	h.oldestSelfAncestorCache[Key{x, y}] = res
+	h.oldestSelfAncestorCache.Set(Key{x, y}, res)
 	return res
 }
 
@@ -242,11 +240,11 @@ func (h *Hashgraph) MapSentinels(x, y string, sentinels map[string]bool) {
 
 //true if x strongly sees y
 func (h *Hashgraph) StronglySee(x, y string) bool {
-	if c, ok := h.stronglySeeCache[Key{x, y}]; ok {
+	if c, ok := h.stronglySeeCache.Get(Key{x, y}); ok {
 		return c
 	}
 	ss := h.stronglySee(x, y)
-	h.stronglySeeCache[Key{x, y}] = ss
+	h.stronglySeeCache.Set(Key{x, y}, ss)
 	return ss
 }
 
@@ -269,11 +267,11 @@ func (h *Hashgraph) stronglySee(x, y string) bool {
 
 //max of parent rounds
 func (h *Hashgraph) ParentRound(x string) int {
-	if c, ok := h.parentRoundCache[x]; ok {
+	if c, ok := h.parentRoundCache.Get(x); ok {
 		return c
 	}
 	pr := h.parentRound(x)
-	h.parentRoundCache[x] = pr
+	h.parentRoundCache.Set(x, pr)
 	return pr
 }
 
@@ -348,11 +346,11 @@ func (h *Hashgraph) RoundInc(x string) bool {
 }
 
 func (h *Hashgraph) Round(x string) int {
-	if c, ok := h.roundCache[x]; ok {
+	if c, ok := h.roundCache.Get(x); ok {
 		return c
 	}
 	r := h.round(x)
-	h.roundCache[x] = r
+	h.roundCache.Set(x, r)
 	return r
 }
 
@@ -419,11 +417,8 @@ func (h *Hashgraph) InsertEvent(event Event) error {
 func (h *Hashgraph) FromParentsLatest(event Event) error {
 	selfParent, otherParent := event.SelfParent(), event.OtherParent()
 	creator := event.Creator()
-	creatorEvents, err := h.Store.ParticipantEvents(creator)
-	if err != nil && err != ErrKeyNotFound {
-		return err
-	}
-	if selfParent == "" && otherParent == "" && len(creatorEvents) == 0 {
+	creatorKnownEvents, _ := h.Store.Known()[creator]
+	if selfParent == "" && otherParent == "" && creatorKnownEvents == 0 {
 		return nil
 	}
 	selfParentEvent, selfParentError := h.Store.GetEvent(selfParent)
@@ -439,7 +434,11 @@ func (h *Hashgraph) FromParentsLatest(event Event) error {
 		return fmt.Errorf("Other-parent not known")
 	}
 
-	selfParentLegit := selfParent == creatorEvents[len(creatorEvents)-1]
+	lastKnown, err := h.Store.LastFrom(creator)
+	if err != nil {
+		return err
+	}
+	selfParentLegit := selfParent == lastKnown
 	if !selfParentLegit {
 		return fmt.Errorf("Self-parent not last known event by creator")
 	}

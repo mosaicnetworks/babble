@@ -110,7 +110,10 @@ func TestProcessSync(t *testing.T) {
 	node1 := NewNode(TestConfig(t), keys[1], peers, peer1Trans, proxy.NewInmemProxy(testLogger))
 	node1.Init()
 
-	head, unknown := node1.core.Diff(node0.core.Known())
+	head, unknown, err := node1.core.Diff(node0.core.Known())
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	args := net.SyncRequest{
 		Head:   head,
@@ -162,7 +165,10 @@ func TestAddTransaction(t *testing.T) {
 	message := "Hello World!"
 	peer0Proxy.SubmitTx([]byte(message))
 
-	head, unknown := node1.core.Diff(node0.core.Known())
+	head, unknown, err := node1.core.Diff(node0.core.Known())
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	args := net.SyncRequest{
 		Head:   head,
@@ -192,7 +198,7 @@ func TestAddTransaction(t *testing.T) {
 }
 
 func initNodes(logger *logrus.Logger) ([]*ecdsa.PrivateKey, []Node) {
-	conf := NewConfig(true, 5*time.Millisecond, logger)
+	conf := NewConfig(5*time.Millisecond, logger)
 
 	keys, peers := initPeers()
 	nodes := []Node{}
@@ -394,7 +400,11 @@ func synchronizeNodes(from Node, to Node, payload [][]byte) error {
 		return err
 	}
 
-	head, diff := from.core.Diff(known)
+	head, diff, err := from.core.Diff(known)
+	if err != nil {
+		return err
+	}
+
 	if err := from.requestSync(to.localAddr, head, diff); err != nil {
 		return err
 	}
@@ -412,10 +422,11 @@ func TestGossip(t *testing.T) {
 
 	//wait until all nodes have at least 50 consensus events
 	for {
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		done := true
 		for _, n := range nodes {
-			if len(n.GetConsensusEvents()) < 50 {
+			ce := n.GetConsensusEvents()
+			if len(ce) < 50 {
 				done = false
 				break
 			}

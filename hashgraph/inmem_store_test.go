@@ -68,26 +68,26 @@ func TestInmemEvents(t *testing.T) {
 	}
 
 	for _, p := range participants {
-		pEvents, err := store.ParticipantEvents(p.hex)
+		pEvents, err := store.ParticipantEvents(p.hex, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if l := len(pEvents); l != 1 {
-			t.Fatalf("%s should have 1 event, not %d", p, l)
+			t.Fatalf("%s should have 1 event, not %d", p.hex, l)
 		}
 		expectedEvent := events[p.hex]
 		if pEvents[0] != expectedEvent.Hex() {
-			t.Fatalf("%s ParticipantEvents do not match", p)
+			t.Fatalf("%s ParticipantEvents do not match", p.hex)
 		}
 	}
 
-	expectedKnow := make(map[string]int)
+	expectedKnown := make(map[string]int)
 	for _, p := range participants {
-		expectedKnow[p.hex] = 1
+		expectedKnown[p.hex] = 1
 	}
 	known := store.Known()
-	if !reflect.DeepEqual(expectedKnow, known) {
-		t.Fatalf("Incorrect Known. Got %#v, expected %#v", known, expectedKnow)
+	if !reflect.DeepEqual(expectedKnown, known) {
+		t.Fatalf("Incorrect Known. Got %#v, expected %#v", known, expectedKnown)
 	}
 
 	for _, p := range participants {
