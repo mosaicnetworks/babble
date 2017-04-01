@@ -118,7 +118,7 @@ func (n *Node) Run(gossip bool) {
 			n.logger.Debug("Adding Transaction")
 			n.transactionPool = append(n.transactionPool, t)
 		case events := <-n.commitCh:
-			n.logger.WithField("Events", len(events)).Debug("Committing Events")
+			n.logger.WithField("events", len(events)).Debug("Committing Events")
 			if err := n.Commit(events); err != nil {
 				n.logger.WithField("error", err).Error("Committing Event")
 			}
@@ -132,10 +132,10 @@ func (n *Node) Run(gossip bool) {
 func (n *Node) processRPC(rpc net.RPC) {
 	switch cmd := rpc.Command.(type) {
 	case *net.KnownRequest:
-		n.logger.Debug("processing known")
+		n.logger.WithField("from", cmd.From).Debug("Processing Known")
 		n.processKnown(rpc, cmd)
 	case *net.SyncRequest:
-		n.logger.Debug("processing sync")
+		n.logger.WithField("from", cmd.From).Debug("Processing Sync")
 		n.processSync(rpc, cmd)
 	default:
 		n.logger.WithField("cmd", rpc.Command).Error("Unexpected RPC command")
@@ -144,7 +144,10 @@ func (n *Node) processRPC(rpc net.RPC) {
 }
 
 func (n *Node) processKnown(rpc net.RPC, cmd *net.KnownRequest) {
+	start := time.Now()
 	known := n.core.Known()
+	elapsed := time.Since(start)
+	n.logger.WithField("duration", elapsed).Debug("Processed Known()")
 	resp := &net.KnownResponse{
 		Known: known,
 	}
@@ -153,12 +156,23 @@ func (n *Node) processKnown(rpc net.RPC, cmd *net.KnownRequest) {
 
 func (n *Node) processSync(rpc net.RPC, cmd *net.SyncRequest) {
 	success := true
+	start := time.Now()
 	err := n.core.Sync(cmd.Head, cmd.Events, n.transactionPool)
+	elapsed := time.Since(start)
+	n.logger.WithField("duration", elapsed).Debug("Processed Sync()")
 	if err != nil {
+		n.logger.WithField("error", err).Error("Sync()")
 		success = false
 	} else {
 		n.transactionPool = [][]byte{}
-		n.core.RunConsensus()
+		start = time.Now()
+		err := n.core.RunConsensus()
+		elapsed = time.Since(start)
+		n.logger.WithField("duration", elapsed).Debug("Processed RunConsensus()")
+		if err != nil {
+			n.logger.WithField("error", err).Error("RunConsensus()")
+			success = false
+		}
 	}
 	resp := &net.SyncResponse{
 		Success: success,
@@ -204,6 +218,7 @@ func (n *Node) requestKnown(target string) (map[string]int, error) {
 
 func (n *Node) requestSync(target string, head string, events []hg.Event) error {
 	args := net.SyncRequest{
+		From:   n.localAddr,
 		Head:   head,
 		Events: events,
 	}
@@ -240,14 +255,6 @@ func (n *Node) Shutdown() {
 	}
 }
 
-func (n *Node) GetConsensusEvents() []string {
-	return n.core.GetConsensusEvents()
-}
-
-func (n *Node) GetConsensusTransactions() ([][]byte, error) {
-	return n.core.GetConsensusTransactions()
-}
-
 func (n *Node) GetStats() map[string]string {
 	toString := func(i *int) string {
 		if i == nil {
@@ -257,7 +264,7 @@ func (n *Node) GetStats() map[string]string {
 	}
 	s := map[string]string{
 		"last_consensus_round":   toString(n.core.GetLastConsensusRoundIndex()),
-		"consensus_events":       strconv.Itoa(len(n.core.GetConsensusEvents())),
+		"consensus_events":       strconv.Itoa(n.core.GetConsensusEventsCount()),
 		"consensus_transactions": strconv.Itoa(n.core.GetConsensusTransactionsCount()),
 		"undetermined_events":    strconv.Itoa(len(n.core.GetUndeterminedEvents())),
 		"transaction_pool":       strconv.Itoa(len(n.transactionPool)),

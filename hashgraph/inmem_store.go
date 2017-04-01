@@ -77,6 +77,10 @@ func (s *InmemStore) ConsensusEvents() []string {
 	return lastWindow
 }
 
+func (s *InmemStore) ConsensusEventsCount() int {
+	return s.consensusCache.tot
+}
+
 func (s *InmemStore) AddConsensusEvent(key string) error {
 	s.consensusCache.Set(key)
 	return nil

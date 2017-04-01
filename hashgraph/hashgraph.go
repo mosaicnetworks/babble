@@ -123,7 +123,6 @@ func (h *Hashgraph) DetectFork(x, y string) bool {
 		return c
 	}
 	f := h.detectFork(x, y)
-	//XXX why wasnt this here before?
 	h.forkCache.Set(Key{x, y}, f)
 	return f
 }
@@ -446,14 +445,21 @@ func (h *Hashgraph) FromParentsLatest(event Event) error {
 	return nil
 }
 
-func (h *Hashgraph) DivideRounds() {
+func (h *Hashgraph) DivideRounds() error {
 	for _, hash := range h.UndeterminedEvents {
 		roundNumber := h.Round(hash)
 		witness := h.Witness(hash)
-		roundInfo, _ := h.Store.GetRound(roundNumber)
+		roundInfo, err := h.Store.GetRound(roundNumber)
+		if err != nil && err != ErrKeyNotFound {
+			return err
+		}
 		roundInfo.AddEvent(hash, witness)
-		h.Store.SetRound(roundNumber, roundInfo)
+		err = h.Store.SetRound(roundNumber, roundInfo)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func (h *Hashgraph) fameLoopStart() int {
@@ -464,10 +470,13 @@ func (h *Hashgraph) fameLoopStart() int {
 }
 
 //decide if witnesses are famous
-func (h *Hashgraph) DecideFame() {
+func (h *Hashgraph) DecideFame() error {
 	votes := make(map[string](map[string]bool)) //[x][y]=>vote(x,y)
 	for i := h.fameLoopStart(); i < h.Store.Rounds()-1; i++ {
-		roundInfo, _ := h.Store.GetRound(i)
+		roundInfo, err := h.Store.GetRound(i)
+		if err != nil {
+			return err
+		}
 		for j := i + 1; j < h.Store.Rounds(); j++ {
 			for _, x := range roundInfo.Witnesses() {
 				for _, y := range h.Store.RoundWitnesses(j) {
@@ -521,8 +530,12 @@ func (h *Hashgraph) DecideFame() {
 			(h.LastConsensusRound == nil || i > *h.LastConsensusRound) {
 			h.setLastConsensusRound(i)
 		}
-		h.Store.SetRound(i, roundInfo)
+		err = h.Store.SetRound(i, roundInfo)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func (h *Hashgraph) setLastConsensusRound(i int) {
@@ -533,13 +546,13 @@ func (h *Hashgraph) setLastConsensusRound(i int) {
 }
 
 //assign round received and timestamp to all events
-func (h *Hashgraph) DecideRoundReceived() {
+func (h *Hashgraph) DecideRoundReceived() error {
 	for _, x := range h.UndeterminedEvents {
 		r := h.Round(x)
 		for i := r + 1; i < h.Store.Rounds(); i++ {
 			tr, err := h.Store.GetRound(i)
 			if err != nil {
-				break
+				return err
 			}
 			//no witnesses are left undecided
 			if !tr.WitnessesDecided() {
@@ -554,7 +567,10 @@ func (h *Hashgraph) DecideRoundReceived() {
 				}
 			}
 			if len(s) > len(fws)/2 {
-				ex, _ := h.Store.GetEvent(x)
+				ex, err := h.Store.GetEvent(x)
+				if err != nil {
+					return err
+				}
 				ex.SetRoundReceived(i)
 
 				t := []string{}
@@ -564,21 +580,31 @@ func (h *Hashgraph) DecideRoundReceived() {
 
 				ex.consensusTimestamp = h.MedianTimestamp(t)
 
-				h.Store.SetEvent(ex)
+				err = h.Store.SetEvent(ex)
+				if err != nil {
+					return err
+				}
 
 				break
 			}
 		}
 	}
+	return nil
 }
 
-func (h *Hashgraph) FindOrder() {
-	h.DecideRoundReceived()
+func (h *Hashgraph) FindOrder() error {
+	err := h.DecideRoundReceived()
+	if err != nil {
+		return err
+	}
 
 	newConsensusEvents := []Event{}
 	newUndeterminedEvents := []string{}
 	for _, x := range h.UndeterminedEvents {
-		ex, _ := h.Store.GetEvent(x)
+		ex, err := h.Store.GetEvent(x)
+		if err != nil {
+			return err
+		}
 		if ex.roundReceived != nil {
 			newConsensusEvents = append(newConsensusEvents, ex)
 		} else {
@@ -591,13 +617,18 @@ func (h *Hashgraph) FindOrder() {
 	sort.Sort(sorter)
 
 	for _, e := range newConsensusEvents {
-		h.Store.AddConsensusEvent(e.Hex())
+		err := h.Store.AddConsensusEvent(e.Hex())
+		if err != nil {
+			return err
+		}
 		h.ConsensusTransactions += len(e.Transactions())
 	}
 
 	if h.commitCh != nil && len(newConsensusEvents) > 0 {
 		h.commitCh <- newConsensusEvents
 	}
+
+	return nil
 }
 
 func (h *Hashgraph) MedianTimestamp(eventHashes []string) time.Time {

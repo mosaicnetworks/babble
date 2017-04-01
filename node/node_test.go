@@ -422,11 +422,11 @@ func TestGossip(t *testing.T) {
 
 	//wait until all nodes have at least 50 consensus events
 	for {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 		done := true
 		for _, n := range nodes {
-			ce := n.GetConsensusEvents()
-			if len(ce) < 50 {
+			ce := n.core.GetConsensusEventsCount()
+			if ce < 50 {
 				done = false
 				break
 			}
@@ -442,7 +442,7 @@ func TestGossip(t *testing.T) {
 	consEvents := [][]string{}
 	consTransactions := [][][]byte{}
 	for _, n := range nodes {
-		consEvents = append(consEvents, n.GetConsensusEvents())
+		consEvents = append(consEvents, n.core.GetConsensusEvents())
 		nodeTxs, err := getCommittedTransactions(n)
 		if err != nil {
 			t.Fatal(err)

@@ -29,6 +29,7 @@ type Store interface {
 	LastFrom(string) (string, error)
 	Known() map[string]int
 	ConsensusEvents() []string
+	ConsensusEventsCount() int
 	AddConsensusEvent(string) error
 	GetRound(int) (RoundInfo, error)
 	SetRound(int, RoundInfo) error

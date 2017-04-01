@@ -115,10 +115,17 @@ func (c *Core) Sync(otherHead string, unknown []hg.Event, payload [][]byte) erro
 	return nil
 }
 
-func (c *Core) RunConsensus() {
-	c.hg.DivideRounds()
-	c.hg.DecideFame()
-	c.hg.FindOrder()
+func (c *Core) RunConsensus() error {
+	if err := c.hg.DivideRounds(); err != nil {
+		return err
+	}
+	if err := c.hg.DecideFame(); err != nil {
+		return err
+	}
+	if err := c.hg.FindOrder(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *Core) GetHead() (hg.Event, error) {
@@ -141,6 +148,10 @@ func (c *Core) GetEventTransactions(hash string) ([][]byte, error) {
 
 func (c *Core) GetConsensusEvents() []string {
 	return c.hg.ConsensusEvents()
+}
+
+func (c *Core) GetConsensusEventsCount() int {
+	return c.hg.Store.ConsensusEventsCount()
 }
 
 func (c *Core) GetUndeterminedEvents() []string {

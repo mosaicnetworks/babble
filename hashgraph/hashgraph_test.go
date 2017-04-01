@@ -607,7 +607,10 @@ func TestRoundDiff(t *testing.T) {
 func TestDivideRounds(t *testing.T) {
 	h, index := initRoundHashgraph()
 
-	h.DivideRounds()
+	err := h.DivideRounds()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if l := h.Store.Rounds(); l != 2 {
 		t.Fatalf("length of rounds should be 2 not %d", l)

@@ -26,6 +26,7 @@ type KnownResponse struct {
 }
 
 type SyncRequest struct {
+	From   string
 	Head   string
 	Events []hashgraph.Event
 }
