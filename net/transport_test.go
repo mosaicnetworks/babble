@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/arrivets/babble/hashgraph"
+	"bitbucket.org/mosaicnet/babble/hashgraph"
 )
 
 const (

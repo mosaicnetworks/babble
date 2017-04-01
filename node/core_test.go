@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/arrivets/babble/crypto"
-	hg "github.com/arrivets/babble/hashgraph"
+	"bitbucket.org/mosaicnet/babble/crypto"
+	hg "bitbucket.org/mosaicnet/babble/hashgraph"
 )
 
 func TestInit(t *testing.T) {

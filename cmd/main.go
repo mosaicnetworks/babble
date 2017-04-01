@@ -26,10 +26,10 @@ import (
 	"github.com/Sirupsen/logrus"
 	"gopkg.in/urfave/cli.v1"
 
-	"github.com/arrivets/babble/crypto"
-	"github.com/arrivets/babble/net"
-	"github.com/arrivets/babble/node"
-	"github.com/arrivets/babble/proxy"
+	"bitbucket.org/mosaicnet/babble/crypto"
+	"bitbucket.org/mosaicnet/babble/net"
+	"bitbucket.org/mosaicnet/babble/node"
+	"bitbucket.org/mosaicnet/babble/proxy"
 )
 
 var (

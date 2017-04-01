@@ -15,7 +15,7 @@ limitations under the License.
 */
 package net
 
-import "github.com/arrivets/babble/hashgraph"
+import "bitbucket.org/mosaicnet/babble/hashgraph"
 
 type KnownRequest struct {
 	From string

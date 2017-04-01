@@ -23,7 +23,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/arrivets/babble/crypto"
+	"bitbucket.org/mosaicnet/babble/crypto"
 )
 
 type EventBody struct {

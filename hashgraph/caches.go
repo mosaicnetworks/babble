@@ -15,7 +15,7 @@ limitations under the License.
 */
 package hashgraph
 
-import "github.com/arrivets/babble/common"
+import "bitbucket.org/mosaicnet/babble/common"
 
 type Key struct {
 	x string

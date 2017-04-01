@@ -23,7 +23,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"gopkg.in/urfave/cli.v1"
 
-	"github.com/arrivets/babble/proxy"
+	"bitbucket.org/mosaicnet/babble/proxy"
 )
 
 var (

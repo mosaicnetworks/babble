@@ -19,7 +19,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/arrivets/babble/common"
+	"bitbucket.org/mosaicnet/babble/common"
 )
 
 func TestTCPTransport_BadAddr(t *testing.T) {

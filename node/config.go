@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/arrivets/babble/common"
+	"bitbucket.org/mosaicnet/babble/common"
 )
 
 type Config struct {

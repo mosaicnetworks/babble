@@ -22,7 +22,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/arrivets/babble/common"
+	"bitbucket.org/mosaicnet/babble/common"
 )
 
 type Hashgraph struct {

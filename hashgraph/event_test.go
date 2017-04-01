@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/arrivets/babble/crypto"
+	"bitbucket.org/mosaicnet/babble/crypto"
 )
 
 func createDummyEventBody() EventBody {

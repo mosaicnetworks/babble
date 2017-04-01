@@ -24,10 +24,10 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/arrivets/babble/common"
-	"github.com/arrivets/babble/crypto"
-	"github.com/arrivets/babble/net"
-	"github.com/arrivets/babble/proxy"
+	"bitbucket.org/mosaicnet/babble/common"
+	"bitbucket.org/mosaicnet/babble/crypto"
+	"bitbucket.org/mosaicnet/babble/net"
+	"bitbucket.org/mosaicnet/babble/proxy"
 )
 
 func initPeers() ([]*ecdsa.PrivateKey, []net.Peer) {

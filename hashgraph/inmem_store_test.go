@@ -20,7 +20,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/arrivets/babble/crypto"
+	"bitbucket.org/mosaicnet/babble/crypto"
 )
 
 type pub struct {
