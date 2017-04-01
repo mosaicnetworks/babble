@@ -21,6 +21,8 @@ import (
 	"math"
 	"sort"
 	"time"
+
+	"github.com/arrivets/babble/common"
 )
 
 type Hashgraph struct {
@@ -31,13 +33,13 @@ type Hashgraph struct {
 	ConsensusTransactions int          //number of consensus transactions
 	commitCh              chan []Event //channel for committing events
 
-	ancestorCache           *KeyBoolMapCache
-	selfAncestorCache       *KeyBoolMapCache
-	forkCache               *KeyBoolMapCache
-	oldestSelfAncestorCache *KeyStringMapCache
-	stronglySeeCache        *KeyBoolMapCache
-	parentRoundCache        *StringIntMapCache
-	roundCache              *StringIntMapCache
+	ancestorCache           *common.LRU
+	selfAncestorCache       *common.LRU
+	forkCache               *common.LRU
+	oldestSelfAncestorCache *common.LRU
+	stronglySeeCache        *common.LRU
+	parentRoundCache        *common.LRU
+	roundCache              *common.LRU
 }
 
 func NewHashgraph(participants []string, store Store, commitCh chan []Event) Hashgraph {
@@ -46,13 +48,13 @@ func NewHashgraph(participants []string, store Store, commitCh chan []Event) Has
 		Participants:            participants,
 		Store:                   store,
 		commitCh:                commitCh,
-		ancestorCache:           NewKeyBoolMapCache(cacheSize),
-		selfAncestorCache:       NewKeyBoolMapCache(cacheSize),
-		forkCache:               NewKeyBoolMapCache(cacheSize),
-		oldestSelfAncestorCache: NewKeyStringMapCache(cacheSize),
-		stronglySeeCache:        NewKeyBoolMapCache(cacheSize),
-		parentRoundCache:        NewStringIntMapCache(cacheSize),
-		roundCache:              NewStringIntMapCache(cacheSize),
+		ancestorCache:           common.NewLRU(cacheSize, nil),
+		selfAncestorCache:       common.NewLRU(cacheSize, nil),
+		forkCache:               common.NewLRU(cacheSize, nil),
+		oldestSelfAncestorCache: common.NewLRU(cacheSize, nil),
+		stronglySeeCache:        common.NewLRU(cacheSize, nil),
+		parentRoundCache:        common.NewLRU(cacheSize, nil),
+		roundCache:              common.NewLRU(cacheSize, nil),
 	}
 }
 
@@ -63,10 +65,10 @@ func (h *Hashgraph) SuperMajority() int {
 //true if y is an ancestor of x
 func (h *Hashgraph) Ancestor(x, y string) bool {
 	if c, ok := h.ancestorCache.Get(Key{x, y}); ok {
-		return c
+		return c.(bool)
 	}
 	a := h.ancestor(x, y)
-	h.ancestorCache.Set(Key{x, y}, a)
+	h.ancestorCache.Add(Key{x, y}, a)
 	return a
 }
 
@@ -92,10 +94,10 @@ func (h *Hashgraph) ancestor(x, y string) bool {
 //true if y is a self-ancestor of x
 func (h *Hashgraph) SelfAncestor(x, y string) bool {
 	if c, ok := h.selfAncestorCache.Get(Key{x, y}); ok {
-		return c
+		return c.(bool)
 	}
 	a := h.selfAncestor(x, y)
-	h.selfAncestorCache.Set(Key{x, y}, a)
+	h.selfAncestorCache.Add(Key{x, y}, a)
 	return a
 }
 
@@ -120,10 +122,10 @@ func (h *Hashgraph) selfAncestor(x, y string) bool {
 //true if x detects a fork under y
 func (h *Hashgraph) DetectFork(x, y string) bool {
 	if c, ok := h.forkCache.Get(Key{x, y}); ok {
-		return c
+		return c.(bool)
 	}
 	f := h.detectFork(x, y)
-	h.forkCache.Set(Key{x, y}, f)
+	h.forkCache.Add(Key{x, y}, f)
 	return f
 }
 
@@ -197,10 +199,10 @@ func (h *Hashgraph) See(x, y string) bool {
 //oldest self-ancestor of x to see y
 func (h *Hashgraph) OldestSelfAncestorToSee(x, y string) string {
 	if c, ok := h.oldestSelfAncestorCache.Get(Key{x, y}); ok {
-		return c
+		return c.(string)
 	}
 	res := h.oldestSelfAncestorToSee(x, y)
-	h.oldestSelfAncestorCache.Set(Key{x, y}, res)
+	h.oldestSelfAncestorCache.Add(Key{x, y}, res)
 	return res
 }
 
@@ -240,10 +242,10 @@ func (h *Hashgraph) MapSentinels(x, y string, sentinels map[string]bool) {
 //true if x strongly sees y
 func (h *Hashgraph) StronglySee(x, y string) bool {
 	if c, ok := h.stronglySeeCache.Get(Key{x, y}); ok {
-		return c
+		return c.(bool)
 	}
 	ss := h.stronglySee(x, y)
-	h.stronglySeeCache.Set(Key{x, y}, ss)
+	h.stronglySeeCache.Add(Key{x, y}, ss)
 	return ss
 }
 
@@ -267,10 +269,10 @@ func (h *Hashgraph) stronglySee(x, y string) bool {
 //max of parent rounds
 func (h *Hashgraph) ParentRound(x string) int {
 	if c, ok := h.parentRoundCache.Get(x); ok {
-		return c
+		return c.(int)
 	}
 	pr := h.parentRound(x)
-	h.parentRoundCache.Set(x, pr)
+	h.parentRoundCache.Add(x, pr)
 	return pr
 }
 
@@ -346,10 +348,10 @@ func (h *Hashgraph) RoundInc(x string) bool {
 
 func (h *Hashgraph) Round(x string) int {
 	if c, ok := h.roundCache.Get(x); ok {
-		return c
+		return c.(int)
 	}
 	r := h.round(x)
-	h.roundCache.Set(x, r)
+	h.roundCache.Add(x, r)
 	return r
 }
 

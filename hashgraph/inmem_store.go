@@ -15,18 +15,20 @@ limitations under the License.
 */
 package hashgraph
 
+import "github.com/arrivets/babble/common"
+
 type InmemStore struct {
-	eventCache             *EventCache
-	roundCache             *RoundCache
-	consensusCache         *StringListCache
+	eventCache             *common.LRU
+	roundCache             *common.LRU
+	consensusCache         *common.RollingList
 	participantEventsCache *ParticipantEventsCache
 }
 
 func NewInmemStore(participants []string) *InmemStore {
 	return &InmemStore{
-		eventCache:             NewEventCache(500),
-		roundCache:             NewRoundCache(500),
-		consensusCache:         NewStringListCache(500),
+		eventCache:             common.NewLRU(500, nil),
+		roundCache:             common.NewLRU(500, nil),
+		consensusCache:         common.NewRollingList(500),
 		participantEventsCache: NewParticipantEventsCache(500, participants),
 	}
 }
@@ -36,7 +38,7 @@ func (s *InmemStore) GetEvent(key string) (Event, error) {
 	if !ok {
 		return Event{}, ErrKeyNotFound
 	}
-	return res, nil
+	return res.(Event), nil
 }
 
 func (s *InmemStore) SetEvent(event Event) error {
@@ -50,7 +52,7 @@ func (s *InmemStore) SetEvent(event Event) error {
 			return err
 		}
 	}
-	s.eventCache.Set(event)
+	s.eventCache.Add(key, event)
 
 	return nil
 }
@@ -64,7 +66,7 @@ func (s *InmemStore) LastFrom(participant string) (string, error) {
 }
 
 func (s *InmemStore) addParticpantEvent(participant string, hash string) error {
-	s.participantEventsCache.Set(participant, hash)
+	s.participantEventsCache.Add(participant, hash)
 	return nil
 }
 
@@ -74,15 +76,20 @@ func (s *InmemStore) Known() map[string]int {
 
 func (s *InmemStore) ConsensusEvents() []string {
 	lastWindow, _ := s.consensusCache.Get()
-	return lastWindow
+	res := []string{}
+	for _, item := range lastWindow {
+		res = append(res, item.(string))
+	}
+	return res
 }
 
 func (s *InmemStore) ConsensusEventsCount() int {
-	return s.consensusCache.tot
+	_, tot := s.consensusCache.Get()
+	return tot
 }
 
 func (s *InmemStore) AddConsensusEvent(key string) error {
-	s.consensusCache.Set(key)
+	s.consensusCache.Add(key)
 	return nil
 }
 
@@ -91,20 +98,16 @@ func (s *InmemStore) GetRound(r int) (RoundInfo, error) {
 	if !ok {
 		return *NewRoundInfo(), ErrKeyNotFound
 	}
-	return res, nil
+	return res.(RoundInfo), nil
 }
 
 func (s *InmemStore) SetRound(r int, round RoundInfo) error {
-	_, err := s.GetRound(r)
-	if err != nil && err != ErrKeyNotFound {
-		return err
-	}
-	s.roundCache.Set(r, round)
+	s.roundCache.Add(r, round)
 	return nil
 }
 
 func (s *InmemStore) Rounds() int {
-	return s.roundCache.tot
+	return s.roundCache.Len()
 }
 
 func (s *InmemStore) RoundWitnesses(r int) []string {
