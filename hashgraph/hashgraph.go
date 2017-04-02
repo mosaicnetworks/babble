@@ -22,6 +22,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/Sirupsen/logrus"
+
 	"bitbucket.org/mosaicnet/babble/common"
 )
 
@@ -40,10 +42,16 @@ type Hashgraph struct {
 	stronglySeeCache        *common.LRU
 	parentRoundCache        *common.LRU
 	roundCache              *common.LRU
+
+	logger *logrus.Logger
 }
 
-func NewHashgraph(participants []string, store Store, commitCh chan []Event) Hashgraph {
-	cacheSize := 500
+func NewHashgraph(participants []string, store Store, commitCh chan []Event, logger *logrus.Logger) Hashgraph {
+	if logger == nil {
+		logger = logrus.New()
+		logger.Level = logrus.DebugLevel
+	}
+	cacheSize := 50000
 	return Hashgraph{
 		Participants:            participants,
 		Store:                   store,
@@ -55,6 +63,7 @@ func NewHashgraph(participants []string, store Store, commitCh chan []Event) Has
 		stronglySeeCache:        common.NewLRU(cacheSize, nil),
 		parentRoundCache:        common.NewLRU(cacheSize, nil),
 		roundCache:              common.NewLRU(cacheSize, nil),
+		logger:                  logger,
 	}
 }
 
@@ -560,6 +569,7 @@ func (h *Hashgraph) DecideRoundReceived() error {
 			if !tr.WitnessesDecided() {
 				break
 			}
+
 			fws := tr.FamousWitnesses()
 			//set of famous witnesses that see x
 			s := []string{}

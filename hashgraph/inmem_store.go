@@ -26,10 +26,10 @@ type InmemStore struct {
 
 func NewInmemStore(participants []string) *InmemStore {
 	return &InmemStore{
-		eventCache:             common.NewLRU(500, nil),
-		roundCache:             common.NewLRU(500, nil),
-		consensusCache:         common.NewRollingList(500),
-		participantEventsCache: NewParticipantEventsCache(500, participants),
+		eventCache:             common.NewLRU(50000, nil),
+		roundCache:             common.NewLRU(50000, nil),
+		consensusCache:         common.NewRollingList(50000),
+		participantEventsCache: NewParticipantEventsCache(50000, participants),
 	}
 }
 

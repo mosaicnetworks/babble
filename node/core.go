@@ -42,7 +42,7 @@ func NewCore(key *ecdsa.PrivateKey, participants []string, store hg.Store, commi
 	}
 	core := Core{
 		key:    key,
-		hg:     hg.NewHashgraph(participants, store, commitCh),
+		hg:     hg.NewHashgraph(participants, store, commitCh, logger),
 		logger: logger,
 	}
 	return core

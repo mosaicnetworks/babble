@@ -22,6 +22,7 @@ import (
 
 	"strings"
 
+	"bitbucket.org/mosaicnet/babble/common"
 	"bitbucket.org/mosaicnet/babble/crypto"
 )
 
@@ -61,7 +62,7 @@ e01 |   |
 e0  e1  e2
 0   1   2
 */
-func initHashgraph() (Hashgraph, map[string]string) {
+func initHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 	n := 3
 	index := make(map[string]string)
 	nodes := []Node{}
@@ -100,12 +101,12 @@ func initHashgraph() (Hashgraph, map[string]string) {
 			store.SetEvent(ev)
 		}
 	}
-	hashgraph := NewHashgraph(participants, store, nil)
+	hashgraph := NewHashgraph(participants, store, nil, common.NewTestLogger(t))
 	return hashgraph, index
 }
 
 func TestAncestor(t *testing.T) {
-	h, index := initHashgraph()
+	h, index := initHashgraph(t)
 
 	//1 generation
 	if !h.Ancestor(index["e01"], index["e0"]) {
@@ -157,7 +158,7 @@ func TestAncestor(t *testing.T) {
 }
 
 func TestSelfAncestor(t *testing.T) {
-	h, index := initHashgraph()
+	h, index := initHashgraph(t)
 
 	//1 generation
 	if !h.SelfAncestor(index["e01"], index["e0"]) {
@@ -211,7 +212,7 @@ e0   e1 (a)e2
 Node 2 Forks; events a and e2 are both created by node2, they are not self-parents
 and yet they are both ancestors of event e20
 */
-func initForkHashgraph() (Hashgraph, map[string]string) {
+func initForkHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 	n := 3
 	index := make(map[string]string)
 	nodes := []Node{}
@@ -254,12 +255,12 @@ func initForkHashgraph() (Hashgraph, map[string]string) {
 			store.SetEvent(ev)
 		}
 	}
-	hashgraph := NewHashgraph(participants, store, nil)
+	hashgraph := NewHashgraph(participants, store, nil, common.NewTestLogger(t))
 	return hashgraph, index
 }
 
 func TestDetectFork(t *testing.T) {
-	h, index := initForkHashgraph()
+	h, index := initForkHashgraph(t)
 
 	//1 generation
 	fork := h.DetectFork(index["e20"], index["a"])
@@ -313,7 +314,7 @@ func TestDetectFork(t *testing.T) {
 }
 
 func TestSee(t *testing.T) {
-	h, index := initForkHashgraph()
+	h, index := initForkHashgraph(t)
 
 	if !h.See(index["e01"], index["e0"]) {
 		t.Fatal("e01 should see e0")
@@ -357,7 +358,7 @@ func TestSee(t *testing.T) {
 }
 
 func TestStronglySee(t *testing.T) {
-	h, index := initHashgraph()
+	h, index := initHashgraph(t)
 
 	if !h.StronglySee(index["e12"], index["e0"]) {
 		t.Fatalf("e12 should strongly see e0")
@@ -402,7 +403,7 @@ func TestStronglySee(t *testing.T) {
 	}
 
 	//fork
-	h, index = initForkHashgraph()
+	h, index = initForkHashgraph(t)
 	if h.StronglySee(index["e12"], index["a"]) {
 		t.Fatalf("e12 should not strongly see 'a' because of fork")
 	}
@@ -426,7 +427,7 @@ e02 |   |
 e0  e1  e2
 0   1    2
 */
-func initRoundHashgraph() (Hashgraph, map[string]string) {
+func initRoundHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 	n := 3
 	index := make(map[string]string)
 	nodes := []Node{}
@@ -465,7 +466,7 @@ func initRoundHashgraph() (Hashgraph, map[string]string) {
 		participants = append(participants, node.PubHex)
 	}
 
-	hashgraph := NewHashgraph(participants, NewInmemStore(participants), nil)
+	hashgraph := NewHashgraph(participants, NewInmemStore(participants), nil, common.NewTestLogger(t))
 	for i, ev := range *orderedEvents {
 		if err := hashgraph.InsertEvent(ev); err != nil {
 			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
@@ -475,7 +476,7 @@ func initRoundHashgraph() (Hashgraph, map[string]string) {
 }
 
 func TestParentRound(t *testing.T) {
-	h, index := initRoundHashgraph()
+	h, index := initRoundHashgraph(t)
 
 	round0Witnesses := make(map[string]RoundEvent)
 	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
@@ -502,7 +503,7 @@ func TestParentRound(t *testing.T) {
 }
 
 func TestWitness(t *testing.T) {
-	h, index := initRoundHashgraph()
+	h, index := initRoundHashgraph(t)
 
 	round0Witnesses := make(map[string]RoundEvent)
 	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
@@ -539,7 +540,7 @@ func TestWitness(t *testing.T) {
 }
 
 func TestRoundInc(t *testing.T) {
-	h, index := initRoundHashgraph()
+	h, index := initRoundHashgraph(t)
 
 	round0Witnesses := make(map[string]RoundEvent)
 	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
@@ -557,7 +558,7 @@ func TestRoundInc(t *testing.T) {
 }
 
 func TestRound(t *testing.T) {
-	h, index := initRoundHashgraph()
+	h, index := initRoundHashgraph(t)
 
 	round0Witnesses := make(map[string]RoundEvent)
 	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
@@ -575,7 +576,7 @@ func TestRound(t *testing.T) {
 }
 
 func TestRoundDiff(t *testing.T) {
-	h, index := initRoundHashgraph()
+	h, index := initRoundHashgraph(t)
 
 	round0Witnesses := make(map[string]RoundEvent)
 	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
@@ -605,7 +606,7 @@ func TestRoundDiff(t *testing.T) {
 }
 
 func TestDivideRounds(t *testing.T) {
-	h, index := initRoundHashgraph()
+	h, index := initRoundHashgraph(t)
 
 	err := h.DivideRounds()
 	if err != nil {
@@ -695,7 +696,7 @@ e02 |   |
 e0  e1  e2
 0   1    2
 */
-func initConsensusHashgraph() (Hashgraph, map[string]string) {
+func initConsensusHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 	n := 3
 	index := make(map[string]string)
 	nodes := []Node{}
@@ -804,7 +805,7 @@ func initConsensusHashgraph() (Hashgraph, map[string]string) {
 		participants = append(participants, node.PubHex)
 	}
 
-	hashgraph := NewHashgraph(participants, NewInmemStore(participants), nil)
+	hashgraph := NewHashgraph(participants, NewInmemStore(participants), nil, common.NewTestLogger(t))
 	for i, ev := range *orderedEvents {
 		if err := hashgraph.InsertEvent(ev); err != nil {
 			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
@@ -814,7 +815,7 @@ func initConsensusHashgraph() (Hashgraph, map[string]string) {
 }
 
 func TestDecideFame(t *testing.T) {
-	h, index := initConsensusHashgraph()
+	h, index := initConsensusHashgraph(t)
 
 	h.DivideRounds()
 	h.DecideFame()
@@ -845,7 +846,7 @@ func TestDecideFame(t *testing.T) {
 }
 
 func TestOldestSelfAncestorToSee(t *testing.T) {
-	h, index := initConsensusHashgraph()
+	h, index := initConsensusHashgraph(t)
 
 	if a := h.OldestSelfAncestorToSee(index["f0"], index["e1"]); a != index["e02"] {
 		t.Fatalf("oldest self ancestor of f0 to see e1 should be e02 not %s", getName(index, a))
@@ -863,7 +864,7 @@ func TestOldestSelfAncestorToSee(t *testing.T) {
 }
 
 func TestDecideRoundReceived(t *testing.T) {
-	h, index := initConsensusHashgraph()
+	h, index := initConsensusHashgraph(t)
 
 	h.DivideRounds()
 	h.DecideFame()
@@ -881,7 +882,7 @@ func TestDecideRoundReceived(t *testing.T) {
 }
 
 func TestFindOrder(t *testing.T) {
-	h, index := initConsensusHashgraph()
+	h, index := initConsensusHashgraph(t)
 
 	h.DivideRounds()
 	h.DecideFame()
@@ -911,7 +912,7 @@ func TestFindOrder(t *testing.T) {
 }
 
 func TestKnown(t *testing.T) {
-	h, _ := initConsensusHashgraph()
+	h, _ := initConsensusHashgraph(t)
 	known := h.Known()
 	if l := known[h.Participants[0]]; l != 7 {
 		t.Fatalf("0 should have 7 events, not %d", l)
