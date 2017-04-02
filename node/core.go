@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/Sirupsen/logrus"
+
 	"bitbucket.org/mosaicnet/babble/crypto"
 	hg "bitbucket.org/mosaicnet/babble/hashgraph"
 )
@@ -29,12 +31,19 @@ type Core struct {
 	hg  hg.Hashgraph
 
 	Head string
+
+	logger *logrus.Logger
 }
 
-func NewCore(key *ecdsa.PrivateKey, participants []string, store hg.Store, commitCh chan []hg.Event) Core {
+func NewCore(key *ecdsa.PrivateKey, participants []string, store hg.Store, commitCh chan []hg.Event, logger *logrus.Logger) Core {
+	if logger == nil {
+		logger = logrus.New()
+		logger.Level = logrus.DebugLevel
+	}
 	core := Core{
-		key: key,
-		hg:  hg.NewHashgraph(participants, store, commitCh),
+		key:    key,
+		hg:     hg.NewHashgraph(participants, store, commitCh),
+		logger: logger,
 	}
 	return core
 }
@@ -116,12 +125,15 @@ func (c *Core) Sync(otherHead string, unknown []hg.Event, payload [][]byte) erro
 }
 
 func (c *Core) RunConsensus() error {
+	c.logger.Debug("Dividing rounds")
 	if err := c.hg.DivideRounds(); err != nil {
 		return err
 	}
+	c.logger.Debug("Deciding fame")
 	if err := c.hg.DecideFame(); err != nil {
 		return err
 	}
+	c.logger.Debug("Finding order")
 	if err := c.hg.FindOrder(); err != nil {
 		return err
 	}

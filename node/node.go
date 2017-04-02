@@ -66,7 +66,7 @@ func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans
 	}
 	store := hg.NewInmemStore(participantPubs)
 	commitCh := make(chan []hg.Event, 20)
-	core := NewCore(key, participantPubs, store, commitCh)
+	core := NewCore(key, participantPubs, store, commitCh, conf.Logger)
 
 	peers := net.ExcludePeer(participants, localAddr)
 

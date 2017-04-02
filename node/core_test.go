@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"testing"
 
+	"bitbucket.org/mosaicnet/babble/common"
 	"bitbucket.org/mosaicnet/babble/crypto"
 	hg "bitbucket.org/mosaicnet/babble/hashgraph"
 )
@@ -29,13 +30,13 @@ func TestInit(t *testing.T) {
 	participants := []string{
 		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
 	}
-	core := NewCore(key, participants, hg.NewInmemStore(participants), nil)
+	core := NewCore(key, participants, hg.NewInmemStore(participants), nil, common.NewTestLogger(t))
 	if err := core.Init(); err != nil {
 		t.Fatalf("Init returned and error: %s", err)
 	}
 }
 
-func initCores() ([]Core, []*ecdsa.PrivateKey, map[string]string) {
+func initCores(t *testing.T) ([]Core, []*ecdsa.PrivateKey, map[string]string) {
 	n := 3
 	cores := []Core{}
 	index := make(map[string]string)
@@ -51,7 +52,7 @@ func initCores() ([]Core, []*ecdsa.PrivateKey, map[string]string) {
 
 	for i := 0; i < n; i++ {
 		core := NewCore(participantKeys[i], participantPubs,
-			hg.NewInmemStore(participantPubs), nil)
+			hg.NewInmemStore(participantPubs), nil, common.NewTestLogger(t))
 		core.Init()
 		cores = append(cores, core)
 		index[fmt.Sprintf("e%d", i)] = core.Head
@@ -125,7 +126,7 @@ func insertEvent(cores []Core, keys []*ecdsa.PrivateKey, index map[string]string
 }
 
 func TestDiff(t *testing.T) {
-	cores, keys, index := initCores()
+	cores, keys, index := initCores(t)
 
 	initHashgraph(cores, keys, index, 0)
 
@@ -167,7 +168,7 @@ func TestDiff(t *testing.T) {
 }
 
 func TestSync(t *testing.T) {
-	cores, _, index := initCores()
+	cores, _, index := initCores(t)
 
 	/*
 	   core 0           core 1          core 2
@@ -336,7 +337,7 @@ type play struct {
 }
 
 func TestConsensus(t *testing.T) {
-	cores, _, _ := initCores()
+	cores, _, _ := initCores(t)
 
 	playbook := []play{
 		play{from: 0, to: 1, payload: [][]byte{[]byte("e10")}},

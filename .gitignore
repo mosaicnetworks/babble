@@ -2,5 +2,6 @@
 */debug.test
 */messages.txt
 cmd/debug
-docker/babble
+docker/babble/babble
+docker/dummy/dummy
 vendor
