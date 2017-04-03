@@ -82,16 +82,15 @@ func (h *Hashgraph) Ancestor(x, y string) bool {
 }
 
 func (h *Hashgraph) ancestor(x, y string) bool {
-
 	if x == "" {
-		return false
-	}
-	ex, err := h.Store.GetEvent(x)
-	if err != nil {
 		return false
 	}
 	if x == y {
 		return true
+	}
+	ex, err := h.Store.GetEvent(x)
+	if err != nil {
+		return false
 	}
 	_, err = h.Store.GetEvent(y)
 	if err != nil {
@@ -114,12 +113,12 @@ func (h *Hashgraph) selfAncestor(x, y string) bool {
 	if x == "" {
 		return false
 	}
+	if x == y {
+		return true
+	}
 	ex, err := h.Store.GetEvent(x)
 	if err != nil {
 		return false
-	}
-	if x == y {
-		return true
 	}
 	_, err = h.Store.GetEvent(y)
 	if err != nil {
@@ -134,6 +133,12 @@ func (h *Hashgraph) DetectFork(x, y string) bool {
 		return c.(bool)
 	}
 	f := h.detectFork(x, y)
+	if f {
+		h.logger.WithFields(logrus.Fields{
+			"x": x,
+			"y": y,
+		}).Debug("Fork")
+	}
 	h.forkCache.Add(Key{x, y}, f)
 	return f
 }
@@ -165,7 +170,7 @@ func (h *Hashgraph) detectFork(x, y string) bool {
 	//in x's other-parent
 	//Also, the information cannot be in any of x's self-parent's ancestors
 	//so the set of events to look through is bounded
-	//We look for ancestors of x's other-parent which are not self parents
+	//We look for ancestors of x's other-parent which are not self-parents
 	//of y's self-descendant and which are not ancestors of x's self-parent
 	whistleblower := ex.OtherParent()
 	yCreator := ey.Creator()
@@ -192,7 +197,7 @@ func (h *Hashgraph) blowWhistle(whistleblower string, yDescendant string, yCreat
 		return false
 	}
 	if ex.Creator() == yCreator &&
-		!(h.selfAncestor(yDescendant, whistleblower) || h.selfAncestor(whistleblower, yDescendant)) {
+		!(h.SelfAncestor(yDescendant, whistleblower) || h.SelfAncestor(whistleblower, yDescendant)) {
 		return true
 	}
 
@@ -567,7 +572,7 @@ func (h *Hashgraph) DecideRoundReceived() error {
 			}
 			//no witnesses are left undecided
 			if !tr.WitnessesDecided() {
-				break
+				continue
 			}
 
 			fws := tr.FamousWitnesses()
