@@ -39,7 +39,7 @@ type Node struct {
 	localAddr string
 	logger    *logrus.Entry
 
-	peers []net.Peer
+	peerSelector PeerSelector
 
 	trans net.Transport
 	netCh <-chan net.RPC
@@ -55,6 +55,10 @@ type Node struct {
 	shutdownLock sync.Mutex
 
 	transactionPool [][]byte
+
+	start        time.Time
+	syncRequests int
+	syncErrors   int
 }
 
 func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans net.Transport, proxy proxy.Proxy) Node {
@@ -68,14 +72,14 @@ func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans
 	commitCh := make(chan []hg.Event, 20)
 	core := NewCore(key, participantPubs, store, commitCh, conf.Logger)
 
-	peers := net.ExcludePeer(participants, localAddr)
+	peerSelector := NewDeterministicPeerSelector(participants, localAddr)
 
 	node := Node{
 		conf:            conf,
 		core:            &core,
 		localAddr:       localAddr,
 		logger:          conf.Logger.WithField("node", localAddr),
-		peers:           peers,
+		peerSelector:    peerSelector,
 		trans:           trans,
 		netCh:           trans.Consumer(),
 		proxy:           proxy,
@@ -89,7 +93,7 @@ func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans
 
 func (n *Node) Init() error {
 	peerAddresses := []string{}
-	for _, p := range n.peers {
+	for _, p := range n.peerSelector.Peers() {
 		peerAddresses = append(peerAddresses, p.NetAddr)
 	}
 	n.logger.WithField("peers", peerAddresses).Debug("Init Node")
@@ -102,6 +106,7 @@ func (n *Node) RunAsync(gossip bool) {
 }
 
 func (n *Node) Run(gossip bool) {
+	n.start = time.Now()
 	heartbeatTimer := randomTimeout(n.conf.HeartbeatTimeout)
 	for {
 		select {
@@ -182,8 +187,7 @@ func (n *Node) processSync(rpc net.RPC, cmd *net.SyncRequest) {
 }
 
 func (n *Node) gossip() {
-	i := rand.Intn(len(n.peers))
-	peer := n.peers[i]
+	peer := n.peerSelector.Next()
 
 	known, err := n.requestKnown(peer.NetAddr)
 	if err != nil {
@@ -194,8 +198,10 @@ func (n *Node) gossip() {
 			n.logger.WithField("error", err).Error("Calculating Diff")
 			return
 		}
+		n.syncRequests++
 		err = n.requestSync(peer.NetAddr, head, diff)
 		if err != nil {
+			n.syncErrors++
 			n.logger.WithField("error", err).Error("Triggering peer Sync")
 		}
 	}
@@ -262,13 +268,20 @@ func (n *Node) GetStats() map[string]string {
 		}
 		return strconv.Itoa(*i)
 	}
+
+	consensusEvents := n.core.GetConsensusEventsCount()
+	timeElapsed := time.Since(n.start)
+	consensusEventsPerSecond := float64(consensusEvents) / timeElapsed.Seconds()
+
 	s := map[string]string{
 		"last_consensus_round":   toString(n.core.GetLastConsensusRoundIndex()),
-		"consensus_events":       strconv.Itoa(n.core.GetConsensusEventsCount()),
+		"consensus_events":       strconv.Itoa(consensusEvents),
 		"consensus_transactions": strconv.Itoa(n.core.GetConsensusTransactionsCount()),
 		"undetermined_events":    strconv.Itoa(len(n.core.GetUndeterminedEvents())),
 		"transaction_pool":       strconv.Itoa(len(n.transactionPool)),
-		"num_peers":              strconv.Itoa(len(n.peers)),
+		"num_peers":              strconv.Itoa(len(n.peerSelector.Peers())),
+		"sync_rate":              strconv.FormatFloat(n.SyncRate(), 'f', 2, 64),
+		"events_per_second":      strconv.FormatFloat(consensusEventsPerSecond, 'f', 2, 64),
 	}
 	return s
 }
@@ -282,7 +295,17 @@ func (n *Node) logStats() {
 		"undetermined_events":    stats["undetermined_events"],
 		"transaction_pool":       stats["transaction_pool"],
 		"num_peers":              stats["num_peers"],
+		"sync_rate":              stats["sync_rate"],
+		"events/s":               stats["events_per_second"],
 	}).Debug("Stats")
+}
+
+func (n *Node) SyncRate() float64 {
+	var syncErrorRate float64
+	if n.syncRequests != 0 {
+		syncErrorRate = float64(n.syncErrors) / float64(n.syncRequests)
+	}
+	return 1 - syncErrorRate
 }
 
 func randomTimeout(minVal time.Duration) <-chan time.Time {

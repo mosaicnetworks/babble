@@ -20,14 +20,15 @@ import (
 	"fmt"
 	"math/rand"
 	"reflect"
+	"sort"
 	"testing"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"bitbucket.org/mosaicnet/babble/common"
 	"bitbucket.org/mosaicnet/babble/crypto"
 	"bitbucket.org/mosaicnet/babble/net"
 	"bitbucket.org/mosaicnet/babble/proxy"
+	"github.com/Sirupsen/logrus"
 )
 
 func initPeers() ([]*ecdsa.PrivateKey, []net.Peer) {
@@ -43,6 +44,7 @@ func initPeers() ([]*ecdsa.PrivateKey, []net.Peer) {
 			PubKeyHex: fmt.Sprintf("0x%X", crypto.FromECDSAPub(&keys[i].PublicKey)),
 		})
 	}
+	sort.Sort(net.ByPubKey(peers))
 	return keys, peers
 }
 
@@ -378,13 +380,17 @@ func TestStats(t *testing.T) {
 		"undetermined_events":    "14",
 		"transaction_pool":       "0",
 		"num_peers":              "2",
+		"sync_rate":              "1.00",
 	}
 
 	t.Logf("%#v", stats)
 
-	if !reflect.DeepEqual(stats, expectedStats) {
-		t.Fatalf("Stats should be %#v, not %#v", expectedStats, stats)
+	for k, v := range expectedStats {
+		if stats[k] != v {
+			t.Fatalf("Stats[%s] should be %#v, not %#v", k, v, stats[k])
+		}
 	}
+
 }
 
 func synchronizeNodes(from Node, to Node, payload [][]byte) error {

@@ -129,12 +129,29 @@ func (j *JSONPeers) SetPeers(peers []Peer) error {
 }
 
 // ExcludePeer is used to exclude a single peer from a list of peers.
-func ExcludePeer(peers []Peer, peer string) []Peer {
+func ExcludePeer(peers []Peer, peer string) (int, []Peer) {
+	index := -1
 	otherPeers := make([]Peer, 0, len(peers))
-	for _, p := range peers {
+	for i, p := range peers {
 		if p.NetAddr != peer {
 			otherPeers = append(otherPeers, p)
+		} else {
+			index = i
 		}
 	}
-	return otherPeers
+	return index, otherPeers
+}
+
+//Sorting
+
+// ByPubKey implements sort.Interface for []Peer based on
+// the PubKeyHex field.
+type ByPubKey []Peer
+
+func (a ByPubKey) Len() int      { return len(a) }
+func (a ByPubKey) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByPubKey) Less(i, j int) bool {
+	ai := a[i].PubKeyHex
+	aj := a[j].PubKeyHex
+	return ai < aj
 }
