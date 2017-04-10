@@ -48,18 +48,20 @@ func (pec *ParticipantEventsCache) Get(participant string, skip int) ([]string, 
 
 	cached, tot := pe.Get()
 
-	if len(cached) == 0 {
+	if skip >= tot {
 		return []string{}, nil
 	}
 
-	lastCached := tot - len(cached)
-	if lastCached > skip {
+	oldestCached := tot - len(cached)
+	if skip < oldestCached {
 		//XXX TODO
 		//LOAD REST FROM FILE
 		return []string{}, ErrTooLate
 	}
 
-	start := skip % pec.size
+	//index of 'skipped' in RollingList
+	start := skip - oldestCached
+
 	if start >= len(cached) {
 		return []string{}, nil
 	}

@@ -24,7 +24,7 @@ import (
 
 type PeerSelector interface {
 	Peers() []net.Peer
-	Next() net.Peer
+	Next(lastFrom string) net.Peer
 }
 
 //+++++++++++++++++++++++++++++++++++++++
@@ -49,7 +49,7 @@ func (ps *DeterministicPeerSelector) Peers() []net.Peer {
 	return ps.peers
 }
 
-func (ps *DeterministicPeerSelector) Next() net.Peer {
+func (ps *DeterministicPeerSelector) Next(lastFrom string) net.Peer {
 	next := ps.peers[ps.index]
 	ps.index = (ps.index + 1) % len(ps.peers)
 	return next
@@ -73,8 +73,12 @@ func (ps *RandomPeerSelector) Peers() []net.Peer {
 	return ps.peers
 }
 
-func (ps *RandomPeerSelector) Next() net.Peer {
-	i := rand.Intn(len(ps.peers))
-	peer := ps.peers[i]
+func (ps *RandomPeerSelector) Next(lastFrom string) net.Peer {
+	selectablePeers := ps.peers
+	if len(selectablePeers) > 1 {
+		_, selectablePeers = net.ExcludePeer(selectablePeers, lastFrom)
+	}
+	i := rand.Intn(len(selectablePeers))
+	peer := selectablePeers[i]
 	return peer
 }

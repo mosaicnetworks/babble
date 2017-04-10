@@ -30,7 +30,7 @@ func TestInit(t *testing.T) {
 	participants := []string{
 		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
 	}
-	core := NewCore(key, participants, hg.NewInmemStore(participants), nil, common.NewTestLogger(t))
+	core := NewCore(key, participants, hg.NewInmemStore(participants, 10), nil, common.NewTestLogger(t))
 	if err := core.Init(); err != nil {
 		t.Fatalf("Init returned and error: %s", err)
 	}
@@ -38,6 +38,8 @@ func TestInit(t *testing.T) {
 
 func initCores(t *testing.T) ([]Core, []*ecdsa.PrivateKey, map[string]string) {
 	n := 3
+	cacheSize := 10
+
 	cores := []Core{}
 	index := make(map[string]string)
 
@@ -52,7 +54,7 @@ func initCores(t *testing.T) ([]Core, []*ecdsa.PrivateKey, map[string]string) {
 
 	for i := 0; i < n; i++ {
 		core := NewCore(participantKeys[i], participantPubs,
-			hg.NewInmemStore(participantPubs), nil, common.NewTestLogger(t))
+			hg.NewInmemStore(participantPubs, cacheSize), nil, common.NewTestLogger(t))
 		core.Init()
 		cores = append(cores, core)
 		index[fmt.Sprintf("e%d", i)] = core.Head
@@ -74,7 +76,6 @@ e0  e1  e2
 0   1   2
 */
 func initHashgraph(cores []Core, keys []*ecdsa.PrivateKey, index map[string]string, participant int) {
-
 	for i := 0; i < len(cores); i++ {
 		if i != participant {
 			event, _ := cores[i].GetEvent(index[fmt.Sprintf("e%d", i)])

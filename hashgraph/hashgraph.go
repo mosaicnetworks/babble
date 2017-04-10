@@ -51,7 +51,7 @@ func NewHashgraph(participants []string, store Store, commitCh chan []Event, log
 		logger = logrus.New()
 		logger.Level = logrus.DebugLevel
 	}
-	cacheSize := 50000
+	cacheSize := 500000
 	return Hashgraph{
 		Participants:            participants,
 		Store:                   store,
@@ -371,7 +371,10 @@ func (h *Hashgraph) Round(x string) int {
 
 func (h *Hashgraph) round(x string) int {
 	round := h.ParentRound(x)
-	if h.RoundInc(x) {
+
+	inc := h.RoundInc(x)
+
+	if inc {
 		round++
 	}
 	return round
@@ -416,7 +419,7 @@ func (h *Hashgraph) InsertEvent(event Event) error {
 	}
 
 	if err := h.FromParentsLatest(event); err != nil {
-		return fmt.Errorf("ERROR: %s", err)
+		return err
 	}
 
 	if err := h.Store.SetEvent(event); err != nil {
@@ -446,7 +449,7 @@ func (h *Hashgraph) FromParentsLatest(event Event) error {
 
 	_, otherParentError := h.Store.GetEvent(otherParent)
 	if otherParentError != nil {
-		return fmt.Errorf("Other-parent not known")
+		return fmt.Errorf("Other-parent not known (%s)", otherParent)
 	}
 
 	lastKnown, err := h.Store.LastFrom(creator)

@@ -14,7 +14,8 @@ docker network create \
 for i in $(seq 1 4)
 do
     docker create --name=node$i --net=babblenet --ip=172.77.5.$i babble run \
-    --tcp_timeout=4000 \
+    --cache_size=50 \
+    --tcp_timeout=1000 \
     --heartbeat=200 \
     --node_addr="172.77.5.$i:1337" \
     --proxy_addr="172.77.5.$i:1338" \

@@ -26,6 +26,11 @@ import (
 	"bitbucket.org/mosaicnet/babble/crypto"
 )
 
+var (
+	cacheSize = 5
+	n         = 3
+)
+
 type Node struct {
 	Pub    []byte
 	PubHex string
@@ -63,7 +68,6 @@ e0  e1  e2
 0   1   2
 */
 func initHashgraph(t *testing.T) (Hashgraph, map[string]string) {
-	n := 3
 	index := make(map[string]string)
 	nodes := []Node{}
 	orderedEvents := &[]Event{}
@@ -95,7 +99,7 @@ func initHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 	for _, node := range nodes {
 		participants = append(participants, node.PubHex)
 	}
-	store := NewInmemStore(participants)
+	store := NewInmemStore(participants, cacheSize)
 	for _, node := range nodes {
 		for _, ev := range node.Events {
 			store.SetEvent(ev)
@@ -213,7 +217,6 @@ Node 2 Forks; events a and e2 are both created by node2, they are not self-paren
 and yet they are both ancestors of event e20
 */
 func initForkHashgraph(t *testing.T) (Hashgraph, map[string]string) {
-	n := 3
 	index := make(map[string]string)
 	nodes := []Node{}
 	orderedEvents := &[]Event{}
@@ -249,7 +252,7 @@ func initForkHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 	for _, node := range nodes {
 		participants = append(participants, node.PubHex)
 	}
-	store := NewInmemStore(participants)
+	store := NewInmemStore(participants, cacheSize)
 	for _, node := range nodes {
 		for _, ev := range node.Events {
 			store.SetEvent(ev)
@@ -428,7 +431,6 @@ e0  e1  e2
 0   1    2
 */
 func initRoundHashgraph(t *testing.T) (Hashgraph, map[string]string) {
-	n := 3
 	index := make(map[string]string)
 	nodes := []Node{}
 	orderedEvents := &[]Event{}
@@ -466,7 +468,7 @@ func initRoundHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 		participants = append(participants, node.PubHex)
 	}
 
-	hashgraph := NewHashgraph(participants, NewInmemStore(participants), nil, common.NewTestLogger(t))
+	hashgraph := NewHashgraph(participants, NewInmemStore(participants, cacheSize), nil, common.NewTestLogger(t))
 	for i, ev := range *orderedEvents {
 		if err := hashgraph.InsertEvent(ev); err != nil {
 			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
@@ -697,7 +699,6 @@ e0  e1  e2
 0   1    2
 */
 func initConsensusHashgraph(t *testing.T) (Hashgraph, map[string]string) {
-	n := 3
 	index := make(map[string]string)
 	nodes := []Node{}
 	orderedEvents := &[]Event{}
@@ -805,7 +806,7 @@ func initConsensusHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 		participants = append(participants, node.PubHex)
 	}
 
-	hashgraph := NewHashgraph(participants, NewInmemStore(participants), nil, common.NewTestLogger(t))
+	hashgraph := NewHashgraph(participants, NewInmemStore(participants, cacheSize), nil, common.NewTestLogger(t))
 	for i, ev := range *orderedEvents {
 		if err := hashgraph.InsertEvent(ev); err != nil {
 			fmt.Printf("ERROR inserting event %d: %s\n", i, err)

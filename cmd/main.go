@@ -77,6 +77,11 @@ var (
 		Usage: "TCP timeout milliseconds",
 		Value: 1000,
 	}
+	CacheSizeFlag = cli.IntFlag{
+		Name:  "cache_size",
+		Usage: "Number of items in LRU caches",
+		Value: 500,
+	}
 )
 
 func main() {
@@ -103,6 +108,7 @@ func main() {
 				HeartbeatFlag,
 				MaxPoolFlag,
 				TcpTimeoutFlag,
+				CacheSizeFlag,
 			},
 		},
 	}
@@ -137,6 +143,7 @@ func run(c *cli.Context) error {
 	heartbeat := c.Int(HeartbeatFlag.Name)
 	maxPool := c.Int(MaxPoolFlag.Name)
 	tcpTimeout := c.Int(TcpTimeoutFlag.Name)
+	cacheSize := c.Int(CacheSizeFlag.Name)
 	logger.WithFields(logrus.Fields{
 		"datadir":     datadir,
 		"node_addr":   addr,
@@ -146,9 +153,10 @@ func run(c *cli.Context) error {
 		"heartbeat":   heartbeat,
 		"max_pool":    maxPool,
 		"tcp_timeout": tcpTimeout,
+		"cache_size":  cacheSize,
 	}).Debug("RUN")
 
-	conf := node.NewConfig(time.Duration(heartbeat)*time.Millisecond, logger)
+	conf := node.NewConfig(time.Duration(heartbeat)*time.Millisecond, cacheSize, logger)
 
 	// Create the PEM key
 	pemKey := crypto.NewPemKey(datadir)

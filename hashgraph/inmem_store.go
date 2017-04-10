@@ -24,12 +24,13 @@ type InmemStore struct {
 	participantEventsCache *ParticipantEventsCache
 }
 
-func NewInmemStore(participants []string) *InmemStore {
+func NewInmemStore(participants []string, cacheSize int) *InmemStore {
+	cacheSizeBig := 100 * cacheSize
 	return &InmemStore{
-		eventCache:             common.NewLRU(50000, nil),
-		roundCache:             common.NewLRU(50000, nil),
-		consensusCache:         common.NewRollingList(50000),
-		participantEventsCache: NewParticipantEventsCache(50000, participants),
+		eventCache:             common.NewLRU(cacheSizeBig, nil),
+		roundCache:             common.NewLRU(cacheSizeBig, nil),
+		consensusCache:         common.NewRollingList(cacheSize),
+		participantEventsCache: NewParticipantEventsCache(cacheSize, participants),
 	}
 }
 

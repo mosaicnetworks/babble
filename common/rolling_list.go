@@ -24,7 +24,7 @@ type RollingList struct {
 func NewRollingList(size int) *RollingList {
 	return &RollingList{
 		size:  size,
-		items: make([]interface{}, 0, size),
+		items: make([]interface{}, 0, 2*size),
 	}
 }
 
@@ -33,7 +33,7 @@ func (r *RollingList) Get() (lastWindow []interface{}, tot int) {
 }
 
 func (r *RollingList) Add(item interface{}) {
-	if len(r.items) >= r.size {
+	if len(r.items) >= 2*r.size {
 		r.Roll()
 	}
 	r.items = append(r.items, item)
@@ -41,6 +41,7 @@ func (r *RollingList) Add(item interface{}) {
 }
 
 func (r *RollingList) Roll() {
-	newList := make([]interface{}, 0, r.size)
+	newList := make([]interface{}, 0, 2*r.size)
+	newList = append(newList, r.items[r.size:]...)
 	r.items = newList
 }

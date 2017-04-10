@@ -19,6 +19,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 
@@ -125,18 +126,27 @@ func (c *Core) Sync(otherHead string, unknown []hg.Event, payload [][]byte) erro
 }
 
 func (c *Core) RunConsensus() error {
-	c.logger.Debug("Dividing rounds")
-	if err := c.hg.DivideRounds(); err != nil {
+	start := time.Now()
+	err := c.hg.DivideRounds()
+	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("DivideRounds()")
+	if err != nil {
 		return err
 	}
-	c.logger.Debug("Deciding fame")
-	if err := c.hg.DecideFame(); err != nil {
+
+	start = time.Now()
+	err = c.hg.DecideFame()
+	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("DecideFame()")
+	if err != nil {
 		return err
 	}
-	c.logger.Debug("Finding order")
-	if err := c.hg.FindOrder(); err != nil {
+
+	start = time.Now()
+	err = c.hg.FindOrder()
+	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("FindOrder()")
+	if err != nil {
 		return err
 	}
+
 	return nil
 }
 

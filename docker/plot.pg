@@ -1,0 +1,13 @@
+#!/usr/bin/gnuplot
+reset
+set terminal png
+
+set ylabel "duration (ns)"
+
+set title "RoundInc() Duration"
+set style data linespoints
+
+
+plot "roundinc_durations.dat" 
+
+#

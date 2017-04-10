@@ -19,18 +19,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"bitbucket.org/mosaicnet/babble/common"
+	"github.com/Sirupsen/logrus"
 )
 
 type Config struct {
 	HeartbeatTimeout time.Duration
+	CacheSize        int
 	Logger           *logrus.Logger
 }
 
-func NewConfig(heartbeat time.Duration, logger *logrus.Logger) *Config {
+func NewConfig(heartbeat time.Duration, cacheSize int, logger *logrus.Logger) *Config {
 	return &Config{
 		HeartbeatTimeout: heartbeat,
+		CacheSize:        cacheSize,
 		Logger:           logger,
 	}
 }
@@ -40,6 +42,7 @@ func DefaultConfig() *Config {
 	logger.Level = logrus.DebugLevel
 	return &Config{
 		HeartbeatTimeout: 1000 * time.Millisecond,
+		CacheSize:        500,
 		Logger:           logger,
 	}
 }

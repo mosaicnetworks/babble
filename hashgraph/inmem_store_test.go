@@ -28,7 +28,7 @@ type pub struct {
 	hex    string
 }
 
-func initInmemStore() (*InmemStore, []pub) {
+func initInmemStore(cacheSize int) (*InmemStore, []pub) {
 	n := 3
 	participantPubs := []pub{}
 	participants := []string{}
@@ -40,50 +40,65 @@ func initInmemStore() (*InmemStore, []pub) {
 		participants = append(participants, fmt.Sprintf("0x%X", pubKey))
 	}
 
-	store := NewInmemStore(participants)
+	store := NewInmemStore(participants, cacheSize)
 	return store, participantPubs
 }
 
 func TestInmemEvents(t *testing.T) {
-	store, participants := initInmemStore()
+	cacheSize := 10
+	testSize := 15
+	store, participants := initInmemStore(cacheSize)
 
-	events := make(map[string]Event)
+	events := make(map[string][]Event)
 	for _, p := range participants {
-		event := NewEvent([][]byte{}, []string{"", ""}, p.pubKey)
-		events[p.hex] = event
-		err := store.SetEvent(event)
-		if err != nil {
-			t.Fatal(err)
+		items := []Event{}
+		for k := 0; k < testSize; k++ {
+			event := NewEvent([][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], k))},
+				[]string{"", ""}, p.pubKey)
+			items = append(items, event)
+			err := store.SetEvent(event)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		events[p.hex] = items
+
+	}
+
+	for p, evs := range events {
+		for k, ev := range evs {
+			rev, err := store.GetEvent(ev.Hex())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(ev, rev) {
+				t.Fatalf("events[%s][%d] should be %#v, not %#v", p, k, ev, rev)
+			}
 		}
 	}
 
-	for p, ev := range events {
-		rev, err := store.GetEvent(ev.Hex())
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !reflect.DeepEqual(ev, rev) {
-			t.Fatalf("Stored Event from %s does not match", p)
-		}
-	}
-
+	skip := 0
 	for _, p := range participants {
-		pEvents, err := store.ParticipantEvents(p.hex, 0)
+		pEvents, err := store.ParticipantEvents(p.hex, skip)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if l := len(pEvents); l != 1 {
-			t.Fatalf("%s should have 1 event, not %d", p.hex, l)
+		if l := len(pEvents); l != testSize {
+			t.Fatalf("%s should have %d events, not %d", p.hex, testSize, l)
 		}
-		expectedEvent := events[p.hex]
-		if pEvents[0] != expectedEvent.Hex() {
-			t.Fatalf("%s ParticipantEvents do not match", p.hex)
+
+		expectedEvents := events[p.hex][skip:]
+		for k, e := range expectedEvents {
+			if e.Hex() != pEvents[k] {
+				t.Fatalf("ParticipantEvents[%s][%d] should be %s, not %s",
+					p.hex, k, e.Hex(), pEvents[k])
+			}
 		}
 	}
 
 	expectedKnown := make(map[string]int)
 	for _, p := range participants {
-		expectedKnown[p.hex] = 1
+		expectedKnown[p.hex] = testSize
 	}
 	known := store.Known()
 	if !reflect.DeepEqual(expectedKnown, known) {
@@ -91,22 +106,18 @@ func TestInmemEvents(t *testing.T) {
 	}
 
 	for _, p := range participants {
-		e := events[p.hex]
-		if err := store.AddConsensusEvent(e.Hex()); err != nil {
-			t.Fatal(err)
+		evs := events[p.hex]
+		for _, ev := range evs {
+			if err := store.AddConsensusEvent(ev.Hex()); err != nil {
+				t.Fatal(err)
+			}
 		}
-	}
-	consensusEvents := store.ConsensusEvents()
-	for i, p := range participants {
-		e := events[p.hex]
-		if c := consensusEvents[i]; c != e.Hex() {
-			t.Fatalf("ConsensusEvents[%d] should be %s..., not %s...", i, e.Hex()[:10], c[:10])
-		}
+
 	}
 }
 
 func TestInmemRounds(t *testing.T) {
-	store, participants := initInmemStore()
+	store, participants := initInmemStore(10)
 
 	round := NewRoundInfo()
 	events := make(map[string]Event)

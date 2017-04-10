@@ -59,6 +59,8 @@ type Node struct {
 	start        time.Time
 	syncRequests int
 	syncErrors   int
+
+	lastSyncFrom string
 }
 
 func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans net.Transport, proxy proxy.Proxy) Node {
@@ -68,11 +70,11 @@ func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans
 	for _, p := range participants {
 		participantPubs = append(participantPubs, p.PubKeyHex)
 	}
-	store := hg.NewInmemStore(participantPubs)
+	store := hg.NewInmemStore(participantPubs, conf.CacheSize)
 	commitCh := make(chan []hg.Event, 20)
 	core := NewCore(key, participantPubs, store, commitCh, conf.Logger)
 
-	peerSelector := NewDeterministicPeerSelector(participants, localAddr)
+	peerSelector := NewRandomPeerSelector(participants, localAddr)
 
 	node := Node{
 		conf:            conf,
@@ -152,7 +154,7 @@ func (n *Node) processKnown(rpc net.RPC, cmd *net.KnownRequest) {
 	start := time.Now()
 	known := n.core.Known()
 	elapsed := time.Since(start)
-	n.logger.WithField("duration", elapsed).Debug("Processed Known()")
+	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed Known()")
 	resp := &net.KnownResponse{
 		Known: known,
 	}
@@ -164,7 +166,7 @@ func (n *Node) processSync(rpc net.RPC, cmd *net.SyncRequest) {
 	start := time.Now()
 	err := n.core.Sync(cmd.Head, cmd.Events, n.transactionPool)
 	elapsed := time.Since(start)
-	n.logger.WithField("duration", elapsed).Debug("Processed Sync()")
+	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed Sync()")
 	if err != nil {
 		n.logger.WithField("error", err).Error("Sync()")
 		success = false
@@ -173,11 +175,14 @@ func (n *Node) processSync(rpc net.RPC, cmd *net.SyncRequest) {
 		start = time.Now()
 		err := n.core.RunConsensus()
 		elapsed = time.Since(start)
-		n.logger.WithField("duration", elapsed).Debug("Processed RunConsensus()")
+		n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed RunConsensus()")
 		if err != nil {
 			n.logger.WithField("error", err).Error("RunConsensus()")
 			success = false
+		} else {
+			n.lastSyncFrom = cmd.From
 		}
+
 	}
 	resp := &net.SyncResponse{
 		Success: success,
@@ -187,7 +192,7 @@ func (n *Node) processSync(rpc net.RPC, cmd *net.SyncRequest) {
 }
 
 func (n *Node) gossip() {
-	peer := n.peerSelector.Next()
+	peer := n.peerSelector.Next(n.lastSyncFrom)
 
 	known, err := n.requestKnown(peer.NetAddr)
 	if err != nil {

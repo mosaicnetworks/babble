@@ -142,6 +142,7 @@ func TestProcessSync(t *testing.T) {
 func TestAddTransaction(t *testing.T) {
 	keys, peers := initPeers()
 	testLogger := common.NewTestLogger(t)
+
 	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatalf("err: %v", err)
@@ -200,7 +201,7 @@ func TestAddTransaction(t *testing.T) {
 }
 
 func initNodes(logger *logrus.Logger) ([]*ecdsa.PrivateKey, []Node) {
-	conf := NewConfig(5*time.Millisecond, logger)
+	conf := NewConfig(5*time.Millisecond, 10, logger)
 
 	keys, peers := initPeers()
 	nodes := []Node{}
@@ -312,9 +313,9 @@ func TestTransactionOrdering(t *testing.T) {
 		play{from: 1, to: 2, payload: [][]byte{[]byte("h2")}},
 	}
 
-	for _, play := range playbook {
+	for k, play := range playbook {
 		if err := synchronizeNodes(nodes[play.from], nodes[play.to], play.payload); err != nil {
-			t.Fatal(err)
+			t.Fatalf("play %d: %s", k, err)
 		}
 	}
 	shutdownNodes(nodes)
@@ -328,6 +329,10 @@ func TestTransactionOrdering(t *testing.T) {
 		consTransactions, err := getCommittedTransactions(n)
 		if err != nil {
 			t.Fatal(err)
+		}
+		if len(consTransactions) != len(expectedConsTransactions) {
+			t.Fatalf("node %d ConsensusTransactions should contain %d items, not %d",
+				i, len(expectedConsTransactions), len(consTransactions))
 		}
 		for j, et := range expectedConsTransactions {
 			if at := string(consTransactions[j]); at != string(et) {
@@ -432,7 +437,7 @@ func TestGossip(t *testing.T) {
 		done := true
 		for _, n := range nodes {
 			ce := n.core.GetConsensusEventsCount()
-			if ce < 50 {
+			if ce < 100 {
 				done = false
 				break
 			}
