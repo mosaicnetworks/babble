@@ -76,6 +76,19 @@ When launching a Babble node, one must specify the address and port exposed by t
 Babble Proxy of the App. Is is also possible to configure which address and port  
 the App Proxy exposes.
 
+Example SubmitTx request (from App to Babble):
+```json
+request: {"method":"Babble.SubmitTx","params":["Y2xpZW50IDE6IGhlbGxv"],"id":0}
+response: {"id":0,"result":true,"error":null}
+```
+
+Example CommitTx request (from Babble to App):
+```json
+request: {"method":"State.CommitTx","params":["Y2xpZW50IDE6IGhlbGxv"],"id":0}
+response: {"id":0,"result":true,"error":null}
+```
+The content of "params" is the base64 encoding of the raw transaction bytes ("client1: hello").
+
 ### Transport
 
 Babble nodes communicate whith other Babble nodes in a fully connected Peer To Peer  
