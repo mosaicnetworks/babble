@@ -141,7 +141,7 @@ Babble and clone the repository in the appropriate GOPATH subdirectory:
 ```bash
 $ mkdir -p $GOPATH/src/bitbucket.org/mosaicnet/
 $ cd $GOPATH/src/bitbucket.org/mosaicnet
-[...]/babble$ git clone https://[username]@bitbucket.org/mosaicnet/babble.git
+[...]/mosaicnet$ git clone https://[username]@bitbucket.org/mosaicnet/babble.git
 ```
 Replace **[username]** with whatever credentials you may have on Bitbucket.
 
@@ -336,10 +336,4 @@ $ babble run --node_addr="172.77.5.1:1337" --proxy_addr="172.77.5.1:1338" --clie
 
 Here Babble listens to other Babble nodes on 172.77.5.1:1337.  
 It listens to the App on 172.77.5.1:1338  
-It expects the App to be listening on 172.77.5.1.1339 
-
-
-
-                                                                                            
-                          
-          
+It expects the App to be listening on 172.77.5.1.1339
