@@ -236,15 +236,20 @@ inforation to understand how Babble networks can be configured and implemented.
 
 Basically, the steps are as follows:  
 1) Create a network of machines where the nodes will be deployed. Note the addresses  
-and ports where each node will be listening for Babble messages.
+and ports where each node will be listening for Babble messages.  
+
 2) Create a private-public key pair for each node using the **babble keygen** utility.  
    In production scenarios, you are more likely to ask each participant to generate   
    their key pair and send you only the public key. Private keys are stored in  
-   individual **priv_key.pem** files and should remain secret.
-3) Create the **peers.json** file which contains the list of all participants.
+   individual **priv_key.pem** files and should remain secret.  
+
+3) Create the **peers.json** file which contains the list of all participants.  
+
 4) Copy the **peers.json** and **priv_key.pem** files in the appropritate folder  
-   on each node.
-5) Install Babble and App on nodes
+   on each node.  
+
+5) Install Babble and App on nodes  
+
 6) Run Babble with appropriate flags   
 
 
@@ -295,7 +300,7 @@ Each Babble node requires a **peers.json** and a **priv_key.pem** file. **peers.
 files must be identical but the **priv_key.pem** is unique to each node and must correspond  
 to one of the public keys listed in the **peers.json** file.
 
-Both files must reside in the folder specified to Babbled by the **datadir** flag  
+Both files must reside in the folder specified to Babble by the **datadir** flag  
 which default to ~/.babble on linux machines.
 
 ```bash
