@@ -1,5 +1,6 @@
 .vscode
-*/debug.test
+*/*.test
+*/*.out
 */messages.txt
 cmd/debug
 docker/babble/babble

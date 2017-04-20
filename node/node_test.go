@@ -427,28 +427,7 @@ func TestGossip(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	_, nodes := initNodes(logger)
 
-	runNodes(nodes, true)
-	quit := make(chan int)
-	makeRandomTransactions(nodes, quit)
-
-	//wait until all nodes have at least 50 consensus events
-	for {
-		time.Sleep(10 * time.Millisecond)
-		done := true
-		for _, n := range nodes {
-			ce := n.core.GetConsensusEventsCount()
-			if ce < 100 {
-				done = false
-				break
-			}
-		}
-		if done {
-			break
-		}
-	}
-
-	close(quit)
-	shutdownNodes(nodes)
+	gossip(nodes, 100)
 
 	consEvents := [][]string{}
 	consTransactions := [][][]byte{}
@@ -491,6 +470,31 @@ func TestGossip(t *testing.T) {
 	}
 }
 
+func gossip(nodes []Node, target int) {
+	runNodes(nodes, true)
+	quit := make(chan int)
+	makeRandomTransactions(nodes, quit)
+
+	//wait until all nodes have at least 50 consensus events
+	for {
+		time.Sleep(10 * time.Millisecond)
+		done := true
+		for _, n := range nodes {
+			ce := n.core.GetConsensusEventsCount()
+			if ce < target {
+				done = false
+				break
+			}
+		}
+		if done {
+			break
+		}
+	}
+
+	close(quit)
+	shutdownNodes(nodes)
+}
+
 func submitTransaction(n Node, tx []byte) error {
 	prox, ok := n.proxy.(*proxy.InmemProxy)
 	if !ok {
@@ -516,4 +520,12 @@ func makeRandomTransactions(nodes []Node, quit chan int) {
 			}
 		}
 	}()
+}
+
+func BenchmarkGossip(b *testing.B) {
+	logger := common.NewBenchmarkLogger(b)
+	for n := 0; n < b.N; n++ {
+		_, nodes := initNodes(logger)
+		gossip(nodes, 5)
+	}
 }

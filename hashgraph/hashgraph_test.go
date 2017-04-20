@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/Sirupsen/logrus"
+
 	"strings"
 
 	"bitbucket.org/mosaicnet/babble/common"
@@ -698,7 +700,7 @@ e02 |   |
 e0  e1  e2
 0   1    2
 */
-func initConsensusHashgraph(t *testing.T) (Hashgraph, map[string]string) {
+func initConsensusHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string) {
 	index := make(map[string]string)
 	nodes := []Node{}
 	orderedEvents := &[]Event{}
@@ -806,7 +808,7 @@ func initConsensusHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 		participants = append(participants, node.PubHex)
 	}
 
-	hashgraph := NewHashgraph(participants, NewInmemStore(participants, cacheSize), nil, common.NewTestLogger(t))
+	hashgraph := NewHashgraph(participants, NewInmemStore(participants, cacheSize), nil, logger)
 	for i, ev := range *orderedEvents {
 		if err := hashgraph.InsertEvent(ev); err != nil {
 			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
@@ -816,7 +818,7 @@ func initConsensusHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 }
 
 func TestDecideFame(t *testing.T) {
-	h, index := initConsensusHashgraph(t)
+	h, index := initConsensusHashgraph(common.NewTestLogger(t))
 
 	h.DivideRounds()
 	h.DecideFame()
@@ -847,7 +849,7 @@ func TestDecideFame(t *testing.T) {
 }
 
 func TestOldestSelfAncestorToSee(t *testing.T) {
-	h, index := initConsensusHashgraph(t)
+	h, index := initConsensusHashgraph(common.NewTestLogger(t))
 
 	if a := h.OldestSelfAncestorToSee(index["f0"], index["e1"]); a != index["e02"] {
 		t.Fatalf("oldest self ancestor of f0 to see e1 should be e02 not %s", getName(index, a))
@@ -865,7 +867,7 @@ func TestOldestSelfAncestorToSee(t *testing.T) {
 }
 
 func TestDecideRoundReceived(t *testing.T) {
-	h, index := initConsensusHashgraph(t)
+	h, index := initConsensusHashgraph(common.NewTestLogger(t))
 
 	h.DivideRounds()
 	h.DecideFame()
@@ -883,7 +885,7 @@ func TestDecideRoundReceived(t *testing.T) {
 }
 
 func TestFindOrder(t *testing.T) {
-	h, index := initConsensusHashgraph(t)
+	h, index := initConsensusHashgraph(common.NewTestLogger(t))
 
 	h.DivideRounds()
 	h.DecideFame()
@@ -912,8 +914,17 @@ func TestFindOrder(t *testing.T) {
 	}
 }
 
+func BenchmarkFindOrder(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		h, _ := initConsensusHashgraph(common.NewBenchmarkLogger(b))
+		h.DivideRounds()
+		h.DecideFame()
+		h.FindOrder()
+	}
+}
+
 func TestKnown(t *testing.T) {
-	h, _ := initConsensusHashgraph(t)
+	h, _ := initConsensusHashgraph(common.NewTestLogger(t))
 	known := h.Known()
 	if l := known[h.Participants[0]]; l != 7 {
 		t.Fatalf("0 should have 7 events, not %d", l)
