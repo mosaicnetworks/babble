@@ -141,7 +141,7 @@ Babble and clone the repository in the appropriate GOPATH subdirectory:
 ```bash
 $ mkdir -p $GOPATH/src/bitbucket.org/mosaicnet/
 $ cd $GOPATH/src/bitbucket.org/mosaicnet
-[...]/babble$ git clone https://[username]@bitbucket.org/mosaicnet/babble.git
+[...]/mosaicnet$ git clone https://[username]@bitbucket.org/mosaicnet/babble.git
 ```
 Replace **[username]** with whatever credentials you may have on Bitbucket.
 
@@ -228,9 +228,3 @@ Finally, stop the testnet:
 ```
 [...]/babble/docker$ ./stop-testnet
 ```
-
-
-
-                                                                                            
-                          
-          
