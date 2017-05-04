@@ -1,12 +1,13 @@
 #!/bin/bash
+
+N=${1:-4}
+
 watch '
-for i in $(seq 1 4);
+for i in $(seq 1 '$N');
 do echo node$i: $(docker logs --tail 200 node$i 2>&1 |
     grep Stats |
     tail -1 |  
     awk '"'"'{print $7, "\t", $4, "\t", $5, "\t", $11, "\t", $12, "\t", $6, "\t", $10}'"'"')
 done;
 '
-
-
 #awk '"'"'{print $1,"\t",$2,"\t",$3,"\t",$4, "\t", $5, "\t", $6, "\t", $7, "\t", $8, "\t", $9, "\t", $10, "\t", $11}'"'"')

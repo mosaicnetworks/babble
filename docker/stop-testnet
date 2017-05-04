@@ -1,5 +1,8 @@
 #!/bin/bash
-for i in $(seq 1 4)
+
+N=${1:-4}
+
+for i in $(seq 1 $N)
 do
     docker rm -f node$i client$i
 done

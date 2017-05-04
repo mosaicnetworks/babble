@@ -191,6 +191,7 @@ Then, run the testnet:
 ```bash
 [...]/babble$ cd docker
 [...]/babble/docker$ ./build-images
+[...]/babble/docker$ ./build-conf
 [...]/babble/docker$ ./run-testnet
 
 ```
