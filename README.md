@@ -82,6 +82,12 @@ request: {"method":"Babble.SubmitTx","params":["Y2xpZW50IDE6IGhlbGxv"],"id":0}
 response: {"id":0,"result":true,"error":null}
 ```
 
+Note that the API is **not** over HTTP; It is raw JSON over TCP. Here is an  
+example of how to make a SubmitTx request manually:  
+```bash
+printf "{\"method\":\"Babble.SubmitTx\",\"params\":[\"Y2xpZW50IDE6IGhlbGxv\"],\"id\":0}" | nc -v  172.77.5.1 1338
+```
+
 Example CommitTx request (from Babble to App):
 ```json
 request: {"method":"State.CommitTx","params":["Y2xpZW50IDE6IGhlbGxv"],"id":0}

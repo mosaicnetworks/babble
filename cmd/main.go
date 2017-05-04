@@ -124,7 +124,6 @@ func keygen(c *cli.Context) error {
 
 	fmt.Println("PublicKey:")
 	fmt.Println(pemDump.PublicKey)
-
 	fmt.Println("PrivateKey:")
 	fmt.Println(pemDump.PrivateKey)
 
