@@ -32,6 +32,7 @@ type Core struct {
 	hg  hg.Hashgraph
 
 	Head string
+	Seq  int
 
 	logger *logrus.Logger
 }
@@ -56,7 +57,8 @@ func (c *Core) PubKey() []byte {
 func (c *Core) Init() error {
 	initialEvent := hg.NewEvent([][]byte{},
 		[]string{"", ""},
-		c.PubKey())
+		c.PubKey(),
+		c.Seq)
 	return c.SignAndInsertSelfEvent(initialEvent)
 }
 
@@ -68,6 +70,7 @@ func (c *Core) SignAndInsertSelfEvent(event hg.Event) error {
 		return err
 	}
 	c.Head = event.Hex()
+	c.Seq++
 	return nil
 }
 
@@ -116,7 +119,7 @@ func (c *Core) Sync(otherHead string, unknown []hg.Event, payload [][]byte) erro
 	//create new event with self head and other head
 	newHead := hg.NewEvent(payload,
 		[]string{c.Head, otherHead},
-		c.PubKey())
+		c.PubKey(), c.Seq)
 
 	if err := c.SignAndInsertSelfEvent(newHead); err != nil {
 		return fmt.Errorf("Error inserting new head: %s", err)

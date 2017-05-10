@@ -46,7 +46,7 @@ func TestNetworkTransport_Sync(t *testing.T) {
 	args := SyncRequest{
 		Head: "head",
 		Events: []hashgraph.Event{
-			hashgraph.NewEvent([][]byte(nil), []string{"", ""}, []byte("creator")),
+			hashgraph.NewEvent([][]byte(nil), []string{"", ""}, []byte("creator"), 0),
 		},
 	}
 	resp := SyncResponse{
@@ -156,7 +156,7 @@ func TestNetworkTransport_PooledConn(t *testing.T) {
 	args := SyncRequest{
 		Head: "head",
 		Events: []hashgraph.Event{
-			hashgraph.NewEvent([][]byte(nil), []string{"", ""}, []byte("creator")),
+			hashgraph.NewEvent([][]byte(nil), []string{"", ""}, []byte("creator"), 0),
 		},
 	}
 	resp := SyncResponse{

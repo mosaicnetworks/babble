@@ -59,7 +59,8 @@ func TestTransport_Sync(t *testing.T) {
 		args := SyncRequest{
 			Head: "head",
 			Events: []hashgraph.Event{
-				hashgraph.NewEvent([][]byte{}, []string{"", ""}, []byte("creator")),
+				hashgraph.NewEvent([][]byte{}, []string{"", ""},
+					[]byte("creator"), 0),
 			},
 		}
 		resp := SyncResponse{

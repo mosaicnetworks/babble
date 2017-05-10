@@ -39,7 +39,6 @@ type Hashgraph struct {
 
 	ancestorCache           *common.LRU
 	selfAncestorCache       *common.LRU
-	forkCache               *common.LRU
 	oldestSelfAncestorCache *common.LRU
 	stronglySeeCache        *common.LRU
 	parentRoundCache        *common.LRU
@@ -54,20 +53,19 @@ func NewHashgraph(participants []string, store Store, commitCh chan []Event, log
 		logger.Level = logrus.DebugLevel
 	}
 
-	participantIds := make(map[string]int)
+	participantIDs := make(map[string]int)
 	for i, p := range participants {
-		participantIds[p] = i
+		participantIDs[p] = i
 	}
 
 	cacheSize := 500000
 	return Hashgraph{
 		Participants:            participants,
-		ParticipantIDs:          participantIds,
+		ParticipantIDs:          participantIDs,
 		Store:                   store,
 		commitCh:                commitCh,
 		ancestorCache:           common.NewLRU(cacheSize, nil),
 		selfAncestorCache:       common.NewLRU(cacheSize, nil),
-		forkCache:               common.NewLRU(cacheSize, nil),
 		oldestSelfAncestorCache: common.NewLRU(cacheSize, nil),
 		stronglySeeCache:        common.NewLRU(cacheSize, nil),
 		parentRoundCache:        common.NewLRU(cacheSize, nil),
@@ -97,20 +95,21 @@ func (h *Hashgraph) ancestor(x, y string) bool {
 	if x == y {
 		return true
 	}
+
 	ex, err := h.Store.GetEvent(x)
 	if err != nil {
 		return false
 	}
-	_, err = h.Store.GetEvent(y)
+
+	ey, err := h.Store.GetEvent(y)
 	if err != nil {
 		return false
 	}
+	eyCreator := h.ParticipantIDs[ey.Creator()]
 
-	// if ex.Creator() == ey.Creator() {
-	// 	return ex.Index() >= ey.Index()
-	// }
+	lastAncestorKnownFromYCreator := ex.lastAncestors[eyCreator].index
 
-	return h.Ancestor(ex.SelfParent(), y) || h.Ancestor(ex.OtherParent(), y)
+	return lastAncestorKnownFromYCreator >= ey.Index()
 }
 
 //true if y is a self-ancestor of x
@@ -134,94 +133,23 @@ func (h *Hashgraph) selfAncestor(x, y string) bool {
 	if err != nil {
 		return false
 	}
-	_, err = h.Store.GetEvent(y)
-	if err != nil {
-		return false
-	}
-	return h.SelfAncestor(ex.SelfParent(), y)
-}
+	exCreator := h.ParticipantIDs[ex.Creator()]
 
-//true if x detects a fork under y
-func (h *Hashgraph) DetectFork(x, y string) bool {
-	if c, ok := h.forkCache.Get(Key{x, y}); ok {
-		return c.(bool)
-	}
-	f := h.detectFork(x, y)
-	if f {
-		h.logger.WithFields(logrus.Fields{
-			"x": x,
-			"y": y,
-		}).Debug("Fork")
-	}
-	h.forkCache.Add(Key{x, y}, f)
-	return f
-}
-
-func (h *Hashgraph) detectFork(x, y string) bool {
-	if x == "" || y == "" {
-		return false
-	}
-
-	if !h.Ancestor(x, y) {
-		return false
-	}
-
-	ex, err := h.Store.GetEvent(x)
-	if err != nil {
-		return false
-	}
 	ey, err := h.Store.GetEvent(y)
 	if err != nil {
 		return false
 	}
+	eyCreator := h.ParticipantIDs[ey.Creator()]
 
-	//true if x's self-parent detects a fork under y
-	if h.DetectFork(ex.SelfParent(), y) {
-		return true
-	}
-
-	//If there is a fork, then the information must be contained
-	//in x's other-parent
-	//Also, the information cannot be in any of x's self-parent's ancestors
-	//so the set of events to look through is bounded
-	//We look for ancestors of x's other-parent which are not self-parents
-	//of y's self-descendant and which are not ancestors of x's self-parent
-	whistleblower := ex.OtherParent()
-	yCreator := ey.Creator()
-	var yDescendant string
-	if ex.Creator() == yCreator {
-		yDescendant = x
-	} else {
-		yDescendant = y
-	}
-	stopper := ex.SelfParent()
-
-	return h.blowWhistle(whistleblower, yDescendant, yCreator, stopper)
-}
-
-func (h *Hashgraph) blowWhistle(whistleblower string, yDescendant string, yCreator string, stopper string) bool {
-	if whistleblower == "" {
-		return false
-	}
-	ex, err := h.Store.GetEvent(whistleblower)
-	if err != nil {
-		return false
-	}
-	if h.Ancestor(stopper, whistleblower) {
-		return false
-	}
-	if ex.Creator() == yCreator &&
-		!(h.SelfAncestor(yDescendant, whistleblower) || h.SelfAncestor(whistleblower, yDescendant)) {
-		return true
-	}
-
-	return h.blowWhistle(ex.SelfParent(), yDescendant, yCreator, stopper) ||
-		h.blowWhistle(ex.OtherParent(), yDescendant, yCreator, stopper)
+	return exCreator == eyCreator && ex.Index() >= ey.Index()
 }
 
 //true if x sees y
 func (h *Hashgraph) See(x, y string) bool {
-	return h.Ancestor(x, y) && !h.DetectFork(x, y)
+	return h.Ancestor(x, y)
+	//it is not necessary to detect forks because we assume that with our
+	//implementations, no two events can be added by the same creator at the
+	//same height
 }
 
 //oldest self-ancestor of x to see y
@@ -246,27 +174,6 @@ func (h *Hashgraph) oldestSelfAncestorToSee(x, y string) string {
 	return a
 }
 
-//participants in x's ancestry that see y
-func (h *Hashgraph) MapSentinels(x, y string, sentinels map[string]bool) {
-	if x == "" {
-		return
-	}
-	ex, err := h.Store.GetEvent(x)
-	if err != nil {
-		return
-	}
-	if !h.See(x, y) {
-		return
-	}
-	sentinels[ex.Creator()] = true
-	if x == y {
-		return
-	}
-
-	h.MapSentinels(ex.SelfParent(), y, sentinels)
-	h.MapSentinels(ex.OtherParent(), y, sentinels)
-}
-
 //true if x strongly sees y
 func (h *Hashgraph) StronglySee(x, y string) bool {
 	if c, ok := h.stronglySeeCache.Get(Key{x, y}); ok {
@@ -278,16 +185,24 @@ func (h *Hashgraph) StronglySee(x, y string) bool {
 }
 
 func (h *Hashgraph) stronglySee(x, y string) bool {
-	sentinels := make(map[string]bool)
-	for _, p := range h.Participants {
-		sentinels[p] = false
+
+	if !h.See(x, y) {
+		return false
 	}
 
-	h.MapSentinels(x, y, sentinels)
+	ex, err := h.Store.GetEvent(x)
+	if err != nil {
+		return false
+	}
+
+	ey, err := h.Store.GetEvent(y)
+	if err != nil {
+		return false
+	}
 
 	c := 0
-	for _, v := range sentinels {
-		if v {
+	for i := 0; i < len(ex.lastAncestors); i++ {
+		if ex.lastAncestors[i].index >= ey.firstDescendants[i].index {
 			c++
 		}
 	}
@@ -444,7 +359,7 @@ func (h *Hashgraph) InsertEvent(event Event) error {
 		return err
 	}
 
-	if err := h.UpdateAncestorFirstDecendant(event); err != nil {
+	if err := h.UpdateAncestorFirstDescendant(event); err != nil {
 		return err
 	}
 
@@ -553,7 +468,7 @@ func (h *Hashgraph) InitEventCoordinates(event *Event) error {
 }
 
 //update first decendant of each last ancestor to point to event
-func (h *Hashgraph) UpdateAncestorFirstDecendant(event Event) error {
+func (h *Hashgraph) UpdateAncestorFirstDescendant(event Event) error {
 	creatorID, ok := h.ParticipantIDs[event.Creator()]
 	if !ok {
 		return fmt.Errorf("Could not find creator id (%s)", event.Creator())
@@ -568,11 +483,15 @@ func (h *Hashgraph) UpdateAncestorFirstDecendant(event Event) error {
 			if err != nil {
 				return err
 			}
-			a.firstDescendants[creatorID] = EventCoordinates{index: index, hash: hash}
-			if err := h.Store.SetEvent(a); err != nil {
-				return err
+			if a.firstDescendants[creatorID].index == math.MaxInt64 {
+				a.firstDescendants[creatorID] = EventCoordinates{index: index, hash: hash}
+				if err := h.Store.SetEvent(a); err != nil {
+					return err
+				}
+				ah = a.SelfParent()
+			} else {
+				break
 			}
-			ah = a.SelfParent()
 		}
 	}
 

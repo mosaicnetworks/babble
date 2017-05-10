@@ -105,14 +105,25 @@ func initHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 	for _, node := range nodes {
 		participants = append(participants, node.PubHex)
 	}
+
 	store := NewInmemStore(participants, cacheSize)
-	for _, node := range nodes {
-		for _, ev := range node.Events {
-			store.SetEvent(ev)
+	h := NewHashgraph(participants, store, nil, common.NewTestLogger(t))
+	for i, ev := range *orderedEvents {
+		if err := h.InitEventCoordinates(&ev); err != nil {
+			t.Fatalf("%d: %s", i, err)
 		}
+
+		if err := h.Store.SetEvent(ev); err != nil {
+			t.Fatalf("%d: %s", i, err)
+		}
+
+		if err := h.UpdateAncestorFirstDescendant(ev); err != nil {
+			t.Fatalf("%d: %s", i, err)
+		}
+
 	}
-	hashgraph := NewHashgraph(participants, store, nil, common.NewTestLogger(t))
-	return hashgraph, index
+
+	return h, index
 }
 
 func TestAncestor(t *testing.T) {
@@ -202,134 +213,14 @@ func TestSelfAncestor(t *testing.T) {
 
 }
 
-/*
-|   e12    |
-|    | \   |
-|    |   \ |
-|    |    e20
-|    |   / |
-|    | /   |
-|    /     |
-|  / |     |
-e01  |     |
-| \  |     |
-|   \|     |
-|    |\    |
-|    |  \  |
-e0   e1 (a)e2
-0    1     2
-
-Node 2 Forks; events a and e2 are both created by node2, they are not self-parents
-and yet they are both ancestors of event e20
-*/
-func initForkHashgraph(t *testing.T) (Hashgraph, map[string]string) {
-	index := make(map[string]string)
-	nodes := []Node{}
-	orderedEvents := &[]Event{}
-
-	for i := 0; i < n; i++ {
-		key, _ := crypto.GenerateECDSAKey()
-		node := NewNode(key)
-		event := NewEvent([][]byte{}, []string{"", ""}, node.Pub, 0)
-		node.signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
-		nodes = append(nodes, node)
-	}
-
-	//a and e2 need to have different hashes
-	eventA := NewEvent([][]byte{[]byte("yo")}, []string{"", ""}, nodes[2].Pub, 0)
-	nodes[2].signAndAddEvent(eventA, "a", index, orderedEvents)
-
-	event01 := NewEvent([][]byte{},
-		[]string{index["e0"], index["a"]}, //e0 and a
-		nodes[0].Pub, 1)
-	nodes[0].signAndAddEvent(event01, "e01", index, orderedEvents)
-
-	event20 := NewEvent([][]byte{},
-		[]string{index["e2"], index["e01"]}, //e2 and e01
-		nodes[2].Pub, 1)
-	nodes[2].signAndAddEvent(event20, "e20", index, orderedEvents)
-
-	event12 := NewEvent([][]byte{},
-		[]string{index["e1"], index["e20"]}, //e1 and e20
-		nodes[1].Pub, 1)
-	nodes[1].signAndAddEvent(event12, "e12", index, orderedEvents)
-
-	participants := []string{}
-	for _, node := range nodes {
-		participants = append(participants, node.PubHex)
-	}
-	store := NewInmemStore(participants, cacheSize)
-	for _, node := range nodes {
-		for _, ev := range node.Events {
-			store.SetEvent(ev)
-		}
-	}
-	hashgraph := NewHashgraph(participants, store, nil, common.NewTestLogger(t))
-	return hashgraph, index
-}
-
-func TestDetectFork(t *testing.T) {
-	h, index := initForkHashgraph(t)
-
-	//1 generation
-	fork := h.DetectFork(index["e20"], index["a"])
-	if !fork {
-		t.Fatal("e20 should detect a fork under a")
-	}
-	fork = h.DetectFork(index["e20"], index["e2"])
-	if !fork {
-		t.Fatal("e20 should detect a fork under e2")
-	}
-	fork = h.DetectFork(index["e12"], index["e20"])
-	if !fork {
-		t.Fatal("e12 should detect a fork under e20")
-	}
-
-	//2 generations
-	fork = h.DetectFork(index["e12"], index["a"])
-	if !fork {
-		t.Fatal("e12 should detect a fork under a")
-	}
-	fork = h.DetectFork(index["e12"], index["e2"])
-	if !fork {
-		t.Fatal("e12 should detect a fork under e2")
-	}
-
-	//false negatives
-	fork = h.DetectFork(index["e01"], index["e0"])
-	if fork {
-		t.Fatal("e01 should not detect a fork under e0")
-	}
-	fork = h.DetectFork(index["e01"], index["a"])
-	if fork {
-		t.Fatal("e01 should not detect a fork under 'a'")
-	}
-	fork = h.DetectFork(index["e01"], index["e2"])
-	if fork {
-		t.Fatal("e01 should not detect a fork under e2")
-	}
-	fork = h.DetectFork(index["e20"], index["e01"])
-	if fork {
-		t.Fatal("e20 should not detect a fork under e01")
-	}
-	fork = h.DetectFork(index["e20"], index["e0"])
-	if fork {
-		t.Fatal("e20 should not detect a fork under e0")
-	}
-	fork = h.DetectFork(index["e12"], index["e01"])
-	if fork {
-		t.Fatal("e12 should not detect a fork under e01")
-	}
-}
-
 func TestSee(t *testing.T) {
-	h, index := initForkHashgraph(t)
+	h, index := initHashgraph(t)
 
 	if !h.See(index["e01"], index["e0"]) {
 		t.Fatal("e01 should see e0")
 	}
-	if !h.See(index["e01"], index["a"]) {
-		t.Fatal("e01 should see 'a'")
+	if !h.See(index["e01"], index["e1"]) {
+		t.Fatal("e01 should see e1")
 	}
 	if !h.See(index["e20"], index["e0"]) {
 		t.Fatal("e20 should see e0")
@@ -346,80 +237,6 @@ func TestSee(t *testing.T) {
 	if !h.See(index["e12"], index["e1"]) {
 		t.Fatal("e12 should see e1")
 	}
-
-	//fork
-	if h.See(index["e20"], index["a"]) {
-		t.Fatal("e20 should not see 'a' because of fork")
-	}
-	if h.See(index["e20"], index["e2"]) {
-		t.Fatal("e20 should not see e2 because of fork")
-	}
-	if h.See(index["e12"], index["a"]) {
-		t.Fatal("e12 should not see 'a' because of fork")
-	}
-	if h.See(index["e12"], index["e2"]) {
-		t.Fatal("e12 should not see e2 because of fork")
-	}
-	if h.See(index["e12"], index["e20"]) {
-		t.Fatal("e12 should not see e20 because of fork")
-	}
-
-}
-
-func TestStronglySee(t *testing.T) {
-	h, index := initHashgraph(t)
-
-	if !h.StronglySee(index["e12"], index["e0"]) {
-		t.Fatalf("e12 should strongly see e0")
-	}
-	if !h.StronglySee(index["e12"], index["e1"]) {
-		t.Fatalf("e12 should strongly see e1")
-	}
-	if !h.StronglySee(index["e12"], index["e01"]) {
-		t.Fatalf("e12 should strongly see e01")
-	}
-	if !h.StronglySee(index["e20"], index["e1"]) {
-		t.Fatalf("e20 should strongly see e1")
-	}
-
-	//false negatives
-	if h.StronglySee(index["e12"], index["e2"]) {
-		t.Fatalf("e12 should not strongly see e2")
-	}
-	if h.StronglySee(index["e12"], index["e20"]) {
-		t.Fatalf("e12 should not strongly see e20")
-	}
-	if h.StronglySee(index["e20"], index["e01"]) {
-		t.Fatalf("e20 should not strongly see e01")
-	}
-	if h.StronglySee(index["e20"], index["e0"]) {
-		t.Fatalf("e20 should not strongly see e0")
-	}
-	if h.StronglySee(index["e20"], index["e2"]) {
-		t.Fatalf("e20 should not strongly see e2")
-	}
-	if h.StronglySee(index["e01"], index["e0"]) {
-		t.Fatalf("e01 should not strongly see e0")
-	}
-	if h.StronglySee(index["e01"], index["e1"]) {
-		t.Fatalf("e01 should not strongly see e1")
-	}
-	if h.StronglySee(index["e01"], index["e2"]) {
-		t.Fatalf("e01 should not strongly see e2")
-	}
-	if h.StronglySee(index["e0"], index["e0"]) {
-		t.Fatalf("e0 should not strongly see e0")
-	}
-
-	//fork
-	h, index = initForkHashgraph(t)
-	if h.StronglySee(index["e12"], index["a"]) {
-		t.Fatalf("e12 should not strongly see 'a' because of fork")
-	}
-	if h.StronglySee(index["e12"], index["e2"]) {
-		t.Fatalf("e12 should not strongly see e2 because of fork")
-	}
-
 }
 
 /*
@@ -496,12 +313,12 @@ func TestInsertEvent(t *testing.T) {
 	}
 
 	expectedFirstDescendants[0] = EventCoordinates{
-		index: 1,
-		hash:  index["e02"],
+		index: 0,
+		hash:  index["e0"],
 	}
 	expectedFirstDescendants[1] = EventCoordinates{
-		index: 2,
-		hash:  index["f1"],
+		index: 1,
+		hash:  index["e10"],
 	}
 	expectedFirstDescendants[2] = EventCoordinates{
 		index: 1,
@@ -602,6 +419,57 @@ func TestInsertEvent(t *testing.T) {
 		t.Fatal("f1 lastAncestors not good")
 	}
 
+}
+
+func TestStronglySee(t *testing.T) {
+	h, index := initRoundHashgraph(t)
+
+	if !h.StronglySee(index["e21"], index["e0"]) {
+		t.Fatalf("e21 should strongly see e0")
+	}
+
+	if !h.StronglySee(index["e02"], index["e10"]) {
+		t.Fatalf("e02 should strongly see e10")
+	}
+	if !h.StronglySee(index["e02"], index["e0"]) {
+		t.Fatalf("e02 should strongly see e0")
+	}
+	if !h.StronglySee(index["e02"], index["e1"]) {
+		t.Fatalf("e02 should strongly see e1")
+	}
+
+	if !h.StronglySee(index["f1"], index["e21"]) {
+		t.Fatalf("f1 should strongly see e21")
+	}
+	if !h.StronglySee(index["f1"], index["e10"]) {
+		t.Fatalf("f1 should strongly see e10")
+	}
+	if !h.StronglySee(index["f1"], index["e0"]) {
+		t.Fatalf("f1 should strongly see e0")
+	}
+	if !h.StronglySee(index["f1"], index["e1"]) {
+		t.Fatalf("f1 should strongly see e1")
+	}
+	if !h.StronglySee(index["f1"], index["e2"]) {
+		t.Fatalf("f1 should strongly see e2")
+	}
+
+	//false negatives
+	if h.StronglySee(index["e10"], index["e0"]) {
+		t.Fatalf("e12 should not strongly see e2")
+	}
+	if h.StronglySee(index["e21"], index["e1"]) {
+		t.Fatalf("e21 should not strongly see e1")
+	}
+	if h.StronglySee(index["e21"], index["e2"]) {
+		t.Fatalf("e21 should not strongly see e2")
+	}
+	if h.StronglySee(index["e02"], index["e2"]) {
+		t.Fatalf("e02 should not strongly see e2")
+	}
+	if h.StronglySee(index["f1"], index["e02"]) {
+		t.Fatalf("f1 should not strongly see e02")
+	}
 }
 
 func TestParentRound(t *testing.T) {

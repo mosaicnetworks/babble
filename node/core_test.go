@@ -87,21 +87,21 @@ func initHashgraph(cores []Core, keys []*ecdsa.PrivateKey, index map[string]stri
 
 	event01 := hg.NewEvent([][]byte{},
 		[]string{index["e0"], index["e1"]}, //e0 and e1
-		cores[0].PubKey())
+		cores[0].PubKey(), 1)
 	if err := insertEvent(cores, keys, index, event01, "e01", participant, 0); err != nil {
 		fmt.Printf("error inserting e01: %s\n", err)
 	}
 
 	event20 := hg.NewEvent([][]byte{},
 		[]string{index["e2"], index["e01"]}, //e2 and e01
-		cores[2].PubKey())
+		cores[2].PubKey(), 1)
 	if err := insertEvent(cores, keys, index, event20, "e20", participant, 2); err != nil {
 		fmt.Printf("error inserting e20: %s\n", err)
 	}
 
 	event12 := hg.NewEvent([][]byte{},
 		[]string{index["e1"], index["e20"]}, //e1 and e20
-		cores[1].PubKey())
+		cores[1].PubKey(), 1)
 	if err := insertEvent(cores, keys, index, event12, "e12", participant, 1); err != nil {
 		fmt.Printf("error inserting e12: %s\n", err)
 	}
