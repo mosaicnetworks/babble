@@ -5,5 +5,5 @@
 cmd/debug
 docker/babble/babble
 docker/dummy/dummy
-docker/conf/
+docker/conf/*
 vendor

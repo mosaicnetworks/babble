@@ -39,6 +39,7 @@ func (s *InmemStore) GetEvent(key string) (Event, error) {
 	if !ok {
 		return Event{}, ErrKeyNotFound
 	}
+
 	return res.(Event), nil
 }
 
@@ -117,6 +118,14 @@ func (s *InmemStore) RoundWitnesses(r int) []string {
 		return []string{}
 	}
 	return round.Witnesses()
+}
+
+func (s *InmemStore) RoundEvents(r int) int {
+	round, err := s.GetRound(r)
+	if err != nil {
+		return 0
+	}
+	return len(round.Events)
 }
 
 func (s *InmemStore) Close() error {

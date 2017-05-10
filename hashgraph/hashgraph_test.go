@@ -24,6 +24,10 @@ import (
 
 	"strings"
 
+	"reflect"
+
+	"math"
+
 	"bitbucket.org/mosaicnet/babble/common"
 	"bitbucket.org/mosaicnet/babble/crypto"
 )
@@ -77,24 +81,24 @@ func initHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
 		node := NewNode(key)
-		event := NewEvent([][]byte{}, []string{"", ""}, node.Pub)
+		event := NewEvent([][]byte{}, []string{"", ""}, node.Pub, 0)
 		node.signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
 		nodes = append(nodes, node)
 	}
 
 	event01 := NewEvent([][]byte{},
 		[]string{index["e0"], index["e1"]}, //e0 and e1
-		nodes[0].Pub)
+		nodes[0].Pub, 1)
 	nodes[0].signAndAddEvent(event01, "e01", index, orderedEvents)
 
 	event20 := NewEvent([][]byte{},
 		[]string{index["e2"], index["e01"]}, //e2 and e01
-		nodes[2].Pub)
+		nodes[2].Pub, 1)
 	nodes[2].signAndAddEvent(event20, "e20", index, orderedEvents)
 
 	event12 := NewEvent([][]byte{},
 		[]string{index["e1"], index["e20"]}, //e1 and e20
-		nodes[1].Pub)
+		nodes[1].Pub, 1)
 	nodes[1].signAndAddEvent(event12, "e12", index, orderedEvents)
 
 	participants := []string{}
@@ -226,28 +230,28 @@ func initForkHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
 		node := NewNode(key)
-		event := NewEvent([][]byte{}, []string{"", ""}, node.Pub)
+		event := NewEvent([][]byte{}, []string{"", ""}, node.Pub, 0)
 		node.signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
 		nodes = append(nodes, node)
 	}
 
 	//a and e2 need to have different hashes
-	eventA := NewEvent([][]byte{[]byte("yo")}, []string{"", ""}, nodes[2].Pub)
+	eventA := NewEvent([][]byte{[]byte("yo")}, []string{"", ""}, nodes[2].Pub, 0)
 	nodes[2].signAndAddEvent(eventA, "a", index, orderedEvents)
 
 	event01 := NewEvent([][]byte{},
 		[]string{index["e0"], index["a"]}, //e0 and a
-		nodes[0].Pub)
+		nodes[0].Pub, 1)
 	nodes[0].signAndAddEvent(event01, "e01", index, orderedEvents)
 
 	event20 := NewEvent([][]byte{},
 		[]string{index["e2"], index["e01"]}, //e2 and e01
-		nodes[2].Pub)
+		nodes[2].Pub, 1)
 	nodes[2].signAndAddEvent(event20, "e20", index, orderedEvents)
 
 	event12 := NewEvent([][]byte{},
 		[]string{index["e1"], index["e20"]}, //e1 and e20
-		nodes[1].Pub)
+		nodes[1].Pub, 1)
 	nodes[1].signAndAddEvent(event12, "e12", index, orderedEvents)
 
 	participants := []string{}
@@ -440,29 +444,29 @@ func initRoundHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
 		node := NewNode(key)
-		event := NewEvent([][]byte{}, []string{"", ""}, node.Pub)
+		event := NewEvent([][]byte{}, []string{"", ""}, node.Pub, 0)
 		node.signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
 		nodes = append(nodes, node)
 	}
 
 	event10 := NewEvent([][]byte{},
 		[]string{index["e1"], index["e0"]},
-		nodes[1].Pub)
+		nodes[1].Pub, 1)
 	nodes[1].signAndAddEvent(event10, "e10", index, orderedEvents)
 
 	event21 := NewEvent([][]byte{},
 		[]string{index["e2"], index["e10"]},
-		nodes[2].Pub)
+		nodes[2].Pub, 1)
 	nodes[2].signAndAddEvent(event21, "e21", index, orderedEvents)
 
 	event02 := NewEvent([][]byte{},
 		[]string{index["e0"], index["e21"]},
-		nodes[0].Pub)
+		nodes[0].Pub, 1)
 	nodes[0].signAndAddEvent(event02, "e02", index, orderedEvents)
 
 	eventf1 := NewEvent([][]byte{},
 		[]string{index["e10"], index["e02"]},
-		nodes[1].Pub)
+		nodes[1].Pub, 2)
 	nodes[1].signAndAddEvent(eventf1, "f1", index, orderedEvents)
 
 	participants := []string{}
@@ -477,6 +481,127 @@ func initRoundHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 		}
 	}
 	return hashgraph, index
+}
+
+func TestInsertEvent(t *testing.T) {
+	h, index := initRoundHashgraph(t)
+
+	expectedFirstDescendants := make([]EventCoordinates, n)
+	expectedLastAncestors := make([]EventCoordinates, n)
+
+	//e0
+	e0, err := h.Store.GetEvent(index["e0"])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedFirstDescendants[0] = EventCoordinates{
+		index: 1,
+		hash:  index["e02"],
+	}
+	expectedFirstDescendants[1] = EventCoordinates{
+		index: 2,
+		hash:  index["f1"],
+	}
+	expectedFirstDescendants[2] = EventCoordinates{
+		index: 1,
+		hash:  index["e21"],
+	}
+
+	expectedLastAncestors[0] = EventCoordinates{
+		index: 0,
+		hash:  index["e0"],
+	}
+	expectedLastAncestors[1] = EventCoordinates{
+		index: -1,
+	}
+	expectedLastAncestors[2] = EventCoordinates{
+		index: -1,
+	}
+
+	if !reflect.DeepEqual(e0.firstDescendants, expectedFirstDescendants) {
+		t.Fatal("e0 firstDescendants not good")
+	}
+	if !reflect.DeepEqual(e0.lastAncestors, expectedLastAncestors) {
+		t.Fatal("e0 lastAncestors not good")
+	}
+
+	//e21
+	e21, err := h.Store.GetEvent(index["e21"])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedFirstDescendants[0] = EventCoordinates{
+		index: 1,
+		hash:  index["e02"],
+	}
+	expectedFirstDescendants[1] = EventCoordinates{
+		index: 2,
+		hash:  index["f1"],
+	}
+	expectedFirstDescendants[2] = EventCoordinates{
+		index: 1,
+		hash:  index["e21"],
+	}
+
+	expectedLastAncestors[0] = EventCoordinates{
+		index: 0,
+		hash:  index["e0"],
+	}
+	expectedLastAncestors[1] = EventCoordinates{
+		index: 1,
+		hash:  index["e10"],
+	}
+	expectedLastAncestors[2] = EventCoordinates{
+		index: 1,
+		hash:  index["e21"],
+	}
+
+	if !reflect.DeepEqual(e21.firstDescendants, expectedFirstDescendants) {
+		t.Fatal("e21 firstDescendants not good")
+	}
+	if !reflect.DeepEqual(e21.lastAncestors, expectedLastAncestors) {
+		t.Fatal("e21 lastAncestors not good")
+	}
+
+	//f1
+	f1, err := h.Store.GetEvent(index["f1"])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedFirstDescendants[0] = EventCoordinates{
+		index: math.MaxInt64,
+	}
+	expectedFirstDescendants[1] = EventCoordinates{
+		index: 2,
+		hash:  index["f1"],
+	}
+	expectedFirstDescendants[2] = EventCoordinates{
+		index: math.MaxInt64,
+	}
+
+	expectedLastAncestors[0] = EventCoordinates{
+		index: 1,
+		hash:  index["e02"],
+	}
+	expectedLastAncestors[1] = EventCoordinates{
+		index: 2,
+		hash:  index["f1"],
+	}
+	expectedLastAncestors[2] = EventCoordinates{
+		index: 1,
+		hash:  index["e21"],
+	}
+
+	if !reflect.DeepEqual(f1.firstDescendants, expectedFirstDescendants) {
+		t.Fatal("f1 firstDescendants not good")
+	}
+	if !reflect.DeepEqual(f1.lastAncestors, expectedLastAncestors) {
+		t.Fatal("f1 lastAncestors not good")
+	}
+
 }
 
 func TestParentRound(t *testing.T) {
@@ -708,99 +833,99 @@ func initConsensusHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
 		node := NewNode(key)
-		event := NewEvent([][]byte{}, []string{"", ""}, node.Pub)
+		event := NewEvent([][]byte{}, []string{"", ""}, node.Pub, 0)
 		node.signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
 		nodes = append(nodes, node)
 	}
 
 	event10 := NewEvent([][]byte{},
 		[]string{index["e1"], index["e0"]},
-		nodes[1].Pub)
+		nodes[1].Pub, 1)
 	nodes[1].signAndAddEvent(event10, "e10", index, orderedEvents)
 
 	event21 := NewEvent([][]byte{},
 		[]string{index["e2"], index["e10"]},
-		nodes[2].Pub)
+		nodes[2].Pub, 1)
 	nodes[2].signAndAddEvent(event21, "e21", index, orderedEvents)
 
 	event02 := NewEvent([][]byte{},
 		[]string{index["e0"], index["e21"]},
-		nodes[0].Pub)
+		nodes[0].Pub, 1)
 	nodes[0].signAndAddEvent(event02, "e02", index, orderedEvents)
 
 	eventf1 := NewEvent([][]byte{},
 		[]string{index["e10"], index["e02"]},
-		nodes[1].Pub)
+		nodes[1].Pub, 2)
 	nodes[1].signAndAddEvent(eventf1, "f1", index, orderedEvents)
 
 	eventf0 := NewEvent([][]byte{},
 		[]string{index["e02"], index["f1"]},
-		nodes[0].Pub)
+		nodes[0].Pub, 2)
 	nodes[0].signAndAddEvent(eventf0, "f0", index, orderedEvents)
 
 	eventf2 := NewEvent([][]byte{},
 		[]string{index["e21"], index["f1"]},
-		nodes[2].Pub)
+		nodes[2].Pub, 2)
 	nodes[2].signAndAddEvent(eventf2, "f2", index, orderedEvents)
 
 	eventf10 := NewEvent([][]byte{},
 		[]string{index["f1"], index["f0"]},
-		nodes[1].Pub)
+		nodes[1].Pub, 3)
 	nodes[1].signAndAddEvent(eventf10, "f10", index, orderedEvents)
 
 	eventf21 := NewEvent([][]byte{},
 		[]string{index["f2"], index["f10"]},
-		nodes[2].Pub)
+		nodes[2].Pub, 3)
 	nodes[2].signAndAddEvent(eventf21, "f21", index, orderedEvents)
 
 	eventf02 := NewEvent([][]byte{},
 		[]string{index["f0"], index["f21"]},
-		nodes[0].Pub)
+		nodes[0].Pub, 3)
 	nodes[0].signAndAddEvent(eventf02, "f02", index, orderedEvents)
 
 	eventg1 := NewEvent([][]byte{},
 		[]string{index["f10"], index["f02"]},
-		nodes[1].Pub)
+		nodes[1].Pub, 4)
 	nodes[1].signAndAddEvent(eventg1, "g1", index, orderedEvents)
 
 	eventg0 := NewEvent([][]byte{},
 		[]string{index["f02"], index["g1"]},
-		nodes[0].Pub)
+		nodes[0].Pub, 4)
 	nodes[0].signAndAddEvent(eventg0, "g0", index, orderedEvents)
 
 	eventg2 := NewEvent([][]byte{},
 		[]string{index["f21"], index["g1"]},
-		nodes[2].Pub)
+		nodes[2].Pub, 4)
 	nodes[2].signAndAddEvent(eventg2, "g2", index, orderedEvents)
 
 	eventg10 := NewEvent([][]byte{},
 		[]string{index["g1"], index["g0"]},
-		nodes[1].Pub)
+		nodes[1].Pub, 5)
 	nodes[1].signAndAddEvent(eventg10, "g10", index, orderedEvents)
 
 	eventg21 := NewEvent([][]byte{},
 		[]string{index["g2"], index["g10"]},
-		nodes[2].Pub)
+		nodes[2].Pub, 5)
 	nodes[2].signAndAddEvent(eventg21, "g21", index, orderedEvents)
 
 	eventg02 := NewEvent([][]byte{},
 		[]string{index["g0"], index["g21"]},
-		nodes[0].Pub)
+		nodes[0].Pub, 5)
 	nodes[0].signAndAddEvent(eventg02, "g02", index, orderedEvents)
 
 	eventh1 := NewEvent([][]byte{},
 		[]string{index["g10"], index["g02"]},
-		nodes[1].Pub)
+		nodes[1].Pub, 6)
 	nodes[1].signAndAddEvent(eventh1, "h1", index, orderedEvents)
 
 	eventh0 := NewEvent([][]byte{},
 		[]string{index["g02"], index["h1"]},
-		nodes[0].Pub)
+		nodes[0].Pub, 6)
 	nodes[0].signAndAddEvent(eventh0, "h0", index, orderedEvents)
 
 	eventh2 := NewEvent([][]byte{},
 		[]string{index["g21"], index["h1"]},
-		nodes[2].Pub)
+		nodes[2].Pub, 6)
 	nodes[2].signAndAddEvent(eventh2, "h2", index, orderedEvents)
 
 	participants := []string{}
@@ -916,7 +1041,11 @@ func TestFindOrder(t *testing.T) {
 
 func BenchmarkFindOrder(b *testing.B) {
 	for n := 0; n < b.N; n++ {
+		//we do not want to benchmark the initialization code
+		b.StopTimer()
 		h, _ := initConsensusHashgraph(common.NewBenchmarkLogger(b))
+		b.StartTimer()
+
 		h.DivideRounds()
 		h.DecideFame()
 		h.FindOrder()

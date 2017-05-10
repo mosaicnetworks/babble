@@ -54,7 +54,7 @@ func TestInmemEvents(t *testing.T) {
 		items := []Event{}
 		for k := 0; k < testSize; k++ {
 			event := NewEvent([][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], k))},
-				[]string{"", ""}, p.pubKey)
+				[]string{"", ""}, p.pubKey, k)
 			items = append(items, event)
 			err := store.SetEvent(event)
 			if err != nil {
@@ -122,7 +122,7 @@ func TestInmemRounds(t *testing.T) {
 	round := NewRoundInfo()
 	events := make(map[string]Event)
 	for _, p := range participants {
-		event := NewEvent([][]byte{}, []string{"", ""}, p.pubKey)
+		event := NewEvent([][]byte{}, []string{"", ""}, p.pubKey, 0)
 		events[p.hex] = event
 		round.AddEvent(event.Hex(), true)
 	}

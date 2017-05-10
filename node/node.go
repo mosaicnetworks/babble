@@ -287,6 +287,8 @@ func (n *Node) GetStats() map[string]string {
 		"num_peers":              strconv.Itoa(len(n.peerSelector.Peers())),
 		"sync_rate":              strconv.FormatFloat(n.SyncRate(), 'f', 2, 64),
 		"events_per_second":      strconv.FormatFloat(consensusEventsPerSecond, 'f', 2, 64),
+		//XXX
+		"round_events": strconv.Itoa(n.core.GetLastCommitedRoundEventsCount()),
 	}
 	return s
 }
@@ -302,6 +304,7 @@ func (n *Node) logStats() {
 		"num_peers":              stats["num_peers"],
 		"sync_rate":              stats["sync_rate"],
 		"events/s":               stats["events_per_second"],
+		"round_events":           stats["round_events"],
 	}).Debug("Stats")
 }
 

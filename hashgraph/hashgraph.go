@@ -28,12 +28,14 @@ import (
 )
 
 type Hashgraph struct {
-	Participants          []string     //participant public keys
-	Store                 Store        //Persistent store of Events and Rounds
-	UndeterminedEvents    []string     //[index] => hash
-	LastConsensusRound    *int         //index of last round where the fame of all witnesses has been decided
-	ConsensusTransactions int          //number of consensus transactions
-	commitCh              chan []Event //channel for committing events
+	Participants            []string       //participant public keys
+	ParticipantIDs          map[string]int //reverse lookup
+	Store                   Store          //Persistent store of Events and Rounds
+	UndeterminedEvents      []string       //[index] => hash
+	LastConsensusRound      *int           //index of last round where the fame of all witnesses has been decided
+	LastCommitedRoundEvents int            //number of events in round before LastConsensusRound
+	ConsensusTransactions   int            //number of consensus transactions
+	commitCh                chan []Event   //channel for committing events
 
 	ancestorCache           *common.LRU
 	selfAncestorCache       *common.LRU
@@ -51,9 +53,16 @@ func NewHashgraph(participants []string, store Store, commitCh chan []Event, log
 		logger = logrus.New()
 		logger.Level = logrus.DebugLevel
 	}
+
+	participantIds := make(map[string]int)
+	for i, p := range participants {
+		participantIds[p] = i
+	}
+
 	cacheSize := 500000
 	return Hashgraph{
 		Participants:            participants,
+		ParticipantIDs:          participantIds,
 		Store:                   store,
 		commitCh:                commitCh,
 		ancestorCache:           common.NewLRU(cacheSize, nil),
@@ -96,6 +105,11 @@ func (h *Hashgraph) ancestor(x, y string) bool {
 	if err != nil {
 		return false
 	}
+
+	// if ex.Creator() == ey.Creator() {
+	// 	return ex.Index() >= ey.Index()
+	// }
+
 	return h.Ancestor(ex.SelfParent(), y) || h.Ancestor(ex.OtherParent(), y)
 }
 
@@ -422,7 +436,15 @@ func (h *Hashgraph) InsertEvent(event Event) error {
 		return err
 	}
 
+	if err := h.InitEventCoordinates(&event); err != nil {
+		return err
+	}
+
 	if err := h.Store.SetEvent(event); err != nil {
+		return err
+	}
+
+	if err := h.UpdateAncestorFirstDecendant(event); err != nil {
 		return err
 	}
 
@@ -459,6 +481,99 @@ func (h *Hashgraph) FromParentsLatest(event Event) error {
 	selfParentLegit := selfParent == lastKnown
 	if !selfParentLegit {
 		return fmt.Errorf("Self-parent not last known event by creator")
+	}
+
+	return nil
+}
+
+//initialize arrays of last ancestors and first descendants
+func (h *Hashgraph) InitEventCoordinates(event *Event) error {
+	members := len(h.Participants)
+
+	event.firstDescendants = make([]EventCoordinates, members)
+	for i := 0; i < members; i++ {
+		event.firstDescendants[i] = EventCoordinates{
+			index: math.MaxInt64,
+		}
+	}
+
+	event.lastAncestors = make([]EventCoordinates, members)
+	if event.SelfParent() == "" && event.OtherParent() == "" {
+		for i := 0; i < members; i++ {
+			event.lastAncestors[i] = EventCoordinates{
+				index: -1,
+			}
+		}
+	} else if event.SelfParent() == "" {
+		otherParent, err := h.Store.GetEvent(event.OtherParent())
+		if err != nil {
+			return err
+		}
+		copy(event.lastAncestors[:members], otherParent.lastAncestors)
+	} else if event.OtherParent() == "" {
+		selfParent, err := h.Store.GetEvent(event.SelfParent())
+		if err != nil {
+			return err
+		}
+		copy(event.lastAncestors[:members], selfParent.lastAncestors)
+	} else {
+		selfParent, err := h.Store.GetEvent(event.SelfParent())
+		if err != nil {
+			return err
+		}
+		selfParentLastAncestors := selfParent.lastAncestors
+
+		otherParent, err := h.Store.GetEvent(event.OtherParent())
+		if err != nil {
+			return err
+		}
+		otherParentLastAncestors := otherParent.lastAncestors
+
+		copy(event.lastAncestors[:members], selfParentLastAncestors)
+		for i := 0; i < members; i++ {
+			if event.lastAncestors[i].index < otherParentLastAncestors[i].index {
+				event.lastAncestors[i].index = otherParentLastAncestors[i].index
+				event.lastAncestors[i].hash = otherParentLastAncestors[i].hash
+			}
+		}
+	}
+
+	creator := event.Creator()
+	index := event.Index()
+	creatorID, ok := h.ParticipantIDs[creator]
+	if !ok {
+		return fmt.Errorf("Could not find creator id")
+	}
+	hash := event.Hex()
+
+	event.firstDescendants[creatorID] = EventCoordinates{index: index, hash: hash}
+	event.lastAncestors[creatorID] = EventCoordinates{index: index, hash: hash}
+
+	return nil
+}
+
+//update first decendant of each last ancestor to point to event
+func (h *Hashgraph) UpdateAncestorFirstDecendant(event Event) error {
+	creatorID, ok := h.ParticipantIDs[event.Creator()]
+	if !ok {
+		return fmt.Errorf("Could not find creator id (%s)", event.Creator())
+	}
+	index := event.Index()
+	hash := event.Hex()
+
+	for i := 0; i < len(event.lastAncestors); i++ {
+		ah := event.lastAncestors[i].hash
+		for ah != "" {
+			a, err := h.Store.GetEvent(ah)
+			if err != nil {
+				return err
+			}
+			a.firstDescendants[creatorID] = EventCoordinates{index: index, hash: hash}
+			if err := h.Store.SetEvent(a); err != nil {
+				return err
+			}
+			ah = a.SelfParent()
+		}
 	}
 
 	return nil
@@ -562,6 +677,9 @@ func (h *Hashgraph) setLastConsensusRound(i int) {
 		h.LastConsensusRound = new(int)
 	}
 	*h.LastConsensusRound = i
+
+	//XXX
+	h.LastCommitedRoundEvents = h.Store.RoundEvents(i - 1)
 }
 
 //assign round received and timestamp to all events

@@ -199,3 +199,7 @@ func (c *Core) GetLastConsensusRoundIndex() *int {
 func (c *Core) GetConsensusTransactionsCount() int {
 	return c.hg.ConsensusTransactions
 }
+
+func (c *Core) GetLastCommitedRoundEventsCount() int {
+	return c.hg.LastCommitedRoundEvents
+}

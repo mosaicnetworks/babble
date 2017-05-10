@@ -31,6 +31,7 @@ type EventBody struct {
 	Parents      []string  //hashes of the event's parents, self-parent first
 	Creator      []byte    //creator's public key
 	Timestamp    time.Time //creator's claimed timestamp of the event's creation
+	Index        int       //index in the sequence of events created by Creator
 }
 
 //gob encoding of body only
@@ -57,20 +58,33 @@ func (e *EventBody) Hash() ([]byte, error) {
 	return crypto.SHA256(hashBytes), nil
 }
 
+type EventCoordinates struct {
+	hash  string
+	index int
+}
+
 type Event struct {
 	Body EventBody
 	R, S *big.Int //creator's digital signature of body
 
 	roundReceived      *int
 	consensusTimestamp time.Time
+
+	lastAncestors    []EventCoordinates
+	firstDescendants []EventCoordinates
 }
 
-func NewEvent(transactions [][]byte, parents []string, creator []byte) Event {
+func NewEvent(transactions [][]byte,
+	parents []string,
+	creator []byte,
+	index int) Event {
+
 	body := EventBody{
 		Transactions: transactions,
 		Parents:      parents,
 		Creator:      creator,
 		Timestamp:    time.Now(),
+		Index:        index,
 	}
 	return Event{
 		Body: body,
@@ -91,6 +105,10 @@ func (e *Event) OtherParent() string {
 
 func (e *Event) Transactions() [][]byte {
 	return e.Body.Transactions
+}
+
+func (e *Event) Index() int {
+	return e.Body.Index
 }
 
 //ecdsa sig
