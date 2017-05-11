@@ -163,15 +163,16 @@ func (h *Hashgraph) OldestSelfAncestorToSee(x, y string) string {
 }
 
 func (h *Hashgraph) oldestSelfAncestorToSee(x, y string) string {
-	if !h.See(x, y) {
-		return ""
-	}
 	ex, _ := h.Store.GetEvent(x)
-	a := h.OldestSelfAncestorToSee(ex.SelfParent(), y)
-	if a == "" {
-		return x
+	ey, _ := h.Store.GetEvent(y)
+
+	a := ey.firstDescendants[h.ParticipantIDs[ex.Creator()]]
+
+	if a.index <= ex.Index() {
+		return a.hash
 	}
-	return a
+
+	return ""
 }
 
 //true if x strongly sees y

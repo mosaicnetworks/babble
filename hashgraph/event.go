@@ -73,8 +73,9 @@ type Event struct {
 	lastAncestors    []EventCoordinates
 	firstDescendants []EventCoordinates
 
-	hash []byte
-	hex  string
+	creator string
+	hash    []byte
+	hex     string
 }
 
 func NewEvent(transactions [][]byte,
@@ -95,7 +96,10 @@ func NewEvent(transactions [][]byte,
 }
 
 func (e *Event) Creator() string {
-	return fmt.Sprintf("0x%X", e.Body.Creator)
+	if e.creator == "" {
+		e.creator = fmt.Sprintf("0x%X", e.Body.Creator)
+	}
+	return e.creator
 }
 
 func (e *Event) SelfParent() string {
@@ -165,8 +169,11 @@ func (e *Event) Hash() ([]byte, error) {
 }
 
 func (e *Event) Hex() string {
-	hash, _ := e.Hash()
-	return fmt.Sprintf("0x%X", hash)
+	if e.hex == "" {
+		hash, _ := e.Hash()
+		e.hex = fmt.Sprintf("0x%X", hash)
+	}
+	return e.hex
 }
 
 func (e *Event) SetRoundReceived(rr int) {

@@ -55,6 +55,7 @@ func TestInmemEvents(t *testing.T) {
 		for k := 0; k < testSize; k++ {
 			event := NewEvent([][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], k))},
 				[]string{"", ""}, p.pubKey, k)
+			_ = event.Hex() //just to set private variables
 			items = append(items, event)
 			err := store.SetEvent(event)
 			if err != nil {
@@ -71,7 +72,7 @@ func TestInmemEvents(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(ev, rev) {
+			if !reflect.DeepEqual(ev.Body, rev.Body) {
 				t.Fatalf("events[%s][%d] should be %#v, not %#v", p, k, ev, rev)
 			}
 		}
