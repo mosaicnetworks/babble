@@ -240,6 +240,72 @@ func TestSee(t *testing.T) {
 }
 
 /*
+|    |    e20
+|    |   / |
+|    | /   |
+|    /     |
+|  / |     |
+e01  |     |
+| \  |     |
+|   \|     |
+|    |\    |
+|    |  \  |
+e0   e1 (a)e2
+0    1     2
+
+Node 2 Forks; events a and e2 are both created by node2, they are not self-parents
+and yet they are both ancestors of event e20
+*/
+func TestFork(t *testing.T) {
+	index := make(map[string]string)
+	nodes := []Node{}
+
+	participants := []string{}
+	for _, node := range nodes {
+		participants = append(participants, node.PubHex)
+	}
+
+	store := NewInmemStore(participants, cacheSize)
+	hashgraph := NewHashgraph(participants, store, nil, common.NewTestLogger(t))
+
+	for i := 0; i < n; i++ {
+		key, _ := crypto.GenerateECDSAKey()
+		node := NewNode(key)
+		event := NewEvent([][]byte{}, []string{"", ""}, node.Pub, 0)
+		event.Sign(node.Key)
+		index[fmt.Sprintf("e%d", i)] = event.Hex()
+		hashgraph.InsertEvent(event)
+		nodes = append(nodes, node)
+	}
+
+	//a and e2 need to have different hashes
+	eventA := NewEvent([][]byte{[]byte("yo")}, []string{"", ""}, nodes[2].Pub, 0)
+	eventA.Sign(nodes[2].Key)
+	index["a"] = eventA.Hex()
+	if err := hashgraph.InsertEvent(eventA); err == nil {
+		t.Fatal("InsertEvent should return error for 'a'")
+	}
+
+	event01 := NewEvent([][]byte{},
+		[]string{index["e0"], index["a"]}, //e0 and a
+		nodes[0].Pub, 1)
+	event01.Sign(nodes[0].Key)
+	index["e01"] = event01.Hex()
+	if err := hashgraph.InsertEvent(event01); err == nil {
+		t.Fatal("InsertEvent should return error for e01")
+	}
+
+	event20 := NewEvent([][]byte{},
+		[]string{index["e2"], index["e01"]}, //e2 and e01
+		nodes[2].Pub, 1)
+	event20.Sign(nodes[2].Key)
+	index["e20"] = event20.Hex()
+	if err := hashgraph.InsertEvent(event20); err == nil {
+		t.Fatal("InsertEvent should return error for e20")
+	}
+}
+
+/*
 |   f1  |
 |  /|   |
 e02 |   |

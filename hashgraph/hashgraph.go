@@ -149,7 +149,7 @@ func (h *Hashgraph) See(x, y string) bool {
 	return h.Ancestor(x, y)
 	//it is not necessary to detect forks because we assume that with our
 	//implementations, no two events can be added by the same creator at the
-	//same height
+	//same height (cf InsertEvent)
 }
 
 //oldest self-ancestor of x to see y
@@ -185,10 +185,6 @@ func (h *Hashgraph) StronglySee(x, y string) bool {
 }
 
 func (h *Hashgraph) stronglySee(x, y string) bool {
-
-	if !h.See(x, y) {
-		return false
-	}
 
 	ex, err := h.Store.GetEvent(x)
 	if err != nil {
