@@ -72,6 +72,9 @@ type Event struct {
 
 	lastAncestors    []EventCoordinates
 	firstDescendants []EventCoordinates
+
+	hash []byte
+	hex  string
 }
 
 func NewEvent(transactions [][]byte,
@@ -151,11 +154,14 @@ func (e *Event) Unmarshal(data []byte) error {
 
 //sha256 hash of body and signature
 func (e *Event) Hash() ([]byte, error) {
-	hashBytes, err := e.Marshal()
-	if err != nil {
-		return nil, err
+	if len(e.hash) == 0 {
+		hashBytes, err := e.Marshal()
+		if err != nil {
+			return nil, err
+		}
+		e.hash = crypto.SHA256(hashBytes)
 	}
-	return crypto.SHA256(hashBytes), nil
+	return e.hash, nil
 }
 
 func (e *Event) Hex() string {

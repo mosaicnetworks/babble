@@ -253,10 +253,7 @@ func (h *Hashgraph) Witness(x string) bool {
 	if ex.SelfParent() == "" {
 		return true
 	}
-	_, err = h.Store.GetEvent(ex.SelfParent())
-	if err != nil {
-		return false
-	}
+
 	return h.Round(x) > h.Round(ex.SelfParent())
 }
 
@@ -312,14 +309,6 @@ func (h *Hashgraph) RoundDiff(x, y string) (int, error) {
 	}
 	if y == "" {
 		return math.MinInt64, fmt.Errorf("y is empty")
-	}
-	_, err := h.Store.GetEvent(x)
-	if err != nil {
-		return math.MinInt64, err
-	}
-	_, err = h.Store.GetEvent(y)
-	if err != nil {
-		return math.MinInt64, err
 	}
 
 	xRound := h.Round(x)
@@ -593,7 +582,6 @@ func (h *Hashgraph) setLastConsensusRound(i int) {
 	}
 	*h.LastConsensusRound = i
 
-	//XXX
 	h.LastCommitedRoundEvents = h.Store.RoundEvents(i - 1)
 }
 
