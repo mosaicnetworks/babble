@@ -7,3 +7,6 @@ docker/babble/babble
 docker/dummy/dummy
 docker/conf/*
 vendor
+
+terraform/terraform.tfstate*
+terraform/terraform.tfvars
