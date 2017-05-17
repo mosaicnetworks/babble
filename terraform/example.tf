@@ -62,7 +62,7 @@ resource "aws_security_group" "babblesec" {
 resource "aws_instance" "server" {
   count = "${var.servers}"
   
-  ami = "ami-6d7d6a09" //custom ami with ubuntu + babble + dummy
+  ami = "ami-a36f78c7" //custom ami with ubuntu + babble
   instance_type = "t2.micro"
 
   subnet_id = "${aws_subnet.babblenet.id}"
@@ -83,10 +83,7 @@ resource "aws_instance" "server" {
   provisioner "remote-exec" {
     inline = [
       "nohup /home/ubuntu/bin/babble run --datadir=/home/ubuntu/babble_conf --cache_size=50000 --tcp_timeout=1000 --heartbeat=50 --node_addr=10.0.1.${10+count.index}:1337 --no_client=true > logs 2>&1 &",
-      "sleep 1",
-      //"/home/ubuntu/bin/babble run --datadir=/home/ubuntu/babble_conf --cache_size=50000 --tcp_timeout=1000 --heartbeat=50 --node_addr=10.0.1.${10+count.index}:1337 --proxy_addr=127.0.0.1:1338 --client_addr=127.0.0.1:1339", 
-      //"/home/ubuntu/bin/dummy --name=client${count.index +1} --client_addr=127.0.0.1:1339 --proxy_addr=127.0.0.1:1338 --log_level=info",
-    ]
+      "sleep 1",    ]
   }
 
   #Instance tags

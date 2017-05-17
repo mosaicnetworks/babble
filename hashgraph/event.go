@@ -67,6 +67,8 @@ type Event struct {
 	Body EventBody
 	R, S *big.Int //creator's digital signature of body
 
+	topologicalIndex int
+
 	roundReceived      *int
 	consensusTimestamp time.Time
 
@@ -192,3 +194,13 @@ type ByTimestamp []Event
 func (a ByTimestamp) Len() int           { return len(a) }
 func (a ByTimestamp) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByTimestamp) Less(i, j int) bool { return a[i].Body.Timestamp.Sub(a[j].Body.Timestamp) < 0 }
+
+// ByTopologicalOrder implements sort.Interface for []Event based on
+// the topologicalIndex field.
+type ByTopologicalOrder []Event
+
+func (a ByTopologicalOrder) Len() int      { return len(a) }
+func (a ByTopologicalOrder) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByTopologicalOrder) Less(i, j int) bool {
+	return a[i].topologicalIndex < a[j].topologicalIndex
+}

@@ -103,7 +103,7 @@ func (c *Core) Diff(known map[string]int) (head string, unknown []hg.Event, err 
 			unknown = append(unknown, ev)
 		}
 	}
-	sort.Sort(hg.ByTimestamp(unknown))
+	sort.Sort(hg.ByTopologicalOrder(unknown))
 
 	return head, unknown, nil
 }

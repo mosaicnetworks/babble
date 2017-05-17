@@ -36,6 +36,7 @@ type Hashgraph struct {
 	LastCommitedRoundEvents int            //number of events in round before LastConsensusRound
 	ConsensusTransactions   int            //number of consensus transactions
 	commitCh                chan []Event   //channel for committing events
+	topologicalIndex        int            //counter used to order events in topological order
 
 	ancestorCache           *common.LRU
 	selfAncestorCache       *common.LRU
@@ -336,6 +337,9 @@ func (h *Hashgraph) InsertEvent(event Event) error {
 	if err := h.FromParentsLatest(event); err != nil {
 		return err
 	}
+
+	event.topologicalIndex = h.topologicalIndex
+	h.topologicalIndex++
 
 	if err := h.InitEventCoordinates(&event); err != nil {
 		return err
