@@ -9,4 +9,4 @@ docker/conf/*
 vendor
 
 terraform/terraform.tfstate*
-terraform/terraform.tfvars
+terraform/secret.tfvars
