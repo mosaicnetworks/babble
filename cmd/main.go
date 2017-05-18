@@ -30,6 +30,7 @@ import (
 	"bitbucket.org/mosaicnet/babble/net"
 	"bitbucket.org/mosaicnet/babble/node"
 	"bitbucket.org/mosaicnet/babble/proxy"
+	"bitbucket.org/mosaicnet/babble/service"
 )
 
 var (
@@ -56,6 +57,11 @@ var (
 		Name:  "client_addr",
 		Usage: "IP:Port of Client App",
 		Value: "127.0.0.1:1339",
+	}
+	ServiceAddressFlag = cli.StringFlag{
+		Name:  "service_addr",
+		Usage: "IP:Port of HTTP Service",
+		Value: "127.0.0.1:80",
 	}
 	LogLevelFlag = cli.StringFlag{
 		Name:  "log_level",
@@ -104,6 +110,7 @@ func main() {
 				NoClientFlag,
 				ProxyAddressFlag,
 				ClientAddressFlag,
+				ServiceAddressFlag,
 				LogLevelFlag,
 				HeartbeatFlag,
 				MaxPoolFlag,
@@ -139,20 +146,22 @@ func run(c *cli.Context) error {
 	noclient := c.Bool(NoClientFlag.Name)
 	proxyAddress := c.String(ProxyAddressFlag.Name)
 	clientAddress := c.String(ClientAddressFlag.Name)
+	serviceAddress := c.String(ServiceAddressFlag.Name)
 	heartbeat := c.Int(HeartbeatFlag.Name)
 	maxPool := c.Int(MaxPoolFlag.Name)
 	tcpTimeout := c.Int(TcpTimeoutFlag.Name)
 	cacheSize := c.Int(CacheSizeFlag.Name)
 	logger.WithFields(logrus.Fields{
-		"datadir":     datadir,
-		"node_addr":   addr,
-		"no_client":   noclient,
-		"proxy_addr":  proxyAddress,
-		"client_addr": clientAddress,
-		"heartbeat":   heartbeat,
-		"max_pool":    maxPool,
-		"tcp_timeout": tcpTimeout,
-		"cache_size":  cacheSize,
+		"datadir":      datadir,
+		"node_addr":    addr,
+		"no_client":    noclient,
+		"proxy_addr":   proxyAddress,
+		"client_addr":  clientAddress,
+		"service_addr": serviceAddress,
+		"heartbeat":    heartbeat,
+		"max_pool":     maxPool,
+		"tcp_timeout":  tcpTimeout,
+		"cache_size":   cacheSize,
 	}).Debug("RUN")
 
 	conf := node.NewConfig(time.Duration(heartbeat)*time.Millisecond, cacheSize, logger)
@@ -191,7 +200,12 @@ func run(c *cli.Context) error {
 
 	node := node.NewNode(conf, key, peers, trans, prox)
 	node.Init()
+
+	serviceServer := service.NewService(serviceAddress, &node, logger)
+	go serviceServer.Serve()
+
 	node.Run(true)
+
 	return nil
 }
 

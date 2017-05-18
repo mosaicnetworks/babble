@@ -20,7 +20,8 @@ do
     --heartbeat=50 \
     --node_addr="172.77.5.$i:1337" \
     --proxy_addr="172.77.5.$i:1338" \
-    --client_addr="172.77.5.1$i:1339" 
+    --client_addr="172.77.5.1$i:1339" \
+    --service_addr="172.77.5.$i:80"
     docker cp $MPWD/conf/node$i node$i:/.babble
     docker start node$i
 
