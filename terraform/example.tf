@@ -44,6 +44,13 @@ resource "aws_security_group" "babblesec" {
     }
     
     ingress {
+        from_port = 8080
+        to_port = 8080
+        protocol = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+
+    ingress {
         from_port = -1
         to_port = -1
         protocol = "icmp"
@@ -62,7 +69,7 @@ resource "aws_security_group" "babblesec" {
 resource "aws_instance" "server" {
   count = "${var.servers}"
   
-  ami = "ami-a36f78c7" //custom ami with ubuntu + babble
+  ami = "ami-e86a7d8c" //custom ami with ubuntu + babble
   instance_type = "t2.micro"
 
   subnet_id = "${aws_subnet.babblenet.id}"
@@ -82,7 +89,7 @@ resource "aws_instance" "server" {
 
   provisioner "remote-exec" {
     inline = [
-      "nohup /home/ubuntu/bin/babble run --datadir=/home/ubuntu/babble_conf --cache_size=50000 --tcp_timeout=1000 --heartbeat=50 --node_addr=10.0.1.${10+count.index}:1337 --no_client=true > logs 2>&1 &",
+      "nohup /home/ubuntu/bin/babble run --datadir=/home/ubuntu/babble_conf --cache_size=50000 --tcp_timeout=1000 --heartbeat=50 --node_addr=${self.private_ip}:1337 --service_addr=0.0.0.0:8080 --no_client=true > logs 2>&1 &",
       "sleep 1",    ]
   }
 
