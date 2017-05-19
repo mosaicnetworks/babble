@@ -1,12 +1,18 @@
 .vscode
+
 */*.test
 */*.out
+
 */messages.txt
+
 cmd/debug
+
+vendor
+
 docker/babble/babble
 docker/dummy/dummy
 docker/conf/*
-vendor
 
 terraform/terraform.tfstate*
 terraform/secret.tfvars
+terraform/conf/*

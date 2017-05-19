@@ -22,31 +22,33 @@ in terms of fault tolerance and messaging.
     =          |                ^          =
     ===========|================|===========
                |                |
---------- SubmitTx(tx) ---- CommitTx(tx) -------
+--------- SubmitTx(tx) ---- CommitTx(tx) ------- (JSON-RPC/TCP)
                |                |
- ==============|================|===============
- = BABBLE      |                |              =
- =             v                |              =
- =          ========================           =     
- =          = App Proxy            =           =
- =          =                      =           =
- =          ========================           =
- =                     |                       =
- =   =======================================   =
- =   = Core                                =   =
- =   =                                     =   =
- =   =  =============        ===========   =   =
- =   =  = Hashgraph =        = Store   =   =   =
- =   =  =============        ===========   =   =
- =   =                                     =   =
- =   =======================================   =
- =                     |                       =
- =   =======================================   =
- =   = Transport                           =   =
- =   =                                     =   =
- =   =======================================   =
- =                     ^                       =
- ======================|========================
+ ==============|================|===============================
+ = BABBLE      |                |                              =
+ =             v                |                              =
+ =          ========================                           =
+ =          = App Proxy            =                           =
+ =          =                      =                           =
+ =          ========================                           = 
+ =                     |                                       =
+ =   =======================================                   =
+ =   = Core                                =                   =
+ =   =                                     =                   =
+ =   =                                     =    ============   =
+ =   =  =============        ===========   =    = Service  =   =  
+ =   =  = Hashgraph =        = Store   =   = -- =          = <----> HTTP API
+ =   =  =============        ===========   =    =          =   =
+ =   =                                     =    ============   =     
+ =   =                                     =                   =
+ =   =======================================                   =
+ =                     |                                       =
+ =   =======================================                   =
+ =   = Transport                           =                   =
+ =   =                                     =                   =
+ =   =======================================                   =
+ =                     ^                                       =
+ ======================|========================================
                        |                  
                        v
                    
@@ -63,7 +65,7 @@ exposed by the **App Proxy**. Babble asynchrously processes transactions and
 eventually feeds them back to the App, in consensus order,  with a **CommitTx**  
 message.
 
-Transactions are represented as raw bytes and Babble does not need to know what  
+Transactions are just raw bytes and Babble does not need to know what  
 they represent. Therefore, encoding and decoding transactions is done by the App.
 
 Apps must implement their own **Babble Proxy** to submit and receive committed  
@@ -82,7 +84,7 @@ request: {"method":"Babble.SubmitTx","params":["Y2xpZW50IDE6IGhlbGxv"],"id":0}
 response: {"id":0,"result":true,"error":null}
 ```
 
-Note that the API is **not** over HTTP; It is raw JSON over TCP. Here is an  
+Note that the Proxy API is **not** over HTTP; It is raw JSON over TCP. Here is an  
 example of how to make a SubmitTx request manually:  
 ```bash
 printf "{\"method\":\"Babble.SubmitTx\",\"params\":[\"Y2xpZW50IDE6IGhlbGxv\"],\"id\":0}" | nc -v  172.77.5.1 1338
@@ -104,7 +106,7 @@ extremely simple and serves the dual purpose of gossiping about transactions and
 about the gossip itself (the Hashgraph). The Hashraph contains enough information  
 to compute a consensus ordering of transactions. 
 
-The communication mechansim is a custom RPC protocol over TCP connections. There  
+The communication mechanism is a custom RPC protocol over TCP connections. There  
 are only two types of RPC commands, **Known** and **Sync**. For example, when  
 node **A** wants to sync with node **B**, it starts by sending a **Known** request  
 to **B**. **B** responds with what it knows about the Hashgraph. **A** computes what  
@@ -132,6 +134,26 @@ which contains the actual data and is abstracted behind an interface.
 The current implementation of the **Store** interface uses a set of in-memory LRU  
 caches which can be extended to persist stale items to disk. The size of the LRU  
 caches is configurable.
+
+### Service
+
+The Service exposes an HTTP API to query information about a node. At the  
+moment, it only exposes a **Stats** endpoint:  
+
+```bash
+$curl -s http://[ip]:8080/Stats | jq
+{
+  "consensus_events": "35686",
+  "consensus_transactions": "0",
+  "events_per_second": "10.82",
+  "last_consensus_round": "764",
+  "num_peers": "7",
+  "round_events": "44",
+  "sync_rate": "0.80",
+  "transaction_pool": "0",
+  "undetermined_events": "118"
+}
+```
 
 ## Usage 
 
@@ -235,3 +257,20 @@ Finally, stop the testnet:
 ```
 [...]/babble/docker$ ./stop-testnet
 ```
+
+### Terraform
+
+We have also created a set of scripts to deploy Babble testnets in AWS. This  
+requires [Terraform](https://www.terraform.io/) and authentication keys for AWS. It would be too slow to  
+copy Babble over the network onto every node so we create a custom AWS image (AMI)  
+with Babble preinstalled in ~/bin. Basically the Terraform scripts launch a certain  
+number of nodes in a subnet and starts Babble on them.
+
+```bash
+[...]/babble$ cd terraform
+[...]/babble/terraform$ ./build-conf
+[...]/babble/terraform$ terraform apply -var-file=secret.tfvars -var "servers=8"
+[...]/babble/terraform$ ./watch #to monitor stats
+[...]/babble/terraform$ ssh -i babble.pem ubuntu@[public ip] # ssh into a node
+[...]/babble/terraform$ terraform destory -var-file=secret.tfvars #destroy resources
+``` 
