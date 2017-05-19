@@ -5,17 +5,8 @@ N=${1:-4}
 watch -n 1 '
 for i in $(seq 1 '$N');
 do
-    curl -s http://172.77.5.$i:80/Stats 
+    curl -s http://172.77.5.$i:80/Stats | \
+    tr -d "{}\"" | \
+    awk -F "," '"'"'{gsub (/[,]/," "); print;}'"'"'
 done;
-'
-
-
-
-# do echo node$i: $(docker logs --tail 200 node$i 2>&1 |
-#     grep Stats |
-#     tail -1 |
-#     awk '"'"'{print $7, "\t", $10, "\t", $4, "\t", $5, "\t", $13, "\t", $11, "\t", $6}'"'"')  
-    
-#awk '"'"'{print $1,"\t",$2,"\t",$3,"\t",$4, "\t", $5, "\t", $6, "\t", $7, "\t", $8, "\t", $9, "\t", $10, "\t", $11, "\t", $12, "\t", $13}'"'"')
-
-    
+'    
