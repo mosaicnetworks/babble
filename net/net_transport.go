@@ -54,10 +54,10 @@ be simple TCP, TLS, etc.
 
 This transport is very simple and lightweight. Each RPC request is
 framed by sending a byte that indicates the message type, followed
-by the MsgPack encoded request.
+by the gob encoded request.
 
 The response is an error string followed by the response object,
-both are encoded using MsgPack.
+both are encoded using gob.
 */
 type NetworkTransport struct {
 	connPool     map[string][]*netConn
@@ -75,7 +75,8 @@ type NetworkTransport struct {
 
 	stream StreamLayer
 
-	timeout      time.Duration
+	knownTimeout time.Duration
+	syncTimeout  time.Duration
 	TimeoutScale int
 }
 
@@ -103,8 +104,7 @@ func (n *netConn) Release() error {
 
 // NewNetworkTransport creates a new network transport with the given dialer
 // and listener. The maxPool controls how many connections we will pool. The
-// timeout is used to apply I/O deadlines. For InstallSnapshot, we multiply
-// the timeout by (SnapshotSize / TimeoutScale).
+// timeout is used to apply I/O deadlines.
 func NewNetworkTransport(
 	stream StreamLayer,
 	maxPool int,
@@ -122,7 +122,8 @@ func NewNetworkTransport(
 		maxPool:      maxPool,
 		shutdownCh:   make(chan struct{}),
 		stream:       stream,
-		timeout:      timeout,
+		knownTimeout: timeout,
+		syncTimeout:  timeout * time.Duration(10),
 		TimeoutScale: DefaultTimeoutScale,
 	}
 	go trans.listen()
@@ -180,14 +181,14 @@ func (n *NetworkTransport) getPooledConn(target string) *netConn {
 }
 
 // getConn is used to get a connection from the pool.
-func (n *NetworkTransport) getConn(target string) (*netConn, error) {
+func (n *NetworkTransport) getConn(target string, timeout time.Duration) (*netConn, error) {
 	// Check for a pooled conn
 	if conn := n.getPooledConn(target); conn != nil {
 		return conn, nil
 	}
 
 	// Dial a new connection
-	conn, err := n.stream.Dial(target, n.timeout)
+	conn, err := n.stream.Dial(target, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -224,25 +225,26 @@ func (n *NetworkTransport) returnConn(conn *netConn) {
 
 // Sync implements the Transport interface.
 func (n *NetworkTransport) Sync(target string, args *SyncRequest, resp *SyncResponse) error {
-	return n.genericRPC(target, rpcSync, args, resp)
+	return n.genericRPC(target, rpcSync, n.syncTimeout, args, resp)
 }
 
 // RequestKnown implements the Transport interface.
 func (n *NetworkTransport) RequestKnown(target string, args *KnownRequest, resp *KnownResponse) error {
-	return n.genericRPC(target, rpcKnown, args, resp)
+	return n.genericRPC(target, rpcKnown, n.knownTimeout, args, resp)
 }
 
 // genericRPC handles a simple request/response RPC.
-func (n *NetworkTransport) genericRPC(target string, rpcType uint8, args interface{}, resp interface{}) error {
+func (n *NetworkTransport) genericRPC(target string, rpcType uint8, timeout time.Duration,
+	args interface{}, resp interface{}) error {
 	// Get a conn
-	conn, err := n.getConn(target)
+	conn, err := n.getConn(target, timeout)
 	if err != nil {
 		return err
 	}
 
 	// Set a deadline
-	if n.timeout > 0 {
-		conn.conn.SetDeadline(time.Now().Add(n.timeout))
+	if timeout > 0 {
+		conn.conn.SetDeadline(time.Now().Add(timeout))
 	}
 
 	// Send the RPC
