@@ -75,9 +75,7 @@ type NetworkTransport struct {
 
 	stream StreamLayer
 
-	knownTimeout time.Duration
-	syncTimeout  time.Duration
-	TimeoutScale int
+	timeout time.Duration
 }
 
 // StreamLayer is used with the NetworkTransport to provide
@@ -116,15 +114,13 @@ func NewNetworkTransport(
 		logger.Level = logrus.DebugLevel
 	}
 	trans := &NetworkTransport{
-		connPool:     make(map[string][]*netConn),
-		consumeCh:    make(chan RPC),
-		logger:       logger,
-		maxPool:      maxPool,
-		shutdownCh:   make(chan struct{}),
-		stream:       stream,
-		knownTimeout: timeout,
-		syncTimeout:  timeout * time.Duration(10),
-		TimeoutScale: DefaultTimeoutScale,
+		connPool:   make(map[string][]*netConn),
+		consumeCh:  make(chan RPC),
+		logger:     logger,
+		maxPool:    maxPool,
+		shutdownCh: make(chan struct{}),
+		stream:     stream,
+		timeout:    timeout,
 	}
 	go trans.listen()
 	return trans
@@ -225,26 +221,25 @@ func (n *NetworkTransport) returnConn(conn *netConn) {
 
 // Sync implements the Transport interface.
 func (n *NetworkTransport) Sync(target string, args *SyncRequest, resp *SyncResponse) error {
-	return n.genericRPC(target, rpcSync, n.syncTimeout, args, resp)
+	return n.genericRPC(target, rpcSync, args, resp)
 }
 
 // RequestKnown implements the Transport interface.
 func (n *NetworkTransport) RequestKnown(target string, args *KnownRequest, resp *KnownResponse) error {
-	return n.genericRPC(target, rpcKnown, n.knownTimeout, args, resp)
+	return n.genericRPC(target, rpcKnown, args, resp)
 }
 
 // genericRPC handles a simple request/response RPC.
-func (n *NetworkTransport) genericRPC(target string, rpcType uint8, timeout time.Duration,
-	args interface{}, resp interface{}) error {
+func (n *NetworkTransport) genericRPC(target string, rpcType uint8, args interface{}, resp interface{}) error {
 	// Get a conn
-	conn, err := n.getConn(target, timeout)
+	conn, err := n.getConn(target, n.timeout)
 	if err != nil {
 		return err
 	}
 
 	// Set a deadline
-	if timeout > 0 {
-		conn.conn.SetDeadline(time.Now().Add(timeout))
+	if n.timeout > 0 {
+		conn.conn.SetDeadline(time.Now().Add(n.timeout))
 	}
 
 	// Send the RPC

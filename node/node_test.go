@@ -201,7 +201,7 @@ func TestAddTransaction(t *testing.T) {
 }
 
 func initNodes(logger *logrus.Logger) ([]*ecdsa.PrivateKey, []Node) {
-	conf := NewConfig(5*time.Millisecond, 10, logger)
+	conf := NewConfig(5*time.Millisecond, time.Second, 500, logger)
 
 	keys, peers := initPeers()
 	nodes := []Node{}
@@ -475,7 +475,7 @@ func gossip(nodes []Node, target int) {
 	quit := make(chan int)
 	makeRandomTransactions(nodes, quit)
 
-	//wait until all nodes have at least 50 consensus events
+	//wait until all nodes have at least 'target' consensus events
 	for {
 		time.Sleep(10 * time.Millisecond)
 		done := true

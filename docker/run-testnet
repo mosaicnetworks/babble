@@ -16,7 +16,7 @@ for i in $(seq 1 $N)
 do
     docker create --name=node$i --net=babblenet --ip=172.77.5.$i babble run \
     --cache_size=50000 \
-    --tcp_timeout=40 \
+    --tcp_timeout=200 \
     --heartbeat=50 \
     --node_addr="172.77.5.$i:1337" \
     --proxy_addr="172.77.5.$i:1338" \

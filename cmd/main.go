@@ -164,7 +164,9 @@ func run(c *cli.Context) error {
 		"cache_size":   cacheSize,
 	}).Debug("RUN")
 
-	conf := node.NewConfig(time.Duration(heartbeat)*time.Millisecond, cacheSize, logger)
+	conf := node.NewConfig(time.Duration(heartbeat)*time.Millisecond,
+		time.Duration(tcpTimeout)*time.Millisecond,
+		cacheSize, logger)
 
 	// Create the PEM key
 	pemKey := crypto.NewPemKey(datadir)
@@ -185,7 +187,7 @@ func run(c *cli.Context) error {
 	}
 
 	trans, err := net.NewTCPTransport(addr,
-		nil, maxPool, time.Duration(tcpTimeout)*time.Millisecond, logger)
+		nil, maxPool, conf.TCPTimeout, logger)
 	if err != nil {
 		return err
 	}
@@ -195,7 +197,7 @@ func run(c *cli.Context) error {
 		prox = proxy.NewInmemProxy(logger)
 	} else {
 		prox = proxy.NewSocketProxy(clientAddress, proxyAddress,
-			time.Duration(tcpTimeout)*time.Millisecond, logger)
+			conf.TCPTimeout, logger)
 	}
 
 	node := node.NewNode(conf, key, peers, trans, prox)

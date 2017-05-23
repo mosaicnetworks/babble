@@ -32,13 +32,13 @@ import (
 )
 
 type Node struct {
-	conf *Config
+	conf   *Config
+	logger *logrus.Entry
 
-	core *Core
+	core     *Core
+	coreLock sync.Mutex
 
-	localAddr string
-	logger    *logrus.Entry
-
+	localAddr    string
 	peerSelector PeerSelector
 
 	trans net.Transport
@@ -61,6 +61,10 @@ type Node struct {
 	syncErrors   int
 
 	lastSyncFrom string
+
+	busy      bool
+	busyTimer *time.Timer
+	busyLock  sync.Mutex
 }
 
 func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans net.Transport, proxy proxy.Proxy) Node {
@@ -89,6 +93,7 @@ func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans
 		commitCh:        commitCh,
 		shutdownCh:      make(chan struct{}),
 		transactionPool: [][]byte{},
+		busyTimer:       time.NewTimer(conf.TCPTimeout),
 	}
 	return node
 }
@@ -118,7 +123,7 @@ func (n *Node) Run(gossip bool) {
 		case <-heartbeatTimer:
 			if gossip {
 				n.logger.Debug("Time to gossip!")
-				n.gossip()
+				go n.gossip()
 			}
 			heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
 		case t := <-n.submitCh:
@@ -129,6 +134,8 @@ func (n *Node) Run(gossip bool) {
 			if err := n.Commit(events); err != nil {
 				n.logger.WithField("error", err).Error("Committing Event")
 			}
+		case <-n.busyTimer.C:
+			n.SetBusy(false)
 		case <-n.shutdownCh:
 			return
 		default:
@@ -152,17 +159,37 @@ func (n *Node) processRPC(rpc net.RPC) {
 
 func (n *Node) processKnown(rpc net.RPC, cmd *net.KnownRequest) {
 	start := time.Now()
-	known := n.core.Known()
-	elapsed := time.Since(start)
-	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed Known()")
+
+	var known map[string]int
+	var err error
+
+	if !n.IsBusy() {
+		n.SetBusy(true)
+
+		n.coreLock.Lock()
+		known = n.core.Known()
+		n.coreLock.Unlock()
+
+		elapsed := time.Since(start)
+		n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed Known()")
+	} else {
+		err = fmt.Errorf("Busy")
+	}
+
 	resp := &net.KnownResponse{
 		Known: known,
 	}
-	rpc.Respond(resp, nil)
+	rpc.Respond(resp, err)
+
 }
 
 func (n *Node) processSync(rpc net.RPC, cmd *net.SyncRequest) {
+	n.coreLock.Lock()
+	defer n.coreLock.Unlock()
+	defer n.SetBusy(false)
+
 	success := true
+
 	start := time.Now()
 	err := n.core.Sync(cmd.Head, cmd.Events, n.transactionPool)
 	elapsed := time.Since(start)
@@ -198,7 +225,11 @@ func (n *Node) gossip() {
 	if err != nil {
 		n.logger.WithField("error", err).Error("Getting peer Known")
 	} else {
+
+		n.coreLock.Lock()
 		head, diff, err := n.core.Diff(known)
+		n.coreLock.Unlock()
+
 		if err != nil {
 			n.logger.WithField("error", err).Error("Calculating Diff")
 			return
@@ -274,12 +305,19 @@ func (n *Node) GetStats() map[string]string {
 		return strconv.Itoa(*i)
 	}
 
-	consensusEvents := n.core.GetConsensusEventsCount()
 	timeElapsed := time.Since(n.start)
+
+	consensusEvents := n.core.GetConsensusEventsCount()
 	consensusEventsPerSecond := float64(consensusEvents) / timeElapsed.Seconds()
 
+	lastConsensusRound := n.core.GetLastConsensusRoundIndex()
+	var consensusRoundsPerSecond float64
+	if lastConsensusRound != nil {
+		consensusRoundsPerSecond = float64(*lastConsensusRound) / timeElapsed.Seconds()
+	}
+
 	s := map[string]string{
-		"last_consensus_round":   toString(n.core.GetLastConsensusRoundIndex()),
+		"last_consensus_round":   toString(lastConsensusRound),
 		"consensus_events":       strconv.Itoa(consensusEvents),
 		"consensus_transactions": strconv.Itoa(n.core.GetConsensusTransactionsCount()),
 		"undetermined_events":    strconv.Itoa(len(n.core.GetUndeterminedEvents())),
@@ -287,8 +325,8 @@ func (n *Node) GetStats() map[string]string {
 		"num_peers":              strconv.Itoa(len(n.peerSelector.Peers())),
 		"sync_rate":              strconv.FormatFloat(n.SyncRate(), 'f', 2, 64),
 		"events_per_second":      strconv.FormatFloat(consensusEventsPerSecond, 'f', 2, 64),
-		//XXX
-		"round_events": strconv.Itoa(n.core.GetLastCommitedRoundEventsCount()),
+		"rounds_per_second":      strconv.FormatFloat(consensusRoundsPerSecond, 'f', 2, 64),
+		"round_events":           strconv.Itoa(n.core.GetLastCommitedRoundEventsCount()),
 	}
 	return s
 }
@@ -304,6 +342,7 @@ func (n *Node) logStats() {
 		"num_peers":              stats["num_peers"],
 		"sync_rate":              stats["sync_rate"],
 		"events/s":               stats["events_per_second"],
+		"rounds/s":               stats["rounds_per_second"],
 		"round_events":           stats["round_events"],
 	}).Debug("Stats")
 }
@@ -314,6 +353,21 @@ func (n *Node) SyncRate() float64 {
 		syncErrorRate = float64(n.syncErrors) / float64(n.syncRequests)
 	}
 	return 1 - syncErrorRate
+}
+
+func (n *Node) IsBusy() bool {
+	n.busyLock.Lock()
+	defer n.busyLock.Unlock()
+	return n.busy
+}
+
+func (n *Node) SetBusy(val bool) {
+	n.busyLock.Lock()
+	defer n.busyLock.Unlock()
+	n.busy = val
+	if val {
+		n.busyTimer.Reset(n.conf.TCPTimeout)
+	}
 }
 
 func randomTimeout(minVal time.Duration) <-chan time.Time {
