@@ -268,9 +268,8 @@ number of nodes in a subnet and starts Babble on them.
 
 ```bash
 [...]/babble$ cd terraform
-[...]/babble/terraform$ ./build-conf
-[...]/babble/terraform$ terraform apply -var-file=secret.tfvars -var "servers=8"
+[...]/babble/terraform$ make "nodes=12"
 [...]/babble/terraform$ ./watch #to monitor stats
 [...]/babble/terraform$ ssh -i babble.pem ubuntu@[public ip] # ssh into a node
-[...]/babble/terraform$ terraform destory -var-file=secret.tfvars #destroy resources
+[...]/babble/terraform$ make terra-down #destroy resources
 ``` 

@@ -20,14 +20,14 @@ do
     --heartbeat=50 \
     --node_addr="172.77.5.$i:1337" \
     --proxy_addr="172.77.5.$i:1338" \
-    --client_addr="172.77.5.1$i:1339" \
+    --client_addr="172.77.5.$(($N+$i)):1339" \
     --service_addr="172.77.5.$i:80"
     docker cp $MPWD/conf/node$i node$i:/.babble
     docker start node$i
 
-    docker run -d --name=client$i --net=babblenet --ip=172.77.5.1$i -it dummy \
+    docker run -d --name=client$i --net=babblenet --ip=172.77.5.$(($N+$i)) -it dummy \
     --name="client $i" \
-    --client_addr="172.77.5.1$i:1339" \
+    --client_addr="172.77.5.$(($N+$i)):1339" \
     --proxy_addr="172.77.5.$i:1338" \
     --log_level="info"  
 done

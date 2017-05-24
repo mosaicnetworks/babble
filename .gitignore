@@ -16,3 +16,4 @@ docker/conf/*
 terraform/terraform.tfstate*
 terraform/secret.tfvars
 terraform/conf/*
+terraform/ips.dat
