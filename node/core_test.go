@@ -38,7 +38,7 @@ func TestInit(t *testing.T) {
 
 func initCores(t *testing.T) ([]Core, []*ecdsa.PrivateKey, map[string]string) {
 	n := 3
-	cacheSize := 10
+	cacheSize := 1000
 
 	cores := []Core{}
 	index := make(map[string]string)

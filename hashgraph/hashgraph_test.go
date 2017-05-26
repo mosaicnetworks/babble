@@ -33,7 +33,7 @@ import (
 )
 
 var (
-	cacheSize = 5
+	cacheSize = 100
 	n         = 3
 )
 

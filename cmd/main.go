@@ -23,6 +23,8 @@ import (
 	"runtime"
 	"time"
 
+	_ "net/http/pprof"
+
 	"github.com/Sirupsen/logrus"
 	"gopkg.in/urfave/cli.v1"
 

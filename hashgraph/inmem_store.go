@@ -18,6 +18,7 @@ package hashgraph
 import "bitbucket.org/mosaicnet/babble/common"
 
 type InmemStore struct {
+	cacheSize              int
 	eventCache             *common.LRU
 	roundCache             *common.LRU
 	consensusCache         *common.RollingList
@@ -25,13 +26,17 @@ type InmemStore struct {
 }
 
 func NewInmemStore(participants []string, cacheSize int) *InmemStore {
-	cacheSizeBig := 100 * cacheSize
 	return &InmemStore{
-		eventCache:             common.NewLRU(cacheSizeBig, nil),
-		roundCache:             common.NewLRU(cacheSizeBig, nil),
+		cacheSize:              cacheSize,
+		eventCache:             common.NewLRU(cacheSize, nil),
+		roundCache:             common.NewLRU(cacheSize, nil),
 		consensusCache:         common.NewRollingList(cacheSize),
 		participantEventsCache: NewParticipantEventsCache(cacheSize, participants),
 	}
+}
+
+func (s *InmemStore) CacheSize() int {
+	return s.cacheSize
 }
 
 func (s *InmemStore) GetEvent(key string) (Event, error) {

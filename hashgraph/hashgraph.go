@@ -59,7 +59,7 @@ func NewHashgraph(participants []string, store Store, commitCh chan []Event, log
 		participantIDs[p] = i
 	}
 
-	cacheSize := 500000
+	cacheSize := store.CacheSize()
 	return Hashgraph{
 		Participants:            participants,
 		ParticipantIDs:          participantIDs,

@@ -23,6 +23,7 @@ var (
 )
 
 type Store interface {
+	CacheSize() int
 	GetEvent(string) (Event, error)
 	SetEvent(Event) error
 	ParticipantEvents(string, int) ([]string, error)

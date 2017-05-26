@@ -38,8 +38,10 @@ type Node struct {
 	core     *Core
 	coreLock sync.Mutex
 
-	localAddr    string
+	localAddr string
+
 	peerSelector PeerSelector
+	selectorLock sync.Mutex
 
 	trans net.Transport
 	netCh <-chan net.RPC
@@ -60,8 +62,6 @@ type Node struct {
 	syncRequests int
 	syncErrors   int
 
-	lastSyncFrom string
-
 	busy      bool
 	busyTimer *time.Timer
 	busyLock  sync.Mutex
@@ -78,7 +78,8 @@ func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans
 	commitCh := make(chan []hg.Event, 20)
 	core := NewCore(key, participantPubs, store, commitCh, conf.Logger)
 
-	peerSelector := NewRandomPeerSelector(participants, localAddr)
+	peerSelector := NewSmartPeerSelector(participants, localAddr)
+	//peerSelector := NewRandomPeerSelector(participants, localAddr)
 
 	node := Node{
 		conf:            conf,
@@ -207,7 +208,7 @@ func (n *Node) processSync(rpc net.RPC, cmd *net.SyncRequest) {
 			n.logger.WithField("error", err).Error("RunConsensus()")
 			success = false
 		} else {
-			n.lastSyncFrom = cmd.From
+			n.UpdatePeerSelector(cmd.From)
 		}
 
 	}
@@ -219,7 +220,7 @@ func (n *Node) processSync(rpc net.RPC, cmd *net.SyncRequest) {
 }
 
 func (n *Node) gossip() {
-	peer := n.peerSelector.Next(n.lastSyncFrom)
+	peer := n.peerSelector.Next()
 
 	known, err := n.requestKnown(peer.NetAddr)
 	if err != nil {
@@ -240,6 +241,7 @@ func (n *Node) gossip() {
 			n.syncErrors++
 			n.logger.WithField("error", err).Error("Triggering peer Sync")
 		}
+		n.UpdatePeerSelector(peer.NetAddr)
 	}
 }
 
@@ -368,6 +370,12 @@ func (n *Node) SetBusy(val bool) {
 	if val {
 		n.busyTimer.Reset(n.conf.TCPTimeout)
 	}
+}
+
+func (n *Node) UpdatePeerSelector(peer string) {
+	n.selectorLock.Lock()
+	defer n.selectorLock.Unlock()
+	n.peerSelector.Update(peer)
 }
 
 func randomTimeout(minVal time.Duration) <-chan time.Time {

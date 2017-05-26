@@ -18,41 +18,95 @@ package node
 import (
 	"math/rand"
 	"sort"
+	"time"
 
 	"bitbucket.org/mosaicnet/babble/net"
 )
 
 type PeerSelector interface {
 	Peers() []net.Peer
-	Next(lastFrom string) net.Peer
+	Update(peer string)
+	Next() net.Peer
 }
 
 //+++++++++++++++++++++++++++++++++++++++
-//DETERMINISTIC
+//SMART
 
-type DeterministicPeerSelector struct {
-	peers []net.Peer
-	index int
+type peerWrapper struct {
+	peer  net.Peer
+	count int
+	last  time.Time
 }
 
-func NewDeterministicPeerSelector(participants []net.Peer, localAddr string) *DeterministicPeerSelector {
-	sort.Sort(net.ByPubKey(participants))
-	position, peers := net.ExcludePeer(participants, localAddr)
-	index := position % len(peers)
-	return &DeterministicPeerSelector{
-		peers: peers,
-		index: index,
+type peerWrapperList []peerWrapper
+
+func (p peerWrapperList) Len() int      { return len(p) }
+func (p peerWrapperList) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
+func (p peerWrapperList) Less(i, j int) bool {
+	if p[i].count < p[j].count {
+		return true
+	}
+	if p[i].count > p[j].count {
+		return false
+	}
+	return p[i].last.Sub(p[j].last) < 0
+}
+
+type SmartPeerSelector struct {
+	peers        []net.Peer
+	peerWrappers map[string]*peerWrapper
+	lastFrom     string
+}
+
+func NewSmartPeerSelector(participants []net.Peer, localAddr string) *SmartPeerSelector {
+	_, peers := net.ExcludePeer(participants, localAddr)
+	peerWrappers := make(map[string]*peerWrapper)
+	for _, p := range peers {
+		peerWrappers[p.NetAddr] = &peerWrapper{peer: p, count: 0}
+	}
+	return &SmartPeerSelector{
+		peers:        peers,
+		peerWrappers: peerWrappers,
 	}
 }
 
-func (ps *DeterministicPeerSelector) Peers() []net.Peer {
+func (ps *SmartPeerSelector) Peers() []net.Peer {
 	return ps.peers
 }
 
-func (ps *DeterministicPeerSelector) Next(lastFrom string) net.Peer {
-	next := ps.peers[ps.index]
-	ps.index = (ps.index + 1) % len(ps.peers)
-	return next
+func (ps *SmartPeerSelector) Update(peer string) {
+	p, ok := ps.peerWrappers[peer]
+	if ok {
+		p.count++
+		p.last = time.Now()
+		ps.peerWrappers[peer] = p
+	}
+	ps.lastFrom = peer
+}
+
+func (ps *SmartPeerSelector) Next() net.Peer {
+	if ps.lastFrom == "" {
+		return ps.random()
+	}
+	ranked := ps.rank()
+	return ranked[0].peer
+}
+
+func (ps *SmartPeerSelector) random() net.Peer {
+	i := rand.Intn(len(ps.peers))
+	peer := ps.peers[i]
+	return peer
+}
+
+func (ps *SmartPeerSelector) rank() peerWrapperList {
+	pl := make(peerWrapperList, len(ps.peers))
+	i := 0
+	for _, w := range ps.peerWrappers {
+		pl[i] = *w
+		i++
+	}
+	sort.Sort(pl)
+	return pl
 }
 
 //+++++++++++++++++++++++++++++++++++++++
@@ -60,6 +114,7 @@ func (ps *DeterministicPeerSelector) Next(lastFrom string) net.Peer {
 
 type RandomPeerSelector struct {
 	peers []net.Peer
+	last  string
 }
 
 func NewRandomPeerSelector(participants []net.Peer, localAddr string) *RandomPeerSelector {
@@ -73,10 +128,14 @@ func (ps *RandomPeerSelector) Peers() []net.Peer {
 	return ps.peers
 }
 
-func (ps *RandomPeerSelector) Next(lastFrom string) net.Peer {
+func (ps *RandomPeerSelector) Update(peer string) {
+	ps.last = peer
+}
+
+func (ps *RandomPeerSelector) Next() net.Peer {
 	selectablePeers := ps.peers
 	if len(selectablePeers) > 1 {
-		_, selectablePeers = net.ExcludePeer(selectablePeers, lastFrom)
+		_, selectablePeers = net.ExcludePeer(selectablePeers, ps.last)
 	}
 	i := rand.Intn(len(selectablePeers))
 	peer := selectablePeers[i]

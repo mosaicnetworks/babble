@@ -10,7 +10,8 @@ ssh -q -i babble.pem -o "UserKnownHostsFile /dev/null" -o "StrictHostKeyChecking
  ubuntu@$public_ip  <<-EOF
     nohup /home/ubuntu/bin/babble run \
     --datadir=/home/ubuntu/babble_conf \
-    --cache_size=50000 --tcp_timeout=500 \
+    --cache_size=10000 \
+    --tcp_timeout=500 \
     --heartbeat=50 \
     --node_addr=$private_ip:1337 \
     --service_addr=0.0.0.0:8080 \

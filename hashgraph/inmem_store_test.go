@@ -45,7 +45,7 @@ func initInmemStore(cacheSize int) (*InmemStore, []pub) {
 }
 
 func TestInmemEvents(t *testing.T) {
-	cacheSize := 10
+	cacheSize := 100
 	testSize := 15
 	store, participants := initInmemStore(cacheSize)
 

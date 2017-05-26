@@ -201,7 +201,7 @@ func TestAddTransaction(t *testing.T) {
 }
 
 func initNodes(logger *logrus.Logger) ([]*ecdsa.PrivateKey, []Node) {
-	conf := NewConfig(5*time.Millisecond, time.Second, 500, logger)
+	conf := NewConfig(5*time.Millisecond, time.Second, 1000, logger)
 
 	keys, peers := initPeers()
 	nodes := []Node{}
