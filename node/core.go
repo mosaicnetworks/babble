@@ -55,7 +55,7 @@ func (c *Core) PubKey() []byte {
 }
 
 func (c *Core) Init() error {
-	initialEvent := hg.NewEvent([][]byte{},
+	initialEvent := hg.NewEvent([][]byte(nil),
 		[]string{"", ""},
 		c.PubKey(),
 		c.Seq)

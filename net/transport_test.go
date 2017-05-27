@@ -57,14 +57,19 @@ func TestTransport_Sync(t *testing.T) {
 
 		// Make the RPC request
 		args := SyncRequest{
-			Head: "head",
-			Events: []hashgraph.Event{
-				hashgraph.NewEvent([][]byte{}, []string{"", ""},
-					[]byte("creator"), 0),
+			From: "A",
+			Known: map[string]int{
+				"alice":   1,
+				"bob":     2,
+				"charlie": 3,
 			},
 		}
 		resp := SyncResponse{
-			Success: true,
+			From: "B",
+			Head: "head",
+			Events: []hashgraph.Event{
+				hashgraph.NewEvent([][]byte(nil), []string{"", ""}, []byte("creator"), 0),
+			},
 		}
 
 		// Listen for a request
@@ -92,59 +97,6 @@ func TestTransport_Sync(t *testing.T) {
 
 		var out SyncResponse
 		if err := trans2.Sync(trans1.LocalAddr(), &args, &out); err != nil {
-			t.Fatalf("err: %v", err)
-		}
-
-		// Verify the response
-		if !reflect.DeepEqual(resp, out) {
-			t.Fatalf("command mismatch: %#v %#v", resp, out)
-		}
-	}
-}
-
-func TestTransport_RequestKnown(t *testing.T) {
-	for ttype := 0; ttype < numTestTransports; ttype++ {
-		addr1, trans1 := NewTestTransport(ttype, "")
-		defer trans1.Close()
-		rpcCh := trans1.Consumer()
-
-		// Make the RPC request
-		args := KnownRequest{
-			From: "alfred",
-		}
-		resp := KnownResponse{
-			Known: map[string]int{
-				"joe":  10,
-				"aldo": 4,
-			},
-		}
-
-		// Listen for a request
-		go func() {
-			select {
-			case rpc := <-rpcCh:
-				// Verify the command
-				req := rpc.Command.(*KnownRequest)
-				if !reflect.DeepEqual(req, &args) {
-					t.Fatalf("command mismatch: %#v %#v", *req, args)
-				}
-
-				rpc.Respond(&resp, nil)
-
-			case <-time.After(200 * time.Millisecond):
-				t.Fatalf("timeout")
-			}
-		}()
-
-		// Transport 2 makes outbound request
-		addr2, trans2 := NewTestTransport(ttype, "")
-		defer trans2.Close()
-
-		trans1.Connect(addr2, trans2)
-		trans2.Connect(addr1, trans1)
-
-		var out KnownResponse
-		if err := trans2.RequestKnown(trans1.LocalAddr(), &args, &out); err != nil {
 			t.Fatalf("err: %v", err)
 		}
 

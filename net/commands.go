@@ -17,21 +17,13 @@ package net
 
 import "bitbucket.org/mosaicnet/babble/hashgraph"
 
-type KnownRequest struct {
-	From string
-}
-
-type KnownResponse struct {
+type SyncRequest struct {
+	From  string
 	Known map[string]int
 }
 
-type SyncRequest struct {
+type SyncResponse struct {
 	From   string
 	Head   string
 	Events []hashgraph.Event
-}
-
-type SyncResponse struct {
-	// We may not succeed if we have a conflicting entry
-	Success bool
 }
