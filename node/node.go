@@ -86,8 +86,7 @@ func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans
 	commitCh := make(chan []hg.Event, 20)
 	core := NewCore(id, key, pmap, store, commitCh, conf.Logger)
 
-	peerSelector := NewSmartPeerSelector(participants, localAddr)
-	//peerSelector := NewRandomPeerSelector(participants, localAddr)
+	peerSelector := NewRandomPeerSelector(participants, localAddr)
 
 	node := Node{
 		id:              id,
