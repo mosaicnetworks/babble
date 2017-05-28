@@ -25,7 +25,7 @@ type InmemStore struct {
 	participantEventsCache *ParticipantEventsCache
 }
 
-func NewInmemStore(participants []string, cacheSize int) *InmemStore {
+func NewInmemStore(participants map[string]int, cacheSize int) *InmemStore {
 	return &InmemStore{
 		cacheSize:              cacheSize,
 		eventCache:             common.NewLRU(cacheSize, nil),
@@ -77,7 +77,7 @@ func (s *InmemStore) addParticpantEvent(participant string, hash string) error {
 	return nil
 }
 
-func (s *InmemStore) Known() map[string]int {
+func (s *InmemStore) Known() map[int]int {
 	return s.participantEventsCache.Known()
 }
 

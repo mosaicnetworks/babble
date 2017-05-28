@@ -58,10 +58,10 @@ func TestTransport_Sync(t *testing.T) {
 		// Make the RPC request
 		args := SyncRequest{
 			From: "A",
-			Known: map[string]int{
-				"alice":   1,
-				"bob":     2,
-				"charlie": 3,
+			Known: map[int]int{
+				0: 1,
+				1: 2,
+				2: 3,
 			},
 		}
 		resp := SyncResponse{

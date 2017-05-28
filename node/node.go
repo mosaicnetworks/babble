@@ -19,6 +19,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/rand"
+	"sort"
 	"sync"
 	"time"
 
@@ -37,6 +38,7 @@ type Node struct {
 	conf   *Config
 	logger *logrus.Entry
 
+	id       int
 	core     *Core
 	coreLock sync.Mutex
 
@@ -68,18 +70,25 @@ type Node struct {
 func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans net.Transport, proxy proxy.Proxy) Node {
 	localAddr := trans.LocalAddr()
 
-	participantPubs := []string{}
-	for _, p := range participants {
-		participantPubs = append(participantPubs, p.PubKeyHex)
+	sort.Sort(net.ByPubKey(participants))
+	pmap := make(map[string]int)
+	var id int
+	for i, p := range participants {
+		pmap[p.PubKeyHex] = i
+		if p.NetAddr == localAddr {
+			id = i
+		}
 	}
-	store := hg.NewInmemStore(participantPubs, conf.CacheSize)
+
+	store := hg.NewInmemStore(pmap, conf.CacheSize)
 	commitCh := make(chan []hg.Event, 20)
-	core := NewCore(key, participantPubs, store, commitCh, conf.Logger)
+	core := NewCore(id, key, pmap, store, commitCh, conf.Logger)
 
 	//peerSelector := NewSmartPeerSelector(participants, localAddr)
 	peerSelector := NewRandomPeerSelector(participants, localAddr)
 
 	node := Node{
+		id:              id,
 		conf:            conf,
 		core:            &core,
 		localAddr:       localAddr,
@@ -214,7 +223,7 @@ func (n *Node) gossip(peerAddr string) error {
 
 }
 
-func (n *Node) requestSync(target string, known map[string]int) (net.SyncResponse, error) {
+func (n *Node) requestSync(target string, known map[int]int) (net.SyncResponse, error) {
 	args := net.SyncRequest{
 		From:  n.localAddr,
 		Known: known,
@@ -302,6 +311,7 @@ func (n *Node) GetStats() map[string]string {
 		"events_per_second":      strconv.FormatFloat(consensusEventsPerSecond, 'f', 2, 64),
 		"rounds_per_second":      strconv.FormatFloat(consensusRoundsPerSecond, 'f', 2, 64),
 		"round_events":           strconv.Itoa(n.core.GetLastCommitedRoundEventsCount()),
+		"id":                     strconv.Itoa(n.id),
 	}
 	return s
 }
@@ -319,6 +329,7 @@ func (n *Node) logStats() {
 		"events/s":               stats["events_per_second"],
 		"rounds/s":               stats["rounds_per_second"],
 		"round_events":           stats["round_events"],
+		"id":                     stats["id"],
 	}).Debug("Stats")
 }
 
@@ -330,7 +341,7 @@ func (n *Node) SyncRate() float64 {
 	return 1 - syncErrorRate
 }
 
-func (n *Node) dist(otherKnown map[string]int) float64 {
+func (n *Node) dist(otherKnown map[int]int) float64 {
 	myKnown := n.core.Known()
 
 	var sqrSum int

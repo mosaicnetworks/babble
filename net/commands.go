@@ -19,7 +19,7 @@ import "bitbucket.org/mosaicnet/babble/hashgraph"
 
 type SyncRequest struct {
 	From  string
-	Known map[string]int
+	Known map[int]int
 }
 
 type SyncResponse struct {

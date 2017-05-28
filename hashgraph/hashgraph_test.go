@@ -38,15 +38,17 @@ var (
 )
 
 type Node struct {
+	ID     int
 	Pub    []byte
 	PubHex string
 	Key    *ecdsa.PrivateKey
 	Events []Event
 }
 
-func NewNode(key *ecdsa.PrivateKey) Node {
+func NewNode(key *ecdsa.PrivateKey, id int) Node {
 	pub := crypto.FromECDSAPub(&key.PublicKey)
 	node := Node{
+		ID:     id,
 		Key:    key,
 		Pub:    pub,
 		PubHex: fmt.Sprintf("0x%X", pub),
@@ -80,7 +82,7 @@ func initHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
-		node := NewNode(key)
+		node := NewNode(key, i)
 		event := NewEvent([][]byte{}, []string{"", ""}, node.Pub, 0)
 		node.signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
 		nodes = append(nodes, node)
@@ -101,9 +103,9 @@ func initHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 		nodes[1].Pub, 1)
 	nodes[1].signAndAddEvent(event12, "e12", index, orderedEvents)
 
-	participants := []string{}
+	participants := make(map[string]int)
 	for _, node := range nodes {
-		participants = append(participants, node.PubHex)
+		participants[node.PubHex] = node.ID
 	}
 
 	store := NewInmemStore(participants, cacheSize)
@@ -260,9 +262,9 @@ func TestFork(t *testing.T) {
 	index := make(map[string]string)
 	nodes := []Node{}
 
-	participants := []string{}
+	participants := make(map[string]int)
 	for _, node := range nodes {
-		participants = append(participants, node.PubHex)
+		participants[node.PubHex] = node.ID
 	}
 
 	store := NewInmemStore(participants, cacheSize)
@@ -270,7 +272,7 @@ func TestFork(t *testing.T) {
 
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
-		node := NewNode(key)
+		node := NewNode(key, i)
 		event := NewEvent([][]byte{}, []string{"", ""}, node.Pub, 0)
 		event.Sign(node.Key)
 		index[fmt.Sprintf("e%d", i)] = event.Hex()
@@ -326,7 +328,7 @@ func initRoundHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
-		node := NewNode(key)
+		node := NewNode(key, i)
 		event := NewEvent([][]byte{}, []string{"", ""}, node.Pub, 0)
 		node.signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
 		nodes = append(nodes, node)
@@ -352,9 +354,9 @@ func initRoundHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 		nodes[1].Pub, 2)
 	nodes[1].signAndAddEvent(eventf1, "f1", index, orderedEvents)
 
-	participants := []string{}
+	participants := make(map[string]int)
 	for _, node := range nodes {
-		participants = append(participants, node.PubHex)
+		participants[node.PubHex] = node.ID
 	}
 
 	hashgraph := NewHashgraph(participants, NewInmemStore(participants, cacheSize), nil, common.NewTestLogger(t))
@@ -766,7 +768,7 @@ func initConsensusHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string
 
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
-		node := NewNode(key)
+		node := NewNode(key, i)
 		event := NewEvent([][]byte{}, []string{"", ""}, node.Pub, 0)
 		node.signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
 		nodes = append(nodes, node)
@@ -862,9 +864,9 @@ func initConsensusHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string
 		nodes[2].Pub, 6)
 	nodes[2].signAndAddEvent(eventh2, "h2", index, orderedEvents)
 
-	participants := []string{}
+	participants := make(map[string]int)
 	for _, node := range nodes {
-		participants = append(participants, node.PubHex)
+		participants[node.PubHex] = node.ID
 	}
 
 	hashgraph := NewHashgraph(participants, NewInmemStore(participants, cacheSize), nil, logger)
@@ -989,14 +991,10 @@ func BenchmarkFindOrder(b *testing.B) {
 func TestKnown(t *testing.T) {
 	h, _ := initConsensusHashgraph(common.NewTestLogger(t))
 	known := h.Known()
-	if l := known[h.Participants[0]]; l != 7 {
-		t.Fatalf("0 should have 7 events, not %d", l)
-	}
-	if l := known[h.Participants[1]]; l != 7 {
-		t.Fatalf("1 should have 7 events, not %d", l)
-	}
-	if l := known[h.Participants[2]]; l != 7 {
-		t.Fatalf("2 should have 7 events, not %d", l)
+	for _, id := range h.Participants {
+		if l := known[id]; l != 7 {
+			t.Fatalf("%d should have 7 events, not %d", id, l)
+		}
 	}
 }
 

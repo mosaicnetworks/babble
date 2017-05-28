@@ -28,26 +28,48 @@ import (
 )
 
 type Core struct {
+	id  int
 	key *ecdsa.PrivateKey
 	hg  hg.Hashgraph
 
-	Head string
-	Seq  int
+	participants        map[string]int //[PubKey] => id
+	reverseParticipants map[int]string //[id] => PubKey
+	Head                string
+	Seq                 int
 
 	logger *logrus.Logger
 }
 
-func NewCore(key *ecdsa.PrivateKey, participants []string, store hg.Store, commitCh chan []hg.Event, logger *logrus.Logger) Core {
+func NewCore(
+	id int,
+	key *ecdsa.PrivateKey,
+	participants map[string]int,
+	store hg.Store,
+	commitCh chan []hg.Event,
+	logger *logrus.Logger) Core {
 	if logger == nil {
 		logger = logrus.New()
 		logger.Level = logrus.DebugLevel
 	}
+
+	reverseParticipants := make(map[int]string)
+	for pk, id := range participants {
+		reverseParticipants[id] = pk
+	}
+
 	core := Core{
-		key:    key,
-		hg:     hg.NewHashgraph(participants, store, commitCh, logger),
-		logger: logger,
+		id:                  id,
+		key:                 key,
+		hg:                  hg.NewHashgraph(participants, store, commitCh, logger),
+		participants:        participants,
+		reverseParticipants: reverseParticipants,
+		logger:              logger,
 	}
 	return core
+}
+
+func (c *Core) ID() int {
+	return c.id
 }
 
 func (c *Core) PubKey() []byte {
@@ -78,20 +100,21 @@ func (c *Core) InsertEvent(event hg.Event) error {
 	return c.hg.InsertEvent(event)
 }
 
-func (c *Core) Known() map[string]int {
+func (c *Core) Known() map[int]int {
 	return c.hg.Known()
 }
 
 //returns events that c knowns about that are not in 'known', along with c's head
-func (c *Core) Diff(known map[string]int) (head string, unknown []hg.Event, err error) {
+func (c *Core) Diff(known map[int]int) (head string, unknown []hg.Event, err error) {
 	head = c.Head
 
 	unknown = []hg.Event{}
 	//known represents the number of events known for every participant
 	//compare this to our view of events and fill unknown with events that we know of
 	// and the other doesnt
-	for p, ct := range known {
-		participantEvents, err := c.hg.Store.ParticipantEvents(p, ct)
+	for id, ct := range known {
+		pk := c.reverseParticipants[id]
+		participantEvents, err := c.hg.Store.ParticipantEvents(pk, ct)
 		if err != nil {
 			return "", []hg.Event{}, err
 		}

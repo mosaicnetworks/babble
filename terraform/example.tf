@@ -70,7 +70,7 @@ resource "aws_instance" "server" {
   count = "${var.servers}"
   
   //custom ami with ubuntu + babble
-  ami = "ami-8a2a3dee" 
+  ami = "ami-5bd6c13f" 
   instance_type = "t2.micro"
 
   subnet_id = "${aws_subnet.babblenet.id}"

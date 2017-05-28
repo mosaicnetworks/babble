@@ -28,8 +28,7 @@ import (
 )
 
 type Hashgraph struct {
-	Participants            []string       //participant public keys
-	ParticipantIDs          map[string]int //reverse lookup
+	Participants            map[string]int //[public key] => id
 	Store                   Store          //Persistent store of Events and Rounds
 	UndeterminedEvents      []string       //[index] => hash
 	LastConsensusRound      *int           //index of last round where the fame of all witnesses has been decided
@@ -48,21 +47,15 @@ type Hashgraph struct {
 	logger *logrus.Logger
 }
 
-func NewHashgraph(participants []string, store Store, commitCh chan []Event, logger *logrus.Logger) Hashgraph {
+func NewHashgraph(participants map[string]int, store Store, commitCh chan []Event, logger *logrus.Logger) Hashgraph {
 	if logger == nil {
 		logger = logrus.New()
 		logger.Level = logrus.DebugLevel
 	}
 
-	participantIDs := make(map[string]int)
-	for i, p := range participants {
-		participantIDs[p] = i
-	}
-
 	cacheSize := store.CacheSize()
 	return Hashgraph{
 		Participants:            participants,
-		ParticipantIDs:          participantIDs,
 		Store:                   store,
 		commitCh:                commitCh,
 		ancestorCache:           common.NewLRU(cacheSize, nil),
@@ -106,7 +99,7 @@ func (h *Hashgraph) ancestor(x, y string) bool {
 	if err != nil {
 		return false
 	}
-	eyCreator := h.ParticipantIDs[ey.Creator()]
+	eyCreator := h.Participants[ey.Creator()]
 
 	lastAncestorKnownFromYCreator := ex.lastAncestors[eyCreator].index
 
@@ -134,13 +127,13 @@ func (h *Hashgraph) selfAncestor(x, y string) bool {
 	if err != nil {
 		return false
 	}
-	exCreator := h.ParticipantIDs[ex.Creator()]
+	exCreator := h.Participants[ex.Creator()]
 
 	ey, err := h.Store.GetEvent(y)
 	if err != nil {
 		return false
 	}
-	eyCreator := h.ParticipantIDs[ey.Creator()]
+	eyCreator := h.Participants[ey.Creator()]
 
 	return exCreator == eyCreator && ex.Index() >= ey.Index()
 }
@@ -167,7 +160,7 @@ func (h *Hashgraph) oldestSelfAncestorToSee(x, y string) string {
 	ex, _ := h.Store.GetEvent(x)
 	ey, _ := h.Store.GetEvent(y)
 
-	a := ey.firstDescendants[h.ParticipantIDs[ex.Creator()]]
+	a := ey.firstDescendants[h.Participants[ex.Creator()]]
 
 	if a.index <= ex.Index() {
 		return a.hash
@@ -362,7 +355,7 @@ func (h *Hashgraph) InsertEvent(event Event) error {
 func (h *Hashgraph) FromParentsLatest(event Event) error {
 	selfParent, otherParent := event.SelfParent(), event.OtherParent()
 	creator := event.Creator()
-	creatorKnownEvents, _ := h.Store.Known()[creator]
+	creatorKnownEvents, _ := h.Store.Known()[h.Participants[creator]]
 	if selfParent == "" && otherParent == "" && creatorKnownEvents == 0 {
 		return nil
 	}
@@ -396,16 +389,16 @@ func (h *Hashgraph) InitEventCoordinates(event *Event) error {
 	members := len(h.Participants)
 
 	event.firstDescendants = make([]EventCoordinates, members)
-	for i := 0; i < members; i++ {
-		event.firstDescendants[i] = EventCoordinates{
+	for fakeID := 0; fakeID < members; fakeID++ {
+		event.firstDescendants[fakeID] = EventCoordinates{
 			index: math.MaxInt64,
 		}
 	}
 
 	event.lastAncestors = make([]EventCoordinates, members)
 	if event.SelfParent() == "" && event.OtherParent() == "" {
-		for i := 0; i < members; i++ {
-			event.lastAncestors[i] = EventCoordinates{
+		for fakeID := 0; fakeID < members; fakeID++ {
+			event.lastAncestors[fakeID] = EventCoordinates{
 				index: -1,
 			}
 		}
@@ -443,25 +436,26 @@ func (h *Hashgraph) InitEventCoordinates(event *Event) error {
 		}
 	}
 
-	creator := event.Creator()
 	index := event.Index()
-	creatorID, ok := h.ParticipantIDs[creator]
+
+	creator := event.Creator()
+	fakeCreatorID, ok := h.Participants[creator]
 	if !ok {
-		return fmt.Errorf("Could not find creator id")
+		return fmt.Errorf("Could not find fake creator id")
 	}
 	hash := event.Hex()
 
-	event.firstDescendants[creatorID] = EventCoordinates{index: index, hash: hash}
-	event.lastAncestors[creatorID] = EventCoordinates{index: index, hash: hash}
+	event.firstDescendants[fakeCreatorID] = EventCoordinates{index: index, hash: hash}
+	event.lastAncestors[fakeCreatorID] = EventCoordinates{index: index, hash: hash}
 
 	return nil
 }
 
 //update first decendant of each last ancestor to point to event
 func (h *Hashgraph) UpdateAncestorFirstDescendant(event Event) error {
-	creatorID, ok := h.ParticipantIDs[event.Creator()]
+	fakeCreatorID, ok := h.Participants[event.Creator()]
 	if !ok {
-		return fmt.Errorf("Could not find creator id (%s)", event.Creator())
+		return fmt.Errorf("Could not find creator fake id (%s)", event.Creator())
 	}
 	index := event.Index()
 	hash := event.Hex()
@@ -473,8 +467,8 @@ func (h *Hashgraph) UpdateAncestorFirstDescendant(event Event) error {
 			if err != nil {
 				return err
 			}
-			if a.firstDescendants[creatorID].index == math.MaxInt64 {
-				a.firstDescendants[creatorID] = EventCoordinates{index: index, hash: hash}
+			if a.firstDescendants[fakeCreatorID].index == math.MaxInt64 {
+				a.firstDescendants[fakeCreatorID] = EventCoordinates{index: index, hash: hash}
 				if err := h.Store.SetEvent(a); err != nil {
 					return err
 				}
@@ -692,7 +686,7 @@ func (h *Hashgraph) ConsensusEvents() []string {
 }
 
 //number of events per participants
-func (h *Hashgraph) Known() map[string]int {
+func (h *Hashgraph) Known() map[int]int {
 	return h.Store.Known()
 }
 
