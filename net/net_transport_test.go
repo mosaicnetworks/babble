@@ -102,9 +102,9 @@ func TestNetworkTransport_RequestKnown(t *testing.T) {
 		From: "alfred",
 	}
 	resp := KnownResponse{
-		Known: map[string]int{
-			"joe":  10,
-			"aldo": 4,
+		Known: map[int]int{
+			0: 10,
+			1: 4,
 		},
 	}
 

@@ -22,23 +22,27 @@ import "reflect"
 func TestParticipantEventsCache(t *testing.T) {
 	size := 10
 	testSize := 25
-	participants := []string{"alice", "bob", "charlie"}
+	participants := map[string]int{
+		"alice":   0,
+		"bob":     1,
+		"charlie": 2,
+	}
 	pec := NewParticipantEventsCache(size, participants)
 
 	items := make(map[string][]string)
-	for _, p := range participants {
-		items[p] = []string{}
+	for pk := range participants {
+		items[pk] = []string{}
 	}
 
 	for i := 0; i < testSize; i++ {
-		for _, p := range participants {
-			item := fmt.Sprintf("%s%d", p, i)
+		for pk := range participants {
+			item := fmt.Sprintf("%s%d", pk, i)
 
-			pec.Add(p, item)
+			pec.Add(pk, item)
 
-			pitems := items[p]
+			pitems := items[pk]
 			pitems = append(pitems, item)
-			items[p] = pitems
+			items[pk] = pitems
 		}
 	}
 
@@ -49,14 +53,14 @@ func TestParticipantEventsCache(t *testing.T) {
 		}
 	}
 
-	for _, p := range participants {
-		if _, err := pec.Get(p, 0); err != nil && err != ErrTooLate {
+	for pk := range participants {
+		if _, err := pec.Get(pk, 0); err != nil && err != ErrTooLate {
 			t.Fatalf("Skipping 0 elements should return ErrNotFatal")
 		}
 
 		skip := 10
-		expected := items[p][skip:]
-		cached, err := pec.Get(p, skip)
+		expected := items[pk][skip:]
+		cached, err := pec.Get(pk, skip)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -65,8 +69,8 @@ func TestParticipantEventsCache(t *testing.T) {
 		}
 
 		skip2 := 15
-		expected2 := items[p][skip2:]
-		cached2, err := pec.Get(p, skip2)
+		expected2 := items[pk][skip2:]
+		cached2, err := pec.Get(pk, skip2)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -76,7 +80,7 @@ func TestParticipantEventsCache(t *testing.T) {
 
 		skip3 := 27
 		expected3 := []string{}
-		cached3, err := pec.Get(p, skip3)
+		cached3, err := pec.Get(pk, skip3)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -89,30 +93,34 @@ func TestParticipantEventsCache(t *testing.T) {
 func TestParticipantEventsCacheEdge(t *testing.T) {
 	size := 10
 	testSize := 11
-	participants := []string{"alice", "bob", "charlie"}
+	participants := map[string]int{
+		"alice":   0,
+		"bob":     1,
+		"charlie": 2,
+	}
 	pec := NewParticipantEventsCache(size, participants)
 
 	items := make(map[string][]string)
-	for _, p := range participants {
-		items[p] = []string{}
+	for pk := range participants {
+		items[pk] = []string{}
 	}
 
 	for i := 0; i < testSize; i++ {
-		for _, p := range participants {
-			item := fmt.Sprintf("%s%d", p, i)
+		for pk := range participants {
+			item := fmt.Sprintf("%s%d", pk, i)
 
-			pec.Add(p, item)
+			pec.Add(pk, item)
 
-			pitems := items[p]
+			pitems := items[pk]
 			pitems = append(pitems, item)
-			items[p] = pitems
+			items[pk] = pitems
 		}
 	}
 
-	for _, p := range participants {
+	for pk := range participants {
 		skip := size
-		expected := items[p][skip:]
-		cached, err := pec.Get(p, skip)
+		expected := items[pk][skip:]
+		cached, err := pec.Get(pk, skip)
 		if err != nil {
 			t.Fatal(err)
 		}

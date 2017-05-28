@@ -19,6 +19,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/rand"
+	"sort"
 	"sync"
 	"time"
 
@@ -35,6 +36,7 @@ type Node struct {
 	conf   *Config
 	logger *logrus.Entry
 
+	id       int
 	core     *Core
 	coreLock sync.Mutex
 
@@ -70,18 +72,25 @@ type Node struct {
 func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans net.Transport, proxy proxy.Proxy) Node {
 	localAddr := trans.LocalAddr()
 
-	participantPubs := []string{}
-	for _, p := range participants {
-		participantPubs = append(participantPubs, p.PubKeyHex)
+	sort.Sort(net.ByPubKey(participants))
+	pmap := make(map[string]int)
+	var id int
+	for i, p := range participants {
+		pmap[p.PubKeyHex] = i
+		if p.NetAddr == localAddr {
+			id = i
+		}
 	}
-	store := hg.NewInmemStore(participantPubs, conf.CacheSize)
+
+	store := hg.NewInmemStore(pmap, conf.CacheSize)
 	commitCh := make(chan []hg.Event, 20)
-	core := NewCore(key, participantPubs, store, commitCh, conf.Logger)
+	core := NewCore(id, key, pmap, store, commitCh, conf.Logger)
 
 	peerSelector := NewSmartPeerSelector(participants, localAddr)
 	//peerSelector := NewRandomPeerSelector(participants, localAddr)
 
 	node := Node{
+		id:              id,
 		conf:            conf,
 		core:            &core,
 		localAddr:       localAddr,
@@ -161,7 +170,7 @@ func (n *Node) processRPC(rpc net.RPC) {
 func (n *Node) processKnown(rpc net.RPC, cmd *net.KnownRequest) {
 	start := time.Now()
 
-	var known map[string]int
+	var known map[int]int
 	var err error
 
 	if !n.IsBusy() {
@@ -245,7 +254,7 @@ func (n *Node) gossip() {
 	}
 }
 
-func (n *Node) requestKnown(target string) (map[string]int, error) {
+func (n *Node) requestKnown(target string) (map[int]int, error) {
 	args := net.KnownRequest{
 		From: n.localAddr,
 	}
@@ -329,6 +338,7 @@ func (n *Node) GetStats() map[string]string {
 		"events_per_second":      strconv.FormatFloat(consensusEventsPerSecond, 'f', 2, 64),
 		"rounds_per_second":      strconv.FormatFloat(consensusRoundsPerSecond, 'f', 2, 64),
 		"round_events":           strconv.Itoa(n.core.GetLastCommitedRoundEventsCount()),
+		"id":                     strconv.Itoa(n.id),
 	}
 	return s
 }
@@ -346,6 +356,7 @@ func (n *Node) logStats() {
 		"events/s":               stats["events_per_second"],
 		"rounds/s":               stats["rounds_per_second"],
 		"round_events":           stats["round_events"],
+		"id":                     stats["id"],
 	}).Debug("Stats")
 }
 

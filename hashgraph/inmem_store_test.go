@@ -24,6 +24,7 @@ import (
 )
 
 type pub struct {
+	id     int
 	pubKey []byte
 	hex    string
 }
@@ -31,13 +32,13 @@ type pub struct {
 func initInmemStore(cacheSize int) (*InmemStore, []pub) {
 	n := 3
 	participantPubs := []pub{}
-	participants := []string{}
+	participants := make(map[string]int)
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
 		pubKey := crypto.FromECDSAPub(&key.PublicKey)
 		participantPubs = append(participantPubs,
-			pub{pubKey, fmt.Sprintf("0x%X", pubKey)})
-		participants = append(participants, fmt.Sprintf("0x%X", pubKey))
+			pub{i, pubKey, fmt.Sprintf("0x%X", pubKey)})
+		participants[fmt.Sprintf("0x%X", pubKey)] = i
 	}
 
 	store := NewInmemStore(participants, cacheSize)
@@ -97,9 +98,9 @@ func TestInmemEvents(t *testing.T) {
 		}
 	}
 
-	expectedKnown := make(map[string]int)
+	expectedKnown := make(map[int]int)
 	for _, p := range participants {
-		expectedKnown[p.hex] = testSize
+		expectedKnown[p.id] = testSize
 	}
 	known := store.Known()
 	if !reflect.DeepEqual(expectedKnown, known) {

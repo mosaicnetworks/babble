@@ -26,16 +26,18 @@ type Key struct {
 //PARTICIPANT EVENTS CACHE
 type ParticipantEventsCache struct {
 	size              int
+	participants      map[string]int //[public key] => id
 	participantEvents map[string]*common.RollingList
 }
 
-func NewParticipantEventsCache(size int, participants []string) *ParticipantEventsCache {
+func NewParticipantEventsCache(size int, participants map[string]int) *ParticipantEventsCache {
 	items := make(map[string]*common.RollingList)
-	for _, p := range participants {
-		items[p] = common.NewRollingList(size)
+	for pk, _ := range participants {
+		items[pk] = common.NewRollingList(size)
 	}
 	return &ParticipantEventsCache{
 		size:              size,
+		participants:      participants,
 		participantEvents: items,
 	}
 }
@@ -95,11 +97,11 @@ func (pec *ParticipantEventsCache) Add(participant string, hash string) {
 	pe.Add(hash)
 }
 
-func (pec *ParticipantEventsCache) Known() map[string]int {
-	known := make(map[string]int)
+func (pec *ParticipantEventsCache) Known() map[int]int {
+	known := make(map[int]int)
 	for p, evs := range pec.participantEvents {
 		_, tot := evs.Get()
-		known[p] = tot
+		known[pec.participants[p]] = tot
 	}
 	return known
 }

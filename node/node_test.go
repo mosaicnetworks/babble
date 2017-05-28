@@ -200,11 +200,11 @@ func TestAddTransaction(t *testing.T) {
 	node1.Shutdown()
 }
 
-func initNodes(logger *logrus.Logger) ([]*ecdsa.PrivateKey, []Node) {
+func initNodes(logger *logrus.Logger) ([]*ecdsa.PrivateKey, []*Node) {
 	conf := NewConfig(5*time.Millisecond, time.Second, 1000, logger)
 
 	keys, peers := initPeers()
-	nodes := []Node{}
+	nodes := []*Node{}
 	proxies := []*proxy.InmemProxy{}
 	for i := 0; i < len(peers); i++ {
 		trans, err := net.NewTCPTransport(peers[i].NetAddr,
@@ -215,28 +215,29 @@ func initNodes(logger *logrus.Logger) ([]*ecdsa.PrivateKey, []Node) {
 		prox := proxy.NewInmemProxy(logger)
 		node := NewNode(conf, keys[i], peers, trans, prox)
 		node.Init()
-		nodes = append(nodes, node)
+		nodes = append(nodes, &node)
 		proxies = append(proxies, prox)
 	}
 	return keys, nodes
 }
 
-func runNodes(nodes []Node, gossip bool) {
+func runNodes(nodes []*Node, gossip bool) {
 	for _, n := range nodes {
-		go func(node Node) {
+		node := n
+		go func() {
 			node.Run(gossip)
-		}(n)
+		}()
 	}
 }
 
-func shutdownNodes(nodes []Node) {
+func shutdownNodes(nodes []*Node) {
 	for _, n := range nodes {
 		n.Shutdown()
 		n.trans.Close()
 	}
 }
 
-func getCommittedTransactions(n Node) ([][]byte, error) {
+func getCommittedTransactions(n *Node) ([][]byte, error) {
 	inmemProxy, ok := n.proxy.(*proxy.InmemProxy)
 	if !ok {
 		return nil, fmt.Errorf("Error casting to InmemProp")
@@ -398,7 +399,7 @@ func TestStats(t *testing.T) {
 
 }
 
-func synchronizeNodes(from Node, to Node, payload [][]byte) error {
+func synchronizeNodes(from *Node, to *Node, payload [][]byte) error {
 	toProxy, ok := to.proxy.(*proxy.InmemProxy)
 	if !ok {
 		return fmt.Errorf("Error casting to InmemProxy")
@@ -470,7 +471,7 @@ func TestGossip(t *testing.T) {
 	}
 }
 
-func gossip(nodes []Node, target int) {
+func gossip(nodes []*Node, target int) {
 	runNodes(nodes, true)
 	quit := make(chan int)
 	makeRandomTransactions(nodes, quit)
@@ -495,7 +496,7 @@ func gossip(nodes []Node, target int) {
 	shutdownNodes(nodes)
 }
 
-func submitTransaction(n Node, tx []byte) error {
+func submitTransaction(n *Node, tx []byte) error {
 	prox, ok := n.proxy.(*proxy.InmemProxy)
 	if !ok {
 		return fmt.Errorf("Error casting to InmemProp")
@@ -504,7 +505,7 @@ func submitTransaction(n Node, tx []byte) error {
 	return nil
 }
 
-func makeRandomTransactions(nodes []Node, quit chan int) {
+func makeRandomTransactions(nodes []*Node, quit chan int) {
 	go func() {
 		seq := make(map[int]int)
 		for {

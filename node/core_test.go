@@ -27,10 +27,10 @@ import (
 
 func TestInit(t *testing.T) {
 	key, _ := crypto.GenerateECDSAKey()
-	participants := []string{
-		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
+	participants := map[string]int{
+		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)): 0,
 	}
-	core := NewCore(key, participants, hg.NewInmemStore(participants, 10), nil, common.NewTestLogger(t))
+	core := NewCore(0, key, participants, hg.NewInmemStore(participants, 10), nil, common.NewTestLogger(t))
 	if err := core.Init(); err != nil {
 		t.Fatalf("Init returned and error: %s", err)
 	}
@@ -44,17 +44,16 @@ func initCores(t *testing.T) ([]Core, []*ecdsa.PrivateKey, map[string]string) {
 	index := make(map[string]string)
 
 	participantKeys := []*ecdsa.PrivateKey{}
-	participantPubs := []string{}
+	participants := make(map[string]int)
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
 		participantKeys = append(participantKeys, key)
-		participantPubs = append(participantPubs,
-			fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)))
+		participants[fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey))] = i
 	}
 
 	for i := 0; i < n; i++ {
-		core := NewCore(participantKeys[i], participantPubs,
-			hg.NewInmemStore(participantPubs, cacheSize), nil, common.NewTestLogger(t))
+		core := NewCore(i, participantKeys[i], participants,
+			hg.NewInmemStore(participants, cacheSize), nil, common.NewTestLogger(t))
 		core.Init()
 		cores = append(cores, core)
 		index[fmt.Sprintf("e%d", i)] = core.Head
@@ -193,13 +192,13 @@ func TestSync(t *testing.T) {
 	*/
 
 	knownBy0 := cores[0].Known()
-	if k := knownBy0[fmt.Sprintf("0x%X", cores[0].PubKey())]; k != 2 {
+	if k := knownBy0[cores[0].ID()]; k != 2 {
 		t.Fatalf("core 0 should have 2 events for core 0, not %d", k)
 	}
-	if k := knownBy0[fmt.Sprintf("0x%X", cores[1].PubKey())]; k != 1 {
+	if k := knownBy0[cores[1].ID()]; k != 1 {
 		t.Fatalf("core 0 should have 1 events for core 1, not %d", k)
 	}
-	if k := knownBy0[fmt.Sprintf("0x%X", cores[2].PubKey())]; k != 0 {
+	if k := knownBy0[cores[2].ID()]; k != 0 {
 		t.Fatalf("core 0 should have 0 events for core 2, not %d", k)
 	}
 	core0Head, _ := cores[0].GetHead()
@@ -231,13 +230,13 @@ func TestSync(t *testing.T) {
 	*/
 
 	knownBy2 := cores[2].Known()
-	if k := knownBy2[fmt.Sprintf("0x%X", cores[0].PubKey())]; k != 2 {
+	if k := knownBy2[cores[0].ID()]; k != 2 {
 		t.Fatalf("core 2 should have 2 events for core 0, not %d", k)
 	}
-	if k := knownBy2[fmt.Sprintf("0x%X", cores[1].PubKey())]; k != 1 {
+	if k := knownBy2[cores[1].ID()]; k != 1 {
 		t.Fatalf("core 2 should have 1 events for core 1, not %d", k)
 	}
-	if k := knownBy2[fmt.Sprintf("0x%X", cores[2].PubKey())]; k != 2 {
+	if k := knownBy2[cores[2].ID()]; k != 2 {
 		t.Fatalf("core 2 should have 2 events for core 2, not %d", k)
 	}
 	core2Head, _ := cores[2].GetHead()
@@ -271,13 +270,13 @@ func TestSync(t *testing.T) {
 	*/
 
 	knownBy1 := cores[1].Known()
-	if k := knownBy1[fmt.Sprintf("0x%X", cores[0].PubKey())]; k != 2 {
+	if k := knownBy1[cores[0].ID()]; k != 2 {
 		t.Fatalf("core 1 should have 2 events for core 0, not %d", k)
 	}
-	if k := knownBy1[fmt.Sprintf("0x%X", cores[1].PubKey())]; k != 2 {
+	if k := knownBy1[cores[1].ID()]; k != 2 {
 		t.Fatalf("core 1 should have 2 events for core 1, not %d", k)
 	}
-	if k := knownBy1[fmt.Sprintf("0x%X", cores[2].PubKey())]; k != 2 {
+	if k := knownBy1[cores[2].ID()]; k != 2 {
 		t.Fatalf("core 1 should have 2 events for core 2, not %d", k)
 	}
 	core1Head, _ := cores[1].GetHead()

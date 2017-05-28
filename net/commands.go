@@ -22,7 +22,7 @@ type KnownRequest struct {
 }
 
 type KnownResponse struct {
-	Known map[string]int
+	Known map[int]int //[id] => count
 }
 
 type SyncRequest struct {

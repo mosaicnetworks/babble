@@ -72,8 +72,8 @@ type Event struct {
 	roundReceived      *int
 	consensusTimestamp time.Time
 
-	lastAncestors    []EventCoordinates
-	firstDescendants []EventCoordinates
+	lastAncestors    []EventCoordinates //[participant fake id] => last ancestor
+	firstDescendants []EventCoordinates //[participant fake id] => first descendant
 
 	creator string
 	hash    []byte
