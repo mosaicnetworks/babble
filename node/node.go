@@ -171,23 +171,25 @@ func (n *Node) processKnown(rpc net.RPC, cmd *net.KnownRequest) {
 	start := time.Now()
 
 	var known map[int]int
+	var busy bool
 	var err error
+
+	n.coreLock.Lock()
+	known = n.core.Known()
+	n.coreLock.Unlock()
 
 	if !n.IsBusy() {
 		n.SetBusy(true)
-
-		n.coreLock.Lock()
-		known = n.core.Known()
-		n.coreLock.Unlock()
-
-		elapsed := time.Since(start)
-		n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed Known()")
 	} else {
-		err = fmt.Errorf("Busy")
+		busy = true
 	}
+
+	elapsed := time.Since(start)
+	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed Known()")
 
 	resp := &net.KnownResponse{
 		Known: known,
+		Busy:  busy,
 	}
 	rpc.Respond(resp, err)
 
@@ -219,7 +221,6 @@ func (n *Node) processSync(rpc net.RPC, cmd *net.SyncRequest) {
 		} else {
 			n.UpdatePeerSelector(cmd.From)
 		}
-
 	}
 	resp := &net.SyncResponse{
 		Success: success,
@@ -231,9 +232,12 @@ func (n *Node) processSync(rpc net.RPC, cmd *net.SyncRequest) {
 func (n *Node) gossip() {
 	peer := n.peerSelector.Next()
 
-	known, err := n.requestKnown(peer.NetAddr)
+	known, busy, err := n.requestKnown(peer.NetAddr)
 	if err != nil {
 		n.logger.WithField("error", err).Error("Getting peer Known")
+	} else if busy {
+		n.logger.WithField("target", peer.NetAddr).Debug("Busy")
+		//do shit
 	} else {
 
 		n.coreLock.Lock()
@@ -254,19 +258,20 @@ func (n *Node) gossip() {
 	}
 }
 
-func (n *Node) requestKnown(target string) (map[int]int, error) {
+func (n *Node) requestKnown(target string) (map[int]int, bool, error) {
 	args := net.KnownRequest{
 		From: n.localAddr,
 	}
 	var out net.KnownResponse
 	if err := n.trans.RequestKnown(target, &args, &out); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	n.logger.WithFields(logrus.Fields{
 		"target": target,
 		"known":  out.Known,
+		"busy":   out.Busy,
 	}).Debug("Known Response")
-	return out.Known, nil
+	return out.Known, out.Busy, nil
 }
 
 func (n *Node) requestSync(target string, head string, events []hg.Event) error {

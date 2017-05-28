@@ -23,6 +23,7 @@ type KnownRequest struct {
 
 type KnownResponse struct {
 	Known map[int]int //[id] => count
+	Busy  bool
 }
 
 type SyncRequest struct {

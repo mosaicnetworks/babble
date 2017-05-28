@@ -407,7 +407,7 @@ func synchronizeNodes(from *Node, to *Node, payload [][]byte) error {
 	for _, t := range payload {
 		toProxy.SubmitTx(t)
 	}
-	known, err := from.requestKnown(to.localAddr)
+	known, _, err := from.requestKnown(to.localAddr)
 	if err != nil {
 		return err
 	}
