@@ -27,8 +27,6 @@ import (
 
 	"strconv"
 
-	"math"
-
 	hg "bitbucket.org/mosaicnet/babble/hashgraph"
 	"bitbucket.org/mosaicnet/babble/net"
 	"bitbucket.org/mosaicnet/babble/proxy"
@@ -84,7 +82,6 @@ func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans
 	commitCh := make(chan []hg.Event, 20)
 	core := NewCore(id, key, pmap, store, commitCh, conf.Logger)
 
-	//peerSelector := NewSmartPeerSelector(participants, localAddr)
 	peerSelector := NewRandomPeerSelector(participants, localAddr)
 
 	node := Node{
@@ -165,11 +162,6 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 		"from":  cmd.From,
 		"known": cmd.Known,
 	}).Debug("Sync Request")
-
-	// n.selectorLock.Lock()
-	// dist := n.dist(cmd.Known)
-	// n.peerSelector.UpdateDist(cmd.From, dist)
-	// n.selectorLock.Unlock()
 
 	start := time.Now()
 	n.coreLock.Lock()
@@ -339,18 +331,6 @@ func (n *Node) SyncRate() float64 {
 		syncErrorRate = float64(n.syncErrors) / float64(n.syncRequests)
 	}
 	return 1 - syncErrorRate
-}
-
-func (n *Node) dist(otherKnown map[int]int) float64 {
-	myKnown := n.core.Known()
-
-	var sqrSum int
-	for k, v := range myKnown {
-		ov, _ := otherKnown[k]
-		sqrSum += (v - ov) * (v - ov)
-	}
-	return math.Sqrt(float64(sqrSum))
-
 }
 
 func randomTimeout(minVal time.Duration) <-chan time.Time {
