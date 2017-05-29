@@ -123,12 +123,12 @@ func (n *Node) Run(gossip bool) {
 		select {
 		case rpc := <-n.netCh:
 			n.logger.Debug("Processing RPC")
-			go n.processRPC(rpc)
+			n.processRPC(rpc)
 		case <-heartbeatTimer:
 			if gossip {
 				n.logger.Debug("Time to gossip!")
 				peer := n.peerSelector.Next()
-				n.gossip(peer.NetAddr)
+				go n.gossip(peer.NetAddr)
 			}
 			heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
 		case t := <-n.submitCh:
