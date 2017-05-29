@@ -173,12 +173,11 @@ func (n *Node) processKnown(rpc net.RPC, cmd *net.KnownRequest) {
 	var busy bool
 	var err error
 
-	n.coreLock.Lock()
-	known = n.core.Known()
-	n.coreLock.Unlock()
-
 	if !n.IsBusy() {
 		n.SetBusy(true)
+		n.coreLock.Lock()
+		known = n.core.Known()
+		n.coreLock.Unlock()
 	} else {
 		busy = true
 	}
