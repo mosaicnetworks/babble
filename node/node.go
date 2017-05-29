@@ -161,7 +161,7 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 	n.logger.WithFields(logrus.Fields{
 		"from":  cmd.From,
 		"known": cmd.Known,
-	}).Debug("Sync Request")
+	}).Debug("SyncRequest")
 
 	start := time.Now()
 	n.coreLock.Lock()
@@ -230,6 +230,8 @@ func (n *Node) requestSync(target string, known map[int]int) (net.SyncResponse, 
 func (n *Node) processSyncResponse(resp net.SyncResponse) error {
 	n.coreLock.Lock()
 	defer n.coreLock.Unlock()
+
+	n.logger.WithField("events", fmt.Sprintf("%#v", resp.Events)).Debug("SyncResponse")
 
 	start := time.Now()
 	err := n.core.Sync(resp.Head, resp.Events, n.transactionPool)
