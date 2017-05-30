@@ -27,6 +27,7 @@ type Store interface {
 	GetEvent(string) (Event, error)
 	SetEvent(Event) error
 	ParticipantEvents(string, int) ([]string, error)
+	ParticipantEvent(string, int) (string, error)
 	LastFrom(string) (string, error)
 	Known() map[int]int
 	ConsensusEvents() []string

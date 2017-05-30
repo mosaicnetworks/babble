@@ -54,8 +54,16 @@ func TestNetworkTransport_Sync(t *testing.T) {
 	resp := SyncResponse{
 		From: "B",
 		Head: "head",
-		Events: []hashgraph.Event{
-			hashgraph.NewEvent([][]byte(nil), []string{"", ""}, []byte("creator"), 0),
+		Events: []hashgraph.WireEvent{
+			hashgraph.WireEvent{
+				Body: hashgraph.WireBody{
+					Transactions:         [][]byte(nil),
+					SelfParentIndex:      1,
+					OtherParentCreatorID: 10,
+					OtherParentIndex:     0,
+					CreatorID:            9,
+				},
+			},
 		},
 	}
 
@@ -115,8 +123,16 @@ func TestNetworkTransport_PooledConn(t *testing.T) {
 	resp := SyncResponse{
 		From: "B",
 		Head: "head",
-		Events: []hashgraph.Event{
-			hashgraph.NewEvent([][]byte(nil), []string{"", ""}, []byte("creator"), 0),
+		Events: []hashgraph.WireEvent{
+			hashgraph.WireEvent{
+				Body: hashgraph.WireBody{
+					Transactions:         [][]byte(nil),
+					SelfParentIndex:      1,
+					OtherParentCreatorID: 10,
+					OtherParentIndex:     0,
+					CreatorID:            9,
+				},
+			},
 		},
 	}
 

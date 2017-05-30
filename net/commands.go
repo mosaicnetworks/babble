@@ -25,5 +25,5 @@ type SyncRequest struct {
 type SyncResponse struct {
 	From   string
 	Head   string
-	Events []hashgraph.Event
+	Events []hashgraph.WireEvent
 }

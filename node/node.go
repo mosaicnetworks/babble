@@ -175,11 +175,17 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 		return
 	}
 
+	wireEvents, err := n.core.ToWire(diff)
+	if err != nil {
+		n.logger.WithField("error", err).Debug("Converting to WireEvent")
+		return
+	}
+
 	n.logger.WithField("events", len(diff)).Debug("Responding to Sync Request")
 	resp := &net.SyncResponse{
 		From:   n.localAddr,
 		Head:   head,
-		Events: diff,
+		Events: wireEvents,
 	}
 	rpc.Respond(resp, err)
 }
@@ -234,6 +240,7 @@ func (n *Node) processSyncResponse(resp net.SyncResponse) error {
 	n.logger.WithField("events", fmt.Sprintf("%#v", resp.Events)).Debug("SyncResponse")
 
 	start := time.Now()
+
 	err := n.core.Sync(resp.Head, resp.Events, n.transactionPool)
 	elapsed := time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed Sync()")

@@ -81,6 +81,11 @@ func TestProcessSync(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	unknownWire, err := node1.core.ToWire(unknown)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	args := net.SyncRequest{
 		From:  node0.localAddr,
 		Known: node0Known,
@@ -88,7 +93,7 @@ func TestProcessSync(t *testing.T) {
 	expectedResp := net.SyncResponse{
 		From:   node1.localAddr,
 		Head:   head,
-		Events: unknown,
+		Events: unknownWire,
 	}
 
 	var out net.SyncResponse

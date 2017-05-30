@@ -75,6 +75,14 @@ func (pec *ParticipantEventsCache) Get(participant string, skip int) ([]string, 
 	return res, nil
 }
 
+func (pec *ParticipantEventsCache) GetItem(participant string, index int) (string, error) {
+	res, err := pec.participantEvents[participant].GetItem(index)
+	if err != nil {
+		return "", err
+	}
+	return res.(string), nil
+}
+
 func (pec *ParticipantEventsCache) GetLast(participant string) (string, error) {
 	pe, ok := pec.participantEvents[participant]
 	if !ok {

@@ -392,7 +392,13 @@ func synchronizeCores(cores []Core, from int, to int, payload [][]byte) error {
 	if err != nil {
 		return err
 	}
-	return cores[to].Sync(toHead, unknownByTo, payload)
+
+	unknownWire, err := cores[from].ToWire(unknownByTo)
+	if err != nil {
+		return err
+	}
+
+	return cores[to].Sync(toHead, unknownWire, payload)
 }
 
 func syncAndRunConsensus(cores []Core, from int, to int, payload [][]byte) error {

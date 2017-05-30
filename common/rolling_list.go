@@ -15,6 +15,13 @@ limitations under the License.
 */
 package common
 
+import "errors"
+
+var (
+	ErrKeyNotFound = errors.New("not found")
+	ErrTooLate     = errors.New("too late")
+)
+
 type RollingList struct {
 	size  int
 	tot   int
@@ -30,6 +37,19 @@ func NewRollingList(size int) *RollingList {
 
 func (r *RollingList) Get() (lastWindow []interface{}, tot int) {
 	return r.items, r.tot
+}
+
+func (r *RollingList) GetItem(index int) (interface{}, error) {
+	items := len(r.items)
+	oldestCached := r.tot - items
+	if index < oldestCached {
+		return nil, ErrTooLate
+	}
+	findex := index - oldestCached
+	if findex >= items {
+		return nil, ErrKeyNotFound
+	}
+	return r.items[findex], nil
 }
 
 func (r *RollingList) Add(item interface{}) {
