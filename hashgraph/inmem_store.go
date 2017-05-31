@@ -68,6 +68,10 @@ func (s *InmemStore) ParticipantEvents(participant string, skip int) ([]string, 
 	return s.participantEventsCache.Get(participant, skip)
 }
 
+func (s *InmemStore) ParticipantEvent(particant string, index int) (string, error) {
+	return s.participantEventsCache.GetItem(particant, index)
+}
+
 func (s *InmemStore) LastFrom(participant string) (string, error) {
 	return s.participantEventsCache.GetLast(participant)
 }

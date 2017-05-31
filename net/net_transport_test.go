@@ -44,9 +44,18 @@ func TestNetworkTransport_Sync(t *testing.T) {
 
 	// Make the RPC request
 	args := SyncRequest{
+		From: "B",
 		Head: "head",
-		Events: []hashgraph.Event{
-			hashgraph.NewEvent([][]byte(nil), []string{"", ""}, []byte("creator"), 0),
+		Events: []hashgraph.WireEvent{
+			hashgraph.WireEvent{
+				Body: hashgraph.WireBody{
+					Transactions:         [][]byte(nil),
+					SelfParentIndex:      1,
+					OtherParentCreatorID: 10,
+					OtherParentIndex:     0,
+					CreatorID:            9,
+				},
+			},
 		},
 	}
 	resp := SyncResponse{
@@ -103,8 +112,9 @@ func TestNetworkTransport_RequestKnown(t *testing.T) {
 	}
 	resp := KnownResponse{
 		Known: map[int]int{
-			0: 10,
-			1: 4,
+			0: 1,
+			1: 2,
+			2: 3,
 		},
 	}
 
@@ -154,9 +164,18 @@ func TestNetworkTransport_PooledConn(t *testing.T) {
 
 	// Make the RPC request
 	args := SyncRequest{
+		From: "B",
 		Head: "head",
-		Events: []hashgraph.Event{
-			hashgraph.NewEvent([][]byte(nil), []string{"", ""}, []byte("creator"), 0),
+		Events: []hashgraph.WireEvent{
+			hashgraph.WireEvent{
+				Body: hashgraph.WireBody{
+					Transactions:         [][]byte(nil),
+					SelfParentIndex:      1,
+					OtherParentCreatorID: 10,
+					OtherParentIndex:     0,
+					CreatorID:            9,
+				},
+			},
 		},
 	}
 	resp := SyncResponse{

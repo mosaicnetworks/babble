@@ -273,10 +273,15 @@ func (n *Node) requestKnown(target string) (map[int]int, bool, error) {
 }
 
 func (n *Node) requestSync(target string, head string, events []hg.Event) error {
+	wireEvents, err := n.core.ToWire(events)
+	if err != nil {
+		n.logger.WithField("error", err).Error("Converting to WireEvents")
+	}
+
 	args := net.SyncRequest{
 		From:   n.localAddr,
 		Head:   head,
-		Events: events,
+		Events: wireEvents,
 	}
 	var out net.SyncResponse
 	if err := n.trans.Sync(target, &args, &out); err != nil {

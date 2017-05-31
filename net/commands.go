@@ -29,7 +29,7 @@ type KnownResponse struct {
 type SyncRequest struct {
 	From   string
 	Head   string
-	Events []hashgraph.Event
+	Events []hashgraph.WireEvent
 }
 
 type SyncResponse struct {

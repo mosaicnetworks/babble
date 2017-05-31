@@ -380,6 +380,13 @@ func TestInsertEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if !(e0.Body.selfParentIndex == -1 &&
+		e0.Body.otherParentCreatorID == -1 &&
+		e0.Body.otherParentIndex == -1 &&
+		e0.Body.creatorID == h.Participants[e0.Creator()]) {
+		t.Fatalf("Invalid wire info on e0")
+	}
+
 	expectedFirstDescendants[0] = EventCoordinates{
 		index: 0,
 		hash:  index["e0"],
@@ -415,6 +422,18 @@ func TestInsertEvent(t *testing.T) {
 	e21, err := h.Store.GetEvent(index["e21"])
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	e10, err := h.Store.GetEvent(index["e10"])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !(e21.Body.selfParentIndex == 0 &&
+		e21.Body.otherParentCreatorID == h.Participants[e10.Creator()] &&
+		e21.Body.otherParentIndex == 1 &&
+		e21.Body.creatorID == h.Participants[e21.Creator()]) {
+		t.Fatalf("Invalid wire info on e21")
 	}
 
 	expectedFirstDescendants[0] = EventCoordinates{
@@ -456,6 +475,13 @@ func TestInsertEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if !(f1.Body.selfParentIndex == 1 &&
+		f1.Body.otherParentCreatorID == h.Participants[e0.Creator()] &&
+		f1.Body.otherParentIndex == 1 &&
+		f1.Body.creatorID == h.Participants[f1.Creator()]) {
+		t.Fatalf("Invalid wire info on f1")
+	}
+
 	expectedFirstDescendants[0] = EventCoordinates{
 		index: math.MaxInt64,
 	}
@@ -487,6 +513,51 @@ func TestInsertEvent(t *testing.T) {
 		t.Fatal("f1 lastAncestors not good")
 	}
 
+}
+
+func TestReadWireInfo(t *testing.T) {
+	h, index := initRoundHashgraph(t)
+
+	e02, err := h.Store.GetEvent(index["e02"])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	e21, err := h.Store.GetEvent(index["e21"])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	e02Wire := WireEvent{
+		Body: WireBody{
+			Transactions:         [][]byte{},
+			SelfParentIndex:      0,
+			OtherParentCreatorID: h.Participants[e21.Creator()],
+			OtherParentIndex:     1,
+			CreatorID:            h.Participants[e02.Creator()],
+			Timestamp:            e02.Body.Timestamp,
+			Index:                1,
+		},
+		R: e02.R,
+		S: e02.S,
+	}
+
+	e02FromWire, err := h.ReadWireInfo(e02Wire)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(e02.Body, e02FromWire.Body) {
+		t.Fatal("e02FromWire.Body not equal to e02.Body")
+	}
+
+	if !reflect.DeepEqual(e02.R, e02FromWire.R) {
+		t.Fatal("e02FromWire.R not equal to e02.R")
+	}
+
+	if !reflect.DeepEqual(e02.S, e02FromWire.S) {
+		t.Fatal("e02FromWire.S not equal to e02.S")
+	}
 }
 
 func TestStronglySee(t *testing.T) {

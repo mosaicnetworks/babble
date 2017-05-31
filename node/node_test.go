@@ -116,10 +116,14 @@ func TestProcessSync(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	wireEvents, err := node1.core.ToWire(unknown)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	args := net.SyncRequest{
 		Head:   head,
-		Events: unknown,
+		Events: wireEvents,
 	}
 	expectedResp := net.SyncResponse{
 		Success: true,
@@ -172,10 +176,14 @@ func TestAddTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	wireEvents, err := node1.core.ToWire(unknown)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	args := net.SyncRequest{
 		Head:   head,
-		Events: unknown,
+		Events: wireEvents,
 	}
 
 	var out net.SyncResponse

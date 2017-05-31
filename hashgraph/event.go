@@ -32,6 +32,13 @@ type EventBody struct {
 	Creator      []byte    //creator's public key
 	Timestamp    time.Time //creator's claimed timestamp of the event's creation
 	Index        int       //index in the sequence of events created by Creator
+
+	//wire
+	//It is cheaper to send ints then hashes over the wire
+	selfParentIndex      int
+	otherParentCreatorID int
+	otherParentIndex     int
+	creatorID            int
 }
 
 //gob encoding of body only
@@ -185,6 +192,32 @@ func (e *Event) SetRoundReceived(rr int) {
 	*e.roundReceived = rr
 }
 
+func (e *Event) SetWireInfo(selfParentIndex,
+	otherParentCreatorID,
+	otherParentIndex,
+	creatorID int) {
+	e.Body.selfParentIndex = selfParentIndex
+	e.Body.otherParentCreatorID = otherParentCreatorID
+	e.Body.otherParentIndex = otherParentIndex
+	e.Body.creatorID = creatorID
+}
+
+func (e *Event) ToWire() WireEvent {
+	return WireEvent{
+		Body: WireBody{
+			Transactions:         e.Body.Transactions,
+			SelfParentIndex:      e.Body.selfParentIndex,
+			OtherParentCreatorID: e.Body.otherParentCreatorID,
+			OtherParentIndex:     e.Body.otherParentIndex,
+			CreatorID:            e.Body.creatorID,
+			Timestamp:            e.Body.Timestamp,
+			Index:                e.Body.Index,
+		},
+		R: e.R,
+		S: e.S,
+	}
+}
+
 //Sorting
 
 // ByTimestamp implements sort.Interface for []Event based on
@@ -203,4 +236,24 @@ func (a ByTopologicalOrder) Len() int      { return len(a) }
 func (a ByTopologicalOrder) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a ByTopologicalOrder) Less(i, j int) bool {
 	return a[i].topologicalIndex < a[j].topologicalIndex
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// WireEvent
+
+type WireBody struct {
+	Transactions [][]byte
+
+	SelfParentIndex      int
+	OtherParentCreatorID int
+	OtherParentIndex     int
+	CreatorID            int
+
+	Timestamp time.Time
+	Index     int
+}
+
+type WireEvent struct {
+	Body WireBody
+	R, S *big.Int
 }

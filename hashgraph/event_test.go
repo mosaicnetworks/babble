@@ -107,3 +107,38 @@ func TestMarshallEvent(t *testing.T) {
 		t.Fatalf("Events are not deeply equal")
 	}
 }
+
+func TestWireEvent(t *testing.T) {
+	privateKey, _ := crypto.GenerateECDSAKey()
+	publicKeyBytes := crypto.FromECDSAPub(&privateKey.PublicKey)
+
+	body := createDummyEventBody()
+	body.Creator = publicKeyBytes
+
+	event := Event{Body: body}
+	if err := event.Sign(privateKey); err != nil {
+		t.Fatalf("Error signing Event: %s", err)
+	}
+
+	event.SetWireInfo(1, 66, 2, 67)
+
+	expectedWireEvent := WireEvent{
+		Body: WireBody{
+			Transactions:         event.Body.Transactions,
+			SelfParentIndex:      1,
+			OtherParentCreatorID: 66,
+			OtherParentIndex:     2,
+			CreatorID:            67,
+			Timestamp:            event.Body.Timestamp,
+			Index:                event.Body.Index,
+		},
+		R: event.R,
+		S: event.S,
+	}
+
+	wireEvent := event.ToWire()
+
+	if !reflect.DeepEqual(expectedWireEvent, wireEvent) {
+		t.Fatalf("WireEvent should be %#v, not %#v", expectedWireEvent, wireEvent)
+	}
+}

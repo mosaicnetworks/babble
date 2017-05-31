@@ -77,7 +77,7 @@ func (c *Core) PubKey() []byte {
 }
 
 func (c *Core) Init() error {
-	initialEvent := hg.NewEvent([][]byte{},
+	initialEvent := hg.NewEvent([][]byte(nil),
 		[]string{"", ""},
 		c.PubKey(),
 		c.Seq)
@@ -105,10 +105,10 @@ func (c *Core) Known() map[int]int {
 }
 
 //returns events that c knowns about that are not in 'known', along with c's head
-func (c *Core) Diff(known map[int]int) (head string, unknown []hg.Event, err error) {
+func (c *Core) Diff(known map[int]int) (head string, events []hg.Event, err error) {
 	head = c.Head
 
-	unknown = []hg.Event{}
+	unknown := []hg.Event{}
 	//known represents the number of events known for every participant
 	//compare this to our view of events and fill unknown with events that we know of
 	// and the other doesnt
@@ -131,10 +131,15 @@ func (c *Core) Diff(known map[int]int) (head string, unknown []hg.Event, err err
 	return head, unknown, nil
 }
 
-func (c *Core) Sync(otherHead string, unknown []hg.Event, payload [][]byte) error {
+func (c *Core) Sync(otherHead string, unknown []hg.WireEvent, payload [][]byte) error {
+
 	//add unknown events
-	for _, e := range unknown {
-		if err := c.InsertEvent(e); err != nil {
+	for _, we := range unknown {
+		ev, err := c.hg.ReadWireInfo(we)
+		if err != nil {
+			return err
+		}
+		if err := c.InsertEvent(*ev); err != nil {
 			return err
 		}
 	}
@@ -149,6 +154,26 @@ func (c *Core) Sync(otherHead string, unknown []hg.Event, payload [][]byte) erro
 	}
 
 	return nil
+}
+
+func (c *Core) FromWire(wireEvents []hg.WireEvent) ([]hg.Event, error) {
+	events := make([]hg.Event, len(wireEvents), len(wireEvents))
+	for i, w := range wireEvents {
+		ev, err := c.hg.ReadWireInfo(w)
+		if err != nil {
+			return nil, err
+		}
+		events[i] = *ev
+	}
+	return events, nil
+}
+
+func (c *Core) ToWire(events []hg.Event) ([]hg.WireEvent, error) {
+	wireEvents := make([]hg.WireEvent, len(events), len(events))
+	for i, e := range events {
+		wireEvents[i] = e.ToWire()
+	}
+	return wireEvents, nil
 }
 
 func (c *Core) RunConsensus() error {

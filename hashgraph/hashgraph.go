@@ -29,6 +29,7 @@ import (
 
 type Hashgraph struct {
 	Participants            map[string]int //[public key] => id
+	ReverseParticipants     map[int]string //[id] => public key
 	Store                   Store          //Persistent store of Events and Rounds
 	UndeterminedEvents      []string       //[index] => hash
 	LastConsensusRound      *int           //index of last round where the fame of all witnesses has been decided
@@ -53,9 +54,15 @@ func NewHashgraph(participants map[string]int, store Store, commitCh chan []Even
 		logger.Level = logrus.DebugLevel
 	}
 
+	reverseParticipants := make(map[int]string)
+	for pk, id := range participants {
+		reverseParticipants[id] = pk
+	}
+
 	cacheSize := store.CacheSize()
 	return Hashgraph{
 		Participants:            participants,
+		ReverseParticipants:     reverseParticipants,
 		Store:                   store,
 		commitCh:                commitCh,
 		ancestorCache:           common.NewLRU(cacheSize, nil),
@@ -334,6 +341,10 @@ func (h *Hashgraph) InsertEvent(event Event) error {
 	event.topologicalIndex = h.topologicalIndex
 	h.topologicalIndex++
 
+	if err := h.SetWireInfo(&event); err != nil {
+		return err
+	}
+
 	if err := h.InitEventCoordinates(&event); err != nil {
 		return err
 	}
@@ -480,6 +491,83 @@ func (h *Hashgraph) UpdateAncestorFirstDescendant(event Event) error {
 	}
 
 	return nil
+}
+
+func (h *Hashgraph) SetWireInfo(event *Event) error {
+	selfParentIndex := -1
+	otherParentCreatorID := -1
+	otherParentIndex := -1
+
+	if event.SelfParent() != "" {
+		selfParent, err := h.Store.GetEvent(event.SelfParent())
+		if err != nil {
+			return err
+		}
+		selfParentIndex = selfParent.Index()
+	}
+
+	if event.OtherParent() != "" {
+		otherParent, err := h.Store.GetEvent(event.OtherParent())
+		if err != nil {
+			return err
+		}
+		otherParentCreatorID = h.Participants[otherParent.Creator()]
+		otherParentIndex = otherParent.Index()
+	}
+
+	event.SetWireInfo(selfParentIndex,
+		otherParentCreatorID,
+		otherParentIndex,
+		h.Participants[event.Creator()])
+
+	return nil
+}
+
+func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
+	selfParent := ""
+	otherParent := ""
+	var err error
+
+	creator := h.ReverseParticipants[wevent.Body.CreatorID]
+	creatorBytes, err := hex.DecodeString(creator[2:])
+	if err != nil {
+		return nil, err
+	}
+
+	if wevent.Body.SelfParentIndex >= 0 {
+		selfParent, err = h.Store.ParticipantEvent(creator, wevent.Body.SelfParentIndex)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if wevent.Body.OtherParentIndex >= 0 {
+		otherParentCreator := h.ReverseParticipants[wevent.Body.OtherParentCreatorID]
+		otherParent, err = h.Store.ParticipantEvent(otherParentCreator, wevent.Body.OtherParentIndex)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	body := EventBody{
+		Transactions: wevent.Body.Transactions,
+		Parents:      []string{selfParent, otherParent},
+		Creator:      creatorBytes,
+
+		Timestamp:            wevent.Body.Timestamp,
+		Index:                wevent.Body.Index,
+		selfParentIndex:      wevent.Body.SelfParentIndex,
+		otherParentCreatorID: wevent.Body.OtherParentCreatorID,
+		otherParentIndex:     wevent.Body.OtherParentIndex,
+		creatorID:            wevent.Body.CreatorID,
+	}
+
+	event := &Event{
+		Body: body,
+		R:    wevent.R,
+		S:    wevent.S,
+	}
+
+	return event, nil
 }
 
 func (h *Hashgraph) DivideRounds() error {
