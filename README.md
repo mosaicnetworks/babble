@@ -99,20 +99,20 @@ The content of "params" is the base64 encoding of the raw transaction bytes ("cl
 
 ### Transport
 
-Babble nodes communicate whith other Babble nodes in a fully connected Peer To Peer  
-network. Nodes gossip by choosing another node at random and telling them evertying  
-they know about the Hashgraph that the other doesnt. The gossip protocol is  
-extremely simple and serves the dual purpose of gossiping about transactions and  
-about the gossip itself (the Hashgraph). The Hashraph contains enough information  
-to compute a consensus ordering of transactions. 
+Babble nodes communicate with other Babble nodes in a fully connected Peer To Peer  
+network. Nodes gossip by choosing another node at random and telling them everything  
+they know about the Hashgraph. The gossip protocol is extremely simple and serves  
+the dual purpose of gossiping about transactions and about the gossip itself  
+(the Hashgraph). The Hashraph contains enough information to compute a consensus  
+ordering of transactions. 
 
-The communication mechanism is a custom RPC protocol over TCP connections. There  
-are only two types of RPC commands, **Known** and **Sync**. For example, when  
-node **A** wants to sync with node **B**, it starts by sending a **Known** request  
-to **B**. **B** responds with what it knows about the Hashgraph. **A** computes what  
-it knows that **B** doesnt and sends the diff with a **Sync** request. Upon receiving  
-the **Sync** request, **B** updates its Hashgraph accordingly and calculates the  
-consensus order.
+The communication mechanism is a custom RPC protocol over TCP connections. A the  
+moment, there is only one type of RPC command: **Sync**. When node **A** wants to  
+sync with node **B**, it sends a **SyncRequest** to **B** containing what it knows  
+about the Hashgraph. **B** computes what it knows that **A** doesn't know and  
+returns a **SyncResponse** with the corresponding events in topological order.  
+Upon receiving the **SyncResponse**, **A** updates its Hashgraph accordingly and  
+calculates the consensus order.
 
 The list of peers must be predefined and known to all peers. At the moment, it is  
 not possible to dynamically modify the list of peers while the network is running  
@@ -143,15 +143,17 @@ moment, it only exposes a **Stats** endpoint:
 ```bash
 $curl -s http://[ip]:8080/Stats | jq
 {
-  "consensus_events": "35686",
+  "consensus_events": "199993",
   "consensus_transactions": "0",
-  "events_per_second": "10.82",
-  "last_consensus_round": "764",
-  "num_peers": "7",
-  "round_events": "44",
-  "sync_rate": "0.80",
+  "events_per_second": "264.65",
+  "id": "0",
+  "last_consensus_round": "21999",
+  "num_peers": "3",
+  "round_events": "10",
+  "rounds_per_second": "29.11",
+  "sync_rate": "1.00",
   "transaction_pool": "0",
-  "undetermined_events": "118"
+  "undetermined_events": "24"
 }
 ```
 
@@ -204,7 +206,7 @@ ok      bitbucket.org/mosaicnet/babble/crypto   0.028s
 ### Docker Testnet
 
 To see Babble in action, we have provided a series of scripts to bootstrap a  
-test network of four nodes locally.  
+test network locally.  
 
 Make sure you have [Docker](https://docker.com) installed.  
 
@@ -212,10 +214,17 @@ Then, run the testnet:
 
 ```bash
 [...]/babble$ cd docker
-[...]/babble/docker$ ./build-images
-[...]/babble/docker$ ./build-conf
-[...]/babble/docker$ ./run-testnet
+[...]/babble/docker$ make
+```
 
+Once the testnet is started, a script is automatically launched to monitor consensus  
+figures:  
+
+```
+consensus_events:131055 consensus_transactions:0 events_per_second:265.53 id:0 last_consensus_round:14432 num_peers:3 round_events:10 rounds_per_second:29.24 sync_rate:1.00 transaction_pool:0 undetermined_events:26
+consensus_events:131055 consensus_transactions:0 events_per_second:266.39 id:3 last_consensus_round:14432 num_peers:3 round_events:10 rounds_per_second:29.34 sync_rate:1.00 transaction_pool:0 undetermined_events:25
+consensus_events:131055 consensus_transactions:0 events_per_second:267.30 id:2 last_consensus_round:14432 num_peers:3 round_events:10 rounds_per_second:29.44 sync_rate:1.00 transaction_pool:0 undetermined_events:31
+consensus_events:131067 consensus_transactions:0 events_per_second:268.27 id:1 last_consensus_round:14433 num_peers:3 round_events:11 rounds_per_second:29.54 sync_rate:1.00 transaction_pool:0 undetermined_events:21
 ```
 
 Running ```docker ps -a``` will show you that 8 docker containers have been launched:  
@@ -234,28 +243,18 @@ a6895aaa141a        babble              "babble run --cach..."   11 seconds ago 
 ```
 Indeed, each node is comprised of an App and a Babble node (cf Architecture section).
 
-Run the **watch** script to monitor consensus figures:
-```
-[...]/babble/docker$ ./watch
-node1: last_consensus_round=626 consensus_events=5106 consensus_transactions=0 transaction_pool=0 undetermined_events=23 events/s=9.64 sync_rate=0.99
-node2: last_consensus_round=627 consensus_events=5115 consensus_transactions=0 transaction_pool=0 undetermined_events=18 events/s=9.68 sync_rate=0.98
-node3: last_consensus_round=627 consensus_events=5115 consensus_transactions=0 transaction_pool=0 undetermined_events=18 events/s=9.69 sync_rate=0.98
-node4: last_consensus_round=627 consensus_events=5115 consensus_transactions=0 transaction_pool=0 undetermined_events=19 events/s=9.70 sync_rate=0.99
-
-```
-
 Run the **demo** scipt to play with the **Dummy App** which is a simple chat application
 powered by the Babble consensus platform:
 
 ```
-[...]/babble/docker$ ./demo
+[...]/babble/docker$ make demo
 ```
 ![Demo](img/demo.png)
 
 
 Finally, stop the testnet:
 ```
-[...]/babble/docker$ ./stop-testnet
+[...]/babble/docker$ make stop
 ```
 
 ### Terraform
