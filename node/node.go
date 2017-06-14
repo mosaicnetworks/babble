@@ -27,9 +27,9 @@ import (
 
 	"strconv"
 
-	hg "bitbucket.org/mosaicnet/babble/hashgraph"
-	"bitbucket.org/mosaicnet/babble/net"
-	"bitbucket.org/mosaicnet/babble/proxy"
+	hg "github.com/babbleio/babble/hashgraph"
+	"github.com/babbleio/babble/net"
+	"github.com/babbleio/babble/proxy"
 )
 
 type Node struct {

@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"bitbucket.org/mosaicnet/babble/common"
+	"github.com/babbleio/babble/common"
 	"github.com/Sirupsen/logrus"
 )
 

@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"bitbucket.org/mosaicnet/babble/common"
+	"github.com/babbleio/babble/common"
 )
 
 func TestSokcetProxyServer(t *testing.T) {

@@ -15,7 +15,7 @@ limitations under the License.
 */
 package net
 
-import "bitbucket.org/mosaicnet/babble/hashgraph"
+import "github.com/babbleio/babble/hashgraph"
 
 type SyncRequest struct {
 	From  string

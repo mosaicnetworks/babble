@@ -18,7 +18,7 @@ package node
 import (
 	"math/rand"
 
-	"bitbucket.org/mosaicnet/babble/net"
+	"github.com/babbleio/babble/net"
 )
 
 type PeerSelector interface {

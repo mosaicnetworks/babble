@@ -169,9 +169,9 @@ Babble is a private repository on [Bitbucket](https://bitbucket.org). Get access
 Babble and clone the repository in the appropriate GOPATH subdirectory:
 
 ```bash
-$ mkdir -p $GOPATH/src/bitbucket.org/mosaicnet/
+$ mkdir -p $GOPATH/src/github.com/babbleio/
 $ cd $GOPATH/src/bitbucket.org/mosaicnet
-[...]/mosaicnet$ git clone https://[username]@bitbucket.org/mosaicnet/babble.git
+[...]/mosaicnet$ git clone https://[username]@github.com/babbleio/babble.git
 ```
 Replace **[username]** with whatever credentials you may have on Bitbucket.
 
@@ -193,14 +193,14 @@ Babble has extensive unit-testing. Use the Go tool to run tests:
 
 If everything goes well, it should output something along these lines:  
 ```
-ok      bitbucket.org/mosaicnet/babble/net      0.052s
-ok      bitbucket.org/mosaicnet/babble/common   0.011s
-?       bitbucket.org/mosaicnet/babble/cmd      [no test files]
-?       bitbucket.org/mosaicnet/babble/cmd/dummy_client [no test files]
-ok      bitbucket.org/mosaicnet/babble/hashgraph        0.174s
-ok      bitbucket.org/mosaicnet/babble/node     1.699s
-ok      bitbucket.org/mosaicnet/babble/proxy    0.018s
-ok      bitbucket.org/mosaicnet/babble/crypto   0.028s
+ok      github.com/babbleio/babble/net      0.052s
+ok      github.com/babbleio/babble/common   0.011s
+?       github.com/babbleio/babble/cmd      [no test files]
+?       github.com/babbleio/babble/cmd/dummy_client [no test files]
+ok      github.com/babbleio/babble/hashgraph        0.174s
+ok      github.com/babbleio/babble/node     1.699s
+ok      github.com/babbleio/babble/proxy    0.018s
+ok      github.com/babbleio/babble/crypto   0.028s
 ```
 
 ### Docker Testnet

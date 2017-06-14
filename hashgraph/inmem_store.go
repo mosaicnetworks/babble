@@ -15,7 +15,7 @@ limitations under the License.
 */
 package hashgraph
 
-import "bitbucket.org/mosaicnet/babble/common"
+import "github.com/babbleio/babble/common"
 
 type InmemStore struct {
 	cacheSize              int

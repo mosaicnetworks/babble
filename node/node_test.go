@@ -24,10 +24,10 @@ import (
 	"testing"
 	"time"
 
-	"bitbucket.org/mosaicnet/babble/common"
-	"bitbucket.org/mosaicnet/babble/crypto"
-	"bitbucket.org/mosaicnet/babble/net"
-	"bitbucket.org/mosaicnet/babble/proxy"
+	"github.com/babbleio/babble/common"
+	"github.com/babbleio/babble/crypto"
+	"github.com/babbleio/babble/net"
+	"github.com/babbleio/babble/proxy"
 	"github.com/Sirupsen/logrus"
 )
 
