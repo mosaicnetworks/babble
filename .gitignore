@@ -13,6 +13,7 @@ docker/babble/babble
 docker/dummy/dummy
 docker/conf/*
 
+terraform/babble.pem
 terraform/terraform.tfstate*
 terraform/secret.tfvars
 terraform/conf/*
