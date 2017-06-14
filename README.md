@@ -1,10 +1,10 @@
 # BABBLE
 ## Consensus platform for distributed applications.  
 
-Nodes in a distributed application require a component to communicate and order  
-transactions before they get applied locally. Babble is a plug and play solution  
-for this component. It uses the Hashgraph consensus algorithm which is optimal  
-in terms of fault tolerance and messaging.
+Nodes in a distributed application require a component to communicate transactions  
+between all participants before processing them locally in a consistent order.  
+Babble is a plug and play solution for this component.  It uses the Hashgraph   
+consensus algorithm which offers definitive advantages over other BFT systems.
 
 ## Architecture
 ```
@@ -54,6 +54,12 @@ in terms of fault tolerance and messaging.
                    
                     Network
 ```
+The above diagram shows how Babble fits in the typical architecture of a distributed  
+application. Users interact with an App's Service which reads data from its State.  
+However, the Service never updates the State directly. Instead, it passes commands  
+to an ordering system which communicates to other nodes and feeds the commands back  
+to the State in consensus order. Babble is an ordering system that plugs into the  
+App thanks to a very simple JSON-RPC interface over TCP.
 
 ### Proxy
 
@@ -75,7 +81,7 @@ that sends SubmitTx messages to Babble and exposes a TCP enpoint where Babble ca
 send CommitTx messages.
 
 When launching a Babble node, one must specify the address and port exposed by the  
-Babble Proxy of the App. Is is also possible to configure which address and port  
+Babble Proxy of the App. It is also possible to configure which address and port  
 the App Proxy exposes.
 
 Example SubmitTx request (from App to Babble):
@@ -100,13 +106,13 @@ The content of "params" is the base64 encoding of the raw transaction bytes ("cl
 ### Transport
 
 Babble nodes communicate with other Babble nodes in a fully connected Peer To Peer  
-network. Nodes gossip by choosing another node at random and telling them everything  
-they know about the Hashgraph. The gossip protocol is extremely simple and serves  
-the dual purpose of gossiping about transactions and about the gossip itself  
-(the Hashgraph). The Hashraph contains enough information to compute a consensus  
-ordering of transactions. 
+network. Nodes gossip by repeatedly choosing another node at random and asking that  
+node for all the new information it has about the Hashgraph. The gossip protocol  
+is extremely simple and serves the dual purpose of gossiping about transactions  
+and about the gossip itself (the Hashgraph). The Hashraph contains enough information  
+to compute a consensus ordering of transactions. 
 
-The communication mechanism is a custom RPC protocol over TCP connections. A the  
+The communication mechanism is a custom RPC protocol over TCP connections. At the  
 moment, there is only one type of RPC command: **Sync**. When node **A** wants to  
 sync with node **B**, it sends a **SyncRequest** to **B** containing what it knows  
 about the Hashgraph. **B** computes what it knows that **A** doesn't know and  
@@ -165,16 +171,13 @@ the programming language and a CLI tool for managing Go code. Go is very opinion
 and will require you to [define a workspace](https://golang.org/doc/code.html#Workspaces) where all your gocode will reside. 
 
 ### Babble and dependencies  
-Babble is a private repository on [Bitbucket](https://bitbucket.org). Get access rights from someone at  
-Babble and clone the repository in the appropriate GOPATH subdirectory:
+Clone the [repository](https://github.com/babbleio/babble) in the appropriate GOPATH subdirectory:
 
 ```bash
 $ mkdir -p $GOPATH/src/github.com/babbleio/
-$ cd $GOPATH/src/bitbucket.org/mosaicnet
-[...]/mosaicnet$ git clone https://[username]@github.com/babbleio/babble.git
+$ cd $GOPATH/src/github.com/babbleio
+[...]/babbleio$ git clone https://github.com/babbleio/babble.git
 ```
-Replace **[username]** with whatever credentials you may have on Bitbucket.
-
 Babble uses [Glide](http://github.com/Masterminds/glide) to manage dependencies.
 
 ```bash
@@ -243,7 +246,7 @@ a6895aaa141a        babble              "babble run --cach..."   11 seconds ago 
 ```
 Indeed, each node is comprised of an App and a Babble node (cf Architecture section).
 
-Run the **demo** scipt to play with the **Dummy App** which is a simple chat application
+Run the **demo** script to play with the **Dummy App** which is a simple chat application
 powered by the Babble consensus platform:
 
 ```
@@ -260,8 +263,8 @@ Finally, stop the testnet:
 ### Terraform
 
 We have also created a set of scripts to deploy Babble testnets in AWS. This  
-requires [Terraform](https://www.terraform.io/) and authentication keys for AWS. It would be too slow to  
-copy Babble over the network onto every node so we create a custom AWS image (AMI)  
+requires [Terraform](https://www.terraform.io/) and authentication keys for AWS. As it would be too slow to  
+copy Babble over the network onto every node, it is best to create a custom AWS image (AMI)  
 with Babble preinstalled in ~/bin. Basically the Terraform scripts launch a certain  
 number of nodes in a subnet and starts Babble on them.
 
