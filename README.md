@@ -271,7 +271,8 @@ number of nodes in a subnet and starts Babble on them.
 ```bash
 [...]/babble$ cd terraform
 [...]/babble/terraform$ make "nodes=12"
-[...]/babble/terraform$ ./watch #to monitor stats
+[...]/babble/terraform$ make watch # monitor Stats
+[...]/babble/terraform$ make bombard # send a bunch of transactions
 [...]/babble/terraform$ ssh -i babble.pem ubuntu@[public ip] # ssh into a node
-[...]/babble/terraform$ make terra-down #destroy resources
+[...]/babble/terraform$ make destroy #destroy resources
 ``` 
