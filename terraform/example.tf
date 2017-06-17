@@ -51,6 +51,20 @@ resource "aws_security_group" "babblesec" {
     }
 
     ingress {
+        from_port = 1338
+        to_port = 1338 
+        protocol = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+
+    ingress {
+        from_port = 1339
+        to_port = 1339 
+        protocol = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+
+    ingress {
         from_port = -1
         to_port = -1
         protocol = "icmp"
@@ -69,8 +83,8 @@ resource "aws_security_group" "babblesec" {
 resource "aws_instance" "server" {
   count = "${var.servers}"
   
-  //custom ami with ubuntu + babble
-  ami = "ami-7ef4e31a" 
+  //custom ami with ubuntu + babble + dummy
+  ami = "ami-cb4254af" 
   instance_type = "t2.micro"
 
   subnet_id = "${aws_subnet.babblenet.id}"

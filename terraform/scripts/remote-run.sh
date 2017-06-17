@@ -14,6 +14,13 @@ ssh -q -i babble.pem -o "UserKnownHostsFile /dev/null" -o "StrictHostKeyChecking
     --tcp_timeout=500 \
     --heartbeat=50 \
     --node_addr=$private_ip:1337 \
-    --service_addr=0.0.0.0:8080 \
-    --no_client=true > logs 2>&1 &
+    --proxy_addr=0.0.0.0:1338 \
+    --client_addr=$private_ip:1339 \
+    --service_addr=0.0.0.0:8080 > logs 2>&1 &
+
+    nohup /home/ubuntu/bin/dummy \
+    --name=$private_ip \
+    --client_addr=$private_ip:1339\
+    --proxy_addr=0.0.0.0:1338 \
+    --log_level="info" < /dev/null > 2>&1 &
 EOF

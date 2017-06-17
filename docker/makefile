@@ -1,4 +1,5 @@
 nodes = 4
+txs = 1000
 
 up: build conf start watch
 
@@ -21,5 +22,8 @@ stop:
 demo: 
 	./scripts/demo.sh $(nodes)
 
-.PHONY: up build conf start watch stop demo
+bombard: 
+	./scripts/bombard.sh $(nodes) $(txs)
+
+.PHONY: up build conf start watch stop demo bombard
 	
