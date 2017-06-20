@@ -15,7 +15,12 @@ limitations under the License.
 */
 package proxy
 
-type Proxy interface {
-	Consumer() chan []byte
+type AppProxy interface {
+	SubmitCh() chan []byte
 	CommitTx(tx []byte) error
+}
+
+type BabbleProxy interface {
+	CommitCh() chan []byte
+	SubmitTx(tx []byte) error
 }

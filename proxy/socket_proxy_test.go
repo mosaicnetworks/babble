@@ -21,20 +21,21 @@ import (
 	"time"
 
 	"github.com/babbleio/babble/common"
+	"github.com/babbleio/babble/proxy/appProxy"
 )
 
 func TestSokcetProxyServer(t *testing.T) {
 	clientAddr := "127.0.0.1:9990"
 	proxyAddr := "127.0.0.1:9991"
-	proxy := NewSocketProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestLogger(t))
-	consumeCh := proxy.Consumer()
+	proxy := appProxy.NewSocketAppProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestLogger(t))
+	submitCh := proxy.SubmitCh()
 
 	tx := []byte("the test transaction")
 
 	// Listen for a request
 	go func() {
 		select {
-		case st := <-consumeCh:
+		case st := <-submitCh:
 			// Verify the command
 			if !reflect.DeepEqual(st, tx) {
 				t.Fatalf("tx mismatch: %#v %#v", tx, st)
@@ -50,25 +51,22 @@ func TestSokcetProxyServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ack, err := dummyClient.SubmitTx(tx)
+	err = dummyClient.SubmitTx(tx)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if *ack != true {
-		t.Fatalf("Babble.SubmitTx returned false")
 	}
 }
 
 func TestSocketProxyClient(t *testing.T) {
 	clientAddr := "127.0.0.1:9992"
 	proxyAddr := "127.0.0.1:9993"
-	proxy := NewSocketProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestLogger(t))
+	proxy := appProxy.NewSocketAppProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestLogger(t))
 
 	dummyClient, err := NewDummySocketClient(clientAddr, proxyAddr, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	clientCh := dummyClient.Consumer()
+	clientCh := dummyClient.babbleProxy.CommitCh()
 
 	tx := []byte("the test transaction")
 

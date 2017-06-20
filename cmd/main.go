@@ -32,6 +32,7 @@ import (
 	"github.com/babbleio/babble/net"
 	"github.com/babbleio/babble/node"
 	"github.com/babbleio/babble/proxy"
+	"github.com/babbleio/babble/proxy/appProxy"
 	"github.com/babbleio/babble/service"
 )
 
@@ -194,11 +195,11 @@ func run(c *cli.Context) error {
 		return err
 	}
 
-	var prox proxy.Proxy
+	var prox proxy.AppProxy
 	if noclient {
-		prox = proxy.NewInmemProxy(logger)
+		prox = appProxy.NewInmemAppProxy(logger)
 	} else {
-		prox = proxy.NewSocketProxy(clientAddress, proxyAddress,
+		prox = appProxy.NewSocketAppProxy(clientAddress, proxyAddress,
 			conf.TCPTimeout, logger)
 	}
 

@@ -48,7 +48,7 @@ type Node struct {
 	trans net.Transport
 	netCh <-chan net.RPC
 
-	proxy    proxy.Proxy
+	proxy    proxy.AppProxy
 	submitCh chan []byte
 
 	commitCh chan []hg.Event
@@ -65,7 +65,7 @@ type Node struct {
 	syncErrors   int
 }
 
-func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans net.Transport, proxy proxy.Proxy) Node {
+func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans net.Transport, proxy proxy.AppProxy) Node {
 	localAddr := trans.LocalAddr()
 
 	sort.Sort(net.ByPubKey(participants))
@@ -94,7 +94,7 @@ func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans
 		trans:           trans,
 		netCh:           trans.Consumer(),
 		proxy:           proxy,
-		submitCh:        proxy.Consumer(),
+		submitCh:        proxy.SubmitCh(),
 		commitCh:        commitCh,
 		shutdownCh:      make(chan struct{}),
 		transactionPool: [][]byte{},

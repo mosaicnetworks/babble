@@ -24,11 +24,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/babbleio/babble/common"
 	"github.com/babbleio/babble/crypto"
 	"github.com/babbleio/babble/net"
-	"github.com/babbleio/babble/proxy"
-	"github.com/Sirupsen/logrus"
+	"github.com/babbleio/babble/proxy/appProxy"
 )
 
 func initPeers() ([]*ecdsa.PrivateKey, []net.Peer) {
@@ -58,7 +58,7 @@ func TestProcessSync(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
-	node0 := NewNode(TestConfig(t), keys[0], peers, peer0Trans, proxy.NewInmemProxy(testLogger))
+	node0 := NewNode(TestConfig(t), keys[0], peers, peer0Trans, appProxy.NewInmemAppProxy(testLogger))
 	node0.Init()
 
 	node0.RunAsync(false)
@@ -69,7 +69,7 @@ func TestProcessSync(t *testing.T) {
 	}
 	defer peer1Trans.Close()
 
-	node1 := NewNode(TestConfig(t), keys[1], peers, peer1Trans, proxy.NewInmemProxy(testLogger))
+	node1 := NewNode(TestConfig(t), keys[1], peers, peer1Trans, appProxy.NewInmemAppProxy(testLogger))
 	node1.Init()
 
 	node1.RunAsync(false)
@@ -136,7 +136,7 @@ func TestAddTransaction(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 	defer peer0Trans.Close()
-	peer0Proxy := proxy.NewInmemProxy(testLogger)
+	peer0Proxy := appProxy.NewInmemAppProxy(testLogger)
 
 	node0 := NewNode(TestConfig(t), keys[0], peers, peer0Trans, peer0Proxy)
 	node0.Init()
@@ -148,7 +148,7 @@ func TestAddTransaction(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 	defer peer1Trans.Close()
-	peer1Proxy := proxy.NewInmemProxy(testLogger)
+	peer1Proxy := appProxy.NewInmemAppProxy(testLogger)
 
 	node1 := NewNode(TestConfig(t), keys[1], peers, peer1Trans, peer1Proxy)
 	node1.Init()
@@ -195,14 +195,14 @@ func initNodes(logger *logrus.Logger) ([]*ecdsa.PrivateKey, []*Node) {
 
 	keys, peers := initPeers()
 	nodes := []*Node{}
-	proxies := []*proxy.InmemProxy{}
+	proxies := []*appProxy.InmemAppProxy{}
 	for i := 0; i < len(peers); i++ {
 		trans, err := net.NewTCPTransport(peers[i].NetAddr,
 			nil, 2, time.Second, logger)
 		if err != nil {
 			logger.Printf(err.Error())
 		}
-		prox := proxy.NewInmemProxy(logger)
+		prox := appProxy.NewInmemAppProxy(logger)
 		node := NewNode(conf, keys[i], peers, trans, prox)
 		node.Init()
 		nodes = append(nodes, &node)
@@ -228,11 +228,11 @@ func shutdownNodes(nodes []*Node) {
 }
 
 func getCommittedTransactions(n *Node) ([][]byte, error) {
-	inmemProxy, ok := n.proxy.(*proxy.InmemProxy)
+	InmemAppProxy, ok := n.proxy.(*appProxy.InmemAppProxy)
 	if !ok {
 		return nil, fmt.Errorf("Error casting to InmemProp")
 	}
-	res := inmemProxy.GetCommittedTransactions()
+	res := InmemAppProxy.GetCommittedTransactions()
 	return res, nil
 }
 
@@ -391,9 +391,9 @@ func TestStats(t *testing.T) {
 }
 
 func synchronizeNodes(from *Node, to *Node, payload [][]byte) error {
-	fromProxy, ok := from.proxy.(*proxy.InmemProxy)
+	fromProxy, ok := from.proxy.(*appProxy.InmemAppProxy)
 	if !ok {
-		return fmt.Errorf("Error casting to InmemProxy")
+		return fmt.Errorf("Error casting to InmemAppProxy")
 	}
 	for _, t := range payload {
 		fromProxy.SubmitTx(t)
@@ -475,7 +475,7 @@ func gossip(nodes []*Node, target int) {
 }
 
 func submitTransaction(n *Node, tx []byte) error {
-	prox, ok := n.proxy.(*proxy.InmemProxy)
+	prox, ok := n.proxy.(*appProxy.InmemAppProxy)
 	if !ok {
 		return fmt.Errorf("Error casting to InmemProp")
 	}
