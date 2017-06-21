@@ -19,51 +19,54 @@ import (
 	"net"
 	"net/rpc"
 	"net/rpc/jsonrpc"
-
-	"github.com/Sirupsen/logrus"
 )
 
 type SocketBabbleProxyServer struct {
 	netListener *net.Listener
 	rpcServer   *rpc.Server
 	commitCh    chan []byte
-	logger      *logrus.Logger
 }
 
-func NewSocketBabbleProxyServer(bindAddress string, logger *logrus.Logger) *SocketBabbleProxyServer {
+func NewSocketBabbleProxyServer(bindAddress string) (*SocketBabbleProxyServer, error) {
 	server := &SocketBabbleProxyServer{
 		commitCh: make(chan []byte),
-		logger:   logger,
 	}
-	server.register(bindAddress)
-	return server
+
+	if err := server.register(bindAddress); err != nil {
+		return nil, err
+	}
+
+	return server, nil
 }
 
-func (p *SocketBabbleProxyServer) register(bindAddress string) {
+func (p *SocketBabbleProxyServer) register(bindAddress string) error {
 	rpcServer := rpc.NewServer()
 	rpcServer.RegisterName("State", p)
 	p.rpcServer = rpcServer
 
 	l, err := net.Listen("tcp", bindAddress)
 	if err != nil {
-		p.logger.WithField("error", err).Error("Failed to listen")
+		return err
 	}
+
 	p.netListener = &l
+
+	return nil
 }
 
-func (p *SocketBabbleProxyServer) listen() {
+func (p *SocketBabbleProxyServer) listen() error {
 	for {
 		conn, err := (*p.netListener).Accept()
 		if err != nil {
-			p.logger.WithField("error", err).Error("Failed to accept")
+			return err
 		}
 
 		go (*p.rpcServer).ServeCodec(jsonrpc.NewServerCodec(conn))
 	}
+	return nil
 }
 
 func (p *SocketBabbleProxyServer) CommitTx(tx []byte, ack *bool) error {
-	p.logger.Debug("CommitTx")
 	p.commitCh <- tx
 	*ack = true
 	return nil

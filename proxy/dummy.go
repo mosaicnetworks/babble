@@ -68,7 +68,10 @@ type DummySocketClient struct {
 
 func NewDummySocketClient(clientAddr string, nodeAddr string, logger *logrus.Logger) (*DummySocketClient, error) {
 
-	babbleProxy := bproxy.NewSocketBabbleProxy(nodeAddr, clientAddr, 1*time.Second, logger)
+	babbleProxy, err := bproxy.NewSocketBabbleProxy(nodeAddr, clientAddr, 1*time.Second)
+	if err != nil {
+		return nil, err
+	}
 
 	client := &DummySocketClient{
 		state:       &State{logger: logger},

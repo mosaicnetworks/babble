@@ -20,21 +20,17 @@ import (
 	"net/rpc"
 	"net/rpc/jsonrpc"
 	"time"
-
-	"github.com/Sirupsen/logrus"
 )
 
 type SocketBabbleProxyClient struct {
 	nodeAddr string
 	timeout  time.Duration
-	logger   *logrus.Logger
 }
 
-func NewSocketBabbleProxyClient(nodeAddr string, timeout time.Duration, logger *logrus.Logger) *SocketBabbleProxyClient {
+func NewSocketBabbleProxyClient(nodeAddr string, timeout time.Duration) *SocketBabbleProxyClient {
 	return &SocketBabbleProxyClient{
 		nodeAddr: nodeAddr,
 		timeout:  timeout,
-		logger:   logger,
 	}
 }
 

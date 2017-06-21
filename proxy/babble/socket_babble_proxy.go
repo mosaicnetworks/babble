@@ -16,11 +16,8 @@ limitations under the License.
 package babble
 
 import (
-	"time"
-
 	"fmt"
-
-	"github.com/Sirupsen/logrus"
+	"time"
 )
 
 type SocketBabbleProxy struct {
@@ -29,29 +26,24 @@ type SocketBabbleProxy struct {
 
 	client *SocketBabbleProxyClient
 	server *SocketBabbleProxyServer
-
-	logger *logrus.Logger
 }
 
-func NewSocketBabbleProxy(nodeAddr string, bindAddr string, timeout time.Duration, logger *logrus.Logger) *SocketBabbleProxy {
-	if logger == nil {
-		logger = logrus.New()
-		logger.Level = logrus.DebugLevel
+func NewSocketBabbleProxy(nodeAddr string, bindAddr string, timeout time.Duration) (*SocketBabbleProxy, error) {
+	client := NewSocketBabbleProxyClient(nodeAddr, timeout)
+	server, err := NewSocketBabbleProxyServer(bindAddr)
+	if err != nil {
+		return nil, err
 	}
-
-	client := NewSocketBabbleProxyClient(nodeAddr, timeout, logger)
-	server := NewSocketBabbleProxyServer(bindAddr, logger)
 
 	proxy := &SocketBabbleProxy{
 		nodeAddress: nodeAddr,
 		bindAddress: bindAddr,
 		client:      client,
 		server:      server,
-		logger:      logger,
 	}
 	go proxy.server.listen()
 
-	return proxy
+	return proxy, nil
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -67,7 +59,7 @@ func (p *SocketBabbleProxy) SubmitTx(tx []byte) error {
 		return err
 	}
 	if !*ack {
-		return fmt.Errorf("Babble returned false to SubmitTx")
+		return fmt.Errorf("Failed to deliver transaction to Babble")
 	}
 	return nil
 }
