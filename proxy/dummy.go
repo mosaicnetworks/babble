@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/babbleio/babble/proxy/babbleProxy"
+	bproxy "github.com/babbleio/babble/proxy/babble"
 )
 
 type State struct {
@@ -62,13 +62,13 @@ func (a *State) getFile() (*os.File, error) {
 
 type DummySocketClient struct {
 	state       *State
-	babbleProxy *babbleProxy.SocketBabbleProxy
+	babbleProxy *bproxy.SocketBabbleProxy
 	logger      *logrus.Logger
 }
 
 func NewDummySocketClient(clientAddr string, nodeAddr string, logger *logrus.Logger) (*DummySocketClient, error) {
 
-	babbleProxy := babbleProxy.NewSocketBabbleProxy(nodeAddr, clientAddr, 1*time.Second, logger)
+	babbleProxy := bproxy.NewSocketBabbleProxy(nodeAddr, clientAddr, 1*time.Second, logger)
 
 	client := &DummySocketClient{
 		state:       &State{logger: logger},

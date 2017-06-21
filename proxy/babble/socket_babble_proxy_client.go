@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package appProxy
+package babble
 
 import (
 	"net"
@@ -24,35 +24,35 @@ import (
 	"github.com/Sirupsen/logrus"
 )
 
-type SocketAppProxyClient struct {
-	clientAddr string
-	timeout    time.Duration
-	logger     *logrus.Logger
+type SocketBabbleProxyClient struct {
+	nodeAddr string
+	timeout  time.Duration
+	logger   *logrus.Logger
 }
 
-func NewSocketAppProxyClient(clientAddr string, timeout time.Duration, logger *logrus.Logger) *SocketAppProxyClient {
-	return &SocketAppProxyClient{
-		clientAddr: clientAddr,
-		timeout:    timeout,
-		logger:     logger,
+func NewSocketBabbleProxyClient(nodeAddr string, timeout time.Duration, logger *logrus.Logger) *SocketBabbleProxyClient {
+	return &SocketBabbleProxyClient{
+		nodeAddr: nodeAddr,
+		timeout:  timeout,
+		logger:   logger,
 	}
 }
 
-func (p *SocketAppProxyClient) getConnection() (*rpc.Client, error) {
-	conn, err := net.DialTimeout("tcp", p.clientAddr, p.timeout)
+func (p *SocketBabbleProxyClient) getConnection() (*rpc.Client, error) {
+	conn, err := net.DialTimeout("tcp", p.nodeAddr, p.timeout)
 	if err != nil {
 		return nil, err
 	}
 	return jsonrpc.NewClient(conn), nil
 }
 
-func (p *SocketAppProxyClient) CommitTx(tx []byte) (*bool, error) {
+func (p *SocketBabbleProxyClient) SubmitTx(tx []byte) (*bool, error) {
 	rpcConn, err := p.getConnection()
 	if err != nil {
 		return nil, err
 	}
 	var ack bool
-	err = rpcConn.Call("State.CommitTx", tx, &ack)
+	err = rpcConn.Call("Babble.SubmitTx", tx, &ack)
 	if err != nil {
 		return nil, err
 	}

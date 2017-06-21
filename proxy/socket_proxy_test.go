@@ -21,13 +21,13 @@ import (
 	"time"
 
 	"github.com/babbleio/babble/common"
-	"github.com/babbleio/babble/proxy/appProxy"
+	aproxy "github.com/babbleio/babble/proxy/app"
 )
 
 func TestSokcetProxyServer(t *testing.T) {
 	clientAddr := "127.0.0.1:9990"
 	proxyAddr := "127.0.0.1:9991"
-	proxy := appProxy.NewSocketAppProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestLogger(t))
+	proxy := aproxy.NewSocketAppProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestLogger(t))
 	submitCh := proxy.SubmitCh()
 
 	tx := []byte("the test transaction")
@@ -60,7 +60,7 @@ func TestSokcetProxyServer(t *testing.T) {
 func TestSocketProxyClient(t *testing.T) {
 	clientAddr := "127.0.0.1:9992"
 	proxyAddr := "127.0.0.1:9993"
-	proxy := appProxy.NewSocketAppProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestLogger(t))
+	proxy := aproxy.NewSocketAppProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestLogger(t))
 
 	dummyClient, err := NewDummySocketClient(clientAddr, proxyAddr, common.NewTestLogger(t))
 	if err != nil {

@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package babbleProxy
+package app
 
 import (
 	"time"
@@ -23,31 +23,31 @@ import (
 	"github.com/Sirupsen/logrus"
 )
 
-type SocketBabbleProxy struct {
-	nodeAddress string
-	bindAddress string
+type SocketAppProxy struct {
+	clientAddress string
+	bindAddress   string
 
-	client *SocketBabbleProxyClient
-	server *SocketBabbleProxyServer
+	client *SocketAppProxyClient
+	server *SocketAppProxyServer
 
 	logger *logrus.Logger
 }
 
-func NewSocketBabbleProxy(nodeAddr string, bindAddr string, timeout time.Duration, logger *logrus.Logger) *SocketBabbleProxy {
+func NewSocketAppProxy(clientAddr string, bindAddr string, timeout time.Duration, logger *logrus.Logger) *SocketAppProxy {
 	if logger == nil {
 		logger = logrus.New()
 		logger.Level = logrus.DebugLevel
 	}
 
-	client := NewSocketBabbleProxyClient(nodeAddr, timeout, logger)
-	server := NewSocketBabbleProxyServer(bindAddr, logger)
+	client := NewSocketAppProxyClient(clientAddr, timeout, logger)
+	server := NewSocketAppProxyServer(bindAddr, logger)
 
-	proxy := &SocketBabbleProxy{
-		nodeAddress: nodeAddr,
-		bindAddress: bindAddr,
-		client:      client,
-		server:      server,
-		logger:      logger,
+	proxy := &SocketAppProxy{
+		clientAddress: clientAddr,
+		bindAddress:   bindAddr,
+		client:        client,
+		server:        server,
+		logger:        logger,
 	}
 	go proxy.server.listen()
 
@@ -55,19 +55,19 @@ func NewSocketBabbleProxy(nodeAddr string, bindAddr string, timeout time.Duratio
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//Implement BabbleProxy interface
+//Implement AppProxy Interface
 
-func (p *SocketBabbleProxy) CommitCh() chan []byte {
-	return p.server.commitCh
+func (p *SocketAppProxy) SubmitCh() chan []byte {
+	return p.server.submitCh
 }
 
-func (p *SocketBabbleProxy) SubmitTx(tx []byte) error {
-	ack, err := p.client.SubmitTx(tx)
+func (p *SocketAppProxy) CommitTx(tx []byte) error {
+	ack, err := p.client.CommitTx(tx)
 	if err != nil {
 		return err
 	}
 	if !*ack {
-		return fmt.Errorf("Babble returned false to SubmitTx")
+		return fmt.Errorf("App returned false to CommitTx")
 	}
 	return nil
 }
