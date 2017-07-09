@@ -89,8 +89,7 @@ func run(c *cli.Context) error {
 		text = scanner.Text()
 		if text != "q" {
 			message := fmt.Sprintf("%s: %s", name, text)
-			_, err := client.SubmitTx([]byte(message))
-			if err != nil {
+			if err := client.SubmitTx([]byte(message)); err != nil {
 				fmt.Printf("Error in SubmitTx: %v\n", err)
 			}
 		}
