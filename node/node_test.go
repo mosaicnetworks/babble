@@ -200,7 +200,7 @@ func initNodes(logger *logrus.Logger) ([]*ecdsa.PrivateKey, []*Node) {
 		trans, err := net.NewTCPTransport(peers[i].NetAddr,
 			nil, 2, time.Second, logger)
 		if err != nil {
-			logger.Printf(err.Error())
+			logger.Panicf("failed to create transport for peer %d: %s\n", i, err.Error())
 		}
 		prox := aproxy.NewInmemAppProxy(logger)
 		node := NewNode(conf, keys[i], peers, trans, prox)
