@@ -168,7 +168,7 @@ $curl -s http://[ip]:8080/Stats | jq
 ### Go
 Babble is written in [Golang](https://golang.org/). Hence, the first step is to install Go which is both  
 the programming language and a CLI tool for managing Go code. Go is very opinionated  
-and will require you to [define a workspace](https://golang.org/doc/code.html#Workspaces) where all your gocode will reside. 
+and will require you to [define a workspace](https://golang.org/doc/code.html#Workspaces) where all your go code will reside. 
 
 ### Babble and dependencies  
 Clone the [repository](https://github.com/babbleio/babble) in the appropriate GOPATH subdirectory:
@@ -191,7 +191,7 @@ This will download all dependencies and put them in the **vendor** folder.
 
 Babble has extensive unit-testing. Use the Go tool to run tests:  
 ```bash
-[...]/babble$ go test $(glide novendor)
+[...]/babble$ make test
 ```
 
 If everything goes well, it should output something along these lines:  
@@ -212,6 +212,13 @@ To see Babble in action, we have provided a series of scripts to bootstrap a
 test network locally.  
 
 Make sure you have [Docker](https://docker.com) installed.  
+
+One of the scripts requires babble to be installed locally because it uses the  
+**keygen** command to generate cryptographic key pairs in the format used by babble.  
+To install babble:
+```bash
+[...]/babble$ make install
+```
 
 Then, run the testnet:  
 
