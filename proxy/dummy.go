@@ -39,6 +39,7 @@ func (a *State) writeMessage(tx []byte) {
 	file, err := a.getFile()
 	if err != nil {
 		a.logger.Error(err)
+		return
 	}
 	defer file.Close()
 
@@ -73,8 +74,11 @@ func NewDummySocketClient(clientAddr string, nodeAddr string, logger *logrus.Log
 		return nil, err
 	}
 
+	state := State{logger: logger}
+	state.writeMessage([]byte(clientAddr))
+
 	client := &DummySocketClient{
-		state:       &State{logger: logger},
+		state:       &state,
 		babbleProxy: babbleProxy,
 		logger:      logger,
 	}

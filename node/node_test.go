@@ -31,6 +31,8 @@ import (
 	aproxy "github.com/babbleio/babble/proxy/app"
 )
 
+var ip = 9990
+
 func initPeers() ([]*ecdsa.PrivateKey, []net.Peer) {
 	keys := []*ecdsa.PrivateKey{}
 	peers := []net.Peer{}
@@ -40,9 +42,10 @@ func initPeers() ([]*ecdsa.PrivateKey, []net.Peer) {
 		key, _ := crypto.GenerateECDSAKey()
 		keys = append(keys, key)
 		peers = append(peers, net.Peer{
-			NetAddr:   fmt.Sprintf("127.0.0.1:999%d", i),
+			NetAddr:   fmt.Sprintf("127.0.0.1:%d", ip),
 			PubKeyHex: fmt.Sprintf("0x%X", crypto.FromECDSAPub(&keys[i].PublicKey)),
 		})
+		ip++
 	}
 	sort.Sort(net.ByPubKey(peers))
 	return keys, peers
