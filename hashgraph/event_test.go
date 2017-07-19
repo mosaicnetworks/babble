@@ -142,3 +142,29 @@ func TestWireEvent(t *testing.T) {
 		t.Fatalf("WireEvent should be %#v, not %#v", expectedWireEvent, wireEvent)
 	}
 }
+
+func TestIsLoaded(t *testing.T) {
+	//nil payload
+	event := NewEvent(nil, []string{"p1", "p2"}, []byte("creator"), 1)
+	if event.IsLoaded() {
+		t.Fatalf("IsLoaded() should return false for nil Body.Transactions")
+	}
+
+	//empty payload
+	event.Body.Transactions = [][]byte{}
+	if event.IsLoaded() {
+		t.Fatalf("IsLoaded() should return false for empty Body.Transactions")
+	}
+
+	//initial event
+	event.Body.Index = 0
+	if !event.IsLoaded() {
+		t.Fatalf("IsLoaded() should return true for initial event")
+	}
+
+	//non-empty payload
+	event.Body.Transactions = [][]byte{[]byte("abc")}
+	if !event.IsLoaded() {
+		t.Fatalf("IsLoaded() should return true for non-empty payload")
+	}
+}

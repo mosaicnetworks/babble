@@ -35,6 +35,7 @@ type Hashgraph struct {
 	LastConsensusRound      *int           //index of last round where the fame of all witnesses has been decided
 	LastCommitedRoundEvents int            //number of events in round before LastConsensusRound
 	ConsensusTransactions   int            //number of consensus transactions
+	PendingLoadedEvents     int            //number of loaded events that are not yet committed
 	commitCh                chan []Event   //channel for committing events
 	topologicalIndex        int            //counter used to order events in topological order
 
@@ -359,6 +360,10 @@ func (h *Hashgraph) InsertEvent(event Event) error {
 
 	h.UndeterminedEvents = append(h.UndeterminedEvents, event.Hex())
 
+	if event.IsLoaded() {
+		h.PendingLoadedEvents++
+	}
+
 	return nil
 }
 
@@ -378,9 +383,11 @@ func (h *Hashgraph) FromParentsLatest(event Event) error {
 		return fmt.Errorf("Self-parent has different creator")
 	}
 
-	_, otherParentError := h.Store.GetEvent(otherParent)
-	if otherParentError != nil {
-		return fmt.Errorf("Other-parent not known (%s)", otherParent)
+	if otherParent != "" {
+		_, otherParentError := h.Store.GetEvent(otherParent)
+		if otherParentError != nil {
+			return fmt.Errorf("Other-parent not known (%s)", otherParent)
+		}
 	}
 
 	lastKnown, err := h.Store.LastFrom(creator)
@@ -750,6 +757,9 @@ func (h *Hashgraph) FindOrder() error {
 			return err
 		}
 		h.ConsensusTransactions += len(e.Transactions())
+		if e.IsLoaded() {
+			h.PendingLoadedEvents--
+		}
 	}
 
 	if h.commitCh != nil && len(newConsensusEvents) > 0 {

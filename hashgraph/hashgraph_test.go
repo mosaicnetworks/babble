@@ -308,6 +308,9 @@ func TestFork(t *testing.T) {
 }
 
 /*
+
+|   f1b |
+|   |   |
 |   f1  |
 |  /|   |
 e02 |   |
@@ -353,6 +356,11 @@ func initRoundHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 		[]string{index["e10"], index["e02"]},
 		nodes[1].Pub, 2)
 	nodes[1].signAndAddEvent(eventf1, "f1", index, orderedEvents)
+
+	eventf1b := NewEvent([][]byte{[]byte("abc")},
+		[]string{index["f1"], ""},
+		nodes[1].Pub, 3)
+	nodes[1].signAndAddEvent(eventf1b, "f1b", index, orderedEvents)
 
 	participants := make(map[string]int)
 	for _, node := range nodes {
@@ -513,6 +521,11 @@ func TestInsertEvent(t *testing.T) {
 		t.Fatal("f1 lastAncestors not good")
 	}
 
+	//Pending loaded Events
+	if ple := h.PendingLoadedEvents; ple != 4 {
+		t.Fatalf("PendingLoadedEvents should be 4, not %d", ple)
+	}
+
 }
 
 func TestReadWireInfo(t *testing.T) {
@@ -591,6 +604,10 @@ func TestStronglySee(t *testing.T) {
 	}
 	if !h.StronglySee(index["f1"], index["e2"]) {
 		t.Fatalf("f1 should strongly see e2")
+	}
+
+	if !h.StronglySee(index["f1b"], index["e2"]) {
+		t.Fatalf("f1b should strongly see e2")
 	}
 
 	//false negatives
@@ -809,6 +826,8 @@ g0  |   g2
 | \ | / |
 |   g1  |
 |  /|   |
+f02b|   |
+|   |   |
 f02 |   |
 | \ |   |
 |   \   |
@@ -819,12 +838,16 @@ f02 |   |
 | / |   |
 f0  |   f2
 | \ | / |
+|  f1b  |
+|   |   |
 |   f1  |
 |  /|   |
 e02 |   |
 | \ |   |
 |   \   |
 |   | \ |
+|   |  e21b
+|   |   |
 |   |  e21
 |   | / |
 |  e10  |
@@ -855,8 +878,13 @@ func initConsensusHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string
 		nodes[2].Pub, 1)
 	nodes[2].signAndAddEvent(event21, "e21", index, orderedEvents)
 
+	event21b := NewEvent([][]byte{[]byte("e21b")},
+		[]string{index["e21"], ""},
+		nodes[2].Pub, 2)
+	nodes[2].signAndAddEvent(event21b, "e21b", index, orderedEvents)
+
 	event02 := NewEvent([][]byte{},
-		[]string{index["e0"], index["e21"]},
+		[]string{index["e0"], index["e21b"]},
 		nodes[0].Pub, 1)
 	nodes[0].signAndAddEvent(event02, "e02", index, orderedEvents)
 
@@ -865,24 +893,29 @@ func initConsensusHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string
 		nodes[1].Pub, 2)
 	nodes[1].signAndAddEvent(eventf1, "f1", index, orderedEvents)
 
+	eventf1b := NewEvent([][]byte{[]byte("f1b")},
+		[]string{index["f1"], ""},
+		nodes[1].Pub, 3)
+	nodes[1].signAndAddEvent(eventf1b, "f1b", index, orderedEvents)
+
 	eventf0 := NewEvent([][]byte{},
-		[]string{index["e02"], index["f1"]},
+		[]string{index["e02"], index["f1b"]},
 		nodes[0].Pub, 2)
 	nodes[0].signAndAddEvent(eventf0, "f0", index, orderedEvents)
 
 	eventf2 := NewEvent([][]byte{},
-		[]string{index["e21"], index["f1"]},
-		nodes[2].Pub, 2)
+		[]string{index["e21b"], index["f1"]},
+		nodes[2].Pub, 3)
 	nodes[2].signAndAddEvent(eventf2, "f2", index, orderedEvents)
 
 	eventf10 := NewEvent([][]byte{},
-		[]string{index["f1"], index["f0"]},
+		[]string{index["f1b"], index["f0"]},
 		nodes[1].Pub, 3)
 	nodes[1].signAndAddEvent(eventf10, "f10", index, orderedEvents)
 
 	eventf21 := NewEvent([][]byte{},
 		[]string{index["f2"], index["f10"]},
-		nodes[2].Pub, 3)
+		nodes[2].Pub, 4)
 	nodes[2].signAndAddEvent(eventf21, "f21", index, orderedEvents)
 
 	eventf02 := NewEvent([][]byte{},
@@ -890,19 +923,24 @@ func initConsensusHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string
 		nodes[0].Pub, 3)
 	nodes[0].signAndAddEvent(eventf02, "f02", index, orderedEvents)
 
+	eventf02b := NewEvent([][]byte{[]byte("f02b")},
+		[]string{index["f02"], ""},
+		nodes[0].Pub, 4)
+	nodes[0].signAndAddEvent(eventf02b, "f02b", index, orderedEvents)
+
 	eventg1 := NewEvent([][]byte{},
-		[]string{index["f10"], index["f02"]},
+		[]string{index["f10"], index["f02b"]},
 		nodes[1].Pub, 4)
 	nodes[1].signAndAddEvent(eventg1, "g1", index, orderedEvents)
 
 	eventg0 := NewEvent([][]byte{},
-		[]string{index["f02"], index["g1"]},
-		nodes[0].Pub, 4)
+		[]string{index["f02b"], index["g1"]},
+		nodes[0].Pub, 5)
 	nodes[0].signAndAddEvent(eventg0, "g0", index, orderedEvents)
 
 	eventg2 := NewEvent([][]byte{},
 		[]string{index["f21"], index["g1"]},
-		nodes[2].Pub, 4)
+		nodes[2].Pub, 5)
 	nodes[2].signAndAddEvent(eventg2, "g2", index, orderedEvents)
 
 	eventg10 := NewEvent([][]byte{},
@@ -912,12 +950,12 @@ func initConsensusHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string
 
 	eventg21 := NewEvent([][]byte{},
 		[]string{index["g2"], index["g10"]},
-		nodes[2].Pub, 5)
+		nodes[2].Pub, 6)
 	nodes[2].signAndAddEvent(eventg21, "g21", index, orderedEvents)
 
 	eventg02 := NewEvent([][]byte{},
 		[]string{index["g0"], index["g21"]},
-		nodes[0].Pub, 5)
+		nodes[0].Pub, 6)
 	nodes[0].signAndAddEvent(eventg02, "g02", index, orderedEvents)
 
 	eventh1 := NewEvent([][]byte{},
@@ -927,12 +965,12 @@ func initConsensusHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string
 
 	eventh0 := NewEvent([][]byte{},
 		[]string{index["g02"], index["h1"]},
-		nodes[0].Pub, 6)
+		nodes[0].Pub, 7)
 	nodes[0].signAndAddEvent(eventh0, "h0", index, orderedEvents)
 
 	eventh2 := NewEvent([][]byte{},
 		[]string{index["g21"], index["h1"]},
-		nodes[2].Pub, 6)
+		nodes[2].Pub, 7)
 	nodes[2].signAndAddEvent(eventh2, "h2", index, orderedEvents)
 
 	participants := make(map[string]int)
@@ -989,13 +1027,18 @@ func TestOldestSelfAncestorToSee(t *testing.T) {
 	if a := h.OldestSelfAncestorToSee(index["f1"], index["e0"]); a != index["e10"] {
 		t.Fatalf("oldest self ancestor of f1 to see e0 should be e10 not %s", getName(index, a))
 	}
+	if a := h.OldestSelfAncestorToSee(index["f1b"], index["e0"]); a != index["e10"] {
+		t.Fatalf("oldest self ancestor of f1b to see e0 should be e10 not %s", getName(index, a))
+	}
+	if a := h.OldestSelfAncestorToSee(index["g2"], index["f1"]); a != index["f2"] {
+		t.Fatalf("oldest self ancestor of g2 to see f1 should be f2 not %s", getName(index, a))
+	}
 	if a := h.OldestSelfAncestorToSee(index["e21"], index["e1"]); a != index["e21"] {
-		t.Fatalf("oldest self ancestor of e20 to see e1 should be e21 not %s", a)
+		t.Fatalf("oldest self ancestor of e20 to see e1 should be e21 not %s", getName(index, a))
 	}
 	if a := h.OldestSelfAncestorToSee(index["e2"], index["e1"]); a != "" {
-		t.Fatalf("oldest self ancestor of e2 to see e1 should be '' not %s", a)
+		t.Fatalf("oldest self ancestor of e2 to see e1 should be '' not %s", getName(index, a))
 	}
-
 }
 
 func TestDecideRoundReceived(t *testing.T) {
@@ -1027,23 +1070,26 @@ func TestFindOrder(t *testing.T) {
 		t.Logf("consensus[%d]: %s\n", i, getName(index, e))
 	}
 
-	if l := len(h.ConsensusEvents()); l != 6 {
-		t.Fatalf("length of consensus should be 6 not %d", l)
+	if l := len(h.ConsensusEvents()); l != 7 {
+		t.Fatalf("length of consensus should be 7 not %d", l)
+	}
+
+	if ple := h.PendingLoadedEvents; ple != 2 {
+		t.Fatalf("PendingLoadedEvents should be 2, not %d", ple)
+	}
+
+	consensusEvents := h.ConsensusEvents()
+
+	if n := getName(index, consensusEvents[0]); n != "e0" {
+		t.Fatalf("consensus[0] should be e0, not %s", n)
 	}
 
 	//events which have the same consensus timestamp are ordered by whitened signature
 	//which is not deterministic.
-	expected1 := []string{"e0", "e10", "e1", "e21", "e2", "e02"}
-	expected2 := []string{"e0", "e1", "e10", "e2", "e21", "e02"}
-	for i, e := range h.ConsensusEvents() {
-		if name := getName(index, e); name != expected1[i] && name != expected2[i] {
-			more := ""
-			if expected1[i] != expected2[i] {
-				more = fmt.Sprintf("(or %s)", expected2[i])
-			}
-			t.Fatalf("consensus[%d] should be %s %s, not %s", i, expected1[i], more, name)
-		}
+	if n := getName(index, consensusEvents[6]); n != "e02" {
+		t.Fatalf("consensus[6] should be e02, not %s", n)
 	}
+
 }
 
 func BenchmarkFindOrder(b *testing.B) {
@@ -1063,8 +1109,8 @@ func TestKnown(t *testing.T) {
 	h, _ := initConsensusHashgraph(common.NewTestLogger(t))
 	known := h.Known()
 	for _, id := range h.Participants {
-		if l := known[id]; l != 7 {
-			t.Fatalf("%d should have 7 events, not %d", id, l)
+		if l := known[id]; l != 8 {
+			t.Fatalf("%d should have 8 events, not %d", id, l)
 		}
 	}
 }
