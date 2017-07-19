@@ -126,9 +126,12 @@ func (n *Node) Run(gossip bool) {
 			n.processRPC(rpc)
 		case <-heartbeatTimer:
 			if gossip {
-				n.logger.Debug("Time to gossip!")
-				peer := n.peerSelector.Next()
-				go n.gossip(peer.NetAddr)
+				proceed, err := n.preGossip()
+				if proceed && err == nil {
+					n.logger.Debug("Time to gossip!")
+					peer := n.peerSelector.Next()
+					go n.gossip(peer.NetAddr)
+				}
 			}
 			heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
 		case t := <-n.submitCh:
@@ -190,6 +193,26 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 	rpc.Respond(resp, err)
 }
 
+func (n *Node) preGossip() (bool, error) {
+	n.coreLock.Lock()
+	defer n.coreLock.Unlock()
+
+	pendingTransactions := len(n.transactionPool)
+	if pendingTransactions > 0 {
+		if err := n.core.AddSelfEvent(n.transactionPool); err != nil {
+			n.logger.WithField("error", err).Error("Adding SelfEvent")
+			return false, err
+		}
+		n.transactionPool = [][]byte{}
+	}
+
+	n.logger.WithFields(logrus.Fields{
+		"transactions": pendingTransactions,
+	}).Debug("Self-Event")
+
+	return true, nil
+}
+
 func (n *Node) gossip(peerAddr string) error {
 
 	n.coreLock.Lock()
@@ -218,7 +241,6 @@ func (n *Node) gossip(peerAddr string) error {
 	n.logStats()
 
 	return nil
-
 }
 
 func (n *Node) requestSync(target string, known map[int]int) (net.SyncResponse, error) {

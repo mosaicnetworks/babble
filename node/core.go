@@ -133,6 +133,11 @@ func (c *Core) Diff(known map[int]int) (head string, events []hg.Event, err erro
 
 func (c *Core) Sync(otherHead string, unknown []hg.WireEvent, payload [][]byte) error {
 
+	c.logger.WithFields(logrus.Fields{
+		"unknown": len(unknown),
+		"payload": len(payload),
+	}).Debug("Sync")
+
 	//add unknown events
 	for _, we := range unknown {
 		ev, err := c.hg.ReadWireInfo(we)
@@ -145,8 +150,23 @@ func (c *Core) Sync(otherHead string, unknown []hg.WireEvent, payload [][]byte) 
 	}
 
 	//create new event with self head and other head
+	if c.hg.PendingLoadedEvents > 0 || len(payload) > 0 {
+		newHead := hg.NewEvent(payload,
+			[]string{c.Head, otherHead},
+			c.PubKey(), c.Seq)
+
+		if err := c.SignAndInsertSelfEvent(newHead); err != nil {
+			return fmt.Errorf("Error inserting new head: %s", err)
+		}
+	}
+
+	return nil
+}
+
+func (c *Core) AddSelfEvent(payload [][]byte) error {
+	//create new event with self head and empty other parent
 	newHead := hg.NewEvent(payload,
-		[]string{c.Head, otherHead},
+		[]string{c.Head, ""},
 		c.PubKey(), c.Seq)
 
 	if err := c.SignAndInsertSelfEvent(newHead); err != nil {
