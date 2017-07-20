@@ -26,6 +26,7 @@ type SyncResponse struct {
 	From   string
 	Head   string
 	Events []hashgraph.WireEvent
+	Known  map[int]int
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

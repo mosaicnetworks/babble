@@ -154,6 +154,9 @@ func (n *Node) processRPC(rpc net.RPC) {
 	case *net.SyncRequest:
 		n.logger.WithField("from", cmd.From).Debug("Processing SyncRequest")
 		n.processSyncRequest(rpc, cmd)
+	case *net.EagerSyncRequest:
+		n.logger.WithField("from", cmd.From).Debug("Processing EagerSyncRequest")
+		n.processEagerSyncRequest(rpc, cmd)
 	default:
 		n.logger.WithField("cmd", rpc.Command).Error("Unexpected RPC command")
 		rpc.Respond(nil, fmt.Errorf("unexpected command"))
@@ -184,11 +187,36 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 		return
 	}
 
-	n.logger.WithField("events", len(diff)).Debug("Responding to Sync Request")
+	n.coreLock.Lock()
+	known := n.core.Known()
+	n.coreLock.Unlock()
+
+	n.logger.WithField("events", len(diff)).Debug("Responding to SyncRequest")
 	resp := &net.SyncResponse{
 		From:   n.localAddr,
 		Head:   head,
 		Events: wireEvents,
+		Known:  known,
+	}
+	rpc.Respond(resp, err)
+}
+
+func (n *Node) processEagerSyncRequest(rpc net.RPC, cmd *net.EagerSyncRequest) {
+	n.logger.WithFields(logrus.Fields{
+		"from":   cmd.From,
+		"events": len(cmd.Events),
+	}).Debug("EagerSyncRequest")
+
+	success := true
+
+	err := n.sync(cmd.Head, cmd.Events)
+	if err != nil {
+		n.logger.WithField("error", err).Error("sync()")
+		success = false
+	}
+
+	resp := &net.EagerSyncResponse{
+		Success: success,
 	}
 	rpc.Respond(resp, err)
 }
@@ -197,7 +225,14 @@ func (n *Node) preGossip() (bool, error) {
 	n.coreLock.Lock()
 	defer n.coreLock.Unlock()
 
+	pendingLoadedEvents := n.core.GetPendingLoadedEvents()
 	pendingTransactions := len(n.transactionPool)
+	if pendingLoadedEvents == 0 &&
+		pendingTransactions == 0 {
+		n.logger.Debug("Nothing to gossip")
+		return false, nil
+	}
+
 	if pendingTransactions > 0 {
 		if err := n.core.AddSelfEvent(n.transactionPool); err != nil {
 			n.logger.WithField("error", err).Error("Adding SelfEvent")
@@ -228,11 +263,46 @@ func (n *Node) gossip(peerAddr string) error {
 		return err
 	}
 
-	err = n.processSyncResponse(resp)
+	n.logger.WithFields(logrus.Fields{
+		"events": fmt.Sprintf("%#v", resp.Events),
+		"known":  fmt.Sprintf("%#v", resp.Known),
+	}).Debug("SyncResponse")
+
+	err = n.sync(resp.Head, resp.Events)
 	if err != nil {
-		n.logger.WithField("error", err).Error("processSyncResponse()")
+		n.logger.WithField("error", err).Error("sync()")
 		return err
 	}
+
+	//compute diff
+	start = time.Now()
+	n.coreLock.Lock()
+	head, diff, err := n.core.Diff(resp.Known)
+	n.coreLock.Unlock()
+	elapsed = time.Since(start)
+	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Diff()")
+
+	if err != nil {
+		n.logger.WithField("error", err).Error("Calculating Diff")
+		return err
+	}
+
+	wireEvents, err := n.core.ToWire(diff)
+	if err != nil {
+		n.logger.WithField("error", err).Debug("Converting to WireEvent")
+		return err
+	}
+
+	//eager sync request
+	start = time.Now()
+	resp2, err := n.requestEagerSync(peerAddr, head, wireEvents)
+	elapsed = time.Since(start)
+	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestEagerSync()")
+	if err != nil {
+		n.logger.WithField("error", err).Error("requestEagerSync()")
+		return err
+	}
+	n.logger.WithField("success", resp2.Success).Debug("EagerSyncResponse")
 
 	n.selectorLock.Lock()
 	n.peerSelector.UpdateLast(peerAddr)
@@ -255,15 +325,26 @@ func (n *Node) requestSync(target string, known map[int]int) (net.SyncResponse, 
 	return out, err
 }
 
-func (n *Node) processSyncResponse(resp net.SyncResponse) error {
+func (n *Node) requestEagerSync(target string, head string, events []hg.WireEvent) (net.EagerSyncResponse, error) {
+	args := net.EagerSyncRequest{
+		From:   n.localAddr,
+		Head:   head,
+		Events: events,
+	}
+
+	var out net.EagerSyncResponse
+	err := n.trans.EagerSync(target, &args, &out)
+
+	return out, err
+}
+
+func (n *Node) sync(head string, events []hg.WireEvent) error {
 	n.coreLock.Lock()
 	defer n.coreLock.Unlock()
 
-	n.logger.WithField("events", fmt.Sprintf("%#v", resp.Events)).Debug("SyncResponse")
-
 	start := time.Now()
 
-	err := n.core.Sync(resp.Head, resp.Events, n.transactionPool)
+	err := n.core.Sync(head, events, n.transactionPool)
 	elapsed := time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed Sync()")
 	if err != nil {
@@ -271,6 +352,7 @@ func (n *Node) processSyncResponse(resp net.SyncResponse) error {
 	}
 
 	n.transactionPool = [][]byte{}
+
 	start = time.Now()
 	err = n.core.RunConsensus()
 	elapsed = time.Since(start)

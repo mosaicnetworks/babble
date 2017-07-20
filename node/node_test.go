@@ -55,6 +55,8 @@ func TestProcessSync(t *testing.T) {
 	keys, peers := initPeers()
 	testLogger := common.NewTestLogger(t)
 
+	//Start two nodes
+
 	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, testLogger)
 	if err != nil {
 		t.Fatalf("err: %v", err)
@@ -77,7 +79,10 @@ func TestProcessSync(t *testing.T) {
 
 	node1.RunAsync(false)
 
+	//Manually prepare SyncRequest and expected SyncResponse
+
 	node0Known := node0.core.Known()
+	node1Known := node1.core.Known()
 
 	head, unknown, err := node1.core.Diff(node0Known)
 	if err != nil {
@@ -97,7 +102,10 @@ func TestProcessSync(t *testing.T) {
 		From:   node1.localAddr,
 		Head:   head,
 		Events: unknownWire,
+		Known:  node1Known,
 	}
+
+	//Make actual SyncRequest and check SyncResponse
 
 	var out net.SyncResponse
 	if err := peer0Trans.Sync(peers[1].NetAddr, &args, &out); err != nil {
@@ -126,6 +134,77 @@ func TestProcessSync(t *testing.T) {
 		}
 	}
 
+	if !reflect.DeepEqual(expectedResp.Known, out.Known) {
+		t.Fatalf("SyncResponse.Known should be %#v, not %#v", expectedResp.Known, out.Known)
+	}
+
+	node0.Shutdown()
+	node1.Shutdown()
+}
+
+func TestProcessEagerSync(t *testing.T) {
+	keys, peers := initPeers()
+	testLogger := common.NewTestLogger(t)
+
+	//Start two nodes
+
+	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, testLogger)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	defer peer0Trans.Close()
+
+	node0 := NewNode(TestConfig(t), keys[0], peers, peer0Trans, aproxy.NewInmemAppProxy(testLogger))
+	node0.Init()
+
+	node0.RunAsync(false)
+
+	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, testLogger)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	defer peer1Trans.Close()
+
+	node1 := NewNode(TestConfig(t), keys[1], peers, peer1Trans, aproxy.NewInmemAppProxy(testLogger))
+	node1.Init()
+
+	node1.RunAsync(false)
+
+	//Manually prepare EagerSyncRequest and expected EagerSyncResponse
+
+	node1Known := node1.core.Known()
+
+	head, unknown, err := node0.core.Diff(node1Known)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	unknownWire, err := node0.core.ToWire(unknown)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	args := net.EagerSyncRequest{
+		From:   node0.localAddr,
+		Head:   head,
+		Events: unknownWire,
+	}
+	expectedResp := net.EagerSyncResponse{
+		Success: true,
+	}
+
+	//Make actual EagerSyncRequest and check EagerSyncResponse
+
+	var out net.EagerSyncResponse
+	if err := peer0Trans.EagerSync(peers[1].NetAddr, &args, &out); err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	// Verify the response
+	if expectedResp.Success != out.Success {
+		t.Fatalf("EagerSyncResponse.Sucess should be %v, not %v", expectedResp.Success, out.Success)
+	}
+
 	node0.Shutdown()
 	node1.Shutdown()
 }
@@ -133,6 +212,8 @@ func TestProcessSync(t *testing.T) {
 func TestAddTransaction(t *testing.T) {
 	keys, peers := initPeers()
 	testLogger := common.NewTestLogger(t)
+
+	//Start two nodes
 
 	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
 	if err != nil {
@@ -158,8 +239,12 @@ func TestAddTransaction(t *testing.T) {
 
 	node1.RunAsync(false)
 
+	//Submit a Tx to node0
+
 	message := "Hello World!"
 	peer0Proxy.SubmitTx([]byte(message))
+
+	//simulate a SyncRequest from node0 to node1
 
 	node0Known := node0.core.Known()
 	args := net.SyncRequest{
@@ -172,9 +257,11 @@ func TestAddTransaction(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := node0.processSyncResponse(out); err != nil {
+	if err := node0.sync(out.Head, out.Events); err != nil {
 		t.Fatal(err)
 	}
+
+	//check the Tx was removed from the transactionPool and added to the new Head
 
 	if l := len(node0.transactionPool); l > 0 {
 		t.Fatalf("node0's transactionPool should have 0 elements, not %d\n", l)
@@ -237,172 +324,6 @@ func getCommittedTransactions(n *Node) ([][]byte, error) {
 	}
 	res := InmemAppProxy.GetCommittedTransactions()
 	return res, nil
-}
-
-/*
-h0  |   h2
-| \ | / |
-|   h1  |
-|  /|   |
-g02 |   |
-| \ |   |
-|   \   |
-|   | \ |
-|   |  g21
-|   | / |
-|  g10  |
-| / |   |
-g0  |   g2
-| \ | / |
-|   g1  |
-|  /|   |
-f02 |   |
-| \ |   |
-|   \   |
-|   | \ |
-|   |  f21
-|   | / |
-|  f10  |
-| / |   |
-f0  |   f2
-| \ | / |
-|   f1  |
-|  /|   |
-e02 |   |
-| \ |   |
-|   \   |
-|   | \ |
-|   |  e21
-|   | / |
-|  e10  |
-| / |   |
-e0  e1  e2
-0   1    2
-*/
-func TestTransactionOrdering(t *testing.T) {
-	logger := common.NewTestLogger(t)
-	_, nodes := initNodes(logger)
-	runNodes(nodes, false)
-
-	playbook := []play{
-		play{to: 0, from: 1, payload: [][]byte{[]byte("e10")}},
-		play{to: 1, from: 2, payload: [][]byte{[]byte("e21")}},
-		play{to: 2, from: 0, payload: [][]byte{[]byte("e02")}},
-		play{to: 0, from: 1, payload: [][]byte{[]byte("f1")}},
-		play{to: 1, from: 0, payload: [][]byte{[]byte("f0")}},
-		play{to: 1, from: 2, payload: [][]byte{[]byte("f2")}},
-
-		play{to: 0, from: 1, payload: [][]byte{[]byte("f10")}},
-		play{to: 1, from: 2, payload: [][]byte{[]byte("f21")}},
-		play{to: 2, from: 0, payload: [][]byte{[]byte("f02")}},
-		play{to: 0, from: 1, payload: [][]byte{[]byte("g1")}},
-		play{to: 1, from: 0, payload: [][]byte{[]byte("g0")}},
-		play{to: 1, from: 2, payload: [][]byte{[]byte("g2")}},
-
-		play{to: 0, from: 1, payload: [][]byte{[]byte("g10")}},
-		play{to: 1, from: 2, payload: [][]byte{[]byte("g21")}},
-		play{to: 2, from: 0, payload: [][]byte{[]byte("g02")}},
-		play{to: 0, from: 1, payload: [][]byte{[]byte("h1")}},
-		play{to: 1, from: 0, payload: [][]byte{[]byte("h0")}},
-		play{to: 1, from: 2, payload: [][]byte{[]byte("h2")}},
-	}
-
-	for k, play := range playbook {
-		if err := synchronizeNodes(nodes[play.from], nodes[play.to], play.payload); err != nil {
-			t.Fatalf("play %d: %s", k, err)
-		}
-	}
-	shutdownNodes(nodes)
-
-	expectedConsTransactions := [][]byte{
-		[]byte("e10"),
-		[]byte("e21"),
-		[]byte("e02"),
-	}
-	for i, n := range nodes {
-		consTransactions, err := n.core.GetConsensusTransactions()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(consTransactions) != len(expectedConsTransactions) {
-			t.Fatalf("node %d ConsensusTransactions should contain %d items, not %d",
-				i, len(expectedConsTransactions), len(consTransactions))
-		}
-		for j, et := range expectedConsTransactions {
-			if at := string(consTransactions[j]); at != string(et) {
-				t.Fatalf("node[%d].ConsensusTransactions[%d] should be %s, not %s", i, j, string(et), at)
-			}
-		}
-	}
-}
-
-func TestStats(t *testing.T) {
-	logger := common.NewTestLogger(t)
-	_, nodes := initNodes(logger)
-	runNodes(nodes, false)
-
-	playbook := []play{
-		play{to: 0, from: 1, payload: [][]byte{[]byte("e10")}},
-		play{to: 1, from: 2, payload: [][]byte{[]byte("e21")}},
-		play{to: 2, from: 0, payload: [][]byte{[]byte("e02")}},
-		play{to: 0, from: 1, payload: [][]byte{[]byte("f1")}},
-		play{to: 1, from: 0, payload: [][]byte{[]byte("f0")}},
-		play{to: 1, from: 2, payload: [][]byte{[]byte("f2")}},
-
-		play{to: 0, from: 1, payload: [][]byte{[]byte("f10")}},
-		play{to: 1, from: 2, payload: [][]byte{[]byte("f21")}},
-		play{to: 2, from: 0, payload: [][]byte{[]byte("f02")}},
-		play{to: 0, from: 1, payload: [][]byte{[]byte("g1")}},
-		play{to: 1, from: 0, payload: [][]byte{[]byte("g0")}},
-		play{to: 1, from: 2, payload: [][]byte{[]byte("g2")}},
-
-		play{to: 0, from: 1, payload: [][]byte{[]byte("g10")}},
-		play{to: 1, from: 2, payload: [][]byte{[]byte("g21")}},
-		play{to: 2, from: 0, payload: [][]byte{[]byte("g02")}},
-		play{to: 0, from: 1, payload: [][]byte{[]byte("h1")}},
-		play{to: 1, from: 0, payload: [][]byte{[]byte("h0")}},
-		play{to: 1, from: 2, payload: [][]byte{[]byte("h2")}},
-	}
-
-	for _, play := range playbook {
-		if err := synchronizeNodes(nodes[play.from], nodes[play.to], play.payload); err != nil {
-			t.Fatal(err)
-		}
-	}
-	shutdownNodes(nodes)
-
-	stats := nodes[0].GetStats()
-
-	expectedStats := map[string]string{
-		"last_consensus_round":   "1",
-		"consensus_events":       "6",
-		"consensus_transactions": "3",
-		"undetermined_events":    "14",
-		"transaction_pool":       "0",
-		"num_peers":              "2",
-		"sync_rate":              "1.00",
-	}
-
-	t.Logf("%#v", stats)
-
-	for k, v := range expectedStats {
-		if stats[k] != v {
-			t.Fatalf("Stats[%s] should be %#v, not %#v", k, v, stats[k])
-		}
-	}
-
-}
-
-func synchronizeNodes(from *Node, to *Node, payload [][]byte) error {
-	fromProxy, ok := from.proxy.(*aproxy.InmemAppProxy)
-	if !ok {
-		return fmt.Errorf("Error casting to InmemAppProxy")
-	}
-	for _, t := range payload {
-		fromProxy.SubmitTx(t)
-	}
-
-	return from.gossip(to.localAddr)
 }
 
 func TestGossip(t *testing.T) {

@@ -65,6 +65,11 @@ func TestNetworkTransport_Sync(t *testing.T) {
 				},
 			},
 		},
+		Known: map[int]int{
+			0: 5,
+			1: 5,
+			2: 6,
+		},
 	}
 
 	// Listen for a request

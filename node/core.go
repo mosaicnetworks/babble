@@ -252,6 +252,10 @@ func (c *Core) GetUndeterminedEvents() []string {
 	return c.hg.UndeterminedEvents
 }
 
+func (c *Core) GetPendingLoadedEvents() int {
+	return c.hg.PendingLoadedEvents
+}
+
 func (c *Core) GetConsensusTransactions() ([][]byte, error) {
 	txs := [][]byte{}
 	for _, e := range c.GetConsensusEvents() {
