@@ -150,6 +150,7 @@ func (c *Core) Sync(otherHead string, unknown []hg.WireEvent, payload [][]byte) 
 	}
 
 	//create new event with self head and other head
+	//only if there are pending loaded events or the transaction pool is not empty
 	if c.hg.PendingLoadedEvents > 0 || len(payload) > 0 {
 		newHead := hg.NewEvent(payload,
 			[]string{c.Head, otherHead},

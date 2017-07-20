@@ -114,3 +114,64 @@ func TestTransport_Sync(t *testing.T) {
 		}
 	}
 }
+
+func TestTransport_EagerSync(t *testing.T) {
+	for ttype := 0; ttype < numTestTransports; ttype++ {
+		addr1, trans1 := NewTestTransport(ttype, "")
+		defer trans1.Close()
+		rpcCh := trans1.Consumer()
+
+		// Make the RPC request
+		args := EagerSyncRequest{
+			From: "A",
+			Head: "head",
+			Events: []hashgraph.WireEvent{
+				hashgraph.WireEvent{
+					Body: hashgraph.WireBody{
+						Transactions:         [][]byte(nil),
+						SelfParentIndex:      1,
+						OtherParentCreatorID: 10,
+						OtherParentIndex:     0,
+						CreatorID:            9,
+					},
+				},
+			},
+		}
+		resp := EagerSyncResponse{
+			Success: true,
+		}
+
+		// Listen for a request
+		go func() {
+			select {
+			case rpc := <-rpcCh:
+				// Verify the command
+				req := rpc.Command.(*EagerSyncRequest)
+				if !reflect.DeepEqual(req, &args) {
+					t.Fatalf("command mismatch: %#v %#v", *req, args)
+				}
+				rpc.Respond(&resp, nil)
+
+			case <-time.After(200 * time.Millisecond):
+				t.Fatalf("timeout")
+			}
+		}()
+
+		// Transport 2 makes outbound request
+		addr2, trans2 := NewTestTransport(ttype, "")
+		defer trans2.Close()
+
+		trans1.Connect(addr2, trans2)
+		trans2.Connect(addr1, trans1)
+
+		var out EagerSyncResponse
+		if err := trans2.EagerSync(trans1.LocalAddr(), &args, &out); err != nil {
+			t.Fatalf("err: %v", err)
+		}
+
+		// Verify the response
+		if !reflect.DeepEqual(resp, out) {
+			t.Fatalf("command mismatch: %#v %#v", resp, out)
+		}
+	}
+}

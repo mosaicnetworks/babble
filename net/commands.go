@@ -27,3 +27,15 @@ type SyncResponse struct {
 	Head   string
 	Events []hashgraph.WireEvent
 }
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+type EagerSyncRequest struct {
+	From   string
+	Head   string
+	Events []hashgraph.WireEvent
+}
+
+type EagerSyncResponse struct {
+	Success bool
+}

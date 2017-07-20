@@ -92,6 +92,19 @@ func (i *InmemTransport) Sync(target string, args *SyncRequest, resp *SyncRespon
 	return nil
 }
 
+// Sync implements the Transport interface.
+func (i *InmemTransport) EagerSync(target string, args *EagerSyncRequest, resp *EagerSyncResponse) error {
+	rpcResp, err := i.makeRPC(target, args, nil, i.timeout)
+	if err != nil {
+		return err
+	}
+
+	// Copy the result back
+	out := rpcResp.Response.(*EagerSyncResponse)
+	*resp = *out
+	return nil
+}
+
 func (i *InmemTransport) makeRPC(target string, args interface{}, r io.Reader, timeout time.Duration) (rpcResp RPCResponse, err error) {
 	i.RLock()
 	peer, ok := i.peers[target]

@@ -48,6 +48,8 @@ type Transport interface {
 	// Sync sends the appropriate RPC to the target node.
 	Sync(target string, args *SyncRequest, resp *SyncResponse) error
 
+	EagerSync(target string, args *EagerSyncRequest, resp *EagerSyncResponse) error
+
 	// Close permanently closes a transport, stopping
 	// any associated goroutines and freeing other resources.
 	Close() error

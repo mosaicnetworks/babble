@@ -102,6 +102,70 @@ func TestNetworkTransport_Sync(t *testing.T) {
 	}
 }
 
+func TestNetworkTransport_EagerSync(t *testing.T) {
+	// Transport 1 is consumer
+	trans1, err := NewTCPTransport("127.0.0.1:0", nil, 2, time.Second, common.NewTestLogger(t))
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	defer trans1.Close()
+	rpcCh := trans1.Consumer()
+
+	// Make the RPC request
+	args := EagerSyncRequest{
+		From: "A",
+		Head: "head",
+		Events: []hashgraph.WireEvent{
+			hashgraph.WireEvent{
+				Body: hashgraph.WireBody{
+					Transactions:         [][]byte(nil),
+					SelfParentIndex:      1,
+					OtherParentCreatorID: 10,
+					OtherParentIndex:     0,
+					CreatorID:            9,
+				},
+			},
+		},
+	}
+	resp := EagerSyncResponse{
+		Success: true,
+	}
+
+	// Listen for a request
+	go func() {
+		select {
+		case rpc := <-rpcCh:
+			// Verify the command
+			req := rpc.Command.(*EagerSyncRequest)
+			if !reflect.DeepEqual(req, &args) {
+				t.Fatalf("command mismatch: %#v %#v", *req, args)
+			}
+
+			rpc.Respond(&resp, nil)
+
+		case <-time.After(200 * time.Millisecond):
+			t.Fatalf("timeout")
+		}
+	}()
+
+	// Transport 2 makes outbound request
+	trans2, err := NewTCPTransport("127.0.0.1:0", nil, 2, time.Second, common.NewTestLogger(t))
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	defer trans2.Close()
+
+	var out EagerSyncResponse
+	if err := trans2.EagerSync(trans1.LocalAddr(), &args, &out); err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	// Verify the response
+	if !reflect.DeepEqual(resp, out) {
+		t.Fatalf("command mismatch: %#v %#v", resp, out)
+	}
+}
+
 func TestNetworkTransport_PooledConn(t *testing.T) {
 	// Transport 1 is consumer
 	trans1, err := NewTCPTransport("127.0.0.1:0", nil, 2, time.Second, common.NewTestLogger(t))

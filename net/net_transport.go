@@ -30,6 +30,7 @@ import (
 
 const (
 	rpcSync uint8 = iota
+	rpcEagerSync
 
 	// DefaultTimeoutScale is the default TimeoutScale in a NetworkTransport.
 	DefaultTimeoutScale = 256 * 1024 // 256KB
@@ -59,14 +60,13 @@ The response is an error string followed by the response object,
 both are encoded using gob.
 */
 type NetworkTransport struct {
+	logger *logrus.Logger
+
 	connPool     map[string][]*netConn
 	connPoolLock sync.Mutex
+	maxPool      int
 
 	consumeCh chan RPC
-
-	maxPool int
-
-	logger *logrus.Logger
 
 	shutdown     bool
 	shutdownCh   chan struct{}
@@ -223,6 +223,11 @@ func (n *NetworkTransport) Sync(target string, args *SyncRequest, resp *SyncResp
 	return n.genericRPC(target, rpcSync, args, resp)
 }
 
+// EagerSync implements the Transport interface.
+func (n *NetworkTransport) EagerSync(target string, args *EagerSyncRequest, resp *EagerSyncResponse) error {
+	return n.genericRPC(target, rpcEagerSync, args, resp)
+}
+
 // genericRPC handles a simple request/response RPC.
 func (n *NetworkTransport) genericRPC(target string, rpcType uint8, args interface{}, resp interface{}) error {
 	// Get a conn
@@ -247,6 +252,51 @@ func (n *NetworkTransport) genericRPC(target string, rpcType uint8, args interfa
 		n.returnConn(conn)
 	}
 	return err
+}
+
+// sendRPC is used to encode and send the RPC.
+func sendRPC(conn *netConn, rpcType uint8, args interface{}) error {
+	// Write the request type
+	if err := conn.w.WriteByte(rpcType); err != nil {
+		conn.Release()
+		return err
+	}
+
+	// Send the request
+	if err := conn.enc.Encode(args); err != nil {
+		conn.Release()
+		return err
+	}
+
+	// Flush
+	if err := conn.w.Flush(); err != nil {
+		conn.Release()
+		return err
+	}
+	return nil
+}
+
+// decodeResponse is used to decode an RPC response and reports whether
+// the connection can be reused.
+func decodeResponse(conn *netConn, resp interface{}) (bool, error) {
+	// Decode the error if any
+	var rpcError string
+	if err := conn.dec.Decode(&rpcError); err != nil {
+		conn.Release()
+		return false, err
+	}
+
+	// Decode the response
+	if err := conn.dec.Decode(resp); err != nil {
+		conn.Release()
+		return false, err
+	}
+
+	// Format an error if any
+	if rpcError != "" {
+		return true, fmt.Errorf(rpcError)
+	}
+	return true, nil
 }
 
 // listen is used to handling incoming connections.
@@ -315,7 +365,12 @@ func (n *NetworkTransport) handleCommand(r *bufio.Reader, dec *gob.Decoder, enc 
 			return err
 		}
 		rpc.Command = &req
-
+	case rpcEagerSync:
+		var req EagerSyncRequest
+		if err := dec.Decode(&req); err != nil {
+			return err
+		}
+		rpc.Command = &req
 	default:
 		return fmt.Errorf("unknown rpc type %d", rpcType)
 	}
@@ -345,51 +400,6 @@ func (n *NetworkTransport) handleCommand(r *bufio.Reader, dec *gob.Decoder, enc 
 		}
 	case <-n.shutdownCh:
 		return ErrTransportShutdown
-	}
-	return nil
-}
-
-// decodeResponse is used to decode an RPC response and reports whether
-// the connection can be reused.
-func decodeResponse(conn *netConn, resp interface{}) (bool, error) {
-	// Decode the error if any
-	var rpcError string
-	if err := conn.dec.Decode(&rpcError); err != nil {
-		conn.Release()
-		return false, err
-	}
-
-	// Decode the response
-	if err := conn.dec.Decode(resp); err != nil {
-		conn.Release()
-		return false, err
-	}
-
-	// Format an error if any
-	if rpcError != "" {
-		return true, fmt.Errorf(rpcError)
-	}
-	return true, nil
-}
-
-// sendRPC is used to encode and send the RPC.
-func sendRPC(conn *netConn, rpcType uint8, args interface{}) error {
-	// Write the request type
-	if err := conn.w.WriteByte(rpcType); err != nil {
-		conn.Release()
-		return err
-	}
-
-	// Send the request
-	if err := conn.enc.Encode(args); err != nil {
-		conn.Release()
-		return err
-	}
-
-	// Flush
-	if err := conn.w.Flush(); err != nil {
-		conn.Release()
-		return err
 	}
 	return nil
 }
