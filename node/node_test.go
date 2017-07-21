@@ -263,7 +263,7 @@ func TestAddTransaction(t *testing.T) {
 
 	//check the Tx was removed from the transactionPool and added to the new Head
 
-	if l := len(node0.transactionPool); l > 0 {
+	if l := len(node0.core.transactionPool); l > 0 {
 		t.Fatalf("node0's transactionPool should have 0 elements, not %d\n", l)
 	}
 

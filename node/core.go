@@ -37,6 +37,8 @@ type Core struct {
 	Head                string
 	Seq                 int
 
+	transactionPool [][]byte
+
 	logger *logrus.Logger
 }
 
@@ -63,6 +65,7 @@ func NewCore(
 		hg:                  hg.NewHashgraph(participants, store, commitCh, logger),
 		participants:        participants,
 		reverseParticipants: reverseParticipants,
+		transactionPool:     [][]byte{},
 		logger:              logger,
 	}
 	return core
@@ -131,11 +134,11 @@ func (c *Core) Diff(known map[int]int) (head string, events []hg.Event, err erro
 	return head, unknown, nil
 }
 
-func (c *Core) Sync(otherHead string, unknown []hg.WireEvent, payload [][]byte) error {
+func (c *Core) Sync(otherHead string, unknown []hg.WireEvent) error {
 
 	c.logger.WithFields(logrus.Fields{
 		"unknown": len(unknown),
-		"payload": len(payload),
+		"txPool":  len(c.transactionPool),
 	}).Debug("Sync")
 
 	//add unknown events
@@ -151,28 +154,43 @@ func (c *Core) Sync(otherHead string, unknown []hg.WireEvent, payload [][]byte) 
 
 	//create new event with self head and other head
 	//only if there are pending loaded events or the transaction pool is not empty
-	if c.hg.PendingLoadedEvents > 0 || len(payload) > 0 {
-		newHead := hg.NewEvent(payload,
+	if c.hg.PendingLoadedEvents > 0 || len(c.transactionPool) > 0 {
+		newHead := hg.NewEvent(c.transactionPool,
 			[]string{c.Head, otherHead},
 			c.PubKey(), c.Seq)
 
 		if err := c.SignAndInsertSelfEvent(newHead); err != nil {
 			return fmt.Errorf("Error inserting new head: %s", err)
 		}
+
+		//empty the transaction pool
+		c.transactionPool = [][]byte{}
 	}
 
 	return nil
 }
 
-func (c *Core) AddSelfEvent(payload [][]byte) error {
+func (c *Core) AddSelfEvent() error {
+	if len(c.transactionPool) == 0 {
+		c.logger.Debug("Empty TxPool")
+		return nil
+	}
+
 	//create new event with self head and empty other parent
-	newHead := hg.NewEvent(payload,
+	//empty transaction pool in its payload
+	newHead := hg.NewEvent(c.transactionPool,
 		[]string{c.Head, ""},
 		c.PubKey(), c.Seq)
 
 	if err := c.SignAndInsertSelfEvent(newHead); err != nil {
 		return fmt.Errorf("Error inserting new head: %s", err)
 	}
+
+	c.logger.WithFields(logrus.Fields{
+		"transactions": len(c.transactionPool),
+	}).Debug("Created Self-Event")
+
+	c.transactionPool = [][]byte{}
 
 	return nil
 }
@@ -220,6 +238,10 @@ func (c *Core) RunConsensus() error {
 	}
 
 	return nil
+}
+
+func (c *Core) AddTransactions(txs [][]byte) {
+	c.transactionPool = append(c.transactionPool, txs...)
 }
 
 func (c *Core) GetHead() (hg.Event, error) {
@@ -278,4 +300,8 @@ func (c *Core) GetConsensusTransactionsCount() int {
 
 func (c *Core) GetLastCommitedRoundEventsCount() int {
 	return c.hg.LastCommitedRoundEvents
+}
+
+func (c *Core) NeedGossip() bool {
+	return c.hg.PendingLoadedEvents > 0 || len(c.transactionPool) > 0
 }

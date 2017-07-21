@@ -398,7 +398,9 @@ func synchronizeCores(cores []Core, from int, to int, payload [][]byte) error {
 		return err
 	}
 
-	return cores[to].Sync(toHead, unknownWire, payload)
+	cores[to].AddTransactions(payload)
+
+	return cores[to].Sync(toHead, unknownWire)
 }
 
 func syncAndRunConsensus(cores []Core, from int, to int, payload [][]byte) error {

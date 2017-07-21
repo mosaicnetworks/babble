@@ -58,8 +58,6 @@ type Node struct {
 	shutdownCh   chan struct{}
 	shutdownLock sync.Mutex
 
-	transactionPool [][]byte
-
 	start        time.Time
 	syncRequests int
 	syncErrors   int
@@ -85,19 +83,18 @@ func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans
 	peerSelector := NewRandomPeerSelector(participants, localAddr)
 
 	node := Node{
-		id:              id,
-		conf:            conf,
-		core:            &core,
-		localAddr:       localAddr,
-		logger:          conf.Logger.WithField("node", localAddr),
-		peerSelector:    peerSelector,
-		trans:           trans,
-		netCh:           trans.Consumer(),
-		proxy:           proxy,
-		submitCh:        proxy.SubmitCh(),
-		commitCh:        commitCh,
-		shutdownCh:      make(chan struct{}),
-		transactionPool: [][]byte{},
+		id:           id,
+		conf:         conf,
+		core:         &core,
+		localAddr:    localAddr,
+		logger:       conf.Logger.WithField("node", localAddr),
+		peerSelector: peerSelector,
+		trans:        trans,
+		netCh:        trans.Consumer(),
+		proxy:        proxy,
+		submitCh:     proxy.SubmitCh(),
+		commitCh:     commitCh,
+		shutdownCh:   make(chan struct{}),
 	}
 	return node
 }
@@ -136,10 +133,10 @@ func (n *Node) Run(gossip bool) {
 			heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
 		case t := <-n.submitCh:
 			n.logger.Debug("Adding Transaction")
-			n.transactionPool = append(n.transactionPool, t)
+			n.addTransaction(t)
 		case events := <-n.commitCh:
 			n.logger.WithField("events", len(events)).Debug("Committing Events")
-			if err := n.Commit(events); err != nil {
+			if err := n.commit(events); err != nil {
 				n.logger.WithField("error", err).Error("Committing Event")
 			}
 		case <-n.shutdownCh:
@@ -152,10 +149,8 @@ func (n *Node) Run(gossip bool) {
 func (n *Node) processRPC(rpc net.RPC) {
 	switch cmd := rpc.Command.(type) {
 	case *net.SyncRequest:
-		n.logger.WithField("from", cmd.From).Debug("Processing SyncRequest")
 		n.processSyncRequest(rpc, cmd)
 	case *net.EagerSyncRequest:
-		n.logger.WithField("from", cmd.From).Debug("Processing EagerSyncRequest")
 		n.processEagerSyncRequest(rpc, cmd)
 	default:
 		n.logger.WithField("cmd", rpc.Command).Error("Unexpected RPC command")
@@ -169,28 +164,31 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 		"known": cmd.Known,
 	}).Debug("SyncRequest")
 
+	//Compute Diff
 	start := time.Now()
 	n.coreLock.Lock()
 	head, diff, err := n.core.Diff(cmd.Known)
 	n.coreLock.Unlock()
 	elapsed := time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Diff()")
-
 	if err != nil {
 		n.logger.WithField("error", err).Error("Calculating Diff")
 		return
 	}
 
+	//Convert to WireEvents
 	wireEvents, err := n.core.ToWire(diff)
 	if err != nil {
 		n.logger.WithField("error", err).Debug("Converting to WireEvent")
 		return
 	}
 
+	//Get Self Known
 	n.coreLock.Lock()
 	known := n.core.Known()
 	n.coreLock.Unlock()
 
+	//Build SyncResponse and respond
 	n.logger.WithField("events", len(diff)).Debug("Responding to SyncRequest")
 	resp := &net.SyncResponse{
 		From:   n.localAddr,
@@ -225,35 +223,30 @@ func (n *Node) preGossip() (bool, error) {
 	n.coreLock.Lock()
 	defer n.coreLock.Unlock()
 
-	pendingLoadedEvents := n.core.GetPendingLoadedEvents()
-	pendingTransactions := len(n.transactionPool)
-	if pendingLoadedEvents == 0 &&
-		pendingTransactions == 0 {
+	//Check if it is necessary to gossip
+	needGossip := n.core.NeedGossip()
+	if !needGossip {
 		n.logger.Debug("Nothing to gossip")
 		return false, nil
 	}
 
-	if pendingTransactions > 0 {
-		if err := n.core.AddSelfEvent(n.transactionPool); err != nil {
-			n.logger.WithField("error", err).Error("Adding SelfEvent")
-			return false, err
-		}
-		n.transactionPool = [][]byte{}
+	//If the transaction pool is not empty, create a new self-event and empty the
+	//transaction pool in its payload
+	if err := n.core.AddSelfEvent(); err != nil {
+		n.logger.WithField("error", err).Error("Adding SelfEvent")
+		return false, err
 	}
-
-	n.logger.WithFields(logrus.Fields{
-		"transactions": pendingTransactions,
-	}).Debug("Self-Event")
 
 	return true, nil
 }
 
 func (n *Node) gossip(peerAddr string) error {
-
+	//Compute Known
 	n.coreLock.Lock()
 	known := n.core.Known()
 	n.coreLock.Unlock()
 
+	//Send SyncRequest
 	start := time.Now()
 	resp, err := n.requestSync(peerAddr, known)
 	elapsed := time.Since(start)
@@ -262,38 +255,38 @@ func (n *Node) gossip(peerAddr string) error {
 		n.logger.WithField("error", err).Error("requestSync()")
 		return err
 	}
-
 	n.logger.WithFields(logrus.Fields{
 		"events": fmt.Sprintf("%#v", resp.Events),
 		"known":  fmt.Sprintf("%#v", resp.Known),
 	}).Debug("SyncResponse")
 
+	//Add Events to Hashgraph and create new Head if necessary
 	err = n.sync(resp.Head, resp.Events)
 	if err != nil {
 		n.logger.WithField("error", err).Error("sync()")
 		return err
 	}
 
-	//compute diff
+	//Compute Diff
 	start = time.Now()
 	n.coreLock.Lock()
 	head, diff, err := n.core.Diff(resp.Known)
 	n.coreLock.Unlock()
 	elapsed = time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Diff()")
-
 	if err != nil {
 		n.logger.WithField("error", err).Error("Calculating Diff")
 		return err
 	}
 
+	//Convert to WireEvents
 	wireEvents, err := n.core.ToWire(diff)
 	if err != nil {
 		n.logger.WithField("error", err).Debug("Converting to WireEvent")
 		return err
 	}
 
-	//eager sync request
+	//Create and Send EagerSyncRequest
 	start = time.Now()
 	resp2, err := n.requestEagerSync(peerAddr, head, wireEvents)
 	elapsed = time.Since(start)
@@ -342,17 +335,16 @@ func (n *Node) sync(head string, events []hg.WireEvent) error {
 	n.coreLock.Lock()
 	defer n.coreLock.Unlock()
 
+	//Insert Events in Hashgraph and create new Head if necessary
 	start := time.Now()
-
-	err := n.core.Sync(head, events, n.transactionPool)
+	err := n.core.Sync(head, events)
 	elapsed := time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed Sync()")
 	if err != nil {
 		return err
 	}
 
-	n.transactionPool = [][]byte{}
-
+	//Run consensus methods
 	start = time.Now()
 	err = n.core.RunConsensus()
 	elapsed = time.Since(start)
@@ -364,7 +356,7 @@ func (n *Node) sync(head string, events []hg.WireEvent) error {
 	return nil
 }
 
-func (n *Node) Commit(events []hg.Event) error {
+func (n *Node) commit(events []hg.Event) error {
 	for _, ev := range events {
 		for _, tx := range ev.Transactions() {
 			if err := n.proxy.CommitTx(tx); err != nil {
@@ -373,6 +365,12 @@ func (n *Node) Commit(events []hg.Event) error {
 		}
 	}
 	return nil
+}
+
+func (n *Node) addTransaction(tx []byte) {
+	n.coreLock.Lock()
+	defer n.coreLock.Unlock()
+	n.core.AddTransactions([][]byte{tx})
 }
 
 func (n *Node) Shutdown() {
@@ -410,7 +408,7 @@ func (n *Node) GetStats() map[string]string {
 		"consensus_events":       strconv.Itoa(consensusEvents),
 		"consensus_transactions": strconv.Itoa(n.core.GetConsensusTransactionsCount()),
 		"undetermined_events":    strconv.Itoa(len(n.core.GetUndeterminedEvents())),
-		"transaction_pool":       strconv.Itoa(len(n.transactionPool)),
+		"transaction_pool":       strconv.Itoa(len(n.core.transactionPool)),
 		"num_peers":              strconv.Itoa(len(n.peerSelector.Peers())),
 		"sync_rate":              strconv.FormatFloat(n.SyncRate(), 'f', 2, 64),
 		"events_per_second":      strconv.FormatFloat(consensusEventsPerSecond, 'f', 2, 64),
