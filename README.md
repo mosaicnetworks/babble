@@ -106,19 +106,22 @@ The content of "params" is the base64 encoding of the raw transaction bytes ("cl
 ### Transport
 
 Babble nodes communicate with other Babble nodes in a fully connected Peer To Peer  
-network. Nodes gossip by repeatedly choosing another node at random and asking that  
-node for all the new information it has about the Hashgraph. The gossip protocol  
-is extremely simple and serves the dual purpose of gossiping about transactions  
-and about the gossip itself (the Hashgraph). The Hashraph contains enough information  
-to compute a consensus ordering of transactions. 
+network. Nodes gossip by repeatedly choosing another node at random and telling  
+eachother what they know about the  Hashgraph. The gossip protocol is extremely  
+simple and serves the dual purpose of gossiping about transactions and about the  
+gossip itself (the Hashgraph). The Hashraph contains enough information to compute  
+a consensus ordering of transactions. 
 
-The communication mechanism is a custom RPC protocol over TCP connections. At the  
-moment, there is only one type of RPC command: **Sync**. When node **A** wants to  
-sync with node **B**, it sends a **SyncRequest** to **B** containing what it knows  
+The communication mechanism is a custom RPC protocol over TCP connections. It  
+implements a Pull + Push gossip systerm. At the moment, there are two types of RPC  
+commands: **Sync** and **EagerSync**. When node **A** wants to sync with node **B**,  
+it sends a **SyncRequest** to **B** containing a description of what it knows  
 about the Hashgraph. **B** computes what it knows that **A** doesn't know and  
 returns a **SyncResponse** with the corresponding events in topological order.  
 Upon receiving the **SyncResponse**, **A** updates its Hashgraph accordingly and  
-calculates the consensus order.
+calculates the consensus order. Then, **A** sends an **EagerSyncRequest** to **B**  
+with the Events that it knowns and **B** doesn't. Upon receiving the **EagerSyncRequest**,  
+**B** updates its Hashgraph and runs the consensus methods.
 
 The list of peers must be predefined and known to all peers. At the moment, it is  
 not possible to dynamically modify the list of peers while the network is running  

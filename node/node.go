@@ -141,7 +141,7 @@ func (n *Node) Run(gossip bool) {
 		case t := <-n.submitCh:
 			n.logger.Debug("Adding Transaction")
 			n.addTransaction(t)
-			if n.core.NeedGossip() && heartbeatTimer == nil {
+			if heartbeatTimer == nil {
 				heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
 			}
 		case events := <-n.commitCh:
@@ -250,6 +250,10 @@ func (n *Node) preGossip() (bool, error) {
 }
 
 func (n *Node) gossip(peerAddr string) error {
+	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	//PULL
+	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 	//Compute Known
 	n.coreLock.Lock()
 	known := n.core.Known()
@@ -275,6 +279,10 @@ func (n *Node) gossip(peerAddr string) error {
 		n.logger.WithField("error", err).Error("sync()")
 		return err
 	}
+
+	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	//PUSH
+	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 	//Compute Diff
 	start = time.Now()
