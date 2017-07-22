@@ -94,7 +94,6 @@ func (c *DummySocketClient) Run() {
 		case tx := <-c.babbleProxy.CommitCh():
 			c.logger.Debug("CommitTx")
 			c.state.CommitTx(tx)
-		default:
 		}
 	}
 }

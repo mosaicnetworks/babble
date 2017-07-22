@@ -154,7 +154,7 @@ func (c *Core) Sync(otherHead string, unknown []hg.WireEvent) error {
 
 	//create new event with self head and other head
 	//only if there are pending loaded events or the transaction pool is not empty
-	if c.hg.PendingLoadedEvents > 0 || len(c.transactionPool) > 0 {
+	if len(unknown) > 0 || len(c.transactionPool) > 0 {
 		newHead := hg.NewEvent(c.transactionPool,
 			[]string{c.Head, otherHead},
 			c.PubKey(), c.Seq)

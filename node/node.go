@@ -121,6 +121,9 @@ func (n *Node) Run(gossip bool) {
 		case rpc := <-n.netCh:
 			n.logger.Debug("Processing RPC")
 			n.processRPC(rpc)
+			if n.core.NeedGossip() && heartbeatTimer == nil {
+				heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
+			}
 		case <-heartbeatTimer:
 			if gossip {
 				proceed, err := n.preGossip()
@@ -130,10 +133,17 @@ func (n *Node) Run(gossip bool) {
 					go n.gossip(peer.NetAddr)
 				}
 			}
-			heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
+			if n.core.NeedGossip() {
+				heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
+			} else {
+				heartbeatTimer = nil
+			}
 		case t := <-n.submitCh:
 			n.logger.Debug("Adding Transaction")
 			n.addTransaction(t)
+			if n.core.NeedGossip() && heartbeatTimer == nil {
+				heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
+			}
 		case events := <-n.commitCh:
 			n.logger.WithField("events", len(events)).Debug("Committing Events")
 			if err := n.commit(events); err != nil {
@@ -141,7 +151,6 @@ func (n *Node) Run(gossip bool) {
 			}
 		case <-n.shutdownCh:
 			return
-		default:
 		}
 	}
 }
