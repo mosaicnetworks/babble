@@ -8,15 +8,26 @@ type InmemStore struct {
 	roundCache             *common.LRU
 	consensusCache         *common.RollingList
 	participantEventsCache *ParticipantEventsCache
+	roots                  map[string]Root
 }
 
 func NewInmemStore(participants map[string]int, cacheSize int) *InmemStore {
+	roots := make(map[string]Root)
+	for pk := range participants {
+		roots[pk] = Root{
+			X:     "",
+			Y:     "",
+			Index: -1,
+			Round: 0,
+		}
+	}
 	return &InmemStore{
 		cacheSize:              cacheSize,
 		eventCache:             common.NewLRU(cacheSize, nil),
 		roundCache:             common.NewLRU(cacheSize, nil),
 		consensusCache:         common.NewRollingList(cacheSize),
 		participantEventsCache: NewParticipantEventsCache(cacheSize, participants),
+		roots: roots,
 	}
 }
 
@@ -58,7 +69,17 @@ func (s *InmemStore) ParticipantEvent(particant string, index int) (string, erro
 }
 
 func (s *InmemStore) LastFrom(participant string) (string, error) {
-	return s.participantEventsCache.GetLast(participant)
+	last, err := s.participantEventsCache.GetLast(participant)
+	if err != nil {
+		return "", err
+	}
+	if last == "" {
+		root, ok := s.roots[participant]
+		if ok {
+			last = root.X
+		}
+	}
+	return last, nil
 }
 
 func (s *InmemStore) addParticpantEvent(participant string, hash string) error {
@@ -120,6 +141,14 @@ func (s *InmemStore) RoundEvents(r int) int {
 		return 0
 	}
 	return len(round.Events)
+}
+
+func (s *InmemStore) GetRoot(participant string) (Root, error) {
+	res, ok := s.roots[participant]
+	if !ok {
+		return Root{}, ErrKeyNotFound
+	}
+	return res, nil
 }
 
 func (s *InmemStore) Close() error {

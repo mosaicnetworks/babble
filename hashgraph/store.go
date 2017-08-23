@@ -23,4 +23,5 @@ type Store interface {
 	Rounds() int
 	RoundWitnesses(int) []string
 	RoundEvents(int) int
+	GetRoot(string) (Root, error)
 }
