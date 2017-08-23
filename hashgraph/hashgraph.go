@@ -217,9 +217,6 @@ func (h *Hashgraph) parentRound(x string) int {
 	if _, err := h.Store.GetEvent(ex.SelfParent()); err != nil {
 		return 0
 	}
-	if _, err := h.Store.GetEvent(ex.OtherParent()); err != nil {
-		return 0
-	}
 	spRound := h.Round(ex.SelfParent())
 	opRound := h.Round(ex.OtherParent())
 
