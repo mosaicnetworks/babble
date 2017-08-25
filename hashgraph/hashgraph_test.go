@@ -335,7 +335,7 @@ func TestFork(t *testing.T) {
 		event := NewEvent([][]byte{}, []string{"", ""}, node.Pub, 0)
 		event.Sign(node.Key)
 		index[fmt.Sprintf("e%d", i)] = event.Hex()
-		hashgraph.InsertEvent(event)
+		hashgraph.InsertEvent(event, true)
 		nodes = append(nodes, node)
 	}
 
@@ -343,7 +343,7 @@ func TestFork(t *testing.T) {
 	eventA := NewEvent([][]byte{[]byte("yo")}, []string{"", ""}, nodes[2].Pub, 0)
 	eventA.Sign(nodes[2].Key)
 	index["a"] = eventA.Hex()
-	if err := hashgraph.InsertEvent(eventA); err == nil {
+	if err := hashgraph.InsertEvent(eventA, true); err == nil {
 		t.Fatal("InsertEvent should return error for 'a'")
 	}
 
@@ -352,7 +352,7 @@ func TestFork(t *testing.T) {
 		nodes[0].Pub, 1)
 	event01.Sign(nodes[0].Key)
 	index["e01"] = event01.Hex()
-	if err := hashgraph.InsertEvent(event01); err == nil {
+	if err := hashgraph.InsertEvent(event01, true); err == nil {
 		t.Fatal("InsertEvent should return error for e01")
 	}
 
@@ -361,7 +361,7 @@ func TestFork(t *testing.T) {
 		nodes[2].Pub, 1)
 	event20.Sign(nodes[2].Key)
 	index["e20"] = event20.Hex()
-	if err := hashgraph.InsertEvent(event20); err == nil {
+	if err := hashgraph.InsertEvent(event20, true); err == nil {
 		t.Fatal("InsertEvent should return error for e20")
 	}
 }
@@ -452,7 +452,7 @@ func initRoundHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 
 	hashgraph := NewHashgraph(participants, NewInmemStore(participants, cacheSize), nil, common.NewTestLogger(t))
 	for i, ev := range *orderedEvents {
-		if err := hashgraph.InsertEvent(ev); err != nil {
+		if err := hashgraph.InsertEvent(ev, true); err != nil {
 			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
 		}
 	}
@@ -1082,7 +1082,7 @@ func initConsensusHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string
 
 	hashgraph := NewHashgraph(participants, NewInmemStore(participants, cacheSize), nil, logger)
 	for i, ev := range *orderedEvents {
-		if err := hashgraph.InsertEvent(ev); err != nil {
+		if err := hashgraph.InsertEvent(ev, true); err != nil {
 			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
 		}
 	}
@@ -1220,6 +1220,65 @@ func TestKnown(t *testing.T) {
 	for _, id := range h.Participants {
 		if l := known[id]; l != expectedKnown[id] {
 			t.Fatalf("Known[%d] should be %d, not %d", id, expectedKnown[id], l)
+		}
+	}
+}
+
+func TestReset(t *testing.T) {
+	h, index := initConsensusHashgraph(common.NewTestLogger(t))
+
+	evs := []string{"g1", "g0", "g2", "g10", "g21", "o02", "g02", "h1", "h0", "h2"}
+
+	backup := map[string]Event{}
+	for _, ev := range evs {
+		event, err := h.Store.GetEvent(index[ev])
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		copyEvent := Event{
+			Body: event.Body,
+			R:    event.R,
+			S:    event.S,
+		}
+
+		backup[ev] = copyEvent
+	}
+
+	roots := map[string]Root{}
+	roots[h.ReverseParticipants[0]] = Root{
+		X:     index["f02b"],
+		Y:     index["g1"],
+		Index: 4,
+		Round: 2,
+		Others: map[string]string{
+			index["o02"]: index["f21"],
+		},
+	}
+	roots[h.ReverseParticipants[1]] = Root{
+		X:     index["f10"],
+		Y:     index["f02b"],
+		Index: 4,
+		Round: 2,
+	}
+	roots[h.ReverseParticipants[2]] = Root{
+		X:     index["f21"],
+		Y:     index["g1"],
+		Index: 4,
+		Round: 2,
+	}
+
+	err := h.Reset(roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, k := range evs {
+		if err := h.InsertEvent(backup[k], false); err != nil {
+			t.Fatalf("Error inserting %s in reset Hashgraph: %v", k, err)
+		}
+		if _, err := h.Store.GetEvent(index[k]); err != nil {
+			t.Fatalf("Error fetching %s after inserting it in reset Hashgraph: %v", k, err)
 		}
 	}
 }

@@ -24,4 +24,5 @@ type Store interface {
 	RoundWitnesses(int) []string
 	RoundEvents(int) int
 	GetRoot(string) (Root, error)
+	Reset(map[string]Root) error
 }

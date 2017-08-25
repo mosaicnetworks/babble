@@ -320,7 +320,7 @@ func (h *Hashgraph) RoundDiff(x, y string) (int, error) {
 	return xRound - yRound, nil
 }
 
-func (h *Hashgraph) InsertEvent(event Event) error {
+func (h *Hashgraph) InsertEvent(event Event, setWireInfo bool) error {
 	//verify signature
 	if ok, err := event.Verify(); !ok {
 		if err != nil {
@@ -340,8 +340,10 @@ func (h *Hashgraph) InsertEvent(event Event) error {
 	event.topologicalIndex = h.topologicalIndex
 	h.topologicalIndex++
 
-	if err := h.SetWireInfo(&event); err != nil {
-		return err
+	if setWireInfo {
+		if err := h.SetWireInfo(&event); err != nil {
+			return err
+		}
 	}
 
 	if err := h.InitEventCoordinates(&event); err != nil {
@@ -477,7 +479,7 @@ func (h *Hashgraph) UpdateAncestorFirstDescendant(event Event) error {
 		for ah != "" {
 			a, err := h.Store.GetEvent(ah)
 			if err != nil {
-				return err
+				break
 			}
 			if a.firstDescendants[fakeCreatorID].index == math.MaxInt64 {
 				a.firstDescendants[fakeCreatorID] = EventCoordinates{index: index, hash: hash}
@@ -780,6 +782,26 @@ func (h *Hashgraph) ConsensusEvents() []string {
 //number of events per participants
 func (h *Hashgraph) Known() map[int]int {
 	return h.Store.Known()
+}
+
+func (h *Hashgraph) Reset(roots map[string]Root) error {
+	if err := h.Store.Reset(roots); err != nil {
+		return err
+	}
+
+	h.UndeterminedEvents = []string{}
+	h.PendingLoadedEvents = 0
+	h.topologicalIndex = 0
+
+	cacheSize := h.Store.CacheSize()
+	h.ancestorCache = common.NewLRU(cacheSize, nil)
+	h.selfAncestorCache = common.NewLRU(cacheSize, nil)
+	h.oldestSelfAncestorCache = common.NewLRU(cacheSize, nil)
+	h.stronglySeeCache = common.NewLRU(cacheSize, nil)
+	h.parentRoundCache = common.NewLRU(cacheSize, nil)
+	h.roundCache = common.NewLRU(cacheSize, nil)
+
+	return nil
 }
 
 func middleBit(ehex string) bool {

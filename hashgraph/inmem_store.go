@@ -151,6 +151,15 @@ func (s *InmemStore) GetRoot(participant string) (Root, error) {
 	return res, nil
 }
 
+func (s *InmemStore) Reset(roots map[string]Root) error {
+	s.roots = roots
+	s.eventCache = common.NewLRU(s.cacheSize, nil)
+	s.roundCache = common.NewLRU(s.cacheSize, nil)
+	s.consensusCache = common.NewRollingList(s.cacheSize)
+	err := s.participantEventsCache.Reset()
+	return err
+}
+
 func (s *InmemStore) Close() error {
 	return nil
 }

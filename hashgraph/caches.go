@@ -98,3 +98,12 @@ func (pec *ParticipantEventsCache) Known() map[int]int {
 	}
 	return known
 }
+
+func (pec *ParticipantEventsCache) Reset() error {
+	items := make(map[string]*common.RollingList)
+	for pk, _ := range pec.participants {
+		items[pk] = common.NewRollingList(pec.size)
+	}
+	pec.participantEvents = items
+	return nil
+}

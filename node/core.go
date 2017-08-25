@@ -76,7 +76,7 @@ func (c *Core) SignAndInsertSelfEvent(event hg.Event) error {
 	if err := event.Sign(c.key); err != nil {
 		return err
 	}
-	if err := c.InsertEvent(event); err != nil {
+	if err := c.InsertEvent(event, true); err != nil {
 		return err
 	}
 	c.Head = event.Hex()
@@ -84,8 +84,8 @@ func (c *Core) SignAndInsertSelfEvent(event hg.Event) error {
 	return nil
 }
 
-func (c *Core) InsertEvent(event hg.Event) error {
-	return c.hg.InsertEvent(event)
+func (c *Core) InsertEvent(event hg.Event, setWireInfo bool) error {
+	return c.hg.InsertEvent(event, setWireInfo)
 }
 
 func (c *Core) Known() map[int]int {
@@ -132,7 +132,7 @@ func (c *Core) Sync(otherHead string, unknown []hg.WireEvent) error {
 		if err != nil {
 			return err
 		}
-		if err := c.InsertEvent(*ev); err != nil {
+		if err := c.InsertEvent(*ev, false); err != nil {
 			return err
 		}
 	}

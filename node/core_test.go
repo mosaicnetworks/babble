@@ -63,7 +63,7 @@ func initHashgraph(cores []Core, keys []*ecdsa.PrivateKey, index map[string]stri
 	for i := 0; i < len(cores); i++ {
 		if i != participant {
 			event, _ := cores[i].GetEvent(index[fmt.Sprintf("e%d", i)])
-			if err := cores[participant].InsertEvent(event); err != nil {
+			if err := cores[participant].InsertEvent(event, true); err != nil {
 				fmt.Printf("error inserting %s: %s\n", getName(index, event.Hex()), err)
 			}
 		}
@@ -102,7 +102,7 @@ func insertEvent(cores []Core, keys []*ecdsa.PrivateKey, index map[string]string
 		index[name] = cores[particant].Head
 	} else {
 		event.Sign(keys[creator])
-		if err := cores[particant].InsertEvent(event); err != nil {
+		if err := cores[particant].InsertEvent(event, true); err != nil {
 			return err
 		}
 		index[name] = event.Hex()
