@@ -3,6 +3,7 @@ package hashgraph
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"sort"
 	"testing"
 
 	"github.com/Sirupsen/logrus"
@@ -986,7 +987,7 @@ func initConsensusHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string
 	nodes[0].signAndAddEvent(eventf0, "f0", index, orderedEvents)
 
 	eventf2 := NewEvent([][]byte{},
-		[]string{index["e21b"], index["f1"]},
+		[]string{index["e21b"], index["f1b"]},
 		nodes[2].Pub,
 		3)
 	nodes[2].signAndAddEvent(eventf2, "f2", index, orderedEvents)
@@ -1279,6 +1280,129 @@ func TestReset(t *testing.T) {
 		}
 		if _, err := h.Store.GetEvent(index[k]); err != nil {
 			t.Fatalf("Error fetching %s after inserting it in reset Hashgraph: %v", k, err)
+		}
+	}
+
+	expectedKnown := map[int]int{
+		0: 8,
+		1: 7,
+		2: 7,
+	}
+
+	known := h.Known()
+	for _, id := range h.Participants {
+		if l := known[id]; l != expectedKnown[id] {
+			t.Fatalf("Known[%d] should be %d, not %d", id, expectedKnown[id], l)
+		}
+	}
+}
+
+func TestGetFrame(t *testing.T) {
+	h, index := initConsensusHashgraph(common.NewTestLogger(t))
+
+	h.DivideRounds()
+	h.DecideFame()
+	h.FindOrder()
+
+	expectedRoots := map[string]Root{}
+	expectedRoots[h.ReverseParticipants[0]] = Root{
+		X:      index["e02"],
+		Y:      index["f1b"],
+		Index:  1,
+		Round:  0,
+		Others: map[string]string{},
+	}
+	expectedRoots[h.ReverseParticipants[1]] = Root{
+		X:      index["e10"],
+		Y:      index["e02"],
+		Index:  1,
+		Round:  0,
+		Others: map[string]string{},
+	}
+	expectedRoots[h.ReverseParticipants[2]] = Root{
+		X:      index["e21b"],
+		Y:      index["f1b"],
+		Index:  2,
+		Round:  0,
+		Others: map[string]string{},
+	}
+
+	frame, err := h.GetFrame()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for p, r := range frame.Roots {
+		er, ok := expectedRoots[p]
+		if !ok {
+			t.Fatalf("No Root returned for %s", p)
+		}
+		if x := r.X; x != er.X {
+			t.Fatalf("Roots[%s].X should be %s, not %s", p, er.X, x)
+		}
+		if y := r.Y; y != er.Y {
+			t.Fatalf("Roots[%s].Y should be %s, not %s", p, er.Y, y)
+		}
+		if ind := r.Index; ind != er.Index {
+			t.Fatalf("Roots[%s].Index should be %d, not %d", p, er.Index, ind)
+		}
+		if ro := r.Round; ro != er.Round {
+			t.Fatalf("Roots[%s].Round should be %d, not %d", p, er.Round, ro)
+		}
+		if others := r.Others; !reflect.DeepEqual(others, er.Others) {
+			t.Fatalf("Roots[%s].Others should be %#v, not %#v", p, er.Others, others)
+		}
+
+	}
+
+	skip := map[string]int{
+		h.ReverseParticipants[0]: 1,
+		h.ReverseParticipants[1]: 1,
+		h.ReverseParticipants[2]: 2,
+	}
+
+	expectedEvents := []Event{}
+	for p, r := range frame.Roots {
+		ee, err := h.Store.ParticipantEvents(p, skip[p])
+		if err != nil {
+			t.Fatal(r)
+		}
+		for _, e := range ee {
+			ev, err := h.Store.GetEvent(e)
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedEvents = append(expectedEvents, ev)
+		}
+	}
+	sort.Sort(ByTopologicalOrder(expectedEvents))
+
+	if !reflect.DeepEqual(expectedEvents, frame.Events) {
+		t.Fatal("Frame.Events is not good")
+	}
+
+}
+
+func TestResetFromFrame(t *testing.T) {
+	h, _ := initConsensusHashgraph(common.NewTestLogger(t))
+
+	h.DivideRounds()
+	h.DecideFame()
+	h.FindOrder()
+
+	frame, err := h.GetFrame()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = h.Reset(frame.Roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, ev := range frame.Events {
+		if err := h.InsertEvent(ev, false); err != nil {
+			t.Fatalf("Error inserting %s in reset Hashgraph: %v", ev.Hex(), err)
 		}
 	}
 

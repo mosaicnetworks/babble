@@ -804,6 +804,76 @@ func (h *Hashgraph) Reset(roots map[string]Root) error {
 	return nil
 }
 
+func (h *Hashgraph) GetFrame() (Frame, error) {
+	lastConsensusRoundIndex := 0
+	if lcr := h.LastConsensusRound; lcr != nil {
+		lastConsensusRoundIndex = *lcr
+	}
+	rootRound := 0
+	if lastConsensusRoundIndex > 0 {
+		rootRound = lastConsensusRoundIndex - 1
+	}
+
+	lastConsensusRound, err := h.Store.GetRound(lastConsensusRoundIndex)
+	if err != nil {
+		return Frame{}, err
+	}
+
+	witnessHashes := lastConsensusRound.Witnesses()
+
+	events := []Event{}
+	roots := make(map[string]Root)
+	for _, wh := range witnessHashes {
+		w, err := h.Store.GetEvent(wh)
+		if err != nil {
+			return Frame{}, err
+		}
+		events = append(events, w)
+		roots[w.Creator()] = Root{
+			X:      w.SelfParent(),
+			Y:      w.OtherParent(),
+			Index:  w.Body.Index - 1,
+			Round:  rootRound,
+			Others: map[string]string{},
+		}
+
+		participantEvents, err := h.Store.ParticipantEvents(w.Creator(), w.Index())
+		if err != nil {
+			return Frame{}, err
+		}
+		for _, e := range participantEvents {
+			ev, err := h.Store.GetEvent(e)
+			if err != nil {
+				return Frame{}, err
+			}
+			events = append(events, ev)
+		}
+	}
+	sort.Sort(ByTopologicalOrder(events))
+
+	treated := map[string]bool{}
+	for _, ev := range events {
+		treated[ev.Hex()] = true
+		otherParent := ev.OtherParent()
+		if otherParent != "" {
+			opt, ok := treated[otherParent]
+			if !opt || !ok {
+				//check root
+				if ev.SelfParent() != roots[ev.Creator()].X {
+					roots[ev.Creator()].Others[ev.Hex()] = otherParent
+				}
+			}
+		}
+	}
+
+	frame := Frame{
+		Roots:  roots,
+		Events: events,
+	}
+
+	return frame, nil
+}
+
 func middleBit(ehex string) bool {
 	hash, err := hex.DecodeString(ehex[2:])
 	if err != nil {
