@@ -177,14 +177,14 @@ func TestSync(t *testing.T) {
 	*/
 
 	knownBy0 := cores[0].Known()
-	if k := knownBy0[cores[0].ID()]; k != 2 {
-		t.Fatalf("core 0 should have 2 events for core 0, not %d", k)
+	if k := knownBy0[cores[0].ID()]; k != 1 {
+		t.Fatalf("core 0 should have last-index 1 for core 0, not %d", k)
 	}
-	if k := knownBy0[cores[1].ID()]; k != 1 {
-		t.Fatalf("core 0 should have 1 events for core 1, not %d", k)
+	if k := knownBy0[cores[1].ID()]; k != 0 {
+		t.Fatalf("core 0 should have last-index 0 for core 1, not %d", k)
 	}
-	if k := knownBy0[cores[2].ID()]; k != 0 {
-		t.Fatalf("core 0 should have 0 events for core 2, not %d", k)
+	if k := knownBy0[cores[2].ID()]; k != -1 {
+		t.Fatalf("core 0 should have last-index -1 for core 2, not %d", k)
 	}
 	core0Head, _ := cores[0].GetHead()
 	if core0Head.SelfParent() != index["e0"] {
@@ -215,14 +215,14 @@ func TestSync(t *testing.T) {
 	*/
 
 	knownBy2 := cores[2].Known()
-	if k := knownBy2[cores[0].ID()]; k != 2 {
-		t.Fatalf("core 2 should have 2 events for core 0, not %d", k)
+	if k := knownBy2[cores[0].ID()]; k != 1 {
+		t.Fatalf("core 2 should have last-index 1 for core 0, not %d", k)
 	}
-	if k := knownBy2[cores[1].ID()]; k != 1 {
-		t.Fatalf("core 2 should have 1 events for core 1, not %d", k)
+	if k := knownBy2[cores[1].ID()]; k != 0 {
+		t.Fatalf("core 2 should have last-index 0 core 1, not %d", k)
 	}
-	if k := knownBy2[cores[2].ID()]; k != 2 {
-		t.Fatalf("core 2 should have 2 events for core 2, not %d", k)
+	if k := knownBy2[cores[2].ID()]; k != 1 {
+		t.Fatalf("core 2 should have last-index 1 for core 2, not %d", k)
 	}
 	core2Head, _ := cores[2].GetHead()
 	if core2Head.SelfParent() != index["e2"] {
@@ -255,14 +255,14 @@ func TestSync(t *testing.T) {
 	*/
 
 	knownBy1 := cores[1].Known()
-	if k := knownBy1[cores[0].ID()]; k != 2 {
-		t.Fatalf("core 1 should have 2 events for core 0, not %d", k)
+	if k := knownBy1[cores[0].ID()]; k != 1 {
+		t.Fatalf("core 1 should have last-index 1 for core 0, not %d", k)
 	}
-	if k := knownBy1[cores[1].ID()]; k != 2 {
-		t.Fatalf("core 1 should have 2 events for core 1, not %d", k)
+	if k := knownBy1[cores[1].ID()]; k != 1 {
+		t.Fatalf("core 1 should have last-index 1 for core 1, not %d", k)
 	}
-	if k := knownBy1[cores[2].ID()]; k != 2 {
-		t.Fatalf("core 1 should have 2 events for core 2, not %d", k)
+	if k := knownBy1[cores[2].ID()]; k != 1 {
+		t.Fatalf("core 1 should have last-index 1 for core 2, not %d", k)
 	}
 	core1Head, _ := cores[1].GetHead()
 	if core1Head.SelfParent() != index["e1"] {

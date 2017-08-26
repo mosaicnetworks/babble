@@ -1211,9 +1211,9 @@ func TestKnown(t *testing.T) {
 	h, _ := initConsensusHashgraph(common.NewTestLogger(t))
 
 	expectedKnown := map[int]int{
-		0: 9,
-		1: 8,
-		2: 8,
+		0: 8,
+		1: 7,
+		2: 7,
 	}
 
 	known := h.Known()
@@ -1279,6 +1279,19 @@ func TestReset(t *testing.T) {
 		}
 		if _, err := h.Store.GetEvent(index[k]); err != nil {
 			t.Fatalf("Error fetching %s after inserting it in reset Hashgraph: %v", k, err)
+		}
+	}
+
+	expectedKnown := map[int]int{
+		0: 8,
+		1: 7,
+		2: 7,
+	}
+
+	known := h.Known()
+	for _, id := range h.Participants {
+		if l := known[id]; l != expectedKnown[id] {
+			t.Fatalf("Known[%d] should be %d, not %d", id, expectedKnown[id], l)
 		}
 	}
 }

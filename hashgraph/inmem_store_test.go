@@ -40,7 +40,9 @@ func TestInmemEvents(t *testing.T) {
 		items := []Event{}
 		for k := 0; k < testSize; k++ {
 			event := NewEvent([][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], k))},
-				[]string{"", ""}, p.pubKey, k)
+				[]string{"", ""},
+				p.pubKey,
+				k)
 			_ = event.Hex() //just to set private variables
 			items = append(items, event)
 			err := store.SetEvent(event)
@@ -64,9 +66,9 @@ func TestInmemEvents(t *testing.T) {
 		}
 	}
 
-	skip := 0
+	skipIndex := -1 //do not skip any indexes
 	for _, p := range participants {
-		pEvents, err := store.ParticipantEvents(p.hex, skip)
+		pEvents, err := store.ParticipantEvents(p.hex, skipIndex)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -74,7 +76,7 @@ func TestInmemEvents(t *testing.T) {
 			t.Fatalf("%s should have %d events, not %d", p.hex, testSize, l)
 		}
 
-		expectedEvents := events[p.hex][skip:]
+		expectedEvents := events[p.hex][skipIndex+1:]
 		for k, e := range expectedEvents {
 			if e.Hex() != pEvents[k] {
 				t.Fatalf("ParticipantEvents[%s][%d] should be %s, not %s",
@@ -85,7 +87,7 @@ func TestInmemEvents(t *testing.T) {
 
 	expectedKnown := make(map[int]int)
 	for _, p := range participants {
-		expectedKnown[p.id] = testSize
+		expectedKnown[p.id] = testSize - 1
 	}
 	known := store.Known()
 	if !reflect.DeepEqual(expectedKnown, known) {
@@ -109,7 +111,10 @@ func TestInmemRounds(t *testing.T) {
 	round := NewRoundInfo()
 	events := make(map[string]Event)
 	for _, p := range participants {
-		event := NewEvent([][]byte{}, []string{"", ""}, p.pubKey, 0)
+		event := NewEvent([][]byte{},
+			[]string{"", ""},
+			p.pubKey,
+			0)
 		events[p.hex] = event
 		round.AddEvent(event.Hex(), true)
 	}

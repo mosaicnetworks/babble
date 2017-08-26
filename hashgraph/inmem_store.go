@@ -1,12 +1,13 @@
 package hashgraph
 
-import "github.com/babbleio/babble/common"
+import cm "github.com/babbleio/babble/common"
 
 type InmemStore struct {
 	cacheSize              int
-	eventCache             *common.LRU
-	roundCache             *common.LRU
-	consensusCache         *common.RollingList
+	eventCache             *cm.LRU
+	roundCache             *cm.LRU
+	consensusCache         *cm.RollingIndex
+	totConsensusEvents     int
 	participantEventsCache *ParticipantEventsCache
 	roots                  map[string]Root
 }
@@ -23,9 +24,9 @@ func NewInmemStore(participants map[string]int, cacheSize int) *InmemStore {
 	}
 	return &InmemStore{
 		cacheSize:              cacheSize,
-		eventCache:             common.NewLRU(cacheSize, nil),
-		roundCache:             common.NewLRU(cacheSize, nil),
-		consensusCache:         common.NewRollingList(cacheSize),
+		eventCache:             cm.NewLRU(cacheSize, nil),
+		roundCache:             cm.NewLRU(cacheSize, nil),
+		consensusCache:         cm.NewRollingIndex(cacheSize),
 		participantEventsCache: NewParticipantEventsCache(cacheSize, participants),
 		roots: roots,
 	}
@@ -38,7 +39,7 @@ func (s *InmemStore) CacheSize() int {
 func (s *InmemStore) GetEvent(key string) (Event, error) {
 	res, ok := s.eventCache.Get(key)
 	if !ok {
-		return Event{}, ErrKeyNotFound
+		return Event{}, cm.NewStoreErr(cm.KeyNotFound, key)
 	}
 
 	return res.(Event), nil
@@ -47,11 +48,11 @@ func (s *InmemStore) GetEvent(key string) (Event, error) {
 func (s *InmemStore) SetEvent(event Event) error {
 	key := event.Hex()
 	_, err := s.GetEvent(key)
-	if err != nil && err != ErrKeyNotFound {
+	if err != nil && !cm.Is(err, cm.KeyNotFound) {
 		return err
 	}
-	if err == ErrKeyNotFound {
-		if err := s.addParticpantEvent(event.Creator(), key); err != nil {
+	if cm.Is(err, cm.KeyNotFound) {
+		if err := s.addParticpantEvent(event.Creator(), key, event.Index()); err != nil {
 			return err
 		}
 	}
@@ -82,9 +83,8 @@ func (s *InmemStore) LastFrom(participant string) (string, error) {
 	return last, nil
 }
 
-func (s *InmemStore) addParticpantEvent(participant string, hash string) error {
-	s.participantEventsCache.Add(participant, hash)
-	return nil
+func (s *InmemStore) addParticpantEvent(participant string, hash string, index int) error {
+	return s.participantEventsCache.Add(participant, hash, index)
 }
 
 func (s *InmemStore) Known() map[int]int {
@@ -92,7 +92,7 @@ func (s *InmemStore) Known() map[int]int {
 }
 
 func (s *InmemStore) ConsensusEvents() []string {
-	lastWindow, _ := s.consensusCache.Get()
+	lastWindow, _ := s.consensusCache.GetLastWindow()
 	res := []string{}
 	for _, item := range lastWindow {
 		res = append(res, item.(string))
@@ -101,12 +101,12 @@ func (s *InmemStore) ConsensusEvents() []string {
 }
 
 func (s *InmemStore) ConsensusEventsCount() int {
-	_, tot := s.consensusCache.Get()
-	return tot
+	return s.totConsensusEvents
 }
 
 func (s *InmemStore) AddConsensusEvent(key string) error {
-	s.consensusCache.Add(key)
+	s.consensusCache.Add(key, s.totConsensusEvents)
+	s.totConsensusEvents++
 	return nil
 }
 
@@ -153,9 +153,9 @@ func (s *InmemStore) GetRoot(participant string) (Root, error) {
 
 func (s *InmemStore) Reset(roots map[string]Root) error {
 	s.roots = roots
-	s.eventCache = common.NewLRU(s.cacheSize, nil)
-	s.roundCache = common.NewLRU(s.cacheSize, nil)
-	s.consensusCache = common.NewRollingList(s.cacheSize)
+	s.eventCache = cm.NewLRU(s.cacheSize, nil)
+	s.roundCache = cm.NewLRU(s.cacheSize, nil)
+	s.consensusCache = cm.NewRollingIndex(s.cacheSize)
 	err := s.participantEventsCache.Reset()
 	return err
 }

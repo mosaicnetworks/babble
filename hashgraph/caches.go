@@ -1,24 +1,30 @@
 package hashgraph
 
-import "github.com/babbleio/babble/common"
+import (
+	"fmt"
+
+	cm "github.com/babbleio/babble/common"
+)
 
 type Key struct {
 	x string
 	y string
 }
 
-//++++++++++++++++++++++++++++++++++++++++++++++++
-//PARTICIPANT EVENTS CACHE
+func (k Key) ToString() string {
+	return fmt.Sprintf("{%s, %s}", k.x, k.y)
+}
+
 type ParticipantEventsCache struct {
 	size              int
 	participants      map[string]int //[public key] => id
-	participantEvents map[string]*common.RollingList
+	participantEvents map[string]*cm.RollingIndex
 }
 
 func NewParticipantEventsCache(size int, participants map[string]int) *ParticipantEventsCache {
-	items := make(map[string]*common.RollingList)
+	items := make(map[string]*cm.RollingIndex)
 	for pk, _ := range participants {
-		items[pk] = common.NewRollingList(size)
+		items[pk] = cm.NewRollingIndex(size)
 	}
 	return &ParticipantEventsCache{
 		size:              size,
@@ -27,34 +33,22 @@ func NewParticipantEventsCache(size int, participants map[string]int) *Participa
 	}
 }
 
-func (pec *ParticipantEventsCache) Get(participant string, skip int) ([]string, error) {
+//return participant events with index > skip
+func (pec *ParticipantEventsCache) Get(participant string, skipIndex int) ([]string, error) {
 	pe, ok := pec.participantEvents[participant]
 	if !ok {
-		return []string{}, ErrKeyNotFound
+		return []string{}, cm.NewStoreErr(cm.KeyNotFound, participant)
 	}
 
-	cached, tot := pe.Get()
-
-	if skip >= tot {
-		return []string{}, nil
-	}
-
-	oldestCached := tot - len(cached)
-	if skip < oldestCached {
+	cached, err := pe.Get(skipIndex)
+	if err != nil {
 		//XXX TODO
 		//LOAD REST FROM FILE
-		return []string{}, ErrTooLate
-	}
-
-	//index of 'skipped' in RollingList
-	start := skip - oldestCached
-
-	if start >= len(cached) {
-		return []string{}, nil
+		return []string{}, err
 	}
 
 	res := []string{}
-	for k := start; k < len(cached); k++ {
+	for k := 0; k < len(cached); k++ {
 		res = append(res, cached[k].(string))
 	}
 	return res, nil
@@ -71,9 +65,9 @@ func (pec *ParticipantEventsCache) GetItem(participant string, index int) (strin
 func (pec *ParticipantEventsCache) GetLast(participant string) (string, error) {
 	pe, ok := pec.participantEvents[participant]
 	if !ok {
-		return "", ErrKeyNotFound
+		return "", cm.NewStoreErr(cm.KeyNotFound, participant)
 	}
-	cached, _ := pe.Get()
+	cached, _ := pe.GetLastWindow()
 	if len(cached) == 0 {
 		return "", nil
 	}
@@ -81,28 +75,29 @@ func (pec *ParticipantEventsCache) GetLast(participant string) (string, error) {
 	return last.(string), nil
 }
 
-func (pec *ParticipantEventsCache) Add(participant string, hash string) {
+func (pec *ParticipantEventsCache) Add(participant string, hash string, index int) error {
 	pe, ok := pec.participantEvents[participant]
 	if !ok {
-		pe = common.NewRollingList(pec.size)
+		pe = cm.NewRollingIndex(pec.size)
 		pec.participantEvents[participant] = pe
 	}
-	pe.Add(hash)
+	return pe.Add(hash, index)
 }
 
+//returns [participant id] => lastKnownIndex
 func (pec *ParticipantEventsCache) Known() map[int]int {
 	known := make(map[int]int)
 	for p, evs := range pec.participantEvents {
-		_, tot := evs.Get()
-		known[pec.participants[p]] = tot
+		_, lastIndex := evs.GetLastWindow()
+		known[pec.participants[p]] = lastIndex
 	}
 	return known
 }
 
 func (pec *ParticipantEventsCache) Reset() error {
-	items := make(map[string]*common.RollingList)
-	for pk, _ := range pec.participants {
-		items[pk] = common.NewRollingList(pec.size)
+	items := make(map[string]*cm.RollingIndex)
+	for pk := range pec.participants {
+		items[pk] = cm.NewRollingIndex(pec.size)
 	}
 	pec.participantEvents = items
 	return nil
