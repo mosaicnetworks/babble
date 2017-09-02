@@ -1,6 +1,6 @@
 package net
 
-import "github.com/babbleio/babble/hashgraph"
+import "bitbucket.org/mosaicnet/babble/hashgraph"
 
 type SyncRequest struct {
 	From  string

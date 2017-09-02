@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	cm "github.com/babbleio/babble/common"
+	cm "bitbucket.org/mosaicnet/babble/common"
 )
 
 func TestParticipantEventsCache(t *testing.T) {

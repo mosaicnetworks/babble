@@ -1,6 +1,6 @@
 package hashgraph
 
-import cm "github.com/babbleio/babble/common"
+import cm "bitbucket.org/mosaicnet/babble/common"
 
 type InmemStore struct {
 	cacheSize              int

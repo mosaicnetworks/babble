@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/babbleio/babble/crypto"
+	"bitbucket.org/mosaicnet/babble/crypto"
 )
 
 type pub struct {

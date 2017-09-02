@@ -8,7 +8,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/babbleio/babble/crypto"
+	"bitbucket.org/mosaicnet/babble/crypto"
 )
 
 type EventBody struct {
