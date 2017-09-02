@@ -1,6 +1,6 @@
 
 install: 
-	go install github.com/babbleio/babble/cmd/babble
+	go install bitbucket.org/mosaicnet/babble/cmd/babble
 test: 
 	glide novendor | xargs go test
 

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/babbleio/babble/common"
+	"bitbucket.org/mosaicnet/babble/common"
 	"github.com/Sirupsen/logrus"
 )
 

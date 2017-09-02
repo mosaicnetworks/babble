@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/babbleio/babble/common"
-	"github.com/babbleio/babble/crypto"
-	"github.com/babbleio/babble/net"
-	aproxy "github.com/babbleio/babble/proxy/app"
+	"bitbucket.org/mosaicnet/babble/common"
+	"bitbucket.org/mosaicnet/babble/crypto"
+	"bitbucket.org/mosaicnet/babble/net"
+	aproxy "bitbucket.org/mosaicnet/babble/proxy/app"
 )
 
 var ip = 9990

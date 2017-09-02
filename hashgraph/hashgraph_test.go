@@ -13,8 +13,8 @@ import (
 
 	"math"
 
-	"github.com/babbleio/babble/common"
-	"github.com/babbleio/babble/crypto"
+	"bitbucket.org/mosaicnet/babble/common"
+	"bitbucket.org/mosaicnet/babble/crypto"
 )
 
 var (
