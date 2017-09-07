@@ -91,6 +91,11 @@ func (r *RoundInfo) FamousWitnesses() []string {
 	return res
 }
 
+func (r *RoundInfo) IsDecided(witness string) bool {
+	w, ok := r.Events[witness]
+	return ok && w.Witness && w.Famous != Undefined
+}
+
 func (r *RoundInfo) PseudoRandomNumber() *big.Int {
 	res := new(big.Int)
 	for x, e := range r.Events {

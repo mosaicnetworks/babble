@@ -49,6 +49,15 @@ func (node *Node) signAndAddEvent(event Event, name string, index map[string]str
 	*orderedEvents = append(*orderedEvents, event)
 }
 
+type play struct {
+	to          int
+	index       int
+	selfParent  string
+	otherParent string
+	name        string
+	payload     [][]byte
+}
+
 /*
 |  e12  |
 |   | \ |
@@ -76,41 +85,22 @@ func initHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 		nodes = append(nodes, node)
 	}
 
-	event01 := NewEvent([][]byte{},
-		[]string{index["e0"], index["e1"]}, //e0 and e1
-		nodes[0].Pub,
-		1)
-	nodes[0].signAndAddEvent(event01, "e01", index, orderedEvents)
+	plays := []play{
+		play{0, 1, "e0", "e1", "e01", [][]byte{}},
+		play{2, 1, "e2", "", "s20", [][]byte{}},
+		play{1, 1, "e1", "", "s10", [][]byte{}},
+		play{0, 2, "e01", "", "s00", [][]byte{}},
+		play{2, 2, "s20", "s00", "e20", [][]byte{}},
+		play{1, 2, "s10", "e20", "e12", [][]byte{}},
+	}
 
-	s00 := NewEvent([][]byte{},
-		[]string{index["e01"], ""}, //e01 and nil
-		nodes[0].Pub,
-		2)
-	nodes[0].signAndAddEvent(s00, "s00", index, orderedEvents)
-
-	s20 := NewEvent([][]byte{},
-		[]string{index["e2"], ""}, //e2 and nil
-		nodes[2].Pub,
-		1)
-	nodes[2].signAndAddEvent(s20, "s20", index, orderedEvents)
-
-	event20 := NewEvent([][]byte{},
-		[]string{index["s20"], index["s00"]}, //s00 ad s20
-		nodes[2].Pub,
-		2)
-	nodes[2].signAndAddEvent(event20, "e20", index, orderedEvents)
-
-	s10 := NewEvent([][]byte{},
-		[]string{index["e1"], ""}, //e1 and nil
-		nodes[1].Pub,
-		1)
-	nodes[1].signAndAddEvent(s10, "s10", index, orderedEvents)
-
-	event12 := NewEvent([][]byte{},
-		[]string{index["s10"], index["e20"]}, //s10 and e20
-		nodes[1].Pub,
-		2)
-	nodes[1].signAndAddEvent(event12, "e12", index, orderedEvents)
+	for _, p := range plays {
+		e := NewEvent(p.payload,
+			[]string{index[p.selfParent], index[p.otherParent]},
+			nodes[p.to].Pub,
+			p.index)
+		nodes[p.to].signAndAddEvent(e, p.name, index, orderedEvents)
+	}
 
 	participants := make(map[string]int)
 	for _, node := range nodes {
@@ -398,53 +388,24 @@ func initRoundHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 		nodes = append(nodes, node)
 	}
 
-	event10 := NewEvent([][]byte{},
-		[]string{index["e1"], index["e0"]},
-		nodes[1].Pub,
-		1)
-	nodes[1].signAndAddEvent(event10, "e10", index, orderedEvents)
+	plays := []play{
+		play{1, 1, "e1", "e0", "e10", [][]byte{}},
+		play{2, 1, "e2", "", "s20", [][]byte{}},
+		play{0, 1, "e0", "", "s00", [][]byte{}},
+		play{2, 2, "s20", "e10", "e21", [][]byte{}},
+		play{0, 2, "s00", "e21", "e02", [][]byte{}},
+		play{1, 2, "e10", "", "s10", [][]byte{}},
+		play{1, 3, "s10", "e02", "f1", [][]byte{}},
+		play{1, 4, "f1", "", "s11", [][]byte{[]byte("abc")}},
+	}
 
-	s20 := NewEvent([][]byte{},
-		[]string{index["e2"], ""},
-		nodes[2].Pub,
-		1)
-	nodes[2].signAndAddEvent(s20, "s20", index, orderedEvents)
-
-	event21 := NewEvent([][]byte{},
-		[]string{index["s20"], index["e10"]},
-		nodes[2].Pub,
-		2)
-	nodes[2].signAndAddEvent(event21, "e21", index, orderedEvents)
-
-	s00 := NewEvent([][]byte{},
-		[]string{index["e0"], ""},
-		nodes[0].Pub,
-		1)
-	nodes[0].signAndAddEvent(s00, "s00", index, orderedEvents)
-
-	event02 := NewEvent([][]byte{},
-		[]string{index["s00"], index["e21"]},
-		nodes[0].Pub,
-		2)
-	nodes[0].signAndAddEvent(event02, "e02", index, orderedEvents)
-
-	s10 := NewEvent([][]byte{},
-		[]string{index["e10"], ""},
-		nodes[1].Pub,
-		2)
-	nodes[1].signAndAddEvent(s10, "s10", index, orderedEvents)
-
-	eventf1 := NewEvent([][]byte{},
-		[]string{index["s10"], index["e02"]},
-		nodes[1].Pub,
-		3)
-	nodes[1].signAndAddEvent(eventf1, "f1", index, orderedEvents)
-
-	s11 := NewEvent([][]byte{[]byte("abc")},
-		[]string{index["f1"], ""},
-		nodes[1].Pub,
-		4)
-	nodes[1].signAndAddEvent(s11, "s11", index, orderedEvents)
+	for _, p := range plays {
+		e := NewEvent(p.payload,
+			[]string{index[p.selfParent], index[p.otherParent]},
+			nodes[p.to].Pub,
+			p.index)
+		nodes[p.to].signAndAddEvent(e, p.name, index, orderedEvents)
+	}
 
 	participants := make(map[string]int)
 	for _, node := range nodes {
@@ -944,137 +905,38 @@ func initConsensusHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string
 		nodes = append(nodes, node)
 	}
 
-	event10 := NewEvent([][]byte{},
-		[]string{index["e1"], index["e0"]},
-		nodes[1].Pub,
-		1)
-	nodes[1].signAndAddEvent(event10, "e10", index, orderedEvents)
+	plays := []play{
+		play{1, 1, "e1", "e0", "e10", [][]byte{}},
+		play{2, 1, "e2", "e10", "e21", [][]byte{[]byte("e21")}},
+		play{2, 2, "e21", "", "e21b", [][]byte{}},
+		play{0, 1, "e0", "e21b", "e02", [][]byte{}},
+		play{1, 2, "e10", "e02", "f1", [][]byte{}},
+		play{1, 3, "f1", "", "f1b", [][]byte{[]byte("f1b")}},
+		play{0, 2, "e02", "f1b", "f0", [][]byte{}},
+		play{2, 3, "e21b", "f1b", "f2", [][]byte{}},
+		play{1, 4, "f1b", "f0", "f10", [][]byte{}},
+		play{2, 4, "f2", "f10", "f21", [][]byte{}},
+		play{0, 3, "f0", "f21", "f02", [][]byte{}},
+		play{0, 4, "f02", "", "f02b", [][]byte{[]byte("e21")}},
+		play{1, 5, "f10", "f02b", "g1", [][]byte{}},
+		play{0, 5, "f02b", "g1", "g0", [][]byte{}},
+		play{2, 5, "f21", "g1", "g2", [][]byte{}},
+		play{1, 6, "g1", "g0", "g10", [][]byte{}},
+		play{0, 6, "g0", "f21", "o02", [][]byte{}},
+		play{2, 6, "g2", "g10", "g21", [][]byte{}},
+		play{0, 7, "o02", "g21", "g02", [][]byte{}},
+		play{1, 7, "g10", "g02", "h1", [][]byte{}},
+		play{0, 8, "g02", "h1", "h0", [][]byte{}},
+		play{2, 7, "g21", "h1", "h2", [][]byte{}},
+	}
 
-	event21 := NewEvent([][]byte{},
-		[]string{index["e2"], index["e10"]},
-		nodes[2].Pub,
-		1)
-	nodes[2].signAndAddEvent(event21, "e21", index, orderedEvents)
-
-	event21b := NewEvent([][]byte{[]byte("e21b")},
-		[]string{index["e21"], ""},
-		nodes[2].Pub,
-		2)
-	nodes[2].signAndAddEvent(event21b, "e21b", index, orderedEvents)
-
-	event02 := NewEvent([][]byte{},
-		[]string{index["e0"], index["e21b"]},
-		nodes[0].Pub,
-		1)
-	nodes[0].signAndAddEvent(event02, "e02", index, orderedEvents)
-
-	eventf1 := NewEvent([][]byte{},
-		[]string{index["e10"], index["e02"]},
-		nodes[1].Pub,
-		2)
-	nodes[1].signAndAddEvent(eventf1, "f1", index, orderedEvents)
-
-	eventf1b := NewEvent([][]byte{[]byte("f1b")},
-		[]string{index["f1"], ""},
-		nodes[1].Pub,
-		3)
-	nodes[1].signAndAddEvent(eventf1b, "f1b", index, orderedEvents)
-
-	eventf0 := NewEvent([][]byte{},
-		[]string{index["e02"], index["f1b"]},
-		nodes[0].Pub,
-		2)
-	nodes[0].signAndAddEvent(eventf0, "f0", index, orderedEvents)
-
-	eventf2 := NewEvent([][]byte{},
-		[]string{index["e21b"], index["f1b"]},
-		nodes[2].Pub,
-		3)
-	nodes[2].signAndAddEvent(eventf2, "f2", index, orderedEvents)
-
-	eventf10 := NewEvent([][]byte{},
-		[]string{index["f1b"], index["f0"]},
-		nodes[1].Pub,
-		4)
-	nodes[1].signAndAddEvent(eventf10, "f10", index, orderedEvents)
-
-	eventf21 := NewEvent([][]byte{},
-		[]string{index["f2"], index["f10"]},
-		nodes[2].Pub,
-		4)
-	nodes[2].signAndAddEvent(eventf21, "f21", index, orderedEvents)
-
-	eventf02 := NewEvent([][]byte{},
-		[]string{index["f0"], index["f21"]},
-		nodes[0].Pub,
-		3)
-	nodes[0].signAndAddEvent(eventf02, "f02", index, orderedEvents)
-
-	eventf02b := NewEvent([][]byte{[]byte("f02b")},
-		[]string{index["f02"], ""},
-		nodes[0].Pub,
-		4)
-	nodes[0].signAndAddEvent(eventf02b, "f02b", index, orderedEvents)
-
-	eventg1 := NewEvent([][]byte{},
-		[]string{index["f10"], index["f02b"]},
-		nodes[1].Pub,
-		5)
-	nodes[1].signAndAddEvent(eventg1, "g1", index, orderedEvents)
-
-	eventg0 := NewEvent([][]byte{},
-		[]string{index["f02b"], index["g1"]},
-		nodes[0].Pub,
-		5)
-	nodes[0].signAndAddEvent(eventg0, "g0", index, orderedEvents)
-
-	eventg2 := NewEvent([][]byte{},
-		[]string{index["f21"], index["g1"]},
-		nodes[2].Pub,
-		5)
-	nodes[2].signAndAddEvent(eventg2, "g2", index, orderedEvents)
-
-	eventg10 := NewEvent([][]byte{},
-		[]string{index["g1"], index["g0"]},
-		nodes[1].Pub,
-		6)
-	nodes[1].signAndAddEvent(eventg10, "g10", index, orderedEvents)
-
-	eventg21 := NewEvent([][]byte{},
-		[]string{index["g2"], index["g10"]},
-		nodes[2].Pub,
-		6)
-	nodes[2].signAndAddEvent(eventg21, "g21", index, orderedEvents)
-
-	evento02 := NewEvent([][]byte{},
-		[]string{index["g0"], index["f21"]},
-		nodes[0].Pub,
-		6)
-	nodes[0].signAndAddEvent(evento02, "o02", index, orderedEvents)
-
-	eventg02 := NewEvent([][]byte{},
-		[]string{index["o02"], index["g21"]},
-		nodes[0].Pub,
-		7)
-	nodes[0].signAndAddEvent(eventg02, "g02", index, orderedEvents)
-
-	eventh1 := NewEvent([][]byte{},
-		[]string{index["g10"], index["g02"]},
-		nodes[1].Pub,
-		7)
-	nodes[1].signAndAddEvent(eventh1, "h1", index, orderedEvents)
-
-	eventh0 := NewEvent([][]byte{},
-		[]string{index["g02"], index["h1"]},
-		nodes[0].Pub,
-		8)
-	nodes[0].signAndAddEvent(eventh0, "h0", index, orderedEvents)
-
-	eventh2 := NewEvent([][]byte{},
-		[]string{index["g21"], index["h1"]},
-		nodes[2].Pub,
-		7)
-	nodes[2].signAndAddEvent(eventh2, "h2", index, orderedEvents)
+	for _, p := range plays {
+		e := NewEvent(p.payload,
+			[]string{index[p.selfParent], index[p.otherParent]},
+			nodes[p.to].Pub,
+			p.index)
+		nodes[p.to].signAndAddEvent(e, p.name, index, orderedEvents)
+	}
 
 	participants := make(map[string]int)
 	for _, node := range nodes {
@@ -1418,6 +1280,167 @@ func TestResetFromFrame(t *testing.T) {
 			t.Fatalf("Known[%d] should be %d, not %d", id, expectedKnown[id], l)
 		}
 	}
+}
+
+/*
+
+
+
+
+
+
+
+    |    |    |    |
+	|    |    |    |w51 collects votes from w40, w41, w42 and w43.
+    |   w51   |    |IT DECIDES YES
+    |    |  \ |    |
+	|    |   e23   |
+    |    |    | \  |------------------------
+    |    |    |   w43
+    |    |    | /  | Round 4 is a Coin Round. No decision will be made.
+    |    |   w42   |
+    |    | /  |    | w40 collects votes from w33, w32 and w31. It votes yes.
+    |   w41   |    | w41 collects votes from w33, w32 and w31. It votes yes.
+	| /  |    |    | w42 collects votes from w30, w31, w32 and w33. It votes yes.
+   w40   |    |    | w43 collects votes from w30, w31, w32 and w33. It votes yes.
+    | \  |    |    |------------------------
+    |   d13   |    | w30 collects votes from w20, w21, w22 and w23. It votes yes
+    |    |  \ |    | w31 collects votes from w21, w22 and w23. It votes no
+   w30   |    \    | w32 collects votes from w20, w21, w22 and w23. It votes yes
+    | \  |    | \  | w33 collects votes from w20, w21, w22 and w23. It votes yes
+    |   \     |   w33
+    |    | \  |  / |Again, none of the witnesses in round 3 are able to decide.
+    |    |   w32   |However, a strong majority votes yes
+    |    |  / |    |
+	|   w31   |    |
+    |  / |    |    |--------------------------
+   w20   |    |    | w23 collects votes from w11, w12 and w13. It votes no
+    |  \ |    |    | w21 collects votes from w11, w12, and w13. It votes no
+    |    \    |    | w22 collects votes from w11, w12, w13 and w14. It votes yes
+    |    | \  |    | w20 collects votes from w11, w12, w13 and w14. It votes yes
+    |    |   w22   |
+    |    | /  |    | None of the witnesses in round 2 were able to decide.
+    |   c10   |    | They voted according to the majority of votes they observed
+    | /  |    |    | in round 1. The vote is split 2-2
+   b00  w21   |    |
+    |    |  \ |    |
+    |    |    \    |
+    |    |    | \  |
+    |    |    |   w23
+    |    |    | /  |------------------------
+   w10   |   b21   |
+	| \  | /  |    | w10 votes yes (it can see w00)
+    |   w11   |    | w11 votes yes
+    |    |  \ |    | w12 votes no  (it cannot see w00)
+	|    |   w12   | w13 votes no
+    |    |    | \  |
+    |    |    |   w13
+    |    |    | /  |------------------------
+    |   a10  a21   | We want to decide the fame of w00
+    |  / |  / |    |
+    |/  a12   |    |
+   a00   |  \ |    |
+	|    |   a23   |
+    |    |    | \  |
+   w00  w01  w02  w03
+	0	 1	  2	   3
+*/
+
+func initFunkyHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string) {
+	index := make(map[string]string)
+	nodes := []Node{}
+	orderedEvents := &[]Event{}
+
+	n := 4
+	for i := 0; i < n; i++ {
+		key, _ := crypto.GenerateECDSAKey()
+		node := NewNode(key, i)
+		event := NewEvent([][]byte{}, []string{"", ""}, node.Pub, 0)
+		node.signAndAddEvent(event, fmt.Sprintf("w0%d", i), index, orderedEvents)
+		nodes = append(nodes, node)
+	}
+
+	plays := []play{
+		play{2, 1, "w02", "w03", "a23", [][]byte{}},
+		play{1, 1, "w01", "a23", "a12", [][]byte{}},
+		play{0, 1, "w00", "", "a00", [][]byte{}},
+		play{1, 2, "a12", "a00", "a10", [][]byte{}},
+		play{2, 2, "a23", "a12", "a21", [][]byte{}},
+		play{3, 1, "w03", "a21", "w13", [][]byte{}},
+		play{2, 3, "a21", "w13", "w12", [][]byte{}},
+		play{1, 3, "a10", "w12", "w11", [][]byte{}},
+		play{0, 2, "a00", "w11", "w10", [][]byte{}},
+		play{2, 4, "w12", "w11", "b21", [][]byte{}},
+		play{3, 2, "w13", "b21", "w23", [][]byte{}},
+		play{1, 4, "w11", "w23", "w21", [][]byte{}},
+		play{0, 3, "w10", "", "b00", [][]byte{}},
+		play{1, 5, "w21", "b00", "c10", [][]byte{}},
+		play{2, 5, "b21", "c10", "w22", [][]byte{}},
+		play{0, 4, "b00", "w22", "w20", [][]byte{}},
+		play{1, 6, "c10", "w20", "w31", [][]byte{}},
+		play{2, 6, "w22", "w31", "w32", [][]byte{}},
+		play{0, 5, "w20", "w32", "w30", [][]byte{}},
+		play{3, 3, "w23", "w32", "w33", [][]byte{}},
+		play{1, 7, "w31", "w33", "d13", [][]byte{}},
+		play{0, 6, "w30", "d13", "w40", [][]byte{}},
+		play{1, 8, "d13", "w40", "w41", [][]byte{}},
+		play{2, 7, "w32", "w41", "w42", [][]byte{}},
+		play{3, 4, "w33", "w42", "w43", [][]byte{}},
+		play{2, 8, "w42", "w43", "e23", [][]byte{}},
+		play{1, 9, "w41", "e23", "w51", [][]byte{}},
+	}
+
+	for _, p := range plays {
+		e := NewEvent(p.payload,
+			[]string{index[p.selfParent], index[p.otherParent]},
+			nodes[p.to].Pub,
+			p.index)
+		nodes[p.to].signAndAddEvent(e, p.name, index, orderedEvents)
+	}
+
+	participants := make(map[string]int)
+	for _, node := range nodes {
+		participants[node.PubHex] = node.ID
+	}
+
+	hashgraph := NewHashgraph(participants, NewInmemStore(participants, cacheSize), nil, logger)
+	for i, ev := range *orderedEvents {
+		if err := hashgraph.InsertEvent(ev, true); err != nil {
+			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
+		}
+	}
+	return hashgraph, index
+}
+
+func TestFunkyHashgraphFame(t *testing.T) {
+	h, index := initFunkyHashgraph(common.NewTestLogger(t))
+
+	h.DivideRounds()
+
+	if l := h.Store.Rounds(); l != 6 {
+		t.Fatalf("length of rounds should be 6 not %d", l)
+	}
+
+	for r := 0; r < 6; r++ {
+		round, err := h.Store.GetRound(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		witnessNames := []string{}
+		for _, w := range round.Witnesses() {
+			witnessNames = append(witnessNames, getName(index, w))
+		}
+		t.Logf("Round %d witnesses: %v", r, witnessNames)
+	}
+
+	h.DecideFame()
+
+	//rounds 0,1 and two should be decided
+	expectedUndecidedRounds := []int{4, 5}
+	if !reflect.DeepEqual(expectedUndecidedRounds, h.UndecidedRounds) {
+		t.Fatalf("UndecidedRounds should be %v, not %v", expectedUndecidedRounds, h.UndecidedRounds)
+	}
+
 }
 
 func getName(index map[string]string, hash string) string {
