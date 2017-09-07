@@ -92,6 +92,20 @@ func (c *Core) Known() map[int]int {
 	return c.hg.Known()
 }
 
+func (c *Core) OverSyncLimit(known map[int]int, syncLimit int) bool {
+	totUnknown := 0
+	myKnown := c.Known()
+	for i, li := range myKnown {
+		if li > known[i] {
+			totUnknown += li - known[i]
+		}
+	}
+	if totUnknown > syncLimit {
+		return true
+	}
+	return false
+}
+
 //returns events that c knowns about that are not in 'known', along with c's head
 func (c *Core) Diff(known map[int]int) (head string, events []hg.Event, err error) {
 	head = c.Head

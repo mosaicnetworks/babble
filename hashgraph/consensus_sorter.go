@@ -34,13 +34,12 @@ func (b ConsensusSorter) Less(i, j int) bool {
 		return b.a[i].consensusTimestamp.Before(b.a[j].consensusTimestamp)
 	}
 
-	return (b.a[i].S).Cmp(b.a[j].S) < 0
-	//w := b.GetPseudoRandomNumber(*b.a[i].roundReceived)
-	// wsi := new(big.Int)
-	// wsi = wsi.Xor(b.a[i].S, w)
-	// wsj := new(big.Int)
-	// wsj = wsj.Xor(b.a[j].S, w)
-	//return wsi.Cmp(wsj) < 0
+	w := b.GetPseudoRandomNumber(*b.a[i].roundReceived)
+	wsi := new(big.Int)
+	wsi = wsi.Xor(b.a[i].S, w)
+	wsj := new(big.Int)
+	wsj = wsj.Xor(b.a[j].S, w)
+	return wsi.Cmp(wsj) < 0
 }
 func (b ConsensusSorter) GetPseudoRandomNumber(round int) *big.Int {
 	if ps, ok := b.cache[round]; ok {

@@ -76,6 +76,11 @@ var (
 		Usage: "Number of items in LRU caches",
 		Value: 500,
 	}
+	SyncLimitFlag = cli.IntFlag{
+		Name:  "sync_limit",
+		Usage: "Max number of events for sync",
+		Value: 1000,
+	}
 )
 
 func main() {
@@ -104,6 +109,7 @@ func main() {
 				MaxPoolFlag,
 				TcpTimeoutFlag,
 				CacheSizeFlag,
+				SyncLimitFlag,
 			},
 		},
 	}
@@ -139,6 +145,7 @@ func run(c *cli.Context) error {
 	maxPool := c.Int(MaxPoolFlag.Name)
 	tcpTimeout := c.Int(TcpTimeoutFlag.Name)
 	cacheSize := c.Int(CacheSizeFlag.Name)
+	syncLimit := c.Int(SyncLimitFlag.Name)
 	logger.WithFields(logrus.Fields{
 		"datadir":      datadir,
 		"node_addr":    addr,
@@ -154,7 +161,7 @@ func run(c *cli.Context) error {
 
 	conf := node.NewConfig(time.Duration(heartbeat)*time.Millisecond,
 		time.Duration(tcpTimeout)*time.Millisecond,
-		cacheSize, logger)
+		cacheSize, syncLimit, logger)
 
 	// Create the PEM key
 	pemKey := crypto.NewPemKey(datadir)

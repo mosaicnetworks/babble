@@ -18,6 +18,8 @@ import (
 )
 
 type Node struct {
+	nodeState
+
 	conf   *Config
 	logger *logrus.Entry
 
@@ -81,6 +83,10 @@ func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans
 		commitCh:     commitCh,
 		shutdownCh:   make(chan struct{}),
 	}
+
+	//Initialize as Babbling
+	node.setState(Babbling)
+
 	return node
 }
 
@@ -99,9 +105,29 @@ func (n *Node) RunAsync(gossip bool) {
 }
 
 func (n *Node) Run(gossip bool) {
+	for {
+		// Check if we are doing a shutdown
+		select {
+		case <-n.shutdownCh:
+			return
+		default:
+		}
+
+		// Run different routines depending on node state
+		switch n.getState() {
+		case Babbling:
+			n.babble(gossip)
+		case CatchingUp:
+			n.fastForward()
+		}
+	}
+}
+
+func (n *Node) babble(gossip bool) {
 	n.start = time.Now()
 	heartbeatTimer := randomTimeout(n.conf.HeartbeatTimeout)
 	for {
+		oldState := n.getState()
 		select {
 		case rpc := <-n.netCh:
 			n.logger.Debug("Processing RPC")
@@ -137,6 +163,11 @@ func (n *Node) Run(gossip bool) {
 		case <-n.shutdownCh:
 			return
 		}
+
+		newState := n.getState()
+		if newState != oldState {
+			return
+		}
 	}
 }
 
@@ -156,41 +187,60 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 	n.logger.WithFields(logrus.Fields{
 		"from":  cmd.From,
 		"known": cmd.Known,
-	}).Debug("SyncRequest")
+	}).Debug("process SyncRequest")
 
-	//Compute Diff
-	start := time.Now()
-	n.coreLock.Lock()
-	head, diff, err := n.core.Diff(cmd.Known)
-	n.coreLock.Unlock()
-	elapsed := time.Since(start)
-	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Diff()")
-	if err != nil {
-		n.logger.WithField("error", err).Error("Calculating Diff")
-		return
+	resp := &net.SyncResponse{
+		From: n.localAddr,
 	}
+	var respErr error
 
-	//Convert to WireEvents
-	wireEvents, err := n.core.ToWire(diff)
-	if err != nil {
-		n.logger.WithField("error", err).Debug("Converting to WireEvent")
-		return
+	//Check sync limit
+	n.coreLock.Lock()
+	overSyncLimit := n.core.OverSyncLimit(cmd.Known, n.conf.SyncLimit)
+	n.coreLock.Unlock()
+	if overSyncLimit {
+		n.logger.Debug("SyncLimit")
+		resp.SyncLimit = true
+	} else {
+		//Compute Diff
+		start := time.Now()
+		n.coreLock.Lock()
+		head, diff, err := n.core.Diff(cmd.Known)
+		n.coreLock.Unlock()
+
+		elapsed := time.Since(start)
+		n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Diff()")
+		if err != nil {
+			n.logger.WithField("error", err).Error("Calculating Diff")
+			respErr = err
+		}
+		resp.Head = head
+
+		//Convert to WireEvents
+		wireEvents, err := n.core.ToWire(diff)
+		if err != nil {
+			n.logger.WithField("error", err).Debug("Converting to WireEvent")
+			respErr = err
+		} else {
+			resp.Events = wireEvents
+		}
 	}
 
 	//Get Self Known
 	n.coreLock.Lock()
 	known := n.core.Known()
 	n.coreLock.Unlock()
+	resp.Known = known
 
-	//Build SyncResponse and respond
-	n.logger.WithField("events", len(diff)).Debug("Responding to SyncRequest")
-	resp := &net.SyncResponse{
-		From:   n.localAddr,
-		Head:   head,
-		Events: wireEvents,
-		Known:  known,
-	}
-	rpc.Respond(resp, err)
+	n.logger.WithFields(logrus.Fields{
+		"Events":    len(resp.Events),
+		"Known":     resp.Known,
+		"SyncLimit": resp.SyncLimit,
+		"Error":     respErr,
+	}).Debug("Responding to SyncRequest")
+
+	rpc.Respond(resp, respErr)
+
 }
 
 func (n *Node) processEagerSyncRequest(rpc net.RPC, cmd *net.EagerSyncRequest) {
@@ -235,10 +285,37 @@ func (n *Node) preGossip() (bool, error) {
 }
 
 func (n *Node) gossip(peerAddr string) error {
-	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	//PULL
-	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	//pull
+	syncLimit, otherKnown, err := n.pull(peerAddr)
+	if err != nil {
+		return err
+	}
 
+	//check and handle syncLimit
+	if syncLimit {
+		n.logger.WithField("from", peerAddr).Debug("SyncLimit")
+		//TODO: Count 1/3 synclimits before initiating fastSync
+		n.setState(CatchingUp)
+		return nil
+	}
+
+	//push
+	err = n.push(peerAddr, otherKnown)
+	if err != nil {
+		return err
+	}
+
+	//update peer selector
+	n.selectorLock.Lock()
+	n.peerSelector.UpdateLast(peerAddr)
+	n.selectorLock.Unlock()
+
+	n.logStats()
+
+	return nil
+}
+
+func (n *Node) pull(peerAddr string) (syncLimit bool, otherKnown map[int]int, err error) {
 	//Compute Known
 	n.coreLock.Lock()
 	known := n.core.Known()
@@ -251,30 +328,35 @@ func (n *Node) gossip(peerAddr string) error {
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestSync()")
 	if err != nil {
 		n.logger.WithField("error", err).Error("requestSync()")
-		return err
+		return false, nil, err
 	}
 	n.logger.WithFields(logrus.Fields{
-		"events": fmt.Sprintf("%#v", resp.Events),
-		"known":  fmt.Sprintf("%#v", resp.Known),
+		"sync_limit": resp.SyncLimit,
+		"events":     len(resp.Events),
+		"known":      resp.Known,
 	}).Debug("SyncResponse")
+
+	if resp.SyncLimit {
+		return true, nil, nil
+	}
 
 	//Add Events to Hashgraph and create new Head if necessary
 	err = n.sync(resp.Head, resp.Events)
 	if err != nil {
 		n.logger.WithField("error", err).Error("sync()")
-		return err
+		return false, nil, err
 	}
 
-	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	//PUSH
-	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	return false, resp.Known, nil
+}
 
+func (n *Node) push(peerAddr string, known map[int]int) error {
 	//Compute Diff
-	start = time.Now()
+	start := time.Now()
 	n.coreLock.Lock()
-	head, diff, err := n.core.Diff(resp.Known)
+	head, diff, err := n.core.Diff(known)
 	n.coreLock.Unlock()
-	elapsed = time.Since(start)
+	elapsed := time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Diff()")
 	if err != nil {
 		n.logger.WithField("error", err).Error("Calculating Diff")
@@ -297,13 +379,20 @@ func (n *Node) gossip(peerAddr string) error {
 		n.logger.WithField("error", err).Error("requestEagerSync()")
 		return err
 	}
-	n.logger.WithField("success", resp2.Success).Debug("EagerSyncResponse")
+	n.logger.WithFields(logrus.Fields{
+		"from":    resp2.From,
+		"success": resp2.Success,
+	}).Debug("EagerSyncResponse")
 
-	n.selectorLock.Lock()
-	n.peerSelector.UpdateLast(peerAddr)
-	n.selectorLock.Unlock()
+	return nil
+}
 
-	n.logStats()
+func (n *Node) fastForward() error {
+	n.logger.Debug("IN CATCHING-UP STATE")
+
+	//TODO: FastForward
+
+	n.setState(Babbling)
 
 	return nil
 }

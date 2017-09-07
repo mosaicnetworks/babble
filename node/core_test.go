@@ -21,8 +21,7 @@ func TestInit(t *testing.T) {
 	}
 }
 
-func initCores(t *testing.T) ([]Core, []*ecdsa.PrivateKey, map[string]string) {
-	n := 3
+func initCores(n int, t *testing.T) ([]Core, []*ecdsa.PrivateKey, map[string]string) {
 	cacheSize := 1000
 
 	cores := []Core{}
@@ -111,7 +110,7 @@ func insertEvent(cores []Core, keys []*ecdsa.PrivateKey, index map[string]string
 }
 
 func TestDiff(t *testing.T) {
-	cores, keys, index := initCores(t)
+	cores, keys, index := initCores(3, t)
 
 	initHashgraph(cores, keys, index, 0)
 
@@ -153,7 +152,7 @@ func TestDiff(t *testing.T) {
 }
 
 func TestSync(t *testing.T) {
-	cores, _, index := initCores(t)
+	cores, _, index := initCores(3, t)
 
 	/*
 	   core 0           core 1          core 2
@@ -279,8 +278,8 @@ func TestSync(t *testing.T) {
 h0  |   h2
 | \ | / |
 |   h1  |
-|  /|   |
-g02 |   |
+|  /|   |--------------------
+g02 |   | R2
 | \ |   |
 |   \   |
 |   | \ |
@@ -291,8 +290,8 @@ g02 |   |
 g0  |   g2
 | \ | / |
 |   g1  |
-|  /|   |
-f02 |   |
+|  /|   |--------------------
+f02 |   | R1
 | \ |   |
 |   \   |
 |   | \ |
@@ -303,8 +302,8 @@ f02 |   |
 f0  |   f2
 | \ | / |
 |   f1  |
-|  /|   |
-e02 |   |
+|  /|   |--------------------
+e02 |   | R0 Consensus
 | \ |   |
 |   \   |
 |   | \ |
@@ -321,9 +320,8 @@ type play struct {
 	payload [][]byte
 }
 
-func TestConsensus(t *testing.T) {
-	cores, _, _ := initCores(t)
-
+func initConsensusHashgraph(t *testing.T) []Core {
+	cores, _, _ := initCores(3, t)
 	playbook := []play{
 		play{from: 0, to: 1, payload: [][]byte{[]byte("e10")}},
 		play{from: 1, to: 2, payload: [][]byte{[]byte("e21")}},
@@ -352,23 +350,7 @@ func TestConsensus(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-
-	if l := len(cores[0].GetConsensusEvents()); l != 6 {
-		t.Fatalf("length of consensus should be 6 not %d", l)
-	}
-
-	core0Consensus := cores[0].GetConsensusEvents()
-	core1Consensus := cores[1].GetConsensusEvents()
-	core2Consensus := cores[2].GetConsensusEvents()
-
-	for i, e := range core0Consensus {
-		if core1Consensus[i] != e {
-			t.Fatalf("core 1 consensus[%d] does not match core 0's", i)
-		}
-		if core2Consensus[i] != e {
-			t.Fatalf("core 2 consensus[%d] does not match core 0's", i)
-		}
-	}
+	return cores
 }
 
 func synchronizeCores(cores []Core, from int, to int, payload [][]byte) error {
@@ -394,6 +376,61 @@ func syncAndRunConsensus(cores []Core, from int, to int, payload [][]byte) error
 	}
 	cores[to].RunConsensus()
 	return nil
+}
+func TestConsensus(t *testing.T) {
+	cores := initConsensusHashgraph(t)
+
+	if l := len(cores[0].GetConsensusEvents()); l != 6 {
+		t.Fatalf("length of consensus should be 6 not %d", l)
+	}
+
+	core0Consensus := cores[0].GetConsensusEvents()
+	core1Consensus := cores[1].GetConsensusEvents()
+	core2Consensus := cores[2].GetConsensusEvents()
+
+	for i, e := range core0Consensus {
+		if core1Consensus[i] != e {
+			t.Fatalf("core 1 consensus[%d] does not match core 0's", i)
+		}
+		if core2Consensus[i] != e {
+			t.Fatalf("core 2 consensus[%d] does not match core 0's", i)
+		}
+	}
+}
+
+func TestOverSyncLimit(t *testing.T) {
+	cores := initConsensusHashgraph(t)
+
+	known := map[int]int{}
+
+	syncLimit := 10
+
+	//positive
+	for i := 0; i < 3; i++ {
+		known[i] = 1
+	}
+	if !cores[0].OverSyncLimit(known, syncLimit) {
+		t.Fatalf("OverSyncLimit(%v, %v) should return true", known, syncLimit)
+	}
+
+	//negative
+	for i := 0; i < 3; i++ {
+		known[i] = 6
+	}
+	if cores[0].OverSyncLimit(known, syncLimit) {
+		t.Fatalf("OverSyncLimit(%v, %v) should return false", known, syncLimit)
+	}
+
+	//edge
+	known = map[int]int{
+		0: 2,
+		1: 3,
+		2: 3,
+	}
+	if cores[0].OverSyncLimit(known, syncLimit) {
+		t.Fatalf("OverSyncLimit(%v, %v) should return false", known, syncLimit)
+	}
+
 }
 
 func getName(index map[string]string, hash string) string {

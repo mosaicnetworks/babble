@@ -1283,13 +1283,6 @@ func TestResetFromFrame(t *testing.T) {
 }
 
 /*
-
-
-
-
-
-
-
     |    |    |    |
 	|    |    |    |w51 collects votes from w40, w41, w42 and w43.
     |   w51   |    |IT DECIDES YES

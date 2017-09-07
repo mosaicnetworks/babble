@@ -264,8 +264,8 @@ func TestAddTransaction(t *testing.T) {
 	node1.Shutdown()
 }
 
-func initNodes(n int, logger *logrus.Logger) ([]*ecdsa.PrivateKey, []*Node) {
-	conf := NewConfig(5*time.Millisecond, time.Second, 1000, logger)
+func initNodes(n int, syncLimit int, logger *logrus.Logger) ([]*ecdsa.PrivateKey, []*Node) {
+	conf := NewConfig(5*time.Millisecond, time.Second, 1000, syncLimit, logger)
 
 	keys, peers := initPeers(n)
 	nodes := []*Node{}
@@ -312,9 +312,9 @@ func getCommittedTransactions(n *Node) ([][]byte, error) {
 
 func TestGossip(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	_, nodes := initNodes(4, logger)
+	_, nodes := initNodes(4, 1000, logger)
 
-	gossip(nodes, 100)
+	gossip(nodes, 100, true)
 
 	consEvents := map[int][]string{}
 	consTransactions := map[int][][]byte{}
@@ -366,7 +366,43 @@ func TestGossip(t *testing.T) {
 	}
 }
 
-func gossip(nodes []*Node, target int) {
+func TestSyncLimit(t *testing.T) {
+	logger := common.NewTestLogger(t)
+	_, nodes := initNodes(4, 300, logger)
+
+	gossip(nodes, 100, false)
+	defer shutdownNodes(nodes)
+
+	//create fake node[0] known to artificially reach SyncLimit
+	node0Known := nodes[0].core.Known()
+	for k := range node0Known {
+		node0Known[k] = 0
+	}
+
+	args := net.SyncRequest{
+		From:  nodes[0].localAddr,
+		Known: node0Known,
+	}
+	expectedResp := net.SyncResponse{
+		From:      nodes[1].localAddr,
+		SyncLimit: true,
+	}
+
+	var out net.SyncResponse
+	if err := nodes[0].trans.Sync(nodes[1].localAddr, &args, &out); err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	// Verify the response
+	if expectedResp.From != out.From {
+		t.Fatalf("SyncResponse.From should be %s, not %s", expectedResp.From, out.From)
+	}
+	if expectedResp.SyncLimit != true {
+		t.Fatal("SyncResponse.SyncLimiet should be true")
+	}
+}
+
+func gossip(nodes []*Node, target int, shutdown bool) {
 	runNodes(nodes, true)
 	quit := make(chan int)
 	makeRandomTransactions(nodes, quit)
@@ -387,7 +423,9 @@ func gossip(nodes []*Node, target int) {
 		}
 	}
 	close(quit)
-	shutdownNodes(nodes)
+	if shutdown {
+		shutdownNodes(nodes)
+	}
 }
 
 func submitTransaction(n *Node, tx []byte) error {
@@ -420,7 +458,7 @@ func makeRandomTransactions(nodes []*Node, quit chan int) {
 func BenchmarkGossip(b *testing.B) {
 	logger := common.NewBenchmarkLogger(b)
 	for n := 0; n < b.N; n++ {
-		_, nodes := initNodes(3, logger)
-		gossip(nodes, 5)
+		_, nodes := initNodes(3, 1000, logger)
+		gossip(nodes, 5, true)
 	}
 }
