@@ -81,7 +81,7 @@ func NewEvent(transactions [][]byte,
 		Transactions: transactions,
 		Parents:      parents,
 		Creator:      creator,
-		Timestamp:    time.Now(),
+		Timestamp:    time.Now().Round(0), //strip monotonic time
 		Index:        index,
 	}
 	return Event{
@@ -219,9 +219,15 @@ func (e *Event) ToWire() WireEvent {
 // the timestamp field.
 type ByTimestamp []Event
 
-func (a ByTimestamp) Len() int           { return len(a) }
-func (a ByTimestamp) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByTimestamp) Less(i, j int) bool { return a[i].Body.Timestamp.Sub(a[j].Body.Timestamp) < 0 }
+func (a ByTimestamp) Len() int      { return len(a) }
+func (a ByTimestamp) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByTimestamp) Less(i, j int) bool {
+	//normally, time.Sub uses monotonic time which only makes sense if it is
+	//being called in the same process that made the time object.
+	//that is why we strip out the monotonic time reading from the Timestamp at
+	//the time of creating the Event
+	return a[i].Body.Timestamp.Before(a[j].Body.Timestamp)
+}
 
 // ByTopologicalOrder implements sort.Interface for []Event based on
 // the topologicalIndex field.

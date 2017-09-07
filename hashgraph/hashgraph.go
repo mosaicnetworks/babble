@@ -12,17 +12,23 @@ import (
 	"bitbucket.org/mosaicnet/babble/common"
 )
 
+type Decision struct {
+	W string
+	V bool
+}
 type Hashgraph struct {
 	Participants            map[string]int //[public key] => id
 	ReverseParticipants     map[int]string //[id] => public key
 	Store                   Store          //Persistent store of Events and Rounds
 	UndeterminedEvents      []string       //[index] => hash
+	UndecidedRounds         []int          //queue of Rounds which have undecided witnesses
 	LastConsensusRound      *int           //index of last round where the fame of all witnesses has been decided
 	LastCommitedRoundEvents int            //number of events in round before LastConsensusRound
 	ConsensusTransactions   int            //number of consensus transactions
 	PendingLoadedEvents     int            //number of loaded events that are not yet committed
 	commitCh                chan []Event   //channel for committing events
 	topologicalIndex        int            //counter used to order events in topological order
+	superMajority           int
 
 	ancestorCache           *common.LRU
 	selfAncestorCache       *common.LRU
@@ -58,11 +64,13 @@ func NewHashgraph(participants map[string]int, store Store, commitCh chan []Even
 		parentRoundCache:        common.NewLRU(cacheSize, nil),
 		roundCache:              common.NewLRU(cacheSize, nil),
 		logger:                  logger,
+		superMajority:           2*len(participants)/3 + 1,
+		UndecidedRounds:         []int{0}, //initialize
 	}
 }
 
 func (h *Hashgraph) SuperMajority() int {
-	return 2*len(h.Participants)/3 + 1
+	return h.superMajority
 }
 
 //true if y is an ancestor of x
@@ -265,6 +273,19 @@ func (h *Hashgraph) RoundInc(x string) bool {
 	}
 
 	return c >= h.SuperMajority()
+}
+
+func (h *Hashgraph) RoundReceived(x string) int {
+
+	ex, err := h.Store.GetEvent(x)
+	if err != nil {
+		return -1
+	}
+	if ex.roundReceived == nil {
+		return -1
+	}
+
+	return *ex.roundReceived
 }
 
 func (h *Hashgraph) Round(x string) int {
@@ -564,9 +585,14 @@ func (h *Hashgraph) DivideRounds() error {
 		roundNumber := h.Round(hash)
 		witness := h.Witness(hash)
 		roundInfo, err := h.Store.GetRound(roundNumber)
-		if err != nil && err != ErrKeyNotFound {
-			return err
+
+		if err != nil {
+			if err != ErrKeyNotFound {
+				return err
+			}
+			h.UndecidedRounds = append(h.UndecidedRounds, roundNumber)
 		}
+
 		roundInfo.AddEvent(hash, witness)
 		err = h.Store.SetRound(roundNumber, roundInfo)
 		if err != nil {
@@ -576,23 +602,24 @@ func (h *Hashgraph) DivideRounds() error {
 	return nil
 }
 
-func (h *Hashgraph) fameLoopStart() int {
-	if h.LastConsensusRound != nil {
-		return *h.LastConsensusRound + 1
-	}
-	return 0
-}
-
 //decide if witnesses are famous
 func (h *Hashgraph) DecideFame() error {
 	votes := make(map[string](map[string]bool)) //[x][y]=>vote(x,y)
-	for i := h.fameLoopStart(); i < h.Store.Rounds()-1; i++ {
+
+	decidedRounds := map[int]int{} // [round number] => index in h.UndefinedRounds
+	defer h.updateUndecidedRounds(decidedRounds)
+
+	for pos, i := range h.UndecidedRounds {
 		roundInfo, err := h.Store.GetRound(i)
 		if err != nil {
 			return err
 		}
-		for j := i + 1; j < h.Store.Rounds(); j++ {
-			for _, x := range roundInfo.Witnesses() {
+		for _, x := range roundInfo.Witnesses() {
+			if roundInfo.IsDecided(x) {
+				continue
+			}
+		X:
+			for j := i + 1; j < h.Store.Rounds(); j++ {
 				for _, y := range h.Store.RoundWitnesses(j) {
 					diff := j - i
 					if diff == 1 {
@@ -625,7 +652,8 @@ func (h *Hashgraph) DecideFame() error {
 						if math.Mod(float64(diff), float64(len(h.Participants))) > 0 {
 							if t >= h.SuperMajority() {
 								roundInfo.SetFame(x, v)
-								break //break out of y loop
+								setVote(votes, y, x, v)
+								break X //break out of j loop
 							} else {
 								setVote(votes, y, x, v)
 							}
@@ -640,16 +668,33 @@ func (h *Hashgraph) DecideFame() error {
 				}
 			}
 		}
-		if roundInfo.WitnessesDecided() &&
-			(h.LastConsensusRound == nil || i > *h.LastConsensusRound) {
-			h.setLastConsensusRound(i)
+
+		//Update decidedRounds and LastConsensusRound if all witnesses have been decided
+		if roundInfo.WitnessesDecided() {
+			decidedRounds[i] = pos
+
+			if h.LastConsensusRound == nil || i > *h.LastConsensusRound {
+				h.setLastConsensusRound(i)
+			}
 		}
+
 		err = h.Store.SetRound(i, roundInfo)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+//remove items from UndecidedRounds
+func (h *Hashgraph) updateUndecidedRounds(decideRounds map[int]int) {
+	newUndecidedRounds := []int{}
+	for _, ur := range h.UndecidedRounds {
+		if _, ok := decideRounds[ur]; !ok {
+			newUndecidedRounds = append(newUndecidedRounds, ur)
+		}
+	}
+	h.UndecidedRounds = newUndecidedRounds
 }
 
 func (h *Hashgraph) setLastConsensusRound(i int) {
@@ -670,8 +715,10 @@ func (h *Hashgraph) DecideRoundReceived() error {
 			if err != nil {
 				return err
 			}
-			//no witnesses are left undecided
-			if !tr.WitnessesDecided() {
+
+			//skip if some witnesses are left undecided
+			//also check that no round under i (tr) is undefined
+			if !(tr.WitnessesDecided() && h.UndecidedRounds[0] > i) {
 				continue
 			}
 
