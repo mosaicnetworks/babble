@@ -9,7 +9,6 @@ type SyncRequest struct {
 
 type SyncResponse struct {
 	From   string
-	Head   string
 	Events []hashgraph.WireEvent
 	Known  map[int]int
 }
@@ -18,10 +17,10 @@ type SyncResponse struct {
 
 type EagerSyncRequest struct {
 	From   string
-	Head   string
 	Events []hashgraph.WireEvent
 }
 
 type EagerSyncResponse struct {
+	From    string
 	Success bool
 }

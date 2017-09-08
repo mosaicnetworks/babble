@@ -12,10 +12,6 @@ import (
 	"bitbucket.org/mosaicnet/babble/common"
 )
 
-type Decision struct {
-	W string
-	V bool
-}
 type Hashgraph struct {
 	Participants            map[string]int //[public key] => id
 	ReverseParticipants     map[int]string //[id] => public key

@@ -68,7 +68,7 @@ func TestProcessSync(t *testing.T) {
 	node0Known := node0.core.Known()
 	node1Known := node1.core.Known()
 
-	head, unknown, err := node1.core.Diff(node0Known)
+	unknown, err := node1.core.Diff(node0Known)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,6 @@ func TestProcessSync(t *testing.T) {
 	}
 	expectedResp := net.SyncResponse{
 		From:   node1.localAddr,
-		Head:   head,
 		Events: unknownWire,
 		Known:  node1Known,
 	}
@@ -99,10 +98,6 @@ func TestProcessSync(t *testing.T) {
 	// Verify the response
 	if expectedResp.From != out.From {
 		t.Fatalf("SyncResponse.From should be %s, not %s", expectedResp.From, out.From)
-	}
-
-	if expectedResp.Head != out.Head {
-		t.Fatalf("SyncResponse.Head should be %s, not %s", expectedResp.Head, out.Head)
 	}
 
 	if l := len(out.Events); l != len(expectedResp.Events) {
@@ -158,7 +153,7 @@ func TestProcessEagerSync(t *testing.T) {
 
 	node1Known := node1.core.Known()
 
-	head, unknown, err := node0.core.Diff(node1Known)
+	unknown, err := node0.core.Diff(node1Known)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,10 +165,10 @@ func TestProcessEagerSync(t *testing.T) {
 
 	args := net.EagerSyncRequest{
 		From:   node0.localAddr,
-		Head:   head,
 		Events: unknownWire,
 	}
 	expectedResp := net.EagerSyncResponse{
+		From:    node1.localAddr,
 		Success: true,
 	}
 
@@ -241,7 +236,7 @@ func TestAddTransaction(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := node0.sync(out.Head, out.Events); err != nil {
+	if err := node0.sync(out.Events); err != nil {
 		t.Fatal(err)
 	}
 
