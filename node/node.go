@@ -205,7 +205,7 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 		//Compute Diff
 		start := time.Now()
 		n.coreLock.Lock()
-		head, diff, err := n.core.Diff(cmd.Known)
+		diff, err := n.core.Diff(cmd.Known)
 		n.coreLock.Unlock()
 
 		elapsed := time.Since(start)
@@ -214,7 +214,6 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 			n.logger.WithField("error", err).Error("Calculating Diff")
 			respErr = err
 		}
-		resp.Head = head
 
 		//Convert to WireEvents
 		wireEvents, err := n.core.ToWire(diff)
@@ -240,7 +239,6 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 	}).Debug("Responding to SyncRequest")
 
 	rpc.Respond(resp, respErr)
-
 }
 
 func (n *Node) processEagerSyncRequest(rpc net.RPC, cmd *net.EagerSyncRequest) {
@@ -251,13 +249,14 @@ func (n *Node) processEagerSyncRequest(rpc net.RPC, cmd *net.EagerSyncRequest) {
 
 	success := true
 
-	err := n.sync(cmd.Head, cmd.Events)
+	err := n.sync(cmd.Events)
 	if err != nil {
 		n.logger.WithField("error", err).Error("sync()")
 		success = false
 	}
 
 	resp := &net.EagerSyncResponse{
+		From:    n.localAddr,
 		Success: success,
 	}
 	rpc.Respond(resp, err)
@@ -341,7 +340,7 @@ func (n *Node) pull(peerAddr string) (syncLimit bool, otherKnown map[int]int, er
 	}
 
 	//Add Events to Hashgraph and create new Head if necessary
-	err = n.sync(resp.Head, resp.Events)
+	err = n.sync(resp.Events)
 	if err != nil {
 		n.logger.WithField("error", err).Error("sync()")
 		return false, nil, err
@@ -354,7 +353,7 @@ func (n *Node) push(peerAddr string, known map[int]int) error {
 	//Compute Diff
 	start := time.Now()
 	n.coreLock.Lock()
-	head, diff, err := n.core.Diff(known)
+	diff, err := n.core.Diff(known)
 	n.coreLock.Unlock()
 	elapsed := time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Diff()")
@@ -372,7 +371,7 @@ func (n *Node) push(peerAddr string, known map[int]int) error {
 
 	//Create and Send EagerSyncRequest
 	start = time.Now()
-	resp2, err := n.requestEagerSync(peerAddr, head, wireEvents)
+	resp2, err := n.requestEagerSync(peerAddr, wireEvents)
 	elapsed = time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestEagerSync()")
 	if err != nil {
@@ -409,10 +408,9 @@ func (n *Node) requestSync(target string, known map[int]int) (net.SyncResponse, 
 	return out, err
 }
 
-func (n *Node) requestEagerSync(target string, head string, events []hg.WireEvent) (net.EagerSyncResponse, error) {
+func (n *Node) requestEagerSync(target string, events []hg.WireEvent) (net.EagerSyncResponse, error) {
 	args := net.EagerSyncRequest{
 		From:   n.localAddr,
-		Head:   head,
 		Events: events,
 	}
 
@@ -422,13 +420,13 @@ func (n *Node) requestEagerSync(target string, head string, events []hg.WireEven
 	return out, err
 }
 
-func (n *Node) sync(head string, events []hg.WireEvent) error {
+func (n *Node) sync(events []hg.WireEvent) error {
 	n.coreLock.Lock()
 	defer n.coreLock.Unlock()
 
 	//Insert Events in Hashgraph and create new Head if necessary
 	start := time.Now()
-	err := n.core.Sync(head, events)
+	err := n.core.Sync(events)
 	elapsed := time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed Sync()")
 	if err != nil {

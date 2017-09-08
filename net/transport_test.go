@@ -51,7 +51,6 @@ func TestTransport_Sync(t *testing.T) {
 		}
 		resp := SyncResponse{
 			From: "B",
-			Head: "head",
 			Events: []hashgraph.WireEvent{
 				hashgraph.WireEvent{
 					Body: hashgraph.WireBody{
@@ -113,7 +112,6 @@ func TestTransport_EagerSync(t *testing.T) {
 		// Make the RPC request
 		args := EagerSyncRequest{
 			From: "A",
-			Head: "head",
 			Events: []hashgraph.WireEvent{
 				hashgraph.WireEvent{
 					Body: hashgraph.WireBody{

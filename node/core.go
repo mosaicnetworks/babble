@@ -13,9 +13,11 @@ import (
 )
 
 type Core struct {
-	id  int
-	key *ecdsa.PrivateKey
-	hg  hg.Hashgraph
+	id     int
+	key    *ecdsa.PrivateKey
+	pubKey []byte
+	hexID  string
+	hg     hg.Hashgraph
 
 	participants        map[string]int //[PubKey] => id
 	reverseParticipants map[int]string //[id] => PubKey
@@ -61,7 +63,18 @@ func (c *Core) ID() int {
 }
 
 func (c *Core) PubKey() []byte {
-	return crypto.FromECDSAPub(&c.key.PublicKey)
+	if c.pubKey == nil {
+		c.pubKey = crypto.FromECDSAPub(&c.key.PublicKey)
+	}
+	return c.pubKey
+}
+
+func (c *Core) HexID() string {
+	if c.hexID == "" {
+		pubKey := c.PubKey()
+		c.hexID = fmt.Sprintf("0x%X", pubKey)
+	}
+	return c.hexID
 }
 
 func (c *Core) Init() error {
@@ -79,13 +92,18 @@ func (c *Core) SignAndInsertSelfEvent(event hg.Event) error {
 	if err := c.InsertEvent(event, true); err != nil {
 		return err
 	}
-	c.Head = event.Hex()
-	c.Seq++
 	return nil
 }
 
 func (c *Core) InsertEvent(event hg.Event, setWireInfo bool) error {
-	return c.hg.InsertEvent(event, setWireInfo)
+	if err := c.hg.InsertEvent(event, setWireInfo); err != nil {
+		return err
+	}
+	if event.Creator() == c.HexID() {
+		c.Head = event.Hex()
+		c.Seq = event.Index()
+	}
+	return nil
 }
 
 func (c *Core) Known() map[int]int {
@@ -107,9 +125,7 @@ func (c *Core) OverSyncLimit(known map[int]int, syncLimit int) bool {
 }
 
 //returns events that c knowns about that are not in 'known', along with c's head
-func (c *Core) Diff(known map[int]int) (head string, events []hg.Event, err error) {
-	head = c.Head
-
+func (c *Core) Diff(known map[int]int) (events []hg.Event, err error) {
 	unknown := []hg.Event{}
 	//known represents the number of events known for every participant
 	//compare this to our view of events and fill unknown with events that we know of
@@ -118,36 +134,41 @@ func (c *Core) Diff(known map[int]int) (head string, events []hg.Event, err erro
 		pk := c.reverseParticipants[id]
 		participantEvents, err := c.hg.Store.ParticipantEvents(pk, ct)
 		if err != nil {
-			return "", []hg.Event{}, err
+			return []hg.Event{}, err
 		}
 		for _, e := range participantEvents {
 			ev, err := c.hg.Store.GetEvent(e)
 			if err != nil {
-				return "", []hg.Event{}, err
+				return []hg.Event{}, err
 			}
 			unknown = append(unknown, ev)
 		}
 	}
 	sort.Sort(hg.ByTopologicalOrder(unknown))
 
-	return head, unknown, nil
+	return unknown, nil
 }
 
-func (c *Core) Sync(otherHead string, unknown []hg.WireEvent) error {
+func (c *Core) Sync(unknown []hg.WireEvent) error {
 
 	c.logger.WithFields(logrus.Fields{
 		"unknown": len(unknown),
 		"txPool":  len(c.transactionPool),
 	}).Debug("Sync")
 
+	otherHead := ""
 	//add unknown events
-	for _, we := range unknown {
+	for k, we := range unknown {
 		ev, err := c.hg.ReadWireInfo(we)
 		if err != nil {
 			return err
 		}
 		if err := c.InsertEvent(*ev, false); err != nil {
 			return err
+		}
+		//assume last event corresponds to other-head
+		if k == len(unknown)-1 {
+			otherHead = ev.Hex()
 		}
 	}
 
@@ -156,7 +177,8 @@ func (c *Core) Sync(otherHead string, unknown []hg.WireEvent) error {
 	if len(unknown) > 0 || len(c.transactionPool) > 0 {
 		newHead := hg.NewEvent(c.transactionPool,
 			[]string{c.Head, otherHead},
-			c.PubKey(), c.Seq)
+			c.PubKey(),
+			c.Seq+1)
 
 		if err := c.SignAndInsertSelfEvent(newHead); err != nil {
 			return fmt.Errorf("Error inserting new head: %s", err)
@@ -179,7 +201,7 @@ func (c *Core) AddSelfEvent() error {
 	//empty transaction pool in its payload
 	newHead := hg.NewEvent(c.transactionPool,
 		[]string{c.Head, ""},
-		c.PubKey(), c.Seq)
+		c.PubKey(), c.Seq+1)
 
 	if err := c.SignAndInsertSelfEvent(newHead); err != nil {
 		return fmt.Errorf("Error inserting new head: %s", err)
