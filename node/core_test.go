@@ -3,6 +3,7 @@ package node
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"bitbucket.org/mosaicnet/babble/common"
@@ -350,30 +351,6 @@ func initConsensusHashgraph(t *testing.T) []Core {
 	return cores
 }
 
-func synchronizeCores(cores []Core, from int, to int, payload [][]byte) error {
-	knownByTo := cores[to].Known()
-	unknownByTo, err := cores[from].Diff(knownByTo)
-	if err != nil {
-		return err
-	}
-
-	unknownWire, err := cores[from].ToWire(unknownByTo)
-	if err != nil {
-		return err
-	}
-
-	cores[to].AddTransactions(payload)
-
-	return cores[to].Sync(unknownWire)
-}
-
-func syncAndRunConsensus(cores []Core, from int, to int, payload [][]byte) error {
-	if err := synchronizeCores(cores, from, to, payload); err != nil {
-		return err
-	}
-	cores[to].RunConsensus()
-	return nil
-}
 func TestConsensus(t *testing.T) {
 	cores := initConsensusHashgraph(t)
 
@@ -428,6 +405,155 @@ func TestOverSyncLimit(t *testing.T) {
 		t.Fatalf("OverSyncLimit(%v, %v) should return false", known, syncLimit)
 	}
 
+}
+
+/*
+	|   w31 |   |
+	|	| \ |   |
+    |   |  w32  |
+    |   |   | \ |
+    |   |   |  w33
+    |   |   | / |-----------------
+    |   |  g21  | R2
+	|   | / |   |
+	|   w21 |   |
+	|	| \ |   |
+    |   |   \   |
+    |   |   | \ |
+    |   |   |  w23
+    |   |   | / |
+    |   |  w22  |
+	|   | / |   |-----------------
+	|  f13  |   | R1
+	|	| \ |   |
+    |   |   \   |
+    |   |   | \ |
+    |   |   |  w13
+    |   |   | / |
+    |   |  w12  |
+    |   | / |   |
+    |  w11  |   |
+	|	| \ |   |-----------------
+    |   |   \   | R0 CONSENSUS
+    |   |   | \ |
+    |   |   |  e32
+    |   |   | / |
+    |   |  e21  |
+    |   | / |   |
+    |  e10  |   |
+	| / |   |   |
+   w00 w01 w02 w03
+    0	1	2	3
+*/
+func initFFHashgraph(cores []Core, t *testing.T) {
+	playbook := []play{
+		play{from: 0, to: 1, payload: [][]byte{[]byte("e10")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("e21")}},
+		play{from: 2, to: 3, payload: [][]byte{[]byte("e32")}},
+		play{from: 3, to: 1, payload: [][]byte{[]byte("w11")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("w12")}},
+		play{from: 2, to: 3, payload: [][]byte{[]byte("w13")}},
+		play{from: 3, to: 1, payload: [][]byte{[]byte("f13")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("w22")}},
+		play{from: 2, to: 3, payload: [][]byte{[]byte("w23")}},
+		play{from: 3, to: 1, payload: [][]byte{[]byte("w21")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("g21")}},
+		play{from: 2, to: 3, payload: [][]byte{[]byte("w33")}},
+		play{from: 3, to: 2, payload: [][]byte{[]byte("w32")}},
+		play{from: 2, to: 1, payload: [][]byte{[]byte("w31")}},
+	}
+
+	for k, play := range playbook {
+		if err := syncAndRunConsensus(cores, play.from, play.to, play.payload); err != nil {
+			t.Fatalf("play %d: %s", k, err)
+		}
+	}
+}
+
+func TestConsensusFF(t *testing.T) {
+	cores, _, _ := initCores(4, t)
+	initFFHashgraph(cores, t)
+
+	if l := len(cores[0].GetConsensusEvents()); l != 0 {
+		t.Fatalf("Node 0 should have 0 consensus events, not %d", l)
+	}
+
+	if l := len(cores[1].GetConsensusEvents()); l != 7 {
+		t.Fatalf("Node 1 should have 7 consensus events, not %d", l)
+	}
+
+	core1Consensus := cores[1].GetConsensusEvents()
+	core2Consensus := cores[2].GetConsensusEvents()
+	core3Consensus := cores[3].GetConsensusEvents()
+
+	for i, e := range core1Consensus {
+		if core2Consensus[i] != e {
+			t.Fatalf("Node 2 consensus[%d] does not match Node 1's", i)
+		}
+		if core3Consensus[i] != e {
+			t.Fatalf("Node 3 consensus[%d] does not match Node 1's", i)
+		}
+	}
+}
+func TestCoreFastForward(t *testing.T) {
+	cores, _, _ := initCores(4, t)
+	initFFHashgraph(cores, t)
+
+	frame, err := cores[1].GetFrame()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = cores[0].FastForward(frame)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	knownBy0 := cores[0].Known()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedKnown := map[int]int{
+		0: 1,
+		1: 5,
+		2: 5,
+		3: 4,
+	}
+
+	if !reflect.DeepEqual(knownBy0, expectedKnown) {
+		t.Fatalf("Cores[0].Known should be %v, not %v", expectedKnown, knownBy0)
+	}
+
+	if l := len(cores[0].GetConsensusEvents()); l != 0 {
+		t.Fatalf("Node 0 should have 0 consensus events, not %d", l)
+	}
+
+}
+
+func synchronizeCores(cores []Core, from int, to int, payload [][]byte) error {
+	knownByTo := cores[to].Known()
+	unknownByTo, err := cores[from].Diff(knownByTo)
+	if err != nil {
+		return err
+	}
+
+	unknownWire, err := cores[from].ToWire(unknownByTo)
+	if err != nil {
+		return err
+	}
+
+	cores[to].AddTransactions(payload)
+
+	return cores[to].Sync(unknownWire)
+}
+
+func syncAndRunConsensus(cores []Core, from int, to int, payload [][]byte) error {
+	if err := synchronizeCores(cores, from, to, payload); err != nil {
+		return err
+	}
+	cores[to].RunConsensus()
+	return nil
 }
 
 func getName(index map[string]string, hash string) string {

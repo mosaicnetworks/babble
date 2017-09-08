@@ -389,7 +389,7 @@ func (h *Hashgraph) CheckSelfParent(event Event) error {
 	selfParent := event.SelfParent()
 	creator := event.Creator()
 
-	creatorLastKnown, err := h.Store.LastFrom(creator)
+	creatorLastKnown, _, err := h.Store.LastFrom(creator)
 	if err != nil {
 		return err
 	}
@@ -518,7 +518,14 @@ func (h *Hashgraph) SetWireInfo(event *Event) error {
 	otherParentCreatorID := -1
 	otherParentIndex := -1
 
-	if event.SelfParent() != "" {
+	//could be the first Event inserted for this creator. In this case, use Root
+	if lf, isRoot, _ := h.Store.LastFrom(event.Creator()); isRoot && lf == event.SelfParent() {
+		root, err := h.Store.GetRoot(event.Creator())
+		if err != nil {
+			return err
+		}
+		selfParentIndex = root.Index
+	} else {
 		selfParent, err := h.Store.GetEvent(event.SelfParent())
 		if err != nil {
 			return err
@@ -852,6 +859,7 @@ func (h *Hashgraph) GetFrame() (Frame, error) {
 	if lcr := h.LastConsensusRound; lcr != nil {
 		lastConsensusRoundIndex = *lcr
 	}
+
 	rootRound := 0
 	if lastConsensusRoundIndex > 0 {
 		rootRound = lastConsensusRoundIndex - 1
@@ -875,7 +883,7 @@ func (h *Hashgraph) GetFrame() (Frame, error) {
 		roots[w.Creator()] = Root{
 			X:      w.SelfParent(),
 			Y:      w.OtherParent(),
-			Index:  w.Body.Index - 1,
+			Index:  w.Index() - 1,
 			Round:  rootRound,
 			Others: map[string]string{},
 		}
@@ -892,6 +900,31 @@ func (h *Hashgraph) GetFrame() (Frame, error) {
 			events = append(events, ev)
 		}
 	}
+
+	//Not every participant necesserarily has a witness in LastConsensusRound.
+	//Hence, there could be participants with no Root at this point.
+	//For these partcipants, use their last known Event to create their Root.
+	for p := range h.Participants {
+		if _, ok := roots[p]; !ok {
+			last, _, err := h.Store.LastFrom(p)
+			if err != nil {
+				return Frame{}, err
+			}
+			ev, err := h.Store.GetEvent(last)
+			if err != nil {
+				return Frame{}, err
+			}
+			roots[p] = Root{
+				X:      last,
+				Y:      "",
+				Index:  ev.Index(),
+				Round:  h.Round(last),
+				Others: map[string]string{},
+			}
+
+		}
+	}
+
 	sort.Sort(ByTopologicalOrder(events))
 
 	treated := map[string]bool{}

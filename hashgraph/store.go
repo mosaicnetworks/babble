@@ -13,7 +13,7 @@ type Store interface {
 	SetEvent(Event) error
 	ParticipantEvents(string, int) ([]string, error)
 	ParticipantEvent(string, int) (string, error)
-	LastFrom(string) (string, error)
+	LastFrom(string) (string, bool, error)
 	Known() map[int]int
 	ConsensusEvents() []string
 	ConsensusEventsCount() int

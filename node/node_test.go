@@ -397,6 +397,20 @@ func TestSyncLimit(t *testing.T) {
 	}
 }
 
+func TestFastForward(t *testing.T) {
+	logger := common.NewTestLogger(t)
+	_, nodes := initNodes(4, 1000, logger)
+
+	gossip(nodes, 100, false)
+	defer shutdownNodes(nodes)
+
+	err := nodes[0].fastForward()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func gossip(nodes []*Node, target int, shutdown bool) {
 	runNodes(nodes, true)
 	quit := make(chan int)

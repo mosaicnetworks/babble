@@ -35,6 +35,8 @@ type Transport interface {
 
 	EagerSync(target string, args *EagerSyncRequest, resp *EagerSyncResponse) error
 
+	FastForward(target string, args *FastForwardRequest, resp *FastForwardResponse) error
+
 	// Close permanently closes a transport, stopping
 	// any associated goroutines and freeing other resources.
 	Close() error

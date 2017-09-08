@@ -69,18 +69,19 @@ func (s *InmemStore) ParticipantEvent(particant string, index int) (string, erro
 	return s.participantEventsCache.GetItem(particant, index)
 }
 
-func (s *InmemStore) LastFrom(participant string) (string, error) {
-	last, err := s.participantEventsCache.GetLast(participant)
+func (s *InmemStore) LastFrom(participant string) (last string, isRoot bool, err error) {
+	last, err = s.participantEventsCache.GetLast(participant)
 	if err != nil {
-		return "", err
+		return
 	}
 	if last == "" {
 		root, ok := s.roots[participant]
 		if ok {
 			last = root.X
+			isRoot = true
 		}
 	}
-	return last, nil
+	return
 }
 
 func (s *InmemStore) addParticpantEvent(participant string, hash string, index int) error {

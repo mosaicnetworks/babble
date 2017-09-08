@@ -124,7 +124,11 @@ func (c *Core) OverSyncLimit(known map[int]int, syncLimit int) bool {
 	return false
 }
 
-//returns events that c knowns about that are not in 'known', along with c's head
+func (c *Core) GetFrame() (hg.Frame, error) {
+	return c.hg.GetFrame()
+}
+
+//returns events that c knowns about that are not in 'known'
 func (c *Core) Diff(known map[int]int) (events []hg.Event, err error) {
 	unknown := []hg.Event{}
 	//known represents the number of events known for every participant
@@ -186,6 +190,56 @@ func (c *Core) Sync(unknown []hg.WireEvent) error {
 
 		//empty the transaction pool
 		c.transactionPool = [][]byte{}
+	}
+
+	return nil
+}
+
+func (c *Core) FastForward(frame hg.Frame) error {
+	err := c.hg.Reset(frame.Roots)
+	if err != nil {
+		return err
+	}
+
+	myRoot, ok := frame.Roots[c.reverseParticipants[c.ID()]]
+	if !ok {
+		return fmt.Errorf("No Root for self")
+	}
+
+	c.Head = myRoot.X
+	c.Seq = myRoot.Index
+
+	otherHead := ""
+	//add unknown events
+	for k, ev := range frame.Events {
+		if err := c.InsertEvent(ev, false); err != nil {
+			return err
+		}
+		//assume last event corresponds to other-head
+		if k == len(frame.Events)-1 {
+			otherHead = ev.Hex()
+		}
+	}
+
+	//create new event with self head and other head
+	//only if there are pending loaded events or the transaction pool is not empty
+	if len(frame.Events) > 0 || len(c.transactionPool) > 0 {
+		newHead := hg.NewEvent(c.transactionPool,
+			[]string{c.Head, otherHead},
+			c.PubKey(),
+			c.Seq+1)
+
+		if err := c.SignAndInsertSelfEvent(newHead); err != nil {
+			return fmt.Errorf("Error inserting new head: %s", err)
+		}
+
+		//empty the transaction pool
+		c.transactionPool = [][]byte{}
+	}
+
+	err = c.RunConsensus()
+	if err != nil {
+		return err
 	}
 
 	return nil
