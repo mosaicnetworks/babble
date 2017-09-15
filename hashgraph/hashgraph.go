@@ -347,11 +347,11 @@ func (h *Hashgraph) InsertEvent(event Event, setWireInfo bool) error {
 	}
 
 	if err := h.CheckSelfParent(event); err != nil {
-		return err
+		return fmt.Errorf("CheckSelfParent: %s", err)
 	}
 
 	if err := h.CheckOtherParent(event); err != nil {
-		return err
+		return fmt.Errorf("CheckOtherParent: %s", err)
 	}
 
 	event.topologicalIndex = h.topologicalIndex
@@ -359,20 +359,20 @@ func (h *Hashgraph) InsertEvent(event Event, setWireInfo bool) error {
 
 	if setWireInfo {
 		if err := h.SetWireInfo(&event); err != nil {
-			return err
+			return fmt.Errorf("SetWireInfo: %s", err)
 		}
 	}
 
 	if err := h.InitEventCoordinates(&event); err != nil {
-		return err
+		return fmt.Errorf("InitEventCoordinates: %s", err)
 	}
 
 	if err := h.Store.SetEvent(event); err != nil {
-		return err
+		return fmt.Errorf("SetEvent: %s", err)
 	}
 
 	if err := h.UpdateAncestorFirstDescendant(event); err != nil {
-		return err
+		return fmt.Errorf("UpdateAncestorFirstDescendant: %s", err)
 	}
 
 	h.UndeterminedEvents = append(h.UndeterminedEvents, event.Hex())
@@ -840,6 +840,7 @@ func (h *Hashgraph) Reset(roots map[string]Root) error {
 	}
 
 	h.UndeterminedEvents = []string{}
+	h.UndecidedRounds = []int{}
 	h.PendingLoadedEvents = 0
 	h.topologicalIndex = 0
 

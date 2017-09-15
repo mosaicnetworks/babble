@@ -41,9 +41,7 @@ type Node struct {
 	commitCh chan []hg.Event
 
 	// Shutdown channel to exit, protected to prevent concurrent exits
-	shutdown     bool
-	shutdownCh   chan struct{}
-	shutdownLock sync.Mutex
+	shutdownCh chan struct{}
 
 	start        time.Time
 	syncRequests int
@@ -106,19 +104,14 @@ func (n *Node) RunAsync(gossip bool) {
 
 func (n *Node) Run(gossip bool) {
 	for {
-		// Check if we are doing a shutdown
-		select {
-		case <-n.shutdownCh:
-			return
-		default:
-		}
-
 		// Run different routines depending on node state
 		switch n.getState() {
 		case Babbling:
 			n.babble(gossip)
 		case CatchingUp:
 			n.fastForward()
+		case Shutdown:
+			return
 		}
 	}
 }
@@ -141,7 +134,7 @@ func (n *Node) babble(gossip bool) {
 				if proceed && err == nil {
 					n.logger.Debug("Time to gossip!")
 					peer := n.peerSelector.Next()
-					go n.gossip(peer.NetAddr)
+					n.goFunc(func() { n.gossip(peer.NetAddr) })
 				}
 			}
 			if n.core.NeedGossip() {
@@ -278,7 +271,7 @@ func (n *Node) processFastForwardRequest(rpc net.RPC, cmd *net.FastForwardReques
 	//Get latest Frame
 	frame, err := n.core.GetFrame()
 	if err != nil {
-		n.logger.WithError(err).Error("Getting Frame")
+		n.logger.WithField("error", err).Error("Getting Frame")
 		respErr = err
 	}
 	resp.Frame = frame
@@ -419,6 +412,9 @@ func (n *Node) push(peerAddr string, known map[int]int) error {
 func (n *Node) fastForward() error {
 	n.logger.Debug("IN CATCHING-UP STATE")
 
+	//wait until sync routines finish
+	time.Sleep(1 * time.Second)
+
 	//fastForwardRequest
 	peer := n.peerSelector.Next()
 	start := time.Now()
@@ -436,7 +432,7 @@ func (n *Node) fastForward() error {
 	err = n.core.FastForward(resp.Frame)
 	n.coreLock.Unlock()
 	if err != nil {
-		n.logger.WithError(err).Error("Fast Forwarding Hashgraph")
+		n.logger.WithField("error", err).Error("Fast Forwarding Hashgraph")
 		return err
 	}
 
@@ -526,13 +522,12 @@ func (n *Node) addTransaction(tx []byte) {
 }
 
 func (n *Node) Shutdown() {
-	n.shutdownLock.Lock()
-	defer n.shutdownLock.Unlock()
-
-	if !n.shutdown {
+	if n.getState() != Shutdown {
 		n.logger.Debug("Shutdown")
+		n.waitRoutines()
 		close(n.shutdownCh)
-		n.shutdown = true
+		n.trans.Close()
+		n.setState(Shutdown)
 	}
 }
 

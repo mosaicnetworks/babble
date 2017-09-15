@@ -292,7 +292,6 @@ func runNodes(nodes []*Node, gossip bool) {
 func shutdownNodes(nodes []*Node) {
 	for _, n := range nodes {
 		n.Shutdown()
-		n.trans.Close()
 	}
 }
 
@@ -309,7 +308,7 @@ func TestGossip(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	_, nodes := initNodes(4, 1000, logger)
 
-	gossip(nodes, 100, true)
+	gossip(nodes, 10, true)
 
 	consEvents := map[int][]string{}
 	consTransactions := map[int][][]byte{}
@@ -365,7 +364,7 @@ func TestSyncLimit(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	_, nodes := initNodes(4, 300, logger)
 
-	gossip(nodes, 100, false)
+	gossip(nodes, 10, false)
 	defer shutdownNodes(nodes)
 
 	//create fake node[0] known to artificially reach SyncLimit
@@ -401,7 +400,7 @@ func TestFastForward(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	_, nodes := initNodes(4, 1000, logger)
 
-	gossip(nodes, 100, false)
+	gossip(nodes, 10, false)
 	defer shutdownNodes(nodes)
 
 	err := nodes[0].fastForward()
@@ -411,18 +410,35 @@ func TestFastForward(t *testing.T) {
 	}
 }
 
+func TestShutdown(t *testing.T) {
+	logger := common.NewTestLogger(t)
+	_, nodes := initNodes(2, 1000, logger)
+
+	runNodes(nodes, false)
+
+	nodes[0].Shutdown()
+
+	err := nodes[1].gossip(nodes[0].localAddr)
+
+	if err == nil {
+		t.Fatal("Expected Timeout Error")
+	}
+
+	nodes[1].Shutdown()
+}
+
 func gossip(nodes []*Node, target int, shutdown bool) {
 	runNodes(nodes, true)
 	quit := make(chan int)
 	makeRandomTransactions(nodes, quit)
 
-	//wait until all nodes have at least 'target' consensus events
+	//wait until all nodes have at least 'target' rounds
 	for {
 		time.Sleep(10 * time.Millisecond)
 		done := true
 		for _, n := range nodes {
-			ce := n.core.GetConsensusEventsCount()
-			if ce < target {
+			ce := n.core.GetLastConsensusRoundIndex()
+			if ce == nil || *ce < target {
 				done = false
 				break
 			}

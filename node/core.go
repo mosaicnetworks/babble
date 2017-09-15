@@ -295,6 +295,7 @@ func (c *Core) RunConsensus() error {
 	err := c.hg.DivideRounds()
 	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("DivideRounds()")
 	if err != nil {
+		c.logger.WithField("error", err).Error("DivideRounds")
 		return err
 	}
 
@@ -302,6 +303,7 @@ func (c *Core) RunConsensus() error {
 	err = c.hg.DecideFame()
 	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("DecideFame()")
 	if err != nil {
+		c.logger.WithField("error", err).Error("DecideFame")
 		return err
 	}
 
@@ -309,6 +311,7 @@ func (c *Core) RunConsensus() error {
 	err = c.hg.FindOrder()
 	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("FindOrder()")
 	if err != nil {
+		c.logger.WithField("error", err).Error("FindOrder")
 		return err
 	}
 

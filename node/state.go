@@ -1,6 +1,9 @@
 package node
 
-import "sync/atomic"
+import (
+	"sync"
+	"sync/atomic"
+)
 
 // NodeState captures the state of a Babble node: Babbling, CatchingUp or Shutdown
 type NodeState uint32
@@ -29,6 +32,8 @@ func (s NodeState) String() string {
 
 type nodeState struct {
 	state NodeState
+
+	wg sync.WaitGroup
 }
 
 func (b *nodeState) getState() NodeState {
@@ -39,4 +44,18 @@ func (b *nodeState) getState() NodeState {
 func (b *nodeState) setState(s NodeState) {
 	stateAddr := (*uint32)(&b.state)
 	atomic.StoreUint32(stateAddr, uint32(s))
+}
+
+// Start a goroutine and properly handle the race between a routine
+// starting and incrementing, and exiting and decrementing.
+func (b *nodeState) goFunc(f func()) {
+	b.wg.Add(1)
+	go func() {
+		defer b.wg.Done()
+		f()
+	}()
+}
+
+func (b *nodeState) waitRoutines() {
+	b.wg.Wait()
 }
