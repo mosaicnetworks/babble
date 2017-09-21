@@ -61,3 +61,12 @@ type Root struct {
 	Round  int
 	Others map[string]string
 }
+
+func NewBaseRoot() Root {
+	return Root{
+		X:     "",
+		Y:     "",
+		Index: -1,
+		Round: -1,
+	}
+}

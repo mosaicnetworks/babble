@@ -62,7 +62,7 @@ func TestRollingIndex(t *testing.T) {
 
 	_, err = RollingIndex.GetItem(lastIndex + 1)
 	if err == nil || !Is(err, KeyNotFound) {
-		t.Fatalf("Should return ErrKeyNotFound")
+		t.Fatalf("Should return KeyNotFound")
 	}
 }
 

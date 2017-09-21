@@ -1,6 +1,10 @@
 package hashgraph
 
-import cm "bitbucket.org/mosaicnet/babble/common"
+import (
+	"strconv"
+
+	cm "bitbucket.org/mosaicnet/babble/common"
+)
 
 type InmemStore struct {
 	cacheSize              int
@@ -15,12 +19,7 @@ type InmemStore struct {
 func NewInmemStore(participants map[string]int, cacheSize int) *InmemStore {
 	roots := make(map[string]Root)
 	for pk := range participants {
-		roots[pk] = Root{
-			X:     "",
-			Y:     "",
-			Index: -1,
-			Round: 0,
-		}
+		roots[pk] = NewBaseRoot()
 	}
 	return &InmemStore{
 		cacheSize:              cacheSize,
@@ -114,7 +113,7 @@ func (s *InmemStore) AddConsensusEvent(key string) error {
 func (s *InmemStore) GetRound(r int) (RoundInfo, error) {
 	res, ok := s.roundCache.Get(r)
 	if !ok {
-		return *NewRoundInfo(), ErrKeyNotFound
+		return *NewRoundInfo(), cm.NewStoreErr(cm.KeyNotFound, strconv.Itoa(r))
 	}
 	return res.(RoundInfo), nil
 }
@@ -147,7 +146,7 @@ func (s *InmemStore) RoundEvents(r int) int {
 func (s *InmemStore) GetRoot(participant string) (Root, error) {
 	res, ok := s.roots[participant]
 	if !ok {
-		return Root{}, ErrKeyNotFound
+		return Root{}, cm.NewStoreErr(cm.KeyNotFound, participant)
 	}
 	return res, nil
 }

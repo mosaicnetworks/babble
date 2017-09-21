@@ -1,12 +1,5 @@
 package hashgraph
 
-import "errors"
-
-var (
-	ErrKeyNotFound = errors.New("not found")
-	ErrTooLate     = errors.New("too late")
-)
-
 type Store interface {
 	CacheSize() int
 	GetEvent(string) (Event, error)

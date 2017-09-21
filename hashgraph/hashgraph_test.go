@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"sort"
+	"strconv"
 	"testing"
 
 	"github.com/Sirupsen/logrus"
@@ -675,20 +676,32 @@ func TestParentRound(t *testing.T) {
 	round1Witnesses[index["f1"]] = RoundEvent{Witness: true, Famous: Undefined}
 	h.Store.SetRound(1, RoundInfo{Events: round1Witnesses})
 
-	if r := h.ParentRound(index["e0"]); r != 0 {
-		t.Fatalf("parent round of e0 should be 0, not %d", r)
+	if r := h.ParentRound(index["e0"]).round; r != -1 {
+		t.Fatalf("e0.ParentRound().round should be -1, not %d", r)
 	}
-	if r := h.ParentRound(index["e1"]); r != 0 {
-		t.Fatalf("parent round of e1 should be 0, not %d", r)
+	if r := h.ParentRound(index["e0"]).isRoot; !r {
+		t.Fatal("e0.ParentRound().isRoot should be true")
 	}
-	if r := h.ParentRound(index["e10"]); r != 0 {
-		t.Fatalf("parent round of e10 should be 0, not %d", r)
+
+	if r := h.ParentRound(index["e1"]).round; r != -1 {
+		t.Fatalf("e1.ParentRound().round should be -1, not %d", r)
 	}
-	if r := h.ParentRound(index["f1"]); r != 0 {
-		t.Fatalf("parent round of f1 should be 0, not %d", r)
+	if r := h.ParentRound(index["e1"]).isRoot; !r {
+		t.Fatal("e1.ParentRound().isRoot should be true")
 	}
-	if r := h.ParentRound(index["s11"]); r != 1 {
-		t.Fatalf("parent round of s11 should be 1, not %d", r)
+
+	if r := h.ParentRound(index["f1"]).round; r != 0 {
+		t.Fatalf("f1.ParentRound().round should be 0, not %d", r)
+	}
+	if r := h.ParentRound(index["f1"]).isRoot; r {
+		t.Fatalf("f1.ParentRound().isRoot should be false")
+	}
+
+	if r := h.ParentRound(index["s11"]).round; r != 1 {
+		t.Fatalf("s11.ParentRound().round should be 1, not %d", r)
+	}
+	if r := h.ParentRound(index["s11"]).isRoot; r {
+		t.Fatalf("s11.ParentRound().isRoot should be false")
 	}
 }
 
@@ -1171,7 +1184,7 @@ func TestGetFrame(t *testing.T) {
 		X:      index["e02"],
 		Y:      index["f1b"],
 		Index:  1,
-		Round:  0,
+		Round:  1,
 		Others: map[string]string{},
 	}
 	expectedRoots[h.ReverseParticipants[1]] = Root{
@@ -1185,7 +1198,7 @@ func TestGetFrame(t *testing.T) {
 		X:      index["e21b"],
 		Y:      index["f1b"],
 		Index:  2,
-		Round:  0,
+		Round:  1,
 		Others: map[string]string{},
 	}
 
@@ -1279,6 +1292,18 @@ func TestResetFromFrame(t *testing.T) {
 		if l := known[id]; l != expectedKnown[id] {
 			t.Fatalf("Known[%d] should be %d, not %d", id, expectedKnown[id], l)
 		}
+	}
+
+	h.DivideRounds()
+	h.DecideFame()
+	h.FindOrder()
+
+	if r := h.LastConsensusRound; r == nil || *r != 1 {
+		disp := "nil"
+		if r != nil {
+			disp = strconv.Itoa(*r)
+		}
+		t.Fatalf("LastConsensusRound should be 1, not %s", disp)
 	}
 }
 

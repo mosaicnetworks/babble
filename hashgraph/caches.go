@@ -15,6 +15,18 @@ func (k Key) ToString() string {
 	return fmt.Sprintf("{%s, %s}", k.x, k.y)
 }
 
+type ParentRoundInfo struct {
+	round  int
+	isRoot bool
+}
+
+func NewBaseParentRoundInfo() ParentRoundInfo {
+	return ParentRoundInfo{
+		round:  -1,
+		isRoot: false,
+	}
+}
+
 type ParticipantEventsCache struct {
 	size              int
 	participants      map[string]int //[public key] => id

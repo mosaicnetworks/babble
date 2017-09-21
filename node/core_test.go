@@ -1,9 +1,12 @@
 package node
 
 import (
+	"bytes"
 	"crypto/ecdsa"
+	"encoding/gob"
 	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"bitbucket.org/mosaicnet/babble/common"
@@ -408,15 +411,18 @@ func TestOverSyncLimit(t *testing.T) {
 }
 
 /*
-	|   w31 |   |
+    |   |   |   | w40 will NOT be created in initFFHashgraph.
+  (w40) |   |   | It is only created in the fast-forward test
+    | \ |   |   |----------------
+	|   w31 |   | R3
 	|	| \ |   |
     |   |  w32  |
     |   |   | \ |
     |   |   |  w33
     |   |   | / |-----------------
     |   |  g21  | R2
-	|   | / |   |
-	|   w21 |   |
+	|   | / |   | Will be a consensus Round for node 0 after fast-forwarding and
+	|   w21 |   | creating w40
 	|	| \ |   |
     |   |   \   |
     |   |   | \ |
@@ -428,9 +434,9 @@ func TestOverSyncLimit(t *testing.T) {
 	|	| \ |   |
     |   |   \   |
     |   |   | \ |
-    |   |   |  w13
-    |   |   | / |
-    |   |  w12  |
+	|   |   |  w13
+	|   |   | / |
+	|   |   /   |
     |   | / |   |
     |  w11  |   |
 	|	| \ |   |-----------------
@@ -442,7 +448,7 @@ func TestOverSyncLimit(t *testing.T) {
     |   | / |   |
     |  e10  |   |
 	| / |   |   |
-   w00 w01 w02 w03
+   e0   e1  e2  e3
     0	1	2	3
 */
 func initFFHashgraph(cores []Core, t *testing.T) {
@@ -474,6 +480,19 @@ func TestConsensusFF(t *testing.T) {
 	cores, _, _ := initCores(4, t)
 	initFFHashgraph(cores, t)
 
+	if r := cores[0].GetLastConsensusRoundIndex(); r != nil {
+		disp := strconv.Itoa(*r)
+		t.Fatalf("Cores[0] last consensus Round should be nil, not %s", disp)
+	}
+
+	if r := cores[1].GetLastConsensusRoundIndex(); r == nil || *r != 1 {
+		disp := "nil"
+		if r != nil {
+			disp = strconv.Itoa(*r)
+		}
+		t.Fatalf("Cores[1] last consensus Round should be 1, not %s", disp)
+	}
+
 	if l := len(cores[0].GetConsensusEvents()); l != 0 {
 		t.Fatalf("Node 0 should have 0 consensus events, not %d", l)
 	}
@@ -496,7 +515,7 @@ func TestConsensusFF(t *testing.T) {
 	}
 }
 func TestCoreFastForward(t *testing.T) {
-	cores, _, _ := initCores(4, t)
+	cores, _, index := initCores(4, t)
 	initFFHashgraph(cores, t)
 
 	frame, err := cores[1].GetFrame()
@@ -504,7 +523,20 @@ func TestCoreFastForward(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = cores[0].FastForward(frame)
+	//serialize and deserialize to simulated transfer over wire
+	var w bytes.Buffer
+	enc := gob.NewEncoder(&w)
+	if err := enc.Encode(frame); err != nil {
+		t.Fatal(err)
+	}
+	b := bytes.NewBuffer(w.Bytes())
+	dec := gob.NewDecoder(b) //will read from b
+	wireFrame := hg.Frame{}
+	if err := dec.Decode(&wireFrame); err != nil {
+		t.Fatal(err)
+	}
+
+	err = cores[0].FastForward(wireFrame)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -523,6 +555,19 @@ func TestCoreFastForward(t *testing.T) {
 
 	if !reflect.DeepEqual(knownBy0, expectedKnown) {
 		t.Fatalf("Cores[0].Known should be %v, not %v", expectedKnown, knownBy0)
+	}
+
+	if r := cores[0].GetLastConsensusRoundIndex(); r == nil || *r != 2 {
+		disp := "nil"
+		if r != nil {
+			disp = strconv.Itoa(*r)
+		}
+		t.Fatalf("Cores[0] last consensus Round should be 2, not %s", disp)
+	}
+
+	for k, ce := range cores[0].GetConsensusEvents() {
+		t.Logf("Cores[0].ConsensusEvents[%d] = %s", k, getName(index, ce))
+		t.Logf("Round(%s) = %d", getName(index, ce), cores[0].hg.Round(ce))
 	}
 
 	if l := len(cores[0].GetConsensusEvents()); l != 0 {
