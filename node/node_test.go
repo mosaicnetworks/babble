@@ -310,54 +310,8 @@ func TestGossip(t *testing.T) {
 
 	gossip(nodes, 10, true)
 
-	consEvents := map[int][]string{}
-	consTransactions := map[int][][]byte{}
-	for _, n := range nodes {
-		consEvents[n.id] = n.core.GetConsensusEvents()
-		nodeTxs, err := getCommittedTransactions(n)
-		if err != nil {
-			t.Fatal(err)
-		}
-		consTransactions[n.id] = nodeTxs
-	}
+	checkGossip(nodes, t)
 
-	minE := len(consEvents[0])
-	minT := len(consTransactions[0])
-	for k := 1; k < len(nodes); k++ {
-		if len(consEvents[k]) < minE {
-			minE = len(consEvents[k])
-		}
-		if len(consTransactions[k]) < minT {
-			minT = len(consTransactions[k])
-		}
-	}
-
-	problem := false
-	t.Logf("min consensus events: %d", minE)
-	for i, e := range consEvents[0][0:minE] {
-		for j := range nodes[1:len(nodes)] {
-			if f := consEvents[j][i]; f != e {
-				er := nodes[0].core.hg.Round(e)
-				err := nodes[0].core.hg.RoundReceived(e)
-				fr := nodes[j].core.hg.Round(f)
-				frr := nodes[j].core.hg.RoundReceived(f)
-				t.Logf("nodes[%d].Consensus[%d] (%s, Round %d, Received %d) and nodes[0].Consensus[%d] (%s, Round %d, Received %d) are not equal", j, i, e[:6], er, err, i, f[:6], fr, frr)
-				problem = true
-			}
-		}
-	}
-	if problem {
-		t.Fatal()
-	}
-
-	t.Logf("min consensus transactions: %d", minT)
-	for i, tx := range consTransactions[0][:minT] {
-		for k := range nodes[1:len(nodes)] {
-			if ot := string(consTransactions[k][i]); ot != string(tx) {
-				t.Fatalf("nodes[%d].ConsensusTransactions[%d] should be '%s' not '%s'", k, i, string(tx), ot)
-			}
-		}
-	}
 }
 
 func TestSyncLimit(t *testing.T) {
@@ -453,13 +407,55 @@ func gossip(nodes []*Node, target int, shutdown bool) {
 	}
 }
 
-func submitTransaction(n *Node, tx []byte) error {
-	prox, ok := n.proxy.(*aproxy.InmemAppProxy)
-	if !ok {
-		return fmt.Errorf("Error casting to InmemProp")
+func checkGossip(nodes []*Node, t *testing.T) {
+	consEvents := map[int][]string{}
+	consTransactions := map[int][][]byte{}
+	for _, n := range nodes {
+		consEvents[n.id] = n.core.GetConsensusEvents()
+		nodeTxs, err := getCommittedTransactions(n)
+		if err != nil {
+			t.Fatal(err)
+		}
+		consTransactions[n.id] = nodeTxs
 	}
-	prox.SubmitTx([]byte(tx))
-	return nil
+
+	minE := len(consEvents[0])
+	minT := len(consTransactions[0])
+	for k := 1; k < len(nodes); k++ {
+		if len(consEvents[k]) < minE {
+			minE = len(consEvents[k])
+		}
+		if len(consTransactions[k]) < minT {
+			minT = len(consTransactions[k])
+		}
+	}
+
+	problem := false
+	t.Logf("min consensus events: %d", minE)
+	for i, e := range consEvents[0][0:minE] {
+		for j := range nodes[1:len(nodes)] {
+			if f := consEvents[j][i]; f != e {
+				er := nodes[0].core.hg.Round(e)
+				err := nodes[0].core.hg.RoundReceived(e)
+				fr := nodes[j].core.hg.Round(f)
+				frr := nodes[j].core.hg.RoundReceived(f)
+				t.Logf("nodes[%d].Consensus[%d] (%s, Round %d, Received %d) and nodes[0].Consensus[%d] (%s, Round %d, Received %d) are not equal", j, i, e[:6], er, err, i, f[:6], fr, frr)
+				problem = true
+			}
+		}
+	}
+	if problem {
+		t.Fatal()
+	}
+
+	t.Logf("min consensus transactions: %d", minT)
+	for i, tx := range consTransactions[0][:minT] {
+		for k := range nodes[1:len(nodes)] {
+			if ot := string(consTransactions[k][i]); ot != string(tx) {
+				t.Fatalf("nodes[%d].ConsensusTransactions[%d] should be '%s' not '%s'", k, i, string(tx), ot)
+			}
+		}
+	}
 }
 
 func makeRandomTransactions(nodes []*Node, quit chan int) {
@@ -478,6 +474,15 @@ func makeRandomTransactions(nodes []*Node, quit chan int) {
 			}
 		}
 	}()
+}
+
+func submitTransaction(n *Node, tx []byte) error {
+	prox, ok := n.proxy.(*aproxy.InmemAppProxy)
+	if !ok {
+		return fmt.Errorf("Error casting to InmemProp")
+	}
+	prox.SubmitTx([]byte(tx))
+	return nil
 }
 
 func BenchmarkGossip(b *testing.B) {

@@ -201,7 +201,7 @@ func (c *Core) FastForward(frame hg.Frame) error {
 		return err
 	}
 
-	myRoot, ok := frame.Roots[c.reverseParticipants[c.ID()]]
+	myRoot, ok := frame.Roots[c.HexID()]
 	if !ok {
 		return fmt.Errorf("No Root for self")
 	}
