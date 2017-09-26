@@ -13,7 +13,7 @@ type Store interface {
 	AddConsensusEvent(string) error
 	GetRound(int) (RoundInfo, error)
 	SetRound(int, RoundInfo) error
-	Rounds() int
+	LastRound() int
 	RoundWitnesses(int) []string
 	RoundEvents(int) int
 	GetRoot(string) (Root, error)

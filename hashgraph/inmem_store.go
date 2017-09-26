@@ -14,6 +14,7 @@ type InmemStore struct {
 	totConsensusEvents     int
 	participantEventsCache *ParticipantEventsCache
 	roots                  map[string]Root
+	lastRound              int
 }
 
 func NewInmemStore(participants map[string]int, cacheSize int) *InmemStore {
@@ -27,7 +28,8 @@ func NewInmemStore(participants map[string]int, cacheSize int) *InmemStore {
 		roundCache:             cm.NewLRU(cacheSize, nil),
 		consensusCache:         cm.NewRollingIndex(cacheSize),
 		participantEventsCache: NewParticipantEventsCache(cacheSize, participants),
-		roots: roots,
+		roots:     roots,
+		lastRound: -1,
 	}
 }
 
@@ -120,7 +122,14 @@ func (s *InmemStore) GetRound(r int) (RoundInfo, error) {
 
 func (s *InmemStore) SetRound(r int, round RoundInfo) error {
 	s.roundCache.Add(r, round)
+	if r > s.lastRound {
+		s.lastRound = r
+	}
 	return nil
+}
+
+func (s *InmemStore) LastRound() int {
+	return s.lastRound
 }
 
 func (s *InmemStore) Rounds() int {
@@ -157,6 +166,7 @@ func (s *InmemStore) Reset(roots map[string]Root) error {
 	s.roundCache = cm.NewLRU(s.cacheSize, nil)
 	s.consensusCache = cm.NewRollingIndex(s.cacheSize)
 	err := s.participantEventsCache.Reset()
+	s.lastRound = -1
 	return err
 }
 

@@ -40,8 +40,9 @@ type Node struct {
 
 	commitCh chan []hg.Event
 
-	// Shutdown channel to exit, protected to prevent concurrent exits
 	shutdownCh chan struct{}
+
+	heartbeatTimer <-chan time.Time
 
 	start        time.Time
 	syncRequests int
@@ -103,6 +104,10 @@ func (n *Node) RunAsync(gossip bool) {
 }
 
 func (n *Node) Run(gossip bool) {
+	//Run background worker
+	go n.backgroundWorker()
+
+	//Execute Node State Machine
 	for {
 		// Run different routines depending on node state
 		switch n.getState() {
@@ -116,42 +121,51 @@ func (n *Node) Run(gossip bool) {
 	}
 }
 
-func (n *Node) babble(gossip bool) {
-	n.start = time.Now()
-	heartbeatTimer := randomTimeout(n.conf.HeartbeatTimeout)
+func (n *Node) backgroundWorker() {
 	for {
-		oldState := n.getState()
 		select {
 		case rpc := <-n.netCh:
 			n.logger.Debug("Processing RPC")
 			n.processRPC(rpc)
-			if n.core.NeedGossip() && heartbeatTimer == nil {
-				heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
-			}
-		case <-heartbeatTimer:
-			if gossip {
-				proceed, err := n.preGossip()
-				if proceed && err == nil {
-					n.logger.Debug("Time to gossip!")
-					peer := n.peerSelector.Next()
-					n.goFunc(func() { n.gossip(peer.NetAddr) })
-				}
-			}
-			if n.core.NeedGossip() {
-				heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
-			} else {
-				heartbeatTimer = nil
+			if n.core.NeedGossip() && n.heartbeatTimer == nil {
+				n.heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
 			}
 		case t := <-n.submitCh:
 			n.logger.Debug("Adding Transaction")
 			n.addTransaction(t)
-			if heartbeatTimer == nil {
-				heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
+			if n.heartbeatTimer == nil {
+				n.heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
 			}
 		case events := <-n.commitCh:
 			n.logger.WithField("events", len(events)).Debug("Committing Events")
 			if err := n.commit(events); err != nil {
 				n.logger.WithField("error", err).Error("Committing Event")
+			}
+		case <-n.shutdownCh:
+			return
+		}
+	}
+}
+
+func (n *Node) babble(gossip bool) {
+	n.heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
+	for {
+		oldState := n.getState()
+		select {
+		case <-n.heartbeatTimer:
+			if gossip {
+				proceed, err := n.preGossip()
+				if proceed && err == nil {
+					n.logger.Debug("Time to gossip!")
+					peer := n.peerSelector.Next()
+					//n.gossip(peer.NetAddr)
+					n.goFunc(func() { n.gossip(peer.NetAddr) })
+				}
+			}
+			if n.core.NeedGossip() {
+				n.heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
+			} else {
+				n.heartbeatTimer = nil
 			}
 		case <-n.shutdownCh:
 			return
@@ -165,6 +179,13 @@ func (n *Node) babble(gossip bool) {
 }
 
 func (n *Node) processRPC(rpc net.RPC) {
+
+	if s := n.getState(); s != Babbling {
+		n.logger.WithField("state", s.String()).Debug("Discarding RPC Request")
+		rpc.Respond(1, fmt.Errorf("Node is %s", s.String()))
+		return
+	}
+
 	switch cmd := rpc.Command.(type) {
 	case *net.SyncRequest:
 		n.processSyncRequest(rpc, cmd)
@@ -373,6 +394,16 @@ func (n *Node) pull(peerAddr string) (syncLimit bool, otherKnown map[int]int, er
 }
 
 func (n *Node) push(peerAddr string, known map[int]int) error {
+
+	//Check SyncLimit
+	n.coreLock.Lock()
+	overSyncLimit := n.core.OverSyncLimit(known, n.conf.SyncLimit)
+	n.coreLock.Unlock()
+	if overSyncLimit {
+		n.logger.Debug("SyncLimit")
+		return nil
+	}
+
 	//Compute Diff
 	start := time.Now()
 	n.coreLock.Lock()
@@ -413,7 +444,7 @@ func (n *Node) fastForward() error {
 	n.logger.Debug("IN CATCHING-UP STATE")
 
 	//wait until sync routines finish
-	time.Sleep(1 * time.Second)
+	n.waitRoutines()
 
 	//fastForwardRequest
 	peer := n.peerSelector.Next()
@@ -431,6 +462,7 @@ func (n *Node) fastForward() error {
 	n.coreLock.Lock()
 	err = n.core.FastForward(resp.Frame)
 	n.coreLock.Unlock()
+
 	if err != nil {
 		n.logger.WithField("error", err).Error("Fast Forwarding Hashgraph")
 		return err

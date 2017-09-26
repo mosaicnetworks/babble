@@ -652,7 +652,7 @@ func (h *Hashgraph) DecideFame() error {
 				continue
 			}
 		X:
-			for j := i + 1; j < h.Store.Rounds(); j++ {
+			for j := i + 1; j <= h.Store.LastRound(); j++ {
 				for _, y := range h.Store.RoundWitnesses(j) {
 					diff := j - i
 					if diff == 1 {
@@ -720,10 +720,10 @@ func (h *Hashgraph) DecideFame() error {
 }
 
 //remove items from UndecidedRounds
-func (h *Hashgraph) updateUndecidedRounds(decideRounds map[int]int) {
+func (h *Hashgraph) updateUndecidedRounds(decidedRounds map[int]int) {
 	newUndecidedRounds := []int{}
 	for _, ur := range h.UndecidedRounds {
-		if _, ok := decideRounds[ur]; !ok {
+		if _, ok := decidedRounds[ur]; !ok {
 			newUndecidedRounds = append(newUndecidedRounds, ur)
 		}
 	}
@@ -743,18 +743,13 @@ func (h *Hashgraph) setLastConsensusRound(i int) {
 func (h *Hashgraph) DecideRoundReceived() error {
 	for _, x := range h.UndeterminedEvents {
 		r := h.Round(x)
-		for i := r + 1; i < h.Store.Rounds(); i++ {
+		for i := r + 1; i <= h.Store.LastRound(); i++ {
 			tr, err := h.Store.GetRound(i)
-			if err != nil {
+			if err != nil && !common.Is(err, common.KeyNotFound) {
 				return err
 			}
 
 			//skip if some witnesses are left undecided
-			//also check that no round under i (tr) is undefined
-			//XXX ATTENTION _ This only looks at the witnesses we know of so far
-			//for ex, this could skip if we only know one witness and it is famous
-			//cf TestCoreFastForward
-			//should we check that at least 2/3 of withnesses are decided?
 			if !(tr.WitnessesDecided() && h.UndecidedRounds[0] > i) {
 				continue
 			}
@@ -900,7 +895,7 @@ func (h *Hashgraph) GetFrame() (Frame, error) {
 			X:      w.SelfParent(),
 			Y:      w.OtherParent(),
 			Index:  w.Index() - 1,
-			Round:  h.ParentRound(wh).round,
+			Round:  h.Round(w.SelfParent()),
 			Others: map[string]string{},
 		}
 
@@ -917,7 +912,7 @@ func (h *Hashgraph) GetFrame() (Frame, error) {
 		}
 	}
 
-	//Not every participant necesserarily has a witness in LastConsensusRound.
+	//Not every participant necessarily has a witness in LastConsensusRound.
 	//Hence, there could be participants with no Root at this point.
 	//For these partcipants, use their last known Event.
 	for p := range h.Participants {
@@ -942,7 +937,7 @@ func (h *Hashgraph) GetFrame() (Frame, error) {
 					X:      ev.SelfParent(),
 					Y:      ev.OtherParent(),
 					Index:  ev.Index() - 1,
-					Round:  h.ParentRound(last).round,
+					Round:  h.Round(ev.SelfParent()),
 					Others: map[string]string{},
 				}
 			}

@@ -46,8 +46,7 @@ func (b *nodeState) setState(s NodeState) {
 	atomic.StoreUint32(stateAddr, uint32(s))
 }
 
-// Start a goroutine and properly handle the race between a routine
-// starting and incrementing, and exiting and decrementing.
+// Start a goroutine and add it to waitgroup
 func (b *nodeState) goFunc(f func()) {
 	b.wg.Add(1)
 	go func() {

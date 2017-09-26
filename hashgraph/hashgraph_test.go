@@ -1184,7 +1184,7 @@ func TestGetFrame(t *testing.T) {
 		X:      index["e02"],
 		Y:      index["f1b"],
 		Index:  1,
-		Round:  1,
+		Round:  0,
 		Others: map[string]string{},
 	}
 	expectedRoots[h.ReverseParticipants[1]] = Root{
@@ -1198,7 +1198,7 @@ func TestGetFrame(t *testing.T) {
 		X:      index["e21b"],
 		Y:      index["f1b"],
 		Index:  2,
-		Round:  1,
+		Round:  0,
 		Others: map[string]string{},
 	}
 

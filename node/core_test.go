@@ -411,8 +411,8 @@ func TestOverSyncLimit(t *testing.T) {
 }
 
 /*
-    |   |   |   | w40 will NOT be created in initFFHashgraph.
-  (w40) |   |   | It is only created in the fast-forward test
+    |   |   |   | h01 will NOT be created in initFFHashgraph.
+  (h01) |   |   | It is only created in the fast-forward test
     | \ |   |   |----------------
 	|   w31 |   | R3
 	|	| \ |   |
@@ -421,8 +421,8 @@ func TestOverSyncLimit(t *testing.T) {
     |   |   |  w33
     |   |   | / |-----------------
     |   |  g21  | R2
-	|   | / |   | Will be a consensus Round for node 0 after fast-forwarding and
-	|   w21 |   | creating w40
+	|   | / |   |
+	|   w21 |   |
 	|	| \ |   |
     |   |   \   |
     |   |   | \ |
@@ -431,20 +431,20 @@ func TestOverSyncLimit(t *testing.T) {
     |   |  w22  |
 	|   | / |   |-----------------
 	|  f13  |   | R1
-	|	| \ |   |
-    |   |   \   |
+	|	| \ |   | LastConsensusRound for nodes 1, 2 and 3 because it is the last
+    |   |   \   | Round that has all its witnesses decided
     |   |   | \ |
 	|   |   |  w13
 	|   |   | / |
-	|   |   /   |
+	|   |  w12  |
     |   | / |   |
     |  w11  |   |
 	|	| \ |   |-----------------
-    |   |   \   | R0 CONSENSUS
+    |   |   \   | R0
     |   |   | \ |
     |   |   |  e32
     |   |   | / |
-    |   |  e21  |
+    |   |  e21  | All Events in Round 0 are Consensus Events.
     |   | / |   |
     |  e10  |   |
 	| / |   |   |
@@ -557,12 +557,12 @@ func TestCoreFastForward(t *testing.T) {
 		t.Fatalf("Cores[0].Known should be %v, not %v", expectedKnown, knownBy0)
 	}
 
-	if r := cores[0].GetLastConsensusRoundIndex(); r == nil || *r != 2 {
+	if r := cores[0].GetLastConsensusRoundIndex(); r == nil || *r != 1 {
 		disp := "nil"
 		if r != nil {
 			disp = strconv.Itoa(*r)
 		}
-		t.Fatalf("Cores[0] last consensus Round should be 2, not %s", disp)
+		t.Fatalf("Cores[0] last consensus Round should be 1, not %s", disp)
 	}
 
 	for k, ce := range cores[0].GetConsensusEvents() {
@@ -572,6 +572,14 @@ func TestCoreFastForward(t *testing.T) {
 
 	if l := len(cores[0].GetConsensusEvents()); l != 0 {
 		t.Fatalf("Node 0 should have 0 consensus events, not %d", l)
+	}
+
+	head, err := cores[0].GetHead()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if headRound := cores[0].hg.Round(head.Hex()); headRound != 3 {
+		t.Fatalf("Cores[0].Head.Round should be 3, not %d", headRound)
 	}
 
 }
@@ -607,5 +615,5 @@ func getName(index map[string]string, hash string) string {
 			return name
 		}
 	}
-	return ""
+	return fmt.Sprintf("%s not found", hash)
 }
