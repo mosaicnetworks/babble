@@ -1,8 +1,10 @@
-hash: 176cbfe00c8c12b2269ebe3db9fd2aaa54226d7b8e7003f6c88842b01afbe8a6
-updated: 2017-02-20T06:57:13.757812022Z
+hash: 273667d272deb18adb573647a1d624b85980be02bafba69a89987a5f068cb677
+updated: 2017-09-29T16:19:18.709026508+01:00
 imports:
 - name: github.com/Sirupsen/logrus
   version: c078b1e43f58d563c74cebe63c85789e76ddb627
+- name: github.com/stretchr/testify
+  version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
 - name: golang.org/x/sys
   version: d75a52659825e75fff6158388dddc6a5b04f9ba5
   subpackages:
