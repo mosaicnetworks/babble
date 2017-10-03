@@ -42,7 +42,7 @@ type Node struct {
 
 	shutdownCh chan struct{}
 
-	heartbeatTimer <-chan time.Time
+	heartbeatTicker *ticker
 
 	start        time.Time
 	syncRequests int
@@ -127,14 +127,14 @@ func (n *Node) backgroundWorker() {
 		case rpc := <-n.netCh:
 			n.logger.Debug("Processing RPC")
 			n.processRPC(rpc)
-			if n.core.NeedGossip() && n.heartbeatTimer == nil {
-				n.heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
+			if n.core.NeedGossip() && n.heartbeatTicker.stopped {
+				n.heartbeatTicker.resetTicker()
 			}
 		case t := <-n.submitCh:
 			n.logger.Debug("Adding Transaction")
 			n.addTransaction(t)
-			if n.heartbeatTimer == nil {
-				n.heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
+			if n.heartbeatTicker.stopped {
+				n.heartbeatTicker.resetTicker()
 			}
 		case events := <-n.commitCh:
 			n.logger.WithField("events", len(events)).Debug("Committing Events")
@@ -148,24 +148,21 @@ func (n *Node) backgroundWorker() {
 }
 
 func (n *Node) babble(gossip bool) {
-	n.heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
+	n.heartbeatTicker = createTicker(n.conf.HeartbeatTimeout)
 	for {
 		oldState := n.getState()
 		select {
-		case <-n.heartbeatTimer:
+		case <-n.heartbeatTicker.ticker.C:
 			if gossip {
 				proceed, err := n.preGossip()
 				if proceed && err == nil {
 					n.logger.Debug("Time to gossip!")
 					peer := n.peerSelector.Next()
-					//n.gossip(peer.NetAddr)
 					n.goFunc(func() { n.gossip(peer.NetAddr) })
 				}
 			}
-			if n.core.NeedGossip() {
-				n.heartbeatTimer = randomTimeout(n.conf.HeartbeatTimeout)
-			} else {
-				n.heartbeatTimer = nil
+			if !n.core.NeedGossip() && !n.heartbeatTicker.stopped {
+				n.heartbeatTicker.stopTicker()
 			}
 		case <-n.shutdownCh:
 			return
@@ -594,6 +591,7 @@ func (n *Node) GetStats() map[string]string {
 		"rounds_per_second":      strconv.FormatFloat(consensusRoundsPerSecond, 'f', 2, 64),
 		"round_events":           strconv.Itoa(n.core.GetLastCommitedRoundEventsCount()),
 		"id":                     strconv.Itoa(n.id),
+		"state":                  n.getState().String(),
 	}
 	return s
 }
@@ -612,6 +610,7 @@ func (n *Node) logStats() {
 		"rounds/s":               stats["rounds_per_second"],
 		"round_events":           stats["round_events"],
 		"id":                     stats["id"],
+		"state":                  stats["state"],
 	}).Debug("Stats")
 }
 
@@ -623,10 +622,35 @@ func (n *Node) SyncRate() float64 {
 	return 1 - syncErrorRate
 }
 
-func randomTimeout(minVal time.Duration) <-chan time.Time {
-	if minVal == 0 {
+type ticker struct {
+	period     time.Duration
+	ticker     time.Ticker
+	tickerLock sync.Mutex
+	stopped    bool
+}
+
+func createTicker(minPeriod time.Duration) *ticker {
+	if minPeriod == 0 {
 		return nil
 	}
-	extra := (time.Duration(rand.Int63()) % minVal)
-	return time.After(minVal + extra)
+	extra := (time.Duration(rand.Int63()) % minPeriod)
+	period := minPeriod + extra
+	return &ticker{
+		period: period,
+		ticker: *time.NewTicker(period),
+	}
+}
+
+func (t *ticker) stopTicker() {
+	t.tickerLock.Lock()
+	defer t.tickerLock.Unlock()
+	t.ticker.Stop()
+	t.stopped = true
+}
+
+func (t *ticker) resetTicker() {
+	t.tickerLock.Lock()
+	defer t.tickerLock.Unlock()
+	t.ticker = *time.NewTicker(t.period)
+	t.stopped = false
 }

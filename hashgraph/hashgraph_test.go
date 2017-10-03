@@ -816,8 +816,8 @@ func TestDivideRounds(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if l := h.Store.Rounds(); l != 2 {
-		t.Fatalf("length of rounds should be 2 not %d", l)
+	if l := h.Store.LastRound(); l != 1 {
+		t.Fatalf("last round should be 1 not %d", l)
 	}
 
 	round0, err := h.Store.GetRound(0)
@@ -1435,8 +1435,8 @@ func TestFunkyHashgraphFame(t *testing.T) {
 
 	h.DivideRounds()
 
-	if l := h.Store.Rounds(); l != 6 {
-		t.Fatalf("length of rounds should be 6 not %d", l)
+	if l := h.Store.LastRound(); l != 5 {
+		t.Fatalf("last round should be 5 not %d", l)
 	}
 
 	for r := 0; r < 6; r++ {
