@@ -1,5 +1,5 @@
 nodes = 4
-txs = 1000
+txs = 10
 
 up: build conf start watch
 

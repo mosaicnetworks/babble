@@ -110,7 +110,10 @@ func (n *Node) Run(gossip bool) {
 	//Execute Node State Machine
 	for {
 		// Run different routines depending on node state
-		switch n.getState() {
+		state := n.getState()
+		n.logger.WithField("state", state.String()).Debug("Run loop")
+
+		switch state {
 		case Babbling:
 			n.babble(gossip)
 		case CatchingUp:
@@ -179,7 +182,7 @@ func (n *Node) processRPC(rpc net.RPC) {
 
 	if s := n.getState(); s != Babbling {
 		n.logger.WithField("state", s.String()).Debug("Discarding RPC Request")
-		rpc.Respond(1, fmt.Errorf("Node is %s", s.String()))
+		rpc.Respond(nil, fmt.Errorf("not ready: %s", s.String()))
 		return
 	}
 
