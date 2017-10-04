@@ -20,3 +20,5 @@ terraform/terraform.tfstate*
 terraform/secret.tfvars
 terraform/conf/*
 terraform/ips.dat
+
+.idea/

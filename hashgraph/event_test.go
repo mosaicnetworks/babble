@@ -13,7 +13,7 @@ func createDummyEventBody() EventBody {
 	body.Transactions = [][]byte{[]byte("abc"), []byte("def")}
 	body.Parents = []string{"self", "other"}
 	body.Creator = []byte("public key")
-	body.Timestamp = time.Now()
+	body.Timestamp = time.Now().UTC()
 	return body
 }
 
