@@ -200,7 +200,7 @@ func TestNetworkTransport_FastForward(t *testing.T) {
 						Parents:      []string{"p1", "p2"},
 						Creator:      []byte("creator"),
 						Index:        19,
-						Timestamp:    time.Now(),
+						Timestamp:    time.Now().UTC(),
 					},
 				},
 			},

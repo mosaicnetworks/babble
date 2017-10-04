@@ -130,8 +130,12 @@ func (n *Node) backgroundWorker() {
 		case rpc := <-n.netCh:
 			n.logger.Debug("Processing RPC")
 			n.processRPC(rpc)
-			if n.core.NeedGossip() && n.heartbeatTicker.stopped {
-				n.heartbeatTicker.resetTicker()
+			if n.core.NeedGossip() {
+				if n.heartbeatTicker == nil {
+					n.heartbeatTicker = createTicker(n.conf.HeartbeatTimeout)
+				} else if n.heartbeatTicker.stopped {
+					n.heartbeatTicker.resetTicker()
+				}
 			}
 		case t := <-n.submitCh:
 			n.logger.Debug("Adding Transaction")
