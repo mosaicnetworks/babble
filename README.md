@@ -6,6 +6,9 @@ between all participants before processing them locally in a consistent order.
 Babble is a plug and play solution for this component.  It uses the Hashgraph   
 consensus algorithm which offers definitive advantages over other BFT systems.
 
+**NOTE**:  
+This is alpha software. Please contact us if you intend to run it in production.
+
 ## Architecture
 ```
     ========================================
@@ -123,6 +126,13 @@ calculates the consensus order. Then, **A** sends an **EagerSyncRequest** to **B
 with the Events that it knowns and **B** doesn't. Upon receiving the **EagerSyncRequest**,  
 **B** updates its Hashgraph and runs the consensus methods.
 
+UPDATE 04/10/2017:  
+We added the **FastForward** command. If the content of a **Sync** or **EagerSync**  
+exceeds a predefined limit, nodes are invited to fast-forward to the tip of the  
+Hashgraph. This feature is implemented but we are not sure the algorithm is BFT.  
+cf CatchingUp
+
+
 The list of peers must be predefined and known to all peers. At the moment, it is  
 not possible to dynamically modify the list of peers while the network is running  
 but this is not a limitation of the Hashgraph algorithm, just an implemention  
@@ -162,7 +172,8 @@ $curl -s http://[ip]:8080/Stats | jq
   "rounds_per_second": "29.11",
   "sync_rate": "1.00",
   "transaction_pool": "0",
-  "undetermined_events": "24"
+  "undetermined_events": "24",
+  "state": "Babbling",
 }
 ```
 
@@ -286,3 +297,27 @@ number of nodes in a subnet and starts Babble on them.
 [...]/babble/terraform$ ssh -i babble.pem ubuntu@[public ip] # ssh into a node
 [...]/babble/terraform$ make destroy #destroy resources
 ``` 
+
+### Catching Up
+
+What happens when a node falls behind for a long time? When it comes back up, it  
+needs to catch-up with the other nodes. There are two ways for it to catch-up. It  
+can either download all the Events it missed and run the consensus algorithm on  
+the entire resulting Hashgraph or it can just fast-forward to the tip of the Hashgraph.
+
+Our implementation makes it possible to do either. By setting the **sync_limit**  
+flag to a very high value, we allow nodes to download many events in one go  
+thereby not provoking it to fast-forward. Of course the **tcp_timeout** flag should  
+be adjusted accordingly. If the **sync_limit** is lower, nodes will enter the **CatchingUp**  
+state and will fast-forward to the tip of the Hashgraph instead of downloading all  
+the Events they missed. Once they are all caught-up, they return to the **Babbling**  
+state where they follow the usual gossip routine.
+
+ATTENTION: This technique only allows nodes to catch-up with the transaction  
+ordering system (the Hashgraph). It allows them to quickly receive live transaction  
+but it does not handle syncing the state. This is an orthogonal problem that we  
+will address later.
+
+ATTENTION: The fast-forward feature is not BFT yet. Malicious nodes could force  
+other nodes to systematically try to fast-forward theryby cutting them out of the  
+network. This is work in progress.

@@ -3,6 +3,8 @@ package hashgraph
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"sort"
+	"strconv"
 	"testing"
 
 	"github.com/Sirupsen/logrus"
@@ -325,7 +327,7 @@ func TestFork(t *testing.T) {
 		event := NewEvent([][]byte{}, []string{"", ""}, node.Pub, 0)
 		event.Sign(node.Key)
 		index[fmt.Sprintf("e%d", i)] = event.Hex()
-		hashgraph.InsertEvent(event)
+		hashgraph.InsertEvent(event, true)
 		nodes = append(nodes, node)
 	}
 
@@ -333,7 +335,7 @@ func TestFork(t *testing.T) {
 	eventA := NewEvent([][]byte{[]byte("yo")}, []string{"", ""}, nodes[2].Pub, 0)
 	eventA.Sign(nodes[2].Key)
 	index["a"] = eventA.Hex()
-	if err := hashgraph.InsertEvent(eventA); err == nil {
+	if err := hashgraph.InsertEvent(eventA, true); err == nil {
 		t.Fatal("InsertEvent should return error for 'a'")
 	}
 
@@ -342,7 +344,7 @@ func TestFork(t *testing.T) {
 		nodes[0].Pub, 1)
 	event01.Sign(nodes[0].Key)
 	index["e01"] = event01.Hex()
-	if err := hashgraph.InsertEvent(event01); err == nil {
+	if err := hashgraph.InsertEvent(event01, true); err == nil {
 		t.Fatal("InsertEvent should return error for e01")
 	}
 
@@ -351,7 +353,7 @@ func TestFork(t *testing.T) {
 		nodes[2].Pub, 1)
 	event20.Sign(nodes[2].Key)
 	index["e20"] = event20.Hex()
-	if err := hashgraph.InsertEvent(event20); err == nil {
+	if err := hashgraph.InsertEvent(event20, true); err == nil {
 		t.Fatal("InsertEvent should return error for e20")
 	}
 }
@@ -413,7 +415,7 @@ func initRoundHashgraph(t *testing.T) (Hashgraph, map[string]string) {
 
 	hashgraph := NewHashgraph(participants, NewInmemStore(participants, cacheSize), nil, common.NewTestLogger(t))
 	for i, ev := range *orderedEvents {
-		if err := hashgraph.InsertEvent(ev); err != nil {
+		if err := hashgraph.InsertEvent(ev, true); err != nil {
 			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
 		}
 	}
@@ -674,20 +676,32 @@ func TestParentRound(t *testing.T) {
 	round1Witnesses[index["f1"]] = RoundEvent{Witness: true, Famous: Undefined}
 	h.Store.SetRound(1, RoundInfo{Events: round1Witnesses})
 
-	if r := h.ParentRound(index["e0"]); r != 0 {
-		t.Fatalf("parent round of e0 should be 0, not %d", r)
+	if r := h.ParentRound(index["e0"]).round; r != -1 {
+		t.Fatalf("e0.ParentRound().round should be -1, not %d", r)
 	}
-	if r := h.ParentRound(index["e1"]); r != 0 {
-		t.Fatalf("parent round of e1 should be 0, not %d", r)
+	if r := h.ParentRound(index["e0"]).isRoot; !r {
+		t.Fatal("e0.ParentRound().isRoot should be true")
 	}
-	if r := h.ParentRound(index["e10"]); r != 0 {
-		t.Fatalf("parent round of e10 should be 0, not %d", r)
+
+	if r := h.ParentRound(index["e1"]).round; r != -1 {
+		t.Fatalf("e1.ParentRound().round should be -1, not %d", r)
 	}
-	if r := h.ParentRound(index["f1"]); r != 0 {
-		t.Fatalf("parent round of f1 should be 0, not %d", r)
+	if r := h.ParentRound(index["e1"]).isRoot; !r {
+		t.Fatal("e1.ParentRound().isRoot should be true")
 	}
-	if r := h.ParentRound(index["s11"]); r != 1 {
-		t.Fatalf("parent round of s11 should be 1, not %d", r)
+
+	if r := h.ParentRound(index["f1"]).round; r != 0 {
+		t.Fatalf("f1.ParentRound().round should be 0, not %d", r)
+	}
+	if r := h.ParentRound(index["f1"]).isRoot; r {
+		t.Fatalf("f1.ParentRound().isRoot should be false")
+	}
+
+	if r := h.ParentRound(index["s11"]).round; r != 1 {
+		t.Fatalf("s11.ParentRound().round should be 1, not %d", r)
+	}
+	if r := h.ParentRound(index["s11"]).isRoot; r {
+		t.Fatalf("s11.ParentRound().isRoot should be false")
 	}
 }
 
@@ -802,8 +816,8 @@ func TestDivideRounds(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if l := h.Store.Rounds(); l != 2 {
-		t.Fatalf("length of rounds should be 2 not %d", l)
+	if l := h.Store.LastRound(); l != 1 {
+		t.Fatalf("last round should be 1 not %d", l)
 	}
 
 	round0, err := h.Store.GetRound(0)
@@ -944,7 +958,7 @@ func initConsensusHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string
 
 	hashgraph := NewHashgraph(participants, NewInmemStore(participants, cacheSize), nil, logger)
 	for i, ev := range *orderedEvents {
-		if err := hashgraph.InsertEvent(ev); err != nil {
+		if err := hashgraph.InsertEvent(ev, true); err != nil {
 			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
 		}
 	}
@@ -1073,9 +1087,9 @@ func TestKnown(t *testing.T) {
 	h, _ := initConsensusHashgraph(common.NewTestLogger(t))
 
 	expectedKnown := map[int]int{
-		0: 9,
-		1: 8,
-		2: 8,
+		0: 8,
+		1: 7,
+		2: 7,
 	}
 
 	known := h.Known()
@@ -1086,14 +1100,214 @@ func TestKnown(t *testing.T) {
 	}
 }
 
+func TestReset(t *testing.T) {
+	h, index := initConsensusHashgraph(common.NewTestLogger(t))
+
+	evs := []string{"g1", "g0", "g2", "g10", "g21", "o02", "g02", "h1", "h0", "h2"}
+
+	backup := map[string]Event{}
+	for _, ev := range evs {
+		event, err := h.Store.GetEvent(index[ev])
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		copyEvent := Event{
+			Body: event.Body,
+			R:    event.R,
+			S:    event.S,
+		}
+
+		backup[ev] = copyEvent
+	}
+
+	roots := map[string]Root{}
+	roots[h.ReverseParticipants[0]] = Root{
+		X:     index["f02b"],
+		Y:     index["g1"],
+		Index: 4,
+		Round: 2,
+		Others: map[string]string{
+			index["o02"]: index["f21"],
+		},
+	}
+	roots[h.ReverseParticipants[1]] = Root{
+		X:     index["f10"],
+		Y:     index["f02b"],
+		Index: 4,
+		Round: 2,
+	}
+	roots[h.ReverseParticipants[2]] = Root{
+		X:     index["f21"],
+		Y:     index["g1"],
+		Index: 4,
+		Round: 2,
+	}
+
+	err := h.Reset(roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, k := range evs {
+		if err := h.InsertEvent(backup[k], false); err != nil {
+			t.Fatalf("Error inserting %s in reset Hashgraph: %v", k, err)
+		}
+		if _, err := h.Store.GetEvent(index[k]); err != nil {
+			t.Fatalf("Error fetching %s after inserting it in reset Hashgraph: %v", k, err)
+		}
+	}
+
+	expectedKnown := map[int]int{
+		0: 8,
+		1: 7,
+		2: 7,
+	}
+
+	known := h.Known()
+	for _, id := range h.Participants {
+		if l := known[id]; l != expectedKnown[id] {
+			t.Fatalf("Known[%d] should be %d, not %d", id, expectedKnown[id], l)
+		}
+	}
+}
+
+func TestGetFrame(t *testing.T) {
+	h, index := initConsensusHashgraph(common.NewTestLogger(t))
+
+	h.DivideRounds()
+	h.DecideFame()
+	h.FindOrder()
+
+	expectedRoots := map[string]Root{}
+	expectedRoots[h.ReverseParticipants[0]] = Root{
+		X:      index["e02"],
+		Y:      index["f1b"],
+		Index:  1,
+		Round:  0,
+		Others: map[string]string{},
+	}
+	expectedRoots[h.ReverseParticipants[1]] = Root{
+		X:      index["e10"],
+		Y:      index["e02"],
+		Index:  1,
+		Round:  0,
+		Others: map[string]string{},
+	}
+	expectedRoots[h.ReverseParticipants[2]] = Root{
+		X:      index["e21b"],
+		Y:      index["f1b"],
+		Index:  2,
+		Round:  0,
+		Others: map[string]string{},
+	}
+
+	frame, err := h.GetFrame()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for p, r := range frame.Roots {
+		er, ok := expectedRoots[p]
+		if !ok {
+			t.Fatalf("No Root returned for %s", p)
+		}
+		if x := r.X; x != er.X {
+			t.Fatalf("Roots[%s].X should be %s, not %s", p, er.X, x)
+		}
+		if y := r.Y; y != er.Y {
+			t.Fatalf("Roots[%s].Y should be %s, not %s", p, er.Y, y)
+		}
+		if ind := r.Index; ind != er.Index {
+			t.Fatalf("Roots[%s].Index should be %d, not %d", p, er.Index, ind)
+		}
+		if ro := r.Round; ro != er.Round {
+			t.Fatalf("Roots[%s].Round should be %d, not %d", p, er.Round, ro)
+		}
+		if others := r.Others; !reflect.DeepEqual(others, er.Others) {
+			t.Fatalf("Roots[%s].Others should be %#v, not %#v", p, er.Others, others)
+		}
+
+	}
+
+	skip := map[string]int{
+		h.ReverseParticipants[0]: 1,
+		h.ReverseParticipants[1]: 1,
+		h.ReverseParticipants[2]: 2,
+	}
+
+	expectedEvents := []Event{}
+	for p, r := range frame.Roots {
+		ee, err := h.Store.ParticipantEvents(p, skip[p])
+		if err != nil {
+			t.Fatal(r)
+		}
+		for _, e := range ee {
+			ev, err := h.Store.GetEvent(e)
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedEvents = append(expectedEvents, ev)
+		}
+	}
+	sort.Sort(ByTopologicalOrder(expectedEvents))
+
+	if !reflect.DeepEqual(expectedEvents, frame.Events) {
+		t.Fatal("Frame.Events is not good")
+	}
+
+}
+
+func TestResetFromFrame(t *testing.T) {
+	h, _ := initConsensusHashgraph(common.NewTestLogger(t))
+
+	h.DivideRounds()
+	h.DecideFame()
+	h.FindOrder()
+
+	frame, err := h.GetFrame()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = h.Reset(frame.Roots)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, ev := range frame.Events {
+		if err := h.InsertEvent(ev, false); err != nil {
+			t.Fatalf("Error inserting %s in reset Hashgraph: %v", ev.Hex(), err)
+		}
+	}
+
+	expectedKnown := map[int]int{
+		0: 8,
+		1: 7,
+		2: 7,
+	}
+
+	known := h.Known()
+	for _, id := range h.Participants {
+		if l := known[id]; l != expectedKnown[id] {
+			t.Fatalf("Known[%d] should be %d, not %d", id, expectedKnown[id], l)
+		}
+	}
+
+	h.DivideRounds()
+	h.DecideFame()
+	h.FindOrder()
+
+	if r := h.LastConsensusRound; r == nil || *r != 1 {
+		disp := "nil"
+		if r != nil {
+			disp = strconv.Itoa(*r)
+		}
+		t.Fatalf("LastConsensusRound should be 1, not %s", disp)
+	}
+}
+
 /*
-
-
-
-
-
-
-
     |    |    |    |
 	|    |    |    |w51 collects votes from w40, w41, w42 and w43.
     |   w51   |    |IT DECIDES YES
@@ -1209,7 +1423,7 @@ func initFunkyHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string) {
 
 	hashgraph := NewHashgraph(participants, NewInmemStore(participants, cacheSize), nil, logger)
 	for i, ev := range *orderedEvents {
-		if err := hashgraph.InsertEvent(ev); err != nil {
+		if err := hashgraph.InsertEvent(ev, true); err != nil {
 			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
 		}
 	}
@@ -1221,8 +1435,8 @@ func TestFunkyHashgraphFame(t *testing.T) {
 
 	h.DivideRounds()
 
-	if l := h.Store.Rounds(); l != 6 {
-		t.Fatalf("length of rounds should be 6 not %d", l)
+	if l := h.Store.LastRound(); l != 5 {
+		t.Fatalf("last round should be 5 not %d", l)
 	}
 
 	for r := 0; r < 6; r++ {

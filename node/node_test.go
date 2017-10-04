@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"reflect"
 	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -259,8 +260,8 @@ func TestAddTransaction(t *testing.T) {
 	node1.Shutdown()
 }
 
-func initNodes(n int, logger *logrus.Logger) ([]*ecdsa.PrivateKey, []*Node) {
-	conf := NewConfig(5*time.Millisecond, time.Second, 1000, logger)
+func initNodes(n int, syncLimit int, logger *logrus.Logger) ([]*ecdsa.PrivateKey, []*Node) {
+	conf := NewConfig(5*time.Millisecond, time.Second, 1000, syncLimit, logger)
 
 	keys, peers := initPeers(n)
 	nodes := []*Node{}
@@ -292,7 +293,6 @@ func runNodes(nodes []*Node, gossip bool) {
 func shutdownNodes(nodes []*Node) {
 	for _, n := range nodes {
 		n.Shutdown()
-		n.trans.Close()
 	}
 }
 
@@ -307,10 +307,172 @@ func getCommittedTransactions(n *Node) ([][]byte, error) {
 
 func TestGossip(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	_, nodes := initNodes(4, logger)
+	_, nodes := initNodes(4, 1000, logger)
 
-	gossip(nodes, 100)
+	gossip(nodes, 50, true, 3*time.Second)
 
+	checkGossip(nodes, t)
+}
+
+func TestMissingNodeGossip(t *testing.T) {
+	logger := common.NewTestLogger(t)
+	_, nodes := initNodes(4, 1000, logger)
+	defer shutdownNodes(nodes)
+
+	gossip(nodes[1:], 50, false, 3*time.Second)
+
+	checkGossip(nodes[1:], t)
+}
+
+func TestSyncLimit(t *testing.T) {
+	logger := common.NewTestLogger(t)
+	_, nodes := initNodes(4, 300, logger)
+
+	gossip(nodes, 10, false, 3*time.Second)
+	defer shutdownNodes(nodes)
+
+	//create fake node[0] known to artificially reach SyncLimit
+	node0Known := nodes[0].core.Known()
+	for k := range node0Known {
+		node0Known[k] = 0
+	}
+
+	args := net.SyncRequest{
+		From:  nodes[0].localAddr,
+		Known: node0Known,
+	}
+	expectedResp := net.SyncResponse{
+		From:      nodes[1].localAddr,
+		SyncLimit: true,
+	}
+
+	var out net.SyncResponse
+	if err := nodes[0].trans.Sync(nodes[1].localAddr, &args, &out); err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	// Verify the response
+	if expectedResp.From != out.From {
+		t.Fatalf("SyncResponse.From should be %s, not %s", expectedResp.From, out.From)
+	}
+	if expectedResp.SyncLimit != true {
+		t.Fatal("SyncResponse.SyncLimit should be true")
+	}
+}
+
+func TestFastForward(t *testing.T) {
+	logger := common.NewTestLogger(t)
+	_, nodes := initNodes(4, 1000, logger)
+	defer shutdownNodes(nodes)
+
+	target := 50
+	gossip(nodes[1:], target, false, 3*time.Second)
+
+	err := nodes[0].fastForward()
+	if err != nil {
+		t.Fatalf("Error FastForwarding: %s", err)
+	}
+
+	if cr := nodes[0].core.GetLastConsensusRoundIndex(); cr == nil || *cr < target {
+		disp := "nil"
+		if cr != nil {
+			disp = strconv.Itoa(*cr)
+		}
+		t.Fatalf("nodes[0].LastConsensusRound should be at least %d. Got %s", target, disp)
+	}
+}
+
+func TestCatchUp(t *testing.T) {
+	logger := common.NewTestLogger(t)
+	_, nodes := initNodes(4, 500, logger)
+	defer shutdownNodes(nodes)
+
+	target := 50
+
+	gossip(nodes[1:], target, false, 3*time.Second)
+	checkGossip(nodes[1:], t)
+
+	nodes[0].RunAsync(true)
+	t.Logf("Started node 0 with address %s", nodes[0].localAddr)
+	timeout := time.After(3 * time.Second)
+	for {
+		select {
+		case <-timeout:
+			t.Fatalf("Timeout waiting for node 0 to enter CatchingUp state")
+		default:
+		}
+		time.Sleep(10 * time.Millisecond)
+		if nodes[0].getState() == CatchingUp {
+			break
+		}
+	}
+
+	//wait until node 0 has caught up
+	err := bombardAndWait(nodes, target+20, 6*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestShutdown(t *testing.T) {
+	logger := common.NewTestLogger(t)
+	_, nodes := initNodes(2, 1000, logger)
+
+	runNodes(nodes, false)
+
+	nodes[0].Shutdown()
+
+	err := nodes[1].gossip(nodes[0].localAddr)
+
+	if err == nil {
+		t.Fatal("Expected Timeout Error")
+	}
+
+	nodes[1].Shutdown()
+}
+
+func gossip(nodes []*Node, target int, shutdown bool, timeout time.Duration) error {
+	runNodes(nodes, true)
+	err := bombardAndWait(nodes, target, timeout)
+	if err != nil {
+		return err
+	}
+	if shutdown {
+		shutdownNodes(nodes)
+	}
+	return nil
+}
+
+func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
+	quit := make(chan struct{})
+	makeRandomTransactions(nodes, quit)
+
+	//wait until all nodes have at least 'target' rounds
+	stopper := time.After(timeout)
+	for {
+		select {
+		case <-stopper:
+			return fmt.Errorf("timeout")
+		default:
+		}
+		time.Sleep(10 * time.Millisecond)
+		done := true
+		for _, n := range nodes {
+			ce := n.core.GetLastConsensusRoundIndex()
+			if ce == nil || *ce < target {
+				done = false
+				break
+			}
+		}
+		if done {
+			break
+		}
+	}
+	close(quit)
+	return nil
+}
+
+func checkGossip(nodes []*Node, t *testing.T) {
 	consEvents := map[int][]string{}
 	consTransactions := map[int][][]byte{}
 	for _, n := range nodes {
@@ -361,40 +523,7 @@ func TestGossip(t *testing.T) {
 	}
 }
 
-func gossip(nodes []*Node, target int) {
-	runNodes(nodes, true)
-	quit := make(chan int)
-	makeRandomTransactions(nodes, quit)
-
-	//wait until all nodes have at least 'target' consensus events
-	for {
-		time.Sleep(10 * time.Millisecond)
-		done := true
-		for _, n := range nodes {
-			ce := n.core.GetConsensusEventsCount()
-			if ce < target {
-				done = false
-				break
-			}
-		}
-		if done {
-			break
-		}
-	}
-	close(quit)
-	shutdownNodes(nodes)
-}
-
-func submitTransaction(n *Node, tx []byte) error {
-	prox, ok := n.proxy.(*aproxy.InmemAppProxy)
-	if !ok {
-		return fmt.Errorf("Error casting to InmemProp")
-	}
-	prox.SubmitTx([]byte(tx))
-	return nil
-}
-
-func makeRandomTransactions(nodes []*Node, quit chan int) {
+func makeRandomTransactions(nodes []*Node, quit chan struct{}) {
 	go func() {
 		seq := make(map[int]int)
 		for {
@@ -412,10 +541,19 @@ func makeRandomTransactions(nodes []*Node, quit chan int) {
 	}()
 }
 
+func submitTransaction(n *Node, tx []byte) error {
+	prox, ok := n.proxy.(*aproxy.InmemAppProxy)
+	if !ok {
+		return fmt.Errorf("Error casting to InmemProp")
+	}
+	prox.SubmitTx([]byte(tx))
+	return nil
+}
+
 func BenchmarkGossip(b *testing.B) {
 	logger := common.NewBenchmarkLogger(b)
 	for n := 0; n < b.N; n++ {
-		_, nodes := initNodes(3, logger)
-		gossip(nodes, 5)
+		_, nodes := initNodes(3, 1000, logger)
+		gossip(nodes, 5, true, 3*time.Second)
 	}
 }

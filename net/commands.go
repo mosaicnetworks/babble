@@ -8,9 +8,10 @@ type SyncRequest struct {
 }
 
 type SyncResponse struct {
-	From   string
-	Events []hashgraph.WireEvent
-	Known  map[int]int
+	From      string
+	SyncLimit bool
+	Events    []hashgraph.WireEvent
+	Known     map[int]int
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -23,4 +24,17 @@ type EagerSyncRequest struct {
 type EagerSyncResponse struct {
 	From    string
 	Success bool
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+type FastForwardRequest struct {
+	From string
+}
+
+type FastForwardResponse struct {
+	From  string
+	Head  string
+	Seq   int
+	Frame hashgraph.Frame
 }

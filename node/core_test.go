@@ -1,8 +1,12 @@
 package node
 
 import (
+	"bytes"
 	"crypto/ecdsa"
+	"encoding/gob"
 	"fmt"
+	"reflect"
+	"strconv"
 	"testing"
 
 	"bitbucket.org/mosaicnet/babble/common"
@@ -21,8 +25,7 @@ func TestInit(t *testing.T) {
 	}
 }
 
-func initCores(t *testing.T) ([]Core, []*ecdsa.PrivateKey, map[string]string) {
-	n := 3
+func initCores(n int, t *testing.T) ([]Core, []*ecdsa.PrivateKey, map[string]string) {
 	cacheSize := 1000
 
 	cores := []Core{}
@@ -63,7 +66,7 @@ func initHashgraph(cores []Core, keys []*ecdsa.PrivateKey, index map[string]stri
 	for i := 0; i < len(cores); i++ {
 		if i != participant {
 			event, _ := cores[i].GetEvent(index[fmt.Sprintf("e%d", i)])
-			if err := cores[participant].InsertEvent(event); err != nil {
+			if err := cores[participant].InsertEvent(event, true); err != nil {
 				fmt.Printf("error inserting %s: %s\n", getName(index, event.Hex()), err)
 			}
 		}
@@ -102,7 +105,7 @@ func insertEvent(cores []Core, keys []*ecdsa.PrivateKey, index map[string]string
 		index[name] = cores[particant].Head
 	} else {
 		event.Sign(keys[creator])
-		if err := cores[particant].InsertEvent(event); err != nil {
+		if err := cores[particant].InsertEvent(event, true); err != nil {
 			return err
 		}
 		index[name] = event.Hex()
@@ -111,7 +114,7 @@ func insertEvent(cores []Core, keys []*ecdsa.PrivateKey, index map[string]string
 }
 
 func TestDiff(t *testing.T) {
-	cores, keys, index := initCores(t)
+	cores, keys, index := initCores(3, t)
 
 	initHashgraph(cores, keys, index, 0)
 
@@ -150,7 +153,7 @@ func TestDiff(t *testing.T) {
 }
 
 func TestSync(t *testing.T) {
-	cores, _, index := initCores(t)
+	cores, _, index := initCores(3, t)
 
 	/*
 	   core 0           core 1          core 2
@@ -174,14 +177,14 @@ func TestSync(t *testing.T) {
 	*/
 
 	knownBy0 := cores[0].Known()
-	if k := knownBy0[cores[0].ID()]; k != 2 {
-		t.Fatalf("core 0 should have 2 events for core 0, not %d", k)
+	if k := knownBy0[cores[0].ID()]; k != 1 {
+		t.Fatalf("core 0 should have last-index 1 for core 0, not %d", k)
 	}
-	if k := knownBy0[cores[1].ID()]; k != 1 {
-		t.Fatalf("core 0 should have 1 events for core 1, not %d", k)
+	if k := knownBy0[cores[1].ID()]; k != 0 {
+		t.Fatalf("core 0 should have last-index 0 for core 1, not %d", k)
 	}
-	if k := knownBy0[cores[2].ID()]; k != 0 {
-		t.Fatalf("core 0 should have 0 events for core 2, not %d", k)
+	if k := knownBy0[cores[2].ID()]; k != -1 {
+		t.Fatalf("core 0 should have last-index -1 for core 2, not %d", k)
 	}
 	core0Head, _ := cores[0].GetHead()
 	if core0Head.SelfParent() != index["e0"] {
@@ -212,14 +215,14 @@ func TestSync(t *testing.T) {
 	*/
 
 	knownBy2 := cores[2].Known()
-	if k := knownBy2[cores[0].ID()]; k != 2 {
-		t.Fatalf("core 2 should have 2 events for core 0, not %d", k)
+	if k := knownBy2[cores[0].ID()]; k != 1 {
+		t.Fatalf("core 2 should have last-index 1 for core 0, not %d", k)
 	}
-	if k := knownBy2[cores[1].ID()]; k != 1 {
-		t.Fatalf("core 2 should have 1 events for core 1, not %d", k)
+	if k := knownBy2[cores[1].ID()]; k != 0 {
+		t.Fatalf("core 2 should have last-index 0 core 1, not %d", k)
 	}
-	if k := knownBy2[cores[2].ID()]; k != 2 {
-		t.Fatalf("core 2 should have 2 events for core 2, not %d", k)
+	if k := knownBy2[cores[2].ID()]; k != 1 {
+		t.Fatalf("core 2 should have last-index 1 for core 2, not %d", k)
 	}
 	core2Head, _ := cores[2].GetHead()
 	if core2Head.SelfParent() != index["e2"] {
@@ -252,14 +255,14 @@ func TestSync(t *testing.T) {
 	*/
 
 	knownBy1 := cores[1].Known()
-	if k := knownBy1[cores[0].ID()]; k != 2 {
-		t.Fatalf("core 1 should have 2 events for core 0, not %d", k)
+	if k := knownBy1[cores[0].ID()]; k != 1 {
+		t.Fatalf("core 1 should have last-index 1 for core 0, not %d", k)
 	}
-	if k := knownBy1[cores[1].ID()]; k != 2 {
-		t.Fatalf("core 1 should have 2 events for core 1, not %d", k)
+	if k := knownBy1[cores[1].ID()]; k != 1 {
+		t.Fatalf("core 1 should have last-index 1 for core 1, not %d", k)
 	}
-	if k := knownBy1[cores[2].ID()]; k != 2 {
-		t.Fatalf("core 1 should have 2 events for core 2, not %d", k)
+	if k := knownBy1[cores[2].ID()]; k != 1 {
+		t.Fatalf("core 1 should have last-index 1 for core 2, not %d", k)
 	}
 	core1Head, _ := cores[1].GetHead()
 	if core1Head.SelfParent() != index["e1"] {
@@ -276,8 +279,8 @@ func TestSync(t *testing.T) {
 h0  |   h2
 | \ | / |
 |   h1  |
-|  /|   |
-g02 |   |
+|  /|   |--------------------
+g02 |   | R2
 | \ |   |
 |   \   |
 |   | \ |
@@ -288,8 +291,8 @@ g02 |   |
 g0  |   g2
 | \ | / |
 |   g1  |
-|  /|   |
-f02 |   |
+|  /|   |--------------------
+f02 |   | R1
 | \ |   |
 |   \   |
 |   | \ |
@@ -300,8 +303,8 @@ f02 |   |
 f0  |   f2
 | \ | / |
 |   f1  |
-|  /|   |
-e02 |   |
+|  /|   |--------------------
+e02 |   | R0 Consensus
 | \ |   |
 |   \   |
 |   | \ |
@@ -318,9 +321,8 @@ type play struct {
 	payload [][]byte
 }
 
-func TestConsensus(t *testing.T) {
-	cores, _, _ := initCores(t)
-
+func initConsensusHashgraph(t *testing.T) []Core {
+	cores, _, _ := initCores(3, t)
 	playbook := []play{
 		play{from: 0, to: 1, payload: [][]byte{[]byte("e10")}},
 		play{from: 1, to: 2, payload: [][]byte{[]byte("e21")}},
@@ -349,6 +351,11 @@ func TestConsensus(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	return cores
+}
+
+func TestConsensus(t *testing.T) {
+	cores := initConsensusHashgraph(t)
 
 	if l := len(cores[0].GetConsensusEvents()); l != 6 {
 		t.Fatalf("length of consensus should be 6 not %d", l)
@@ -366,6 +373,215 @@ func TestConsensus(t *testing.T) {
 			t.Fatalf("core 2 consensus[%d] does not match core 0's", i)
 		}
 	}
+}
+
+func TestOverSyncLimit(t *testing.T) {
+	cores := initConsensusHashgraph(t)
+
+	known := map[int]int{}
+
+	syncLimit := 10
+
+	//positive
+	for i := 0; i < 3; i++ {
+		known[i] = 1
+	}
+	if !cores[0].OverSyncLimit(known, syncLimit) {
+		t.Fatalf("OverSyncLimit(%v, %v) should return true", known, syncLimit)
+	}
+
+	//negative
+	for i := 0; i < 3; i++ {
+		known[i] = 6
+	}
+	if cores[0].OverSyncLimit(known, syncLimit) {
+		t.Fatalf("OverSyncLimit(%v, %v) should return false", known, syncLimit)
+	}
+
+	//edge
+	known = map[int]int{
+		0: 2,
+		1: 3,
+		2: 3,
+	}
+	if cores[0].OverSyncLimit(known, syncLimit) {
+		t.Fatalf("OverSyncLimit(%v, %v) should return false", known, syncLimit)
+	}
+
+}
+
+/*
+    |   |   |   | h01 will NOT be created in initFFHashgraph.
+  (h01) |   |   | It is only created in the fast-forward test
+    | \ |   |   |----------------
+	|   w31 |   | R3
+	|	| \ |   |
+    |   |  w32  |
+    |   |   | \ |
+    |   |   |  w33
+    |   |   | / |-----------------
+    |   |  g21  | R2
+	|   | / |   |
+	|   w21 |   |
+	|	| \ |   |
+    |   |   \   |
+    |   |   | \ |
+    |   |   |  w23
+    |   |   | / |
+    |   |  w22  |
+	|   | / |   |-----------------
+	|  f13  |   | R1
+	|	| \ |   | LastConsensusRound for nodes 1, 2 and 3 because it is the last
+    |   |   \   | Round that has all its witnesses decided
+    |   |   | \ |
+	|   |   |  w13
+	|   |   | / |
+	|   |  w12  |
+    |   | / |   |
+    |  w11  |   |
+	|	| \ |   |-----------------
+    |   |   \   | R0
+    |   |   | \ |
+    |   |   |  e32
+    |   |   | / |
+    |   |  e21  | All Events in Round 0 are Consensus Events.
+    |   | / |   |
+    |  e10  |   |
+	| / |   |   |
+   e0   e1  e2  e3
+    0	1	2	3
+*/
+func initFFHashgraph(cores []Core, t *testing.T) {
+	playbook := []play{
+		play{from: 0, to: 1, payload: [][]byte{[]byte("e10")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("e21")}},
+		play{from: 2, to: 3, payload: [][]byte{[]byte("e32")}},
+		play{from: 3, to: 1, payload: [][]byte{[]byte("w11")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("w12")}},
+		play{from: 2, to: 3, payload: [][]byte{[]byte("w13")}},
+		play{from: 3, to: 1, payload: [][]byte{[]byte("f13")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("w22")}},
+		play{from: 2, to: 3, payload: [][]byte{[]byte("w23")}},
+		play{from: 3, to: 1, payload: [][]byte{[]byte("w21")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("g21")}},
+		play{from: 2, to: 3, payload: [][]byte{[]byte("w33")}},
+		play{from: 3, to: 2, payload: [][]byte{[]byte("w32")}},
+		play{from: 2, to: 1, payload: [][]byte{[]byte("w31")}},
+	}
+
+	for k, play := range playbook {
+		if err := syncAndRunConsensus(cores, play.from, play.to, play.payload); err != nil {
+			t.Fatalf("play %d: %s", k, err)
+		}
+	}
+}
+
+func TestConsensusFF(t *testing.T) {
+	cores, _, _ := initCores(4, t)
+	initFFHashgraph(cores, t)
+
+	if r := cores[0].GetLastConsensusRoundIndex(); r != nil {
+		disp := strconv.Itoa(*r)
+		t.Fatalf("Cores[0] last consensus Round should be nil, not %s", disp)
+	}
+
+	if r := cores[1].GetLastConsensusRoundIndex(); r == nil || *r != 1 {
+		disp := "nil"
+		if r != nil {
+			disp = strconv.Itoa(*r)
+		}
+		t.Fatalf("Cores[1] last consensus Round should be 1, not %s", disp)
+	}
+
+	if l := len(cores[0].GetConsensusEvents()); l != 0 {
+		t.Fatalf("Node 0 should have 0 consensus events, not %d", l)
+	}
+
+	if l := len(cores[1].GetConsensusEvents()); l != 7 {
+		t.Fatalf("Node 1 should have 7 consensus events, not %d", l)
+	}
+
+	core1Consensus := cores[1].GetConsensusEvents()
+	core2Consensus := cores[2].GetConsensusEvents()
+	core3Consensus := cores[3].GetConsensusEvents()
+
+	for i, e := range core1Consensus {
+		if core2Consensus[i] != e {
+			t.Fatalf("Node 2 consensus[%d] does not match Node 1's", i)
+		}
+		if core3Consensus[i] != e {
+			t.Fatalf("Node 3 consensus[%d] does not match Node 1's", i)
+		}
+	}
+}
+func TestCoreFastForward(t *testing.T) {
+	cores, _, index := initCores(4, t)
+	initFFHashgraph(cores, t)
+
+	frame, err := cores[1].GetFrame()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	//serialize and deserialize to simulated transfer over wire
+	var w bytes.Buffer
+	enc := gob.NewEncoder(&w)
+	if err := enc.Encode(frame); err != nil {
+		t.Fatal(err)
+	}
+	b := bytes.NewBuffer(w.Bytes())
+	dec := gob.NewDecoder(b) //will read from b
+	wireFrame := hg.Frame{}
+	if err := dec.Decode(&wireFrame); err != nil {
+		t.Fatal(err)
+	}
+
+	err = cores[0].FastForward(wireFrame)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	knownBy0 := cores[0].Known()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedKnown := map[int]int{
+		0: 1,
+		1: 5,
+		2: 5,
+		3: 4,
+	}
+
+	if !reflect.DeepEqual(knownBy0, expectedKnown) {
+		t.Fatalf("Cores[0].Known should be %v, not %v", expectedKnown, knownBy0)
+	}
+
+	if r := cores[0].GetLastConsensusRoundIndex(); r == nil || *r != 1 {
+		disp := "nil"
+		if r != nil {
+			disp = strconv.Itoa(*r)
+		}
+		t.Fatalf("Cores[0] last consensus Round should be 1, not %s", disp)
+	}
+
+	for k, ce := range cores[0].GetConsensusEvents() {
+		t.Logf("Cores[0].ConsensusEvents[%d] = %s", k, getName(index, ce))
+		t.Logf("Round(%s) = %d", getName(index, ce), cores[0].hg.Round(ce))
+	}
+
+	if l := len(cores[0].GetConsensusEvents()); l != 0 {
+		t.Fatalf("Node 0 should have 0 consensus events, not %d", l)
+	}
+
+	head, err := cores[0].GetHead()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if headRound := cores[0].hg.Round(head.Hex()); headRound != 3 {
+		t.Fatalf("Cores[0].Head.Round should be 3, not %d", headRound)
+	}
+
 }
 
 func synchronizeCores(cores []Core, from int, to int, payload [][]byte) error {
@@ -399,5 +615,5 @@ func getName(index map[string]string, hash string) string {
 			return name
 		}
 	}
-	return ""
+	return fmt.Sprintf("%s not found", hash)
 }

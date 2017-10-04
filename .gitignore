@@ -9,6 +9,8 @@ cmd/debug
 
 vendor
 
+node/logs
+
 docker/babble/babble
 docker/dummy/dummy
 docker/conf/*

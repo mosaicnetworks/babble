@@ -89,14 +89,14 @@ func (c *Core) SignAndInsertSelfEvent(event hg.Event) error {
 	if err := event.Sign(c.key); err != nil {
 		return err
 	}
-	if err := c.InsertEvent(event); err != nil {
+	if err := c.InsertEvent(event, true); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *Core) InsertEvent(event hg.Event) error {
-	if err := c.hg.InsertEvent(event); err != nil {
+func (c *Core) InsertEvent(event hg.Event, setWireInfo bool) error {
+	if err := c.hg.InsertEvent(event, setWireInfo); err != nil {
 		return err
 	}
 	if event.Creator() == c.HexID() {
@@ -110,7 +110,25 @@ func (c *Core) Known() map[int]int {
 	return c.hg.Known()
 }
 
-//returns events that c knowns about that are not in 'known', along with c's head
+func (c *Core) OverSyncLimit(known map[int]int, syncLimit int) bool {
+	totUnknown := 0
+	myKnown := c.Known()
+	for i, li := range myKnown {
+		if li > known[i] {
+			totUnknown += li - known[i]
+		}
+	}
+	if totUnknown > syncLimit {
+		return true
+	}
+	return false
+}
+
+func (c *Core) GetFrame() (hg.Frame, error) {
+	return c.hg.GetFrame()
+}
+
+//returns events that c knowns about that are not in 'known'
 func (c *Core) Diff(known map[int]int) (events []hg.Event, err error) {
 	unknown := []hg.Event{}
 	//known represents the number of events known for every participant
@@ -149,7 +167,7 @@ func (c *Core) Sync(unknown []hg.WireEvent) error {
 		if err != nil {
 			return err
 		}
-		if err := c.InsertEvent(*ev); err != nil {
+		if err := c.InsertEvent(*ev, false); err != nil {
 			return err
 		}
 		//assume last event corresponds to other-head
@@ -172,6 +190,56 @@ func (c *Core) Sync(unknown []hg.WireEvent) error {
 
 		//empty the transaction pool
 		c.transactionPool = [][]byte{}
+	}
+
+	return nil
+}
+
+func (c *Core) FastForward(frame hg.Frame) error {
+	err := c.hg.Reset(frame.Roots)
+	if err != nil {
+		return err
+	}
+
+	myRoot, ok := frame.Roots[c.HexID()]
+	if !ok {
+		return fmt.Errorf("No Root for self")
+	}
+
+	c.Head = myRoot.X
+	c.Seq = myRoot.Index
+
+	otherHead := ""
+	//add unknown events
+	for k, ev := range frame.Events {
+		if err := c.InsertEvent(ev, false); err != nil {
+			return err
+		}
+		//assume last event corresponds to other-head
+		if k == len(frame.Events)-1 {
+			otherHead = ev.Hex()
+		}
+	}
+
+	//create new event with self head and other head
+	//only if there are pending loaded events or the transaction pool is not empty
+	if len(frame.Events) > 0 || len(c.transactionPool) > 0 {
+		newHead := hg.NewEvent(c.transactionPool,
+			[]string{c.Head, otherHead},
+			c.PubKey(),
+			c.Seq+1)
+
+		if err := c.SignAndInsertSelfEvent(newHead); err != nil {
+			return fmt.Errorf("Error inserting new head: %s", err)
+		}
+
+		//empty the transaction pool
+		c.transactionPool = [][]byte{}
+	}
+
+	err = c.RunConsensus()
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -227,6 +295,7 @@ func (c *Core) RunConsensus() error {
 	err := c.hg.DivideRounds()
 	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("DivideRounds()")
 	if err != nil {
+		c.logger.WithField("error", err).Error("DivideRounds")
 		return err
 	}
 
@@ -234,6 +303,7 @@ func (c *Core) RunConsensus() error {
 	err = c.hg.DecideFame()
 	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("DecideFame()")
 	if err != nil {
+		c.logger.WithField("error", err).Error("DecideFame")
 		return err
 	}
 
@@ -241,6 +311,7 @@ func (c *Core) RunConsensus() error {
 	err = c.hg.FindOrder()
 	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("FindOrder()")
 	if err != nil {
+		c.logger.WithField("error", err).Error("FindOrder")
 		return err
 	}
 
