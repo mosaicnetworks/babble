@@ -3,7 +3,6 @@ package node
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"math/rand"
 	"sort"
 	"sync"
 	"time"
@@ -42,7 +41,7 @@ type Node struct {
 
 	shutdownCh chan struct{}
 
-	heartbeatTicker *ticker
+	controlTimer *ControlTimer
 
 	start        time.Time
 	syncRequests int
@@ -81,6 +80,7 @@ func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans
 		submitCh:     proxy.SubmitCh(),
 		commitCh:     commitCh,
 		shutdownCh:   make(chan struct{}),
+		controlTimer: NewRandomControlTimer(conf.HeartbeatTimeout),
 	}
 
 	//Initialize as Babbling
@@ -104,8 +104,14 @@ func (n *Node) RunAsync(gossip bool) {
 }
 
 func (n *Node) Run(gossip bool) {
-	//Run background worker
-	go n.backgroundWorker()
+	//The ControlTimer allows the background routines to control the
+	//heartbeat timer when the node is in the Babbling state. The timer should
+	//only be running when there are uncommitted transactions in the system.
+	go n.controlTimer.Run()
+
+	//Execute some background work regardless of the state of the node.
+	//Process RPC requests as well as SumbitTx and CommitTx requests
+	go n.doBackgroundWork()
 
 	//Execute Node State Machine
 	for {
@@ -124,24 +130,20 @@ func (n *Node) Run(gossip bool) {
 	}
 }
 
-func (n *Node) backgroundWorker() {
+func (n *Node) doBackgroundWork() {
 	for {
 		select {
 		case rpc := <-n.netCh:
 			n.logger.Debug("Processing RPC")
 			n.processRPC(rpc)
-			if n.core.NeedGossip() {
-				if n.heartbeatTicker == nil {
-					n.heartbeatTicker = createTicker(n.conf.HeartbeatTimeout)
-				} else if n.heartbeatTicker.stopped {
-					n.heartbeatTicker.resetTicker()
-				}
+			if n.core.NeedGossip() && !n.controlTimer.set {
+				n.controlTimer.resetCh <- struct{}{}
 			}
 		case t := <-n.submitCh:
 			n.logger.Debug("Adding Transaction")
 			n.addTransaction(t)
-			if n.heartbeatTicker.stopped {
-				n.heartbeatTicker.resetTicker()
+			if !n.controlTimer.set {
+				n.controlTimer.resetCh <- struct{}{}
 			}
 		case events := <-n.commitCh:
 			n.logger.WithField("events", len(events)).Debug("Committing Events")
@@ -155,11 +157,10 @@ func (n *Node) backgroundWorker() {
 }
 
 func (n *Node) babble(gossip bool) {
-	n.heartbeatTicker = createTicker(n.conf.HeartbeatTimeout)
 	for {
 		oldState := n.getState()
 		select {
-		case <-n.heartbeatTicker.ticker.C:
+		case <-n.controlTimer.tickCh:
 			if gossip {
 				proceed, err := n.preGossip()
 				if proceed && err == nil {
@@ -168,8 +169,10 @@ func (n *Node) babble(gossip bool) {
 					n.goFunc(func() { n.gossip(peer.NetAddr) })
 				}
 			}
-			if !n.core.NeedGossip() && !n.heartbeatTicker.stopped {
-				n.heartbeatTicker.stopTicker()
+			if !n.core.NeedGossip() {
+				n.controlTimer.stopCh <- struct{}{}
+			} else if !n.controlTimer.set {
+				n.controlTimer.resetCh <- struct{}{}
 			}
 		case <-n.shutdownCh:
 			return
@@ -566,6 +569,7 @@ func (n *Node) Shutdown() {
 	if n.getState() != Shutdown {
 		n.logger.Debug("Shutdown")
 		n.waitRoutines()
+		n.controlTimer.Shutdown()
 		close(n.shutdownCh)
 		n.trans.Close()
 		n.setState(Shutdown)
@@ -632,37 +636,4 @@ func (n *Node) SyncRate() float64 {
 		syncErrorRate = float64(n.syncErrors) / float64(n.syncRequests)
 	}
 	return 1 - syncErrorRate
-}
-
-type ticker struct {
-	period     time.Duration
-	ticker     time.Ticker
-	tickerLock sync.Mutex
-	stopped    bool
-}
-
-func createTicker(minPeriod time.Duration) *ticker {
-	if minPeriod == 0 {
-		return nil
-	}
-	extra := (time.Duration(rand.Int63()) % minPeriod)
-	period := minPeriod + extra
-	return &ticker{
-		period: period,
-		ticker: *time.NewTicker(period),
-	}
-}
-
-func (t *ticker) stopTicker() {
-	t.tickerLock.Lock()
-	defer t.tickerLock.Unlock()
-	t.ticker.Stop()
-	t.stopped = true
-}
-
-func (t *ticker) resetTicker() {
-	t.tickerLock.Lock()
-	defer t.tickerLock.Unlock()
-	t.ticker = *time.NewTicker(t.period)
-	t.stopped = false
 }

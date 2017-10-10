@@ -309,7 +309,10 @@ func TestGossip(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	_, nodes := initNodes(4, 1000, logger)
 
-	gossip(nodes, 50, true, 3*time.Second)
+	err := gossip(nodes, 50, true, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	checkGossip(nodes, t)
 }
@@ -319,7 +322,10 @@ func TestMissingNodeGossip(t *testing.T) {
 	_, nodes := initNodes(4, 1000, logger)
 	defer shutdownNodes(nodes)
 
-	gossip(nodes[1:], 50, false, 3*time.Second)
+	err := gossip(nodes[1:], 50, false, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	checkGossip(nodes[1:], t)
 }
@@ -328,7 +334,10 @@ func TestSyncLimit(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	_, nodes := initNodes(4, 300, logger)
 
-	gossip(nodes, 10, false, 3*time.Second)
+	err := gossip(nodes, 10, false, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer shutdownNodes(nodes)
 
 	//create fake node[0] known to artificially reach SyncLimit
@@ -366,9 +375,12 @@ func TestFastForward(t *testing.T) {
 	defer shutdownNodes(nodes)
 
 	target := 50
-	gossip(nodes[1:], target, false, 3*time.Second)
+	err := gossip(nodes[1:], target, false, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	err := nodes[0].fastForward()
+	err = nodes[0].fastForward()
 	if err != nil {
 		t.Fatalf("Error FastForwarding: %s", err)
 	}
@@ -389,7 +401,10 @@ func TestCatchUp(t *testing.T) {
 
 	target := 50
 
-	gossip(nodes[1:], target, false, 3*time.Second)
+	err := gossip(nodes[1:], target, false, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
 	checkGossip(nodes[1:], t)
 
 	nodes[0].RunAsync(true)
@@ -408,7 +423,7 @@ func TestCatchUp(t *testing.T) {
 	}
 
 	//wait until node 0 has caught up
-	err := bombardAndWait(nodes, target+20, 6*time.Second)
+	err = bombardAndWait(nodes, target+20, 6*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -423,7 +438,6 @@ func TestShutdown(t *testing.T) {
 	nodes[0].Shutdown()
 
 	err := nodes[1].gossip(nodes[0].localAddr)
-
 	if err == nil {
 		t.Fatal("Expected Timeout Error")
 	}
