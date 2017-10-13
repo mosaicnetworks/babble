@@ -1,14 +1,28 @@
-hash: 273667d272deb18adb573647a1d624b85980be02bafba69a89987a5f068cb677
-updated: 2017-09-29T16:19:18.709026508+01:00
+hash: 14dbaf1a0933ed3b1ae691e1d502dfd2d16e041d3ead4534031ce3cfd7145847
+updated: 2017-10-13T17:10:06.498913343+01:00
 imports:
+- name: github.com/gorilla/context
+  version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
+- name: github.com/gorilla/mux
+  version: 24fca303ac6da784b9e8269f724ddeb0b2eea5e7
 - name: github.com/Sirupsen/logrus
   version: c078b1e43f58d563c74cebe63c85789e76ddb627
 - name: github.com/stretchr/testify
   version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
+  subpackages:
+  - assert
 - name: golang.org/x/sys
   version: d75a52659825e75fff6158388dddc6a5b04f9ba5
   subpackages:
   - unix
 - name: gopkg.in/urfave/cli.v1
   version: 0bdeddeeb0f650497d603c4ad7b20cfe685682f6
-testImports: []
+testImports:
+- name: github.com/davecgh/go-spew
+  version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
+  subpackages:
+  - spew
+- name: github.com/pmezard/go-difflib
+  version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
+  subpackages:
+  - difflib
