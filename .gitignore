@@ -22,3 +22,5 @@ terraform/conf/*
 terraform/ips.dat
 
 .idea/
+
+docs/_build
