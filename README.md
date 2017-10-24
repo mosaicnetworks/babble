@@ -186,12 +186,12 @@ and a CLI tool for managing Go code. and will require you to
 [define a workspace](https://golang.org/doc/code.html#Workspaces) where all your go code will reside. 
 
 ### Babble and dependencies  
-Clone the [repository](https://bitbucket.org/mosaicnet/babble) in the appropriate GOPATH subdirectory:
+Clone the [repository](https://github.com/babbleio/babble) in the appropriate GOPATH subdirectory:
 
 ```bash
-$ mkdir -p $GOPATH/src/bitbucket.org/mosaicnet/
-$ cd $GOPATH/src/bitbucket.org/mosaicnet
-[...]/mosaicnet$ git clone https://bitbucket.org/mosaicnet/babble.git
+$ mkdir -p $GOPATH/src/github.com/babbleio/
+$ cd $GOPATH/src/github.com/babbleio
+[...]/mosaicnet$ git clone https://github.com/babbleio/babble.git
 ```
 Babble uses [Glide](http://github.com/Masterminds/glide) to manage dependencies.
 
@@ -211,14 +211,14 @@ Babble has extensive unit-testing. Use the Go tool to run tests:
 
 If everything goes well, it should output something along these lines:  
 ```
-ok      bitbucket.org/mosaicnet/babble/net      0.052s
-ok      bitbucket.org/mosaicnet/babble/common   0.011s
-?       bitbucket.org/mosaicnet/babble/cmd      [no test files]
-?       bitbucket.org/mosaicnet/babble/cmd/dummy_client [no test files]
-ok      bitbucket.org/mosaicnet/babble/hashgraph        0.174s
-ok      bitbucket.org/mosaicnet/babble/node     1.699s
-ok      bitbucket.org/mosaicnet/babble/proxy    0.018s
-ok      bitbucket.org/mosaicnet/babble/crypto   0.028s
+ok      github.com/babbleio/babble/net      0.052s
+ok      github.com/babbleio/babble/common   0.011s
+?       github.com/babbleio/babble/cmd      [no test files]
+?       github.com/babbleio/babble/cmd/dummy_client [no test files]
+ok      github.com/babbleio/babble/hashgraph        0.174s
+ok      github.com/babbleio/babble/node     1.699s
+ok      github.com/babbleio/babble/proxy    0.018s
+ok      github.com/babbleio/babble/crypto   0.028s
 ```
 
 ### Docker Testnet

@@ -3,7 +3,7 @@ package hashgraph
 import (
 	"fmt"
 
-	cm "bitbucket.org/mosaicnet/babble/common"
+	cm "github.com/babbleio/babble/common"
 )
 
 type Key struct {

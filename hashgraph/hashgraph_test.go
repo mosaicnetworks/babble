@@ -15,8 +15,8 @@ import (
 
 	"math"
 
-	"bitbucket.org/mosaicnet/babble/common"
-	"bitbucket.org/mosaicnet/babble/crypto"
+	"github.com/babbleio/babble/common"
+	"github.com/babbleio/babble/crypto"
 )
 
 var (

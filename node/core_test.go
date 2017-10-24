@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"testing"
 
-	"bitbucket.org/mosaicnet/babble/common"
-	"bitbucket.org/mosaicnet/babble/crypto"
-	hg "bitbucket.org/mosaicnet/babble/hashgraph"
+	"github.com/babbleio/babble/common"
+	"github.com/babbleio/babble/crypto"
+	hg "github.com/babbleio/babble/hashgraph"
 )
 
 func TestInit(t *testing.T) {

@@ -4,7 +4,7 @@ package net
 import (
 	"testing"
 
-	"bitbucket.org/mosaicnet/babble/common"
+	"github.com/babbleio/babble/common"
 	"crypto/tls"
 	"crypto/x509"
 	"github.com/Sirupsen/logrus"

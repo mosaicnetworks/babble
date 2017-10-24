@@ -13,12 +13,12 @@ import (
 	"github.com/Sirupsen/logrus"
 	"gopkg.in/urfave/cli.v1"
 
-	"bitbucket.org/mosaicnet/babble/crypto"
-	"bitbucket.org/mosaicnet/babble/net"
-	"bitbucket.org/mosaicnet/babble/node"
-	"bitbucket.org/mosaicnet/babble/proxy"
-	aproxy "bitbucket.org/mosaicnet/babble/proxy/app"
-	"bitbucket.org/mosaicnet/babble/service"
+	"github.com/babbleio/babble/crypto"
+	"github.com/babbleio/babble/net"
+	"github.com/babbleio/babble/node"
+	"github.com/babbleio/babble/proxy"
+	aproxy "github.com/babbleio/babble/proxy/app"
+	"github.com/babbleio/babble/service"
 )
 
 var (

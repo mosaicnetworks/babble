@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"bitbucket.org/mosaicnet/babble/crypto"
+	"github.com/babbleio/babble/crypto"
 )
 
 func createDummyEventBody() EventBody {

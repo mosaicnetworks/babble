@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"bitbucket.org/mosaicnet/babble/node"
+	"github.com/babbleio/babble/node"
 	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 )
