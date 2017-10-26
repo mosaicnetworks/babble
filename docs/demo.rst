@@ -45,12 +45,12 @@ First things first
 
 The code for evm-babble lives in its own repo. Let us download it and give a quick overview of what it does.
   
-Clone the [repository](https://github.com/babbleio/evm-babble) in the appropriate GOPATH subdirectory:
+Clone the `repository <https://github.com/babbleio/evm-babble>`__ in the appropriate GOPATH subdirectory:
 
 ::
 
     $ cd $GOPATH/src/github.com/babbleio
-    [...]/mosaicnet$ git clone https://github.com/babbleio/evm-babble.git
+    [...]/babbleio$ git clone https://github.com/babbleio/evm-babble.git
 
 Then, follow the instructions in the README to install dependencies and complete the installation.
 
@@ -72,4 +72,4 @@ It shows how to deploy a SmartContract that coordinates financial contributions 
 the funding target is reached. The SmartContract in question was only created for the purposes of this demo
 so please do not use it for a real crowd-funding campaign. We recommend opening multiple terminals in parallel to monitor
 the consensus stats and logs on the various nodes while the demo runs. This will help to get an understanding of all 
-the work that is happening in the background to securily replicate all commands on multiple nodes for greater security.
+the work that is happening in the background to securely replicate all commands on multiple nodes for greater security.

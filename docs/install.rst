@@ -5,7 +5,7 @@ Go
 ^^
 
 Babble is written in `Golang <https://golang.org/>`__. Hence, the first step is to install  
-(**Go version 1.9 or above**) which is both the programming language  
+**Go version 1.9 or above** which is both the programming language  
 and a CLI tool for managing Go code. Go is very opinionated  and will require you to  
 `define a workspace <https://golang.org/doc/code.html#Workspaces>`__ where all your go code will reside. 
 
@@ -18,7 +18,7 @@ Clone the `repository <https://github.com/babbleio/babble>`__ in the appropriate
 
     $ mkdir -p $GOPATH/src/github.com/babbleio/
     $ cd $GOPATH/src/github.com/babbleio
-    [...]/mosaicnet$ git clone https://github.com/babbleio/babble.git
+    [...]/babbleio$ git clone https://github.com/babbleio/babble.git
 
 Babble uses `Glide <http://github.com/Masterminds/glide>`__ to manage dependencies.
 
