@@ -1,15 +1,35 @@
 # BABBLE
 ## Consensus platform for distributed applications.  
 
-Nodes in a distributed application require a component to communicate transactions  
-between all participants before processing them locally in a consistent order.  
-Babble is a plug and play solution for this component.  It uses the Hashgraph   
-consensus algorithm which offers definitive advantages over other BFT systems.
+Babble allows many computers to behave as one. It uses Peer to Peer (P2P) networking  
+and a consensus algorithm to guarantee that multiple connected computers process  
+the same commands in the same order; a technique known as state machine replication.  
+This makes for secure systems that can tolerate arbitrary failures including malicious  
+behaviour.
+
+For guidance on how to install and use Babble please visit our [documentation](http://docs.babble.io) pages.
 
 **NOTE**:  
 This is alpha software. Please contact us if you intend to run it in production.
 
-## Architecture
+## Consensus Algorithm
+
+We use the Hashgraph consensus algorithm, invented by Leemon Baird.  
+It is best described in the [white-paper](http://www.swirlds.com/downloads/SWIRLDS-TR-2016-01.pdf) and its [accompanying document](http://www.swirlds.com/downloads/SWIRLDS-TR-2016-02.pdf).   
+The algorithm is protected by [patents](http://www.swirlds.com/ip/) in the USA. Therefore, anyone intending to  
+use this software in the USA should obtain a license from the patent holders.
+
+Hashgraph is based on the intuitive idea that gossiping about gossip itself yields  
+enough information to compute a consensus ordering of events. It attains the  
+theoretical limit of tolerating up to one-third of faulty nodes without compromising  
+on speed. For those familiar with the jargon, it is a leaderless, asynchronous BFT  
+consensus algorithm.
+
+## Design
+
+Babble is designed to integrate with applications written in any programming language.  
+
+
 ```
     ========================================
     = APP                                  =  
@@ -64,126 +84,13 @@ to an ordering system which communicates to other nodes and feeds the commands b
 to the State in consensus order. Babble is an ordering system that plugs into the  
 App thanks to a very simple JSON-RPC interface over TCP.
 
-### Proxy
-
-The Babble node and the App are loosely coupled and can run in separate processes.  
-They communicate via a very simple **JSON-RPC** interface over a **TCP** connection. 
-
-The App submits transactions for consensus ordering via the **SubmitTx** endpoint  
-exposed by the **App Proxy**. Babble asynchrously processes transactions and  
-eventually feeds them back to the App, in consensus order,  with a **CommitTx**  
-message.
-
-Transactions are just raw bytes and Babble does not need to know what  
-they represent. Therefore, encoding and decoding transactions is done by the App.
-
-Apps must implement their own **Babble Proxy** to submit and receive committed  
-transactions from Babble. The advantage of using a JSON-RPC API is that there is  
-no restriction on the programming language for the App. It only requires a component    
-that sends SubmitTx messages to Babble and exposes a TCP enpoint where Babble can  
-send CommitTx messages.
-
-When launching a Babble node, one must specify the address and port exposed by the  
-Babble Proxy of the App. It is also possible to configure which address and port  
-the App Proxy exposes.
-
-Example SubmitTx request (from App to Babble):
-```json
-request: {"method":"Babble.SubmitTx","params":["Y2xpZW50IDE6IGhlbGxv"],"id":0}
-response: {"id":0,"result":true,"error":null}
-```
-
-Note that the Proxy API is **not** over HTTP; It is raw JSON over TCP. Here is an  
-example of how to make a SubmitTx request manually:  
-```bash
-printf "{\"method\":\"Babble.SubmitTx\",\"params\":[\"Y2xpZW50IDE6IGhlbGxv\"],\"id\":0}" | nc -v  172.77.5.1 1338
-```
-
-Example CommitTx request (from Babble to App):
-```json
-request: {"method":"State.CommitTx","params":["Y2xpZW50IDE6IGhlbGxv"],"id":0}
-response: {"id":0,"result":true,"error":null}
-```
-The content of "params" is the base64 encoding of the raw transaction bytes ("client1: hello").
-
-### Transport
-
-Babble nodes communicate with other Babble nodes in a fully connected Peer To Peer  
-network. Nodes gossip by repeatedly choosing another node at random and telling  
-eachother what they know about the  Hashgraph. The gossip protocol is extremely  
-simple and serves the dual purpose of gossiping about transactions and about the  
-gossip itself (the Hashgraph). The Hashraph contains enough information to compute  
-a consensus ordering of transactions. 
-
-The communication mechanism is a custom RPC protocol over TCP connections. It  
-implements a Pull + Push gossip systerm. At the moment, there are two types of RPC  
-commands: **Sync** and **EagerSync**. When node **A** wants to sync with node **B**,  
-it sends a **SyncRequest** to **B** containing a description of what it knows  
-about the Hashgraph. **B** computes what it knows that **A** doesn't know and  
-returns a **SyncResponse** with the corresponding events in topological order.  
-Upon receiving the **SyncResponse**, **A** updates its Hashgraph accordingly and  
-calculates the consensus order. Then, **A** sends an **EagerSyncRequest** to **B**  
-with the Events that it knowns and **B** doesn't. Upon receiving the **EagerSyncRequest**,  
-**B** updates its Hashgraph and runs the consensus methods.
-
-UPDATE 04/10/2017:  
-We added the **FastForward** command. If the content of a **Sync** or **EagerSync**  
-exceeds a predefined limit, nodes are invited to fast-forward to the tip of the  
-Hashgraph. This feature is implemented but we are not sure the algorithm is BFT.  
-cf CatchingUp
-
-
-The list of peers must be predefined and known to all peers. At the moment, it is  
-not possible to dynamically modify the list of peers while the network is running  
-but this is not a limitation of the Hashgraph algorithm, just an implemention  
-prioritization.
-
-### Core
-
-The core of Babble is the component that maintains and computes the Hashgraph.  
-The consensus algorithm, invented by Leemon Baird, is best described in the [white-paper](http://www.swirlds.com/downloads/SWIRLDS-TR-2016-01.pdf)  
-and its [accompanying document](http://www.swirlds.com/downloads/SWIRLDS-TR-2016-02.pdf). 
-
-The Hashgraph itself is a data structure that contains all the information about  
-the history of the gossip and thereby grows and grows in size as gossip spreads.  
-There are various strategies to keep the size of the Hashgraph limited. In our  
-implementation, the **Hashgraph** object has a dependency on a **Store** object  
-which contains the actual data and is abstracted behind an interface.
-
-The current implementation of the **Store** interface uses a set of in-memory LRU  
-caches which can be extended to persist stale items to disk. The size of the LRU  
-caches is configurable.
-
-### Service
-
-The Service exposes an HTTP API to query information about a node. At the  
-moment, it only exposes a **Stats** endpoint:  
-
-```bash
-$curl -s http://[ip]:8080/Stats | jq
-{
-  "consensus_events": "199993",
-  "consensus_transactions": "0",
-  "events_per_second": "264.65",
-  "id": "0",
-  "last_consensus_round": "21999",
-  "num_peers": "3",
-  "round_events": "10",
-  "rounds_per_second": "29.11",
-  "sync_rate": "1.00",
-  "transaction_pool": "0",
-  "undetermined_events": "24",
-  "state": "Babbling",
-}
-```
-
 ## Usage 
 
 ### Go
-Babble is written in [Golang](https://golang.org/). Hence, the first step is to install  
-(**Go version 1.9 or above**) which is both the programming language  
-and a CLI tool for managing Go code. and will require you to  
-[define a workspace](https://golang.org/doc/code.html#Workspaces) where all your go code will reside. 
+Babble is written in [Golang](https://golang.org/). Hence, the first step is to install **Go version 1.9 or above**  
+which is both the programming language  and a CLI tool for managing Go code. Go is  
+very opinionated and will require you to [define a workspace](https://golang.org/doc/code.html#Workspaces) where all your go code will  
+reside. 
 
 ### Babble and dependencies  
 Clone the [repository](https://github.com/babbleio/babble) in the appropriate GOPATH subdirectory:
@@ -191,7 +98,7 @@ Clone the [repository](https://github.com/babbleio/babble) in the appropriate GO
 ```bash
 $ mkdir -p $GOPATH/src/github.com/babbleio/
 $ cd $GOPATH/src/github.com/babbleio
-[...]/mosaicnet$ git clone https://github.com/babbleio/babble.git
+[...]/babbleio$ git clone https://github.com/babbleio/babble.git
 ```
 Babble uses [Glide](http://github.com/Masterminds/glide) to manage dependencies.
 
@@ -223,8 +130,8 @@ ok      github.com/babbleio/babble/crypto   0.028s
 
 ### Docker Testnet
 
-To see Babble in action, we have provided a series of scripts to bootstrap a  
-test network locally.  
+To see Babble in action, we have provided a series of scripts to bootstrap a test  
+network locally.  
 
 Make sure you have [Docker](https://docker.com) installed.  
 
@@ -246,10 +153,11 @@ Once the testnet is started, a script is automatically launched to monitor conse
 figures:  
 
 ```
-consensus_events:131055 consensus_transactions:0 events_per_second:265.53 id:0 last_consensus_round:14432 num_peers:3 round_events:10 rounds_per_second:29.24 sync_rate:1.00 transaction_pool:0 undetermined_events:26
-consensus_events:131055 consensus_transactions:0 events_per_second:266.39 id:3 last_consensus_round:14432 num_peers:3 round_events:10 rounds_per_second:29.34 sync_rate:1.00 transaction_pool:0 undetermined_events:25
-consensus_events:131055 consensus_transactions:0 events_per_second:267.30 id:2 last_consensus_round:14432 num_peers:3 round_events:10 rounds_per_second:29.44 sync_rate:1.00 transaction_pool:0 undetermined_events:31
-consensus_events:131067 consensus_transactions:0 events_per_second:268.27 id:1 last_consensus_round:14433 num_peers:3 round_events:11 rounds_per_second:29.54 sync_rate:1.00 transaction_pool:0 undetermined_events:21
+consensus_events:98 consensus_transactions:40 events_per_second:0.00 id:3 last_consensus_round:11 num_peers:3 round_events:12 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:34
+consensus_events:98 consensus_transactions:40 events_per_second:0.00 id:1 last_consensus_round:11 num_peers:3 round_events:12 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:35
+consensus_events:98 consensus_transactions:40 events_per_second:0.00 id:0 last_consensus_round:11 num_peers:3 round_events:12 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:34
+consensus_events:98 consensus_transactions:40 events_per_second:0.00 id:2 last_consensus_round:11 num_peers:3 round_events:12 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:35
+
 ```
 
 Running ```docker ps -a``` will show you that 8 docker containers have been launched:  
@@ -281,44 +189,3 @@ Finally, stop the testnet:
 ```
 [...]/babble/docker$ make stop
 ```
-
-### Terraform
-
-We have also created a set of scripts to deploy Babble testnets in AWS. This  
-requires [Terraform](https://www.terraform.io/) and authentication keys for AWS. As it would be too slow to  
-copy Babble over the network onto every node, it is best to create a custom AWS image (AMI)  
-with Babble preinstalled in ~/bin. Basically the Terraform scripts launch a certain  
-number of nodes in a subnet and starts Babble on them.
-
-```bash
-[...]/babble$ cd terraform
-[...]/babble/terraform$ make "nodes=12"
-[...]/babble/terraform$ make watch # monitor Stats
-[...]/babble/terraform$ make bombard # send a bunch of transactions
-[...]/babble/terraform$ ssh -i babble.pem ubuntu@[public ip] # ssh into a node
-[...]/babble/terraform$ make destroy #destroy resources
-``` 
-
-### Catching Up
-
-What happens when a node falls behind for a long time? When it comes back up, it  
-needs to catch-up with the other nodes. There are two ways for it to catch-up. It  
-can either download all the Events it missed and run the consensus algorithm on  
-the entire resulting Hashgraph or it can just fast-forward to the tip of the Hashgraph.
-
-Our implementation makes it possible to do either. By setting the **sync_limit**  
-flag to a very high value, we allow nodes to download many events in one go  
-thereby not provoking it to fast-forward. Of course the **tcp_timeout** flag should  
-be adjusted accordingly. If the **sync_limit** is lower, nodes will enter the **CatchingUp**  
-state and will fast-forward to the tip of the Hashgraph instead of downloading all  
-the Events they missed. Once they are all caught-up, they return to the **Babbling**  
-state where they follow the usual gossip routine.
-
-ATTENTION: This technique only allows nodes to catch-up with the transaction  
-ordering system (the Hashgraph). It allows them to quickly receive live transaction  
-but it does not handle syncing the state. This is an orthogonal problem that we  
-will address later.
-
-ATTENTION: The fast-forward feature is not BFT yet. Malicious nodes could force  
-other nodes to systematically try to fast-forward theryby cutting them out of the  
-network. This is work in progress.
