@@ -25,16 +25,3 @@ type EagerSyncResponse struct {
 	From    string
 	Success bool
 }
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-type FastForwardRequest struct {
-	From string
-}
-
-type FastForwardResponse struct {
-	From  string
-	Head  string
-	Seq   int
-	Frame hashgraph.Frame
-}

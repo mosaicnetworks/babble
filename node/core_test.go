@@ -1,11 +1,8 @@
 package node
 
 import (
-	"bytes"
 	"crypto/ecdsa"
-	"encoding/gob"
 	"fmt"
-	"reflect"
 	"strconv"
 	"testing"
 
@@ -411,9 +408,8 @@ func TestOverSyncLimit(t *testing.T) {
 }
 
 /*
-    |   |   |   | h01 will NOT be created in initFFHashgraph.
-  (h01) |   |   | It is only created in the fast-forward test
-    | \ |   |   |----------------
+
+    |   |   |   |-----------------
 	|   w31 |   | R3
 	|	| \ |   |
     |   |  w32  |
@@ -513,75 +509,6 @@ func TestConsensusFF(t *testing.T) {
 			t.Fatalf("Node 3 consensus[%d] does not match Node 1's", i)
 		}
 	}
-}
-func TestCoreFastForward(t *testing.T) {
-	cores, _, index := initCores(4, t)
-	initFFHashgraph(cores, t)
-
-	frame, err := cores[1].GetFrame()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	//serialize and deserialize to simulated transfer over wire
-	var w bytes.Buffer
-	enc := gob.NewEncoder(&w)
-	if err := enc.Encode(frame); err != nil {
-		t.Fatal(err)
-	}
-	b := bytes.NewBuffer(w.Bytes())
-	dec := gob.NewDecoder(b) //will read from b
-	wireFrame := hg.Frame{}
-	if err := dec.Decode(&wireFrame); err != nil {
-		t.Fatal(err)
-	}
-
-	err = cores[0].FastForward(wireFrame)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	knownBy0 := cores[0].Known()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expectedKnown := map[int]int{
-		0: 1,
-		1: 5,
-		2: 5,
-		3: 4,
-	}
-
-	if !reflect.DeepEqual(knownBy0, expectedKnown) {
-		t.Fatalf("Cores[0].Known should be %v, not %v", expectedKnown, knownBy0)
-	}
-
-	if r := cores[0].GetLastConsensusRoundIndex(); r == nil || *r != 1 {
-		disp := "nil"
-		if r != nil {
-			disp = strconv.Itoa(*r)
-		}
-		t.Fatalf("Cores[0] last consensus Round should be 1, not %s", disp)
-	}
-
-	for k, ce := range cores[0].GetConsensusEvents() {
-		t.Logf("Cores[0].ConsensusEvents[%d] = %s", k, getName(index, ce))
-		t.Logf("Round(%s) = %d", getName(index, ce), cores[0].hg.Round(ce))
-	}
-
-	if l := len(cores[0].GetConsensusEvents()); l != 0 {
-		t.Fatalf("Node 0 should have 0 consensus events, not %d", l)
-	}
-
-	head, err := cores[0].GetHead()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if headRound := cores[0].hg.Round(head.Hex()); headRound != 3 {
-		t.Fatalf("Cores[0].Head.Round should be 3, not %d", headRound)
-	}
-
 }
 
 func synchronizeCores(cores []Core, from int, to int, payload [][]byte) error {

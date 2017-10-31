@@ -29,6 +29,6 @@ for n in `seq 1 ${1:-0}`; do
     openssl x509 -req -$HASH -days $DAYS \
                       -CA $CA_CRT -CAkey $CA_KEY -CAcreateserial \
                       -in $node_csr -out $node_crt
-    #rm -f $node_csr
+    rm -f $node_csr
 done
 

@@ -6,15 +6,14 @@ import (
 	"math/rand"
 	"reflect"
 	"sort"
-	"strconv"
 	"testing"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/babbleio/babble/common"
 	"github.com/babbleio/babble/crypto"
 	"github.com/babbleio/babble/net"
 	aproxy "github.com/babbleio/babble/proxy/app"
-	"github.com/Sirupsen/logrus"
 )
 
 var ip = 9990
@@ -366,66 +365,6 @@ func TestSyncLimit(t *testing.T) {
 	}
 	if expectedResp.SyncLimit != true {
 		t.Fatal("SyncResponse.SyncLimit should be true")
-	}
-}
-
-func TestFastForward(t *testing.T) {
-	logger := common.NewTestLogger(t)
-	_, nodes := initNodes(4, 1000, logger)
-	defer shutdownNodes(nodes)
-
-	target := 50
-	err := gossip(nodes[1:], target, false, 3*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = nodes[0].fastForward()
-	if err != nil {
-		t.Fatalf("Error FastForwarding: %s", err)
-	}
-
-	if cr := nodes[0].core.GetLastConsensusRoundIndex(); cr == nil || *cr < target {
-		disp := "nil"
-		if cr != nil {
-			disp = strconv.Itoa(*cr)
-		}
-		t.Fatalf("nodes[0].LastConsensusRound should be at least %d. Got %s", target, disp)
-	}
-}
-
-func TestCatchUp(t *testing.T) {
-	logger := common.NewTestLogger(t)
-	_, nodes := initNodes(4, 500, logger)
-	defer shutdownNodes(nodes)
-
-	target := 50
-
-	err := gossip(nodes[1:], target, false, 3*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	checkGossip(nodes[1:], t)
-
-	nodes[0].RunAsync(true)
-	t.Logf("Started node 0 with address %s", nodes[0].localAddr)
-	timeout := time.After(3 * time.Second)
-	for {
-		select {
-		case <-timeout:
-			t.Fatalf("Timeout waiting for node 0 to enter CatchingUp state")
-		default:
-		}
-		time.Sleep(10 * time.Millisecond)
-		if nodes[0].getState() == CatchingUp {
-			break
-		}
-	}
-
-	//wait until node 0 has caught up
-	err = bombardAndWait(nodes, target+20, 6*time.Second)
-	if err != nil {
-		t.Fatal(err)
 	}
 }
 
