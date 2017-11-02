@@ -1,0 +1,18 @@
+This Docker image is used to create a container in which to build an application
+written in go (1.9.2) relying on glide for depency management.
+
+In particular, we use it with circleci to automate building and testing. 
+cf .cirleci/
+
+Build the image - Update the version number if changes are made to the Dockerfile
+
+```bash
+docker build -t mosaicnetworks/glider:0.0.1 .
+```
+
+Push to Docker Hub:
+
+```bash
+docker login
+docker push mosaicnetworks/glider:0.0.1
+```

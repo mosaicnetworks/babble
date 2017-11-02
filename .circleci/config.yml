@@ -1,0 +1,20 @@
+version: 2
+jobs:
+  build:
+    working_directory: /go/src/github.com/babbleio/babble
+    docker:
+      - image: mosaicnetworks/glider:0.0.1
+    steps:
+      - checkout
+      - restore_cache:
+          key: dependency-cache-{{ checksum "glide.yaml" }}
+      - run:
+          name: install go dependencies
+          command: glide install
+      - save_cache:
+          key: dependency-cache-{{ checksum "glide.yaml" }}
+          paths:
+            - ${HOME}/.glide
+      - run:
+          name: test
+          command: make test
