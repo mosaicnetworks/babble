@@ -19,6 +19,7 @@ import (
 	"github.com/babbleio/babble/proxy"
 	aproxy "github.com/babbleio/babble/proxy/app"
 	"github.com/babbleio/babble/service"
+	"github.com/babbleio/babble/version"
 )
 
 var (
@@ -111,6 +112,11 @@ func main() {
 				CacheSizeFlag,
 				SyncLimitFlag,
 			},
+		},
+		{
+			Name:   "version",
+			Usage:  "Show version info",
+			Action: printVersion,
 		},
 	}
 	app.Run(os.Args)
@@ -205,6 +211,13 @@ func run(c *cli.Context) error {
 
 	return nil
 }
+
+func printVersion(c *cli.Context) error {
+	fmt.Println(version.Version)
+	return nil
+}
+
+//------------------------------------------------------------------------------
 
 func defaultDataDir() string {
 	// Try to place the data folder in the user's home dir
