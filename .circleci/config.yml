@@ -7,12 +7,12 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: dependency-cache-{{ checksum "glide.yaml" }}
+          key: v0-glide-cache-{{ checksum "glide.yaml" }}
       - run:
           name: Install Go dependencies
           command: glide install
       - save_cache:
-          key: dependency-cache-{{ checksum "glide.yaml" }}
+          key: v0-glide-cache-{{ checksum "glide.yaml" }}
           paths:
             - /home/circleci/.glide
       - run:
