@@ -84,7 +84,55 @@ to an ordering system which communicates to other nodes and feeds the commands b
 to the State in consensus order. Babble is an ordering system that plugs into the  
 App thanks to a very simple JSON-RPC interface over TCP.
 
-## Usage 
+## Build from source
+
+The easiest way to build binaries is to do so in a hermetic Docker container. Use  
+this simple command:  
+
+```bash
+[...]/babble$ make dist
+```
+This will launch the build in a Docker container and write all the artifacts in  
+the build/ folder.  
+
+```bash
+[...]/babble$ tree build
+build/
+├── dist
+│   ├── babble_0.1.0_darwin_386.zip
+│   ├── babble_0.1.0_darwin_amd64.zip
+│   ├── babble_0.1.0_freebsd_386.zip
+│   ├── babble_0.1.0_freebsd_arm.zip
+│   ├── babble_0.1.0_linux_386.zip
+│   ├── babble_0.1.0_linux_amd64.zip
+│   ├── babble_0.1.0_linux_arm.zip
+│   ├── babble_0.1.0_SHA256SUMS
+│   ├── babble_0.1.0_windows_386.zip
+│   └── babble_0.1.0_windows_amd64.zip
+└── pkg
+    ├── darwin_386
+    │   └── babble
+    ├── darwin_amd64
+    │   └── babble
+    ├── freebsd_386
+    │   └── babble
+    ├── freebsd_arm
+    │   └── babble
+    ├── linux_386
+    │   └── babble
+    ├── linux_amd64
+    │   └── babble
+    ├── linux_arm
+    │   └── babble
+    ├── windows_386
+    │   └── babble.exe
+    └── windows_amd64
+        └── babble.exe
+```
+
+Choose whichever file corresponds to your platform.
+
+## Dev
 
 ### Go
 Babble is written in [Golang](https://golang.org/). Hence, the first step is to install **Go version 1.9 or above**  

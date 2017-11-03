@@ -13,9 +13,10 @@ vendor
 
 node/logs
 
+demo/conf/*
+
 docker/babble/babble
 docker/dummy/dummy
-docker/conf/*
 
 terraform/babble.pem
 terraform/terraform.tfstate*

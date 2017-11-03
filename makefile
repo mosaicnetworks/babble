@@ -13,7 +13,7 @@ install:
 
 # build compiles and places the binary in /build
 build:
-	go build \
+	CGO_ENABLED=0 go build \
 		--ldflags "-X github.com/babbleio/babble/version.GitCommit=`git rev-parse HEAD`" \
 		-o build/babble ./cmd/babble/
 

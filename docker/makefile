@@ -1,29 +1,15 @@
-nodes = 4
-txs = 10
+all: babble-image dummy-image
 
-up: build conf start watch
+babble-image:
+	CGO_ENABLED=0 go build \
+		--ldflags "-X github.com/babbleio/babble/version.GitCommit=`git rev-parse HEAD`" \
+		-o babble/babble ../cmd/babble/
+	docker build --no-cache=true -t babble babble/
 
-build :
-	./scripts/build-images.sh
+dummy-image:
+	CGO_ENABLED=0 go build \
+		--ldflags "-X github.com/babbleio/babble/version.GitCommit=`git rev-parse HEAD`" \
+		-o dummy/dummy ../cmd/dummy_client/
+	docker build --no-cache=true -t dummy dummy/
 
-conf : 
-	rm -rf conf
-	./scripts/build-conf.sh $(nodes)
-
-start:
-	./scripts/run-testnet.sh $(nodes)
-
-watch: 
-	./scripts/watch.sh $(nodes)
-
-stop: 
-	./scripts/stop-testnet.sh
-
-demo: 
-	./scripts/demo.sh $(nodes)
-
-bombard: 
-	./scripts/bombard.sh $(nodes) $(txs)
-
-.PHONY: up build conf start watch stop demo bombard
-	
+.PHONY: all babble-image dummy-image
