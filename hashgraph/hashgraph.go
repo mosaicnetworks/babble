@@ -343,11 +343,11 @@ func (h *Hashgraph) RoundDiff(x, y string) (int, error) {
 
 	xRound := h.Round(x)
 	if xRound < 0 {
-		return math.MinInt64, fmt.Errorf("event %s has negative round", x)
+		return math.MinInt32, fmt.Errorf("event %s has negative round", x)
 	}
 	yRound := h.Round(y)
 	if yRound < 0 {
-		return math.MinInt64, fmt.Errorf("event %s has negative round", y)
+		return math.MinInt32, fmt.Errorf("event %s has negative round", y)
 	}
 
 	return xRound - yRound, nil
@@ -451,7 +451,7 @@ func (h *Hashgraph) InitEventCoordinates(event *Event) error {
 	event.firstDescendants = make([]EventCoordinates, members)
 	for fakeID := 0; fakeID < members; fakeID++ {
 		event.firstDescendants[fakeID] = EventCoordinates{
-			index: math.MaxInt64,
+			index: math.MaxInt32,
 		}
 	}
 
@@ -514,7 +514,7 @@ func (h *Hashgraph) UpdateAncestorFirstDescendant(event Event) error {
 			if err != nil {
 				break
 			}
-			if a.firstDescendants[fakeCreatorID].index == math.MaxInt64 {
+			if a.firstDescendants[fakeCreatorID].index == math.MaxInt32 {
 				a.firstDescendants[fakeCreatorID] = EventCoordinates{index: index, hash: hash}
 				if err := h.Store.SetEvent(a); err != nil {
 					return err

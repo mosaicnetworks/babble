@@ -537,14 +537,14 @@ func TestInsertEvent(t *testing.T) {
 	}
 
 	expectedFirstDescendants[0] = EventCoordinates{
-		index: math.MaxInt64,
+		index: math.MaxInt32,
 	}
 	expectedFirstDescendants[1] = EventCoordinates{
 		index: 3,
 		hash:  index["f1"],
 	}
 	expectedFirstDescendants[2] = EventCoordinates{
-		index: math.MaxInt64,
+		index: math.MaxInt32,
 	}
 
 	expectedLastAncestors[0] = EventCoordinates{

@@ -103,8 +103,7 @@ $ cd $GOPATH/src/github.com/babbleio
 Babble uses [Glide](http://github.com/Masterminds/glide) to manage dependencies.
 
 ```bash
-[...]/babble$ sudo add-apt-repository ppa:masterminds/glide && sudo apt-get update
-[...]/babble$ sudo apt-get install glide
+[...]/babble$ curl https://glide.sh/get | sh
 [...]/babble$ glide install
 ```
 This will download all dependencies and put them in the **vendor** folder.

@@ -1,8 +1,28 @@
+BUILD_TAGS?=babble
 
+# vendor uses Glide to install all the Go dependencies in vendor/
+vendor:
+	glide install
+
+# install compiles and places the binary in GOPATH/bin
 install: 
-	go install github.com/babbleio/babble/cmd/babble
+	go install \ 
+		--ldflags '-extldflags "-static"' \
+		--ldflags "-X github.com/babbleio/babble/version.GitCommit=`git rev-parse HEAD`" \
+		./cmd/babble
+
+# build compiles and places the binary in /build
+build:
+	go build \
+		--ldflags "-X github.com/babbleio/babble/version.GitCommit=`git rev-parse HEAD`" \
+		-o build/babble ./cmd/babble/
+
+# dist builds binaries for all platforms and packages them for distribution
+dist:
+	@BUILD_TAGS='$(BUILD_TAGS)' sh -c "'$(CURDIR)/scripts/dist.sh'"
+
 test: 
 	glide novendor | xargs go test
 
-.PHONY: install test
+.PHONY: vendor install build dist test
 	
