@@ -88,6 +88,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "babble"
 	app.Usage = "hashgraph consensus"
+	app.HideVersion = true //there is a special command to print the version
 	app.Commands = []cli.Command{
 		{
 			Name:   "keygen",

@@ -24,6 +24,8 @@ terraform/secret.tfvars
 terraform/conf/*
 terraform/ips.dat
 
+scripts/publish
+
 .idea/
 
 docs/_build

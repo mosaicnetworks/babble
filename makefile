@@ -6,8 +6,7 @@ vendor:
 
 # install compiles and places the binary in GOPATH/bin
 install: 
-	go install \ 
-		--ldflags '-extldflags "-static"' \
+	go install --ldflags '-extldflags "-static"' \
 		--ldflags "-X github.com/babbleio/babble/version.GitCommit=`git rev-parse HEAD`" \
 		./cmd/babble
 
