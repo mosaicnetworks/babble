@@ -1,6 +1,8 @@
 # BABBLE
 ## Consensus platform for distributed applications.  
 
+[![CircleCI](https://circleci.com/gh/babbleio/babble.svg?style=svg)](https://circleci.com/gh/babbleio/babble)
+
 Babble allows many computers to behave as one. It uses Peer to Peer (P2P) networking  
 and a consensus algorithm to guarantee that multiple connected computers process  
 the same commands in the same order; a technique known as state machine replication.  
