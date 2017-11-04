@@ -23,7 +23,6 @@ cd "$DIR"
 echo "==> Removing old directory..."
 rm -rf build/pkg
 mkdir -p build/pkg
-#sudo chown -R 3434:3434 build
 
 # Do a hermetic build inside a Docker container.
 docker build -t mosaicnetworks/glider docker/glider

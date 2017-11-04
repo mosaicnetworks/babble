@@ -15,20 +15,12 @@ the scenes.
 
 Make sure you have `Docker <https://docker.com>`__ installed.  
 
-One of the scripts requires babble to be installed locally because it uses the  
-**keygen** command to generate cryptographic key pairs in the format used by babble.  
-To install babble:
+The demo will pull Docker images from our `official public Docker registry <https://hub.docker.com/u/mosaicnetworks/>`__ 
 
 ::
 
-    [...]/babble$ make install
-
-Then, run the testnet:  
-
-::
-
-    [...]/babble$ cd docker
-    [...]/babble/docker$ make
+    [...]/babble$ cd demo
+    [...]/babble/demo$ make
 
 
 Once the testnet is started, a script is automatically launched to monitor consensus  
@@ -45,7 +37,7 @@ Running ``docker ps -a`` will show you that 8 docker containers have been launch
 
 ::
 
-    [...]/babble/docker$ docker ps -a
+    [...]/babble/demo$ docker ps -a
     CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
     9e4c863c9e83        dummy               "dummy '--name=cli..."   9 seconds ago       Up 8 seconds        1339/tcp            client4
     40c92938a986        babble              "babble run --cach..."   10 seconds ago      Up 9 seconds        1337-1338/tcp       node4
@@ -63,7 +55,7 @@ powered by the Babble consensus platform:
 
 ::
 
-    [...]/babble/docker$ make demo
+    [...]/babble/demo$ make demo
 
 .. image:: assets/demo.png
 
@@ -71,12 +63,12 @@ Finally, stop the testnet:
 
 ::
 
-    [...]/babble/docker$ make stop
+    [...]/babble/demo$ make stop
 
 Configuration
 -------------
 
-The first thing that the scripts do is to create the configuration files (cf ``build-conf.sh``)
+The first thing done by the scripts is to create the configuration files (cf ``build-conf.sh``)
 
 Babble consumes a ``peers.json`` file that lists all the participants in the network.
 Each participant is characterised by a public key and a network address.
@@ -147,7 +139,7 @@ an extract:
 
     for i in $(seq 1 $N)
     do
-        docker create --name=node$i --net=babblenet --ip=172.77.5.$i babble run \
+        docker create --name=node$i --net=babblenet --ip=172.77.5.$i mosaicnetworks/babble run \
         --cache_size=50000 \
         --tcp_timeout=200 \
         --heartbeat=10 \
@@ -159,7 +151,7 @@ an extract:
         docker cp $MPWD/conf/node$i node$i:/.babble
         docker start node$i
 
-        docker run -d --name=client$i --net=babblenet --ip=172.77.5.$(($N+$i)) -it dummy \
+        docker run -d --name=client$i --net=babblenet --ip=172.77.5.$(($N+$i)) -it mosaicnetworks/dummy \
         --name="client $i" \
         --client_addr="172.77.5.$(($N+$i)):1339" \
         --proxy_addr="172.77.5.$i:1338" \

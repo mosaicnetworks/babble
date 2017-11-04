@@ -1,16 +1,8 @@
 Install
 =======
 
-Go
-^^
-
-Babble is written in `Golang <https://golang.org/>`__. Hence, the first step is to install  
-**Go version 1.9 or above** which is both the programming language  
-and a CLI tool for managing Go code. Go is very opinionated  and will require you to  
-`define a workspace <https://golang.org/doc/code.html#Workspaces>`__ where all your go code will reside. 
-
-Babble and dependencies  
-^^^^^^^^^^^^^^^^^^^^^^^
+From Source
+^^^^^^^^^^^
 
 Clone the `repository <https://github.com/babbleio/babble>`__ in the appropriate GOPATH subdirectory:
 
@@ -20,12 +12,69 @@ Clone the `repository <https://github.com/babbleio/babble>`__ in the appropriate
     $ cd $GOPATH/src/github.com/babbleio
     [...]/babbleio$ git clone https://github.com/babbleio/babble.git
 
-Babble uses `Glide <http://github.com/Masterminds/glide>`__ to manage dependencies.
+
+The easiest way to build binaries is to do so in a hermetic Docker container. Use  
+this simple command:  
 
 ::
 
-    [...]/babble$ sudo add-apt-repository ppa:masterminds/glide && sudo apt-get update
-    [...]/babble$ sudo apt-get install glide
+	[...]/babble$ make dist
+
+This will launch the build in a Docker container and write all the artifacts in  
+the build/ folder.  
+
+::
+	
+    [...]/babble$ tree build
+    build/
+    ├── dist
+    │   ├── babble_0.1.0_darwin_386.zip
+    │   ├── babble_0.1.0_darwin_amd64.zip
+    │   ├── babble_0.1.0_freebsd_386.zip
+    │   ├── babble_0.1.0_freebsd_arm.zip
+    │   ├── babble_0.1.0_linux_386.zip
+    │   ├── babble_0.1.0_linux_amd64.zip
+    │   ├── babble_0.1.0_linux_arm.zip
+    │   ├── babble_0.1.0_SHA256SUMS
+    │   ├── babble_0.1.0_windows_386.zip
+    │   └── babble_0.1.0_windows_amd64.zip
+    └── pkg
+        ├── darwin_386
+        │   └── babble
+        ├── darwin_amd64
+        │   └── babble
+        ├── freebsd_386
+        │   └── babble
+        ├── freebsd_arm
+        │   └── babble
+        ├── linux_386
+        │   └── babble
+        ├── linux_amd64
+        │   └── babble
+        ├── linux_arm
+        │   └── babble
+        ├── windows_386
+        │   └── babble.exe
+        └── windows_amd64
+            └── babble.exe
+    
+Go Devs
+^^^^^^^
+
+Babble is written in `Golang <https://golang.org/>`__. Hence, the first step is to install  
+**Go version 1.9 or above** which is both the programming language  
+and a CLI tool for managing Go code. Go is very opinionated  and will require you to  
+`define a workspace <https://golang.org/doc/code.html#Workspaces>`__ where all your go code will reside. 
+
+Dependencies  
+^^^^^^^^^^^^
+
+Babble uses `Glide <http://github.com/Masterminds/glide>`__ to manage dependencies.
+For Ubuntu users:
+
+::
+
+    [...]/babble$ curl https://glide.sh/get | sh
     [...]/babble$ glide install
 
 This will download all dependencies and put them in the **vendor** folder.

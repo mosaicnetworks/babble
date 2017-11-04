@@ -130,8 +130,6 @@ build/
         └── babble.exe
 ```
 
-Choose whichever file corresponds to your platform.
-
 ## Dev
 
 ### Go
@@ -175,25 +173,21 @@ ok      github.com/babbleio/babble/proxy    0.018s
 ok      github.com/babbleio/babble/crypto   0.028s
 ```
 
-### Docker Testnet
+## Demo
 
 To see Babble in action, we have provided a series of scripts to bootstrap a test  
 network locally.  
 
-Make sure you have [Docker](https://docker.com) installed.  
+**NOTE:**  
+This has only been tested on Ubuntu 16.04
 
-One of the scripts requires babble to be installed locally because it uses the  
-**keygen** command to generate cryptographic key pairs in the format used by babble.  
-To install babble:
-```bash
-[...]/babble$ make install
-```
+Make sure you have [Docker](https://docker.com) installed.  
 
 Then, run the testnet:  
 
 ```bash
 [...]/babble$ cd docker
-[...]/babble/docker$ make
+[...]/babble/demo$ make
 ```
 
 Once the testnet is started, a script is automatically launched to monitor consensus  
@@ -209,7 +203,7 @@ consensus_events:98 consensus_transactions:40 events_per_second:0.00 id:2 last_c
 
 Running ```docker ps -a``` will show you that 8 docker containers have been launched:  
 ```
-[...]/babble/docker$ docker ps -a
+[...]/babble/demo$ docker ps -a
 CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
 9e4c863c9e83        dummy               "dummy '--name=cli..."   9 seconds ago       Up 8 seconds        1339/tcp            client4
 40c92938a986        babble              "babble run --cach..."   10 seconds ago      Up 9 seconds        1337-1338/tcp       node4
@@ -227,12 +221,13 @@ Run the **demo** script to play with the **Dummy App** which is a simple chat ap
 powered by the Babble consensus platform:
 
 ```
-[...]/babble/docker$ make demo
+[...]/babble/demo$ make demo
 ```
 ![Demo](img/demo.png)
 
 
 Finally, stop the testnet:
 ```
-[...]/babble/docker$ make stop
+[...]/babble/demo$ make stop
 ```
+

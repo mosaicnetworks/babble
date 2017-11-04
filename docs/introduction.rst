@@ -14,4 +14,3 @@ nodes and guarantee that everyone processes the same commands in the same order.
 a consensus algorithm called Hashgraph. This state of the art algorithm tolerates machines failing arbitrarily, including malicious 
 behaviour; an ability known as Byzantine Fault Tolerance (BFT). Among the familly of BFT algorithms, Hashgraph brings together many
 appealing properties of which other algorithms can only implement subsets.  
-
