@@ -26,8 +26,8 @@ func TestJSONPeers(t *testing.T) {
 
 	// Try a read, should get nothing
 	peers, err := store.Peers()
-	if err != nil {
-		t.Fatalf("err: %v", err)
+	if err == nil {
+		t.Fatalf("store.Peers() should generate an error")
 	}
 	if len(peers) != 0 {
 		t.Fatalf("peers: %v", peers)
@@ -49,7 +49,7 @@ func TestJSONPeers(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 
-	// Try a read, should peers
+	// Try a read, should find 3 peers
 	peers, err = store.Peers()
 	if err != nil {
 		t.Fatalf("err: %v", err)

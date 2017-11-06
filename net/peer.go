@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"sync"
 )
@@ -79,7 +78,7 @@ func (j *JSONPeers) Peers() ([]Peer, error) {
 
 	// Read the file
 	buf, err := ioutil.ReadFile(j.path)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil {
 		return nil, err
 	}
 

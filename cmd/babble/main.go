@@ -188,6 +188,11 @@ func run(c *cli.Context) error {
 		return err
 	}
 
+	// There should be at least two peers
+	if len(peers) < 2 {
+		return fmt.Errorf("peers.json should define at least two peers")
+	}
+
 	trans, err := net.NewTCPTransport(addr,
 		nil, maxPool, conf.TCPTimeout, logger)
 	if err != nil {
