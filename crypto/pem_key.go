@@ -6,7 +6,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"sync"
 )
@@ -34,7 +33,7 @@ func (k *PemKey) ReadKey() (*ecdsa.PrivateKey, error) {
 
 	// Read the file
 	buf, err := ioutil.ReadFile(k.path)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil {
 		return nil, err
 	}
 

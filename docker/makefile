@@ -14,7 +14,6 @@ babble-image:
 
 dummy-image:
 	CGO_ENABLED=0 go build \
-		--ldflags "-X github.com/babbleio/babble/version.GitCommit=`git rev-parse HEAD`" \
 		-o dummy/dummy ../cmd/dummy_client/
 	docker build --no-cache=true -t mosaicnetworks/dummy:$(DUMMY_VERSION) dummy/
 

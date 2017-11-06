@@ -20,8 +20,8 @@ func TestPem(t *testing.T) {
 
 	// Try a read, should get nothing
 	key, err := pemKey.ReadKey()
-	if err != nil {
-		t.Fatalf("err: %v", err)
+	if err == nil {
+		t.Fatalf("ReadKey should generate an error")
 	}
 	if key != nil {
 		t.Fatalf("key is not nil")
