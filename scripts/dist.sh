@@ -25,13 +25,12 @@ rm -rf build/pkg
 mkdir -p build/pkg
 
 # Do a hermetic build inside a Docker container.
-docker build -t mosaicnetworks/glider docker/glider
 docker run --rm  \
     -u `id -u $USER` \
     -e "BUILD_TAGS=$BUILD_TAGS" \
     -v "$(pwd)":/go/src/github.com/babbleio/babble \
     -w /go/src/github.com/babbleio/babble \
-    mosaicnetworks/glider ./scripts/dist_build.sh
+    mosaicnetworks/glider:0.0.2 ./scripts/dist_build.sh
 
 # Add "babble" and $VERSION prefix to package name.
 rm -rf ./build/dist
