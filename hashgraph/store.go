@@ -18,4 +18,5 @@ type Store interface {
 	RoundEvents(int) int
 	GetRoot(string) (Root, error)
 	Reset(map[string]Root) error
+	Close() error
 }
