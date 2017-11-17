@@ -1,6 +1,9 @@
 package hashgraph
 
-import "github.com/dgraph-io/badger"
+import (
+	cm "github.com/babbleio/babble/common"
+	"github.com/dgraph-io/badger"
+)
 
 type BadgerStore struct {
 	inmemStore *InmemStore
@@ -33,12 +36,66 @@ func (s *BadgerStore) CacheSize() int {
 	return s.inmemStore.CacheSize()
 }
 
-func (s *BadgerStore) GetEvent(key string) (Event, error) {
-	return s.inmemStore.GetEvent(key)
+func (s *BadgerStore) GetEvent(key string) (event Event, err error) {
+	//try to get it from cache
+	event, err = s.inmemStore.GetEvent(key)
+	//try to get it from db
+	if err != nil {
+		event, err = s.getEventFromDB(key)
+	}
+	return event, err
+}
+
+func (s *BadgerStore) getEventFromDB(key string) (Event, error) {
+	var eventBytes []byte
+	err := s.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte(key))
+		if err != nil {
+			return err
+		}
+		eventBytes, err = item.Value()
+		return err
+	})
+
+	if err != nil {
+		return Event{}, cm.NewStoreErr(cm.KeyNotFound, key)
+	}
+
+	event := new(Event)
+	if err := event.Unmarshal(eventBytes); err != nil {
+		return Event{}, err
+	}
+
+	return *event, nil
+
 }
 
 func (s *BadgerStore) SetEvent(event Event) error {
-	return s.inmemStore.SetEvent(event)
+	//try to add it to the cache
+	if err := s.inmemStore.SetEvent(event); err != nil {
+		return err
+	}
+	//try to add it to the db
+	if _, err := s.getEventFromDB(event.Hex()); err != nil {
+		return s.setEventsToDB([]Event{event})
+	}
+	return nil
+}
+
+func (s *BadgerStore) setEventsToDB(events []Event) error {
+	tx := s.db.NewTransaction(true)
+	defer tx.Discard()
+	for _, event := range events {
+		key := event.Hex()
+		val, err := event.Marshal()
+		if err != nil {
+			return err
+		}
+		if err := tx.Set([]byte(key), val); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(nil)
 }
 
 func (s *BadgerStore) ParticipantEvents(participant string, skip int) ([]string, error) {
