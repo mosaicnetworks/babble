@@ -77,6 +77,7 @@ func TestNewBadgerStore(t *testing.T) {
 }
 
 func TestBadgerEvents(t *testing.T) {
+	//Insert more events than can fit in cache to test retrieving from db.
 	cacheSize := 10
 	testSize := 100
 	store, participants := initBadgerStore(cacheSize, t)
@@ -90,7 +91,6 @@ func TestBadgerEvents(t *testing.T) {
 				[]string{"", ""},
 				p.pubKey,
 				k)
-			_ = event.Hex() //just to set private variables
 			items = append(items, event)
 			err := store.SetEvent(event)
 			if err != nil {
@@ -98,7 +98,6 @@ func TestBadgerEvents(t *testing.T) {
 			}
 		}
 		events[p.hex] = items
-
 	}
 
 	for p, evs := range events {
@@ -108,8 +107,52 @@ func TestBadgerEvents(t *testing.T) {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(ev.Body, rev.Body) {
-				t.Fatalf("events[%s][%d] should be %#v, not %#v", p, k, ev, rev)
+				t.Fatalf("events[%s][%d].Body should be %#v, not %#v", p, k, ev, rev)
+			}
+			if !reflect.DeepEqual(ev.S, rev.S) {
+				t.Fatalf("events[%s][%d].S should be %#v, not %#v", p, k, ev.S, rev.S)
+			}
+			if !reflect.DeepEqual(ev.R, rev.R) {
+				t.Fatalf("events[%s][%d].R should be %#v, not %#v", p, k, ev.R, rev.R)
 			}
 		}
+	}
+
+	skipIndex := -1 //do not skip any indexes
+	for _, p := range participants {
+		pEvents, err := store.ParticipantEvents(p.hex, skipIndex)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if l := len(pEvents); l != testSize {
+			t.Fatalf("%s should have %d events, not %d", p.hex, testSize, l)
+		}
+
+		expectedEvents := events[p.hex][skipIndex+1:]
+		for k, e := range expectedEvents {
+			if e.Hex() != pEvents[k] {
+				t.Fatalf("ParticipantEvents[%s][%d] should be %s, not %s",
+					p.hex, k, e.Hex(), pEvents[k])
+			}
+		}
+	}
+
+	expectedKnown := make(map[int]int)
+	for _, p := range participants {
+		expectedKnown[p.id] = testSize - 1
+	}
+	known := store.Known()
+	if !reflect.DeepEqual(expectedKnown, known) {
+		t.Fatalf("Incorrect Known. Got %#v, expected %#v", known, expectedKnown)
+	}
+
+	for _, p := range participants {
+		evs := events[p.hex]
+		for _, ev := range evs {
+			if err := store.AddConsensusEvent(ev.Hex()); err != nil {
+				t.Fatal(err)
+			}
+		}
+
 	}
 }
