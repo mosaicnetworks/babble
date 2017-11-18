@@ -51,6 +51,10 @@ func participantLastKey(participant string) []byte {
 	return []byte(fmt.Sprintf("%s_last", participant))
 }
 
+func roundKey(index int) []byte {
+	return []byte(fmt.Sprintf("round_%09d", index))
+}
+
 //==============================================================================
 //Implement the Store interface
 
@@ -138,27 +142,38 @@ func (s *BadgerStore) AddConsensusEvent(key string) error {
 }
 
 func (s *BadgerStore) GetRound(r int) (RoundInfo, error) {
-	return s.inmemStore.GetRound(r)
+	res, err := s.inmemStore.GetRound(r)
+	if err != nil {
+		res, err = s.dbGetRound(r)
+	}
+	return res, err
 }
 
 func (s *BadgerStore) SetRound(r int, round RoundInfo) error {
-	return s.inmemStore.SetRound(r, round)
+	if err := s.inmemStore.SetRound(r, round); err != nil {
+		return err
+	}
+	return s.dbSetRound(r, round)
 }
 
 func (s *BadgerStore) LastRound() int {
 	return s.inmemStore.LastRound()
 }
 
-func (s *BadgerStore) Rounds() int {
-	return s.inmemStore.Rounds()
-}
-
 func (s *BadgerStore) RoundWitnesses(r int) []string {
-	return s.inmemStore.RoundWitnesses(r)
+	round, err := s.GetRound(r)
+	if err != nil {
+		return []string{}
+	}
+	return round.Witnesses()
 }
 
 func (s *BadgerStore) RoundEvents(r int) int {
-	return s.inmemStore.RoundEvents(r)
+	round, err := s.GetRound(r)
+	if err != nil {
+		return 0
+	}
+	return len(round.Events)
 }
 
 func (s *BadgerStore) GetRoot(participant string) (Root, error) {
@@ -342,4 +357,46 @@ func (s *BadgerStore) dbGetLastFrom(participant string) (string, error) {
 		return "", cm.NewStoreErr(cm.KeyNotFound, fmt.Sprintf("%s_last", participant))
 	}
 	return string(data), nil
+}
+
+func (s *BadgerStore) dbGetRound(index int) (RoundInfo, error) {
+	var roundBytes []byte
+	key := roundKey(index)
+	err := s.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(key)
+		if err != nil {
+			return err
+		}
+		roundBytes, err = item.Value()
+		return err
+	})
+
+	if err != nil {
+		return *NewRoundInfo(), cm.NewStoreErr(cm.KeyNotFound, fmt.Sprintf("round_%09d", index))
+	}
+
+	roundInfo := new(RoundInfo)
+	if err := roundInfo.Unmarshal(roundBytes); err != nil {
+		return *NewRoundInfo(), err
+	}
+
+	return *roundInfo, nil
+}
+
+func (s *BadgerStore) dbSetRound(index int, round RoundInfo) error {
+	tx := s.db.NewTransaction(true)
+	defer tx.Discard()
+
+	key := roundKey(index)
+	val, err := round.Marshal()
+	if err != nil {
+		return err
+	}
+
+	//insert [round_index] => [round bytes]
+	if err := tx.Set(key, val); err != nil {
+		return err
+	}
+
+	return tx.Commit(nil)
 }

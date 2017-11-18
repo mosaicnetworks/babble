@@ -137,10 +137,6 @@ func (s *InmemStore) LastRound() int {
 	return s.lastRound
 }
 
-func (s *InmemStore) Rounds() int {
-	return s.roundCache.Len()
-}
-
 func (s *InmemStore) RoundWitnesses(r int) []string {
 	round, err := s.GetRound(r)
 	if err != nil {

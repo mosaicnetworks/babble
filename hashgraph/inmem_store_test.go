@@ -123,8 +123,8 @@ func TestInmemRounds(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if c := store.Rounds(); c != 1 {
-		t.Fatalf("Store should count 1 round, not %d", c)
+	if c := store.LastRound(); c != 0 {
+		t.Fatalf("Store LastRound should be 0, not %d", c)
 	}
 
 	storedRound, err := store.GetRound(0)

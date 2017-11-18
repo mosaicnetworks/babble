@@ -89,8 +89,8 @@ func TestNewBadgerStore(t *testing.T) {
 }
 
 //Call DB methods directly
-func TestDBMethods(t *testing.T) {
-	cacheSize := 10
+func TestDBEventMethods(t *testing.T) {
+	cacheSize := 0
 	testSize := 100
 	store, participants := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
@@ -163,6 +163,47 @@ func TestDBMethods(t *testing.T) {
 		expectedLast := evs[len(evs)-1]
 		if last != expectedLast.Hex() {
 			t.Fatalf("%s last should be %s, not %s", p.hex, expectedLast.Hex(), last)
+		}
+	}
+}
+
+func TestDBRoundMethods(t *testing.T) {
+	cacheSize := 0
+	store, participants := initBadgerStore(cacheSize, t)
+	defer removeBadgerStore(store, t)
+
+	round := NewRoundInfo()
+	events := make(map[string]Event)
+	for _, p := range participants {
+		event := NewEvent([][]byte{},
+			[]string{"", ""},
+			p.pubKey,
+			0)
+		events[p.hex] = event
+		round.AddEvent(event.Hex(), true)
+	}
+
+	if err := store.dbSetRound(0, *round); err != nil {
+		t.Fatal(err)
+	}
+
+	storedRound, err := store.dbGetRound(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(*round, storedRound) {
+		t.Fatalf("Round and StoredRound do not match")
+	}
+
+	witnesses := store.RoundWitnesses(0)
+	expectedWitnesses := round.Witnesses()
+	if len(witnesses) != len(expectedWitnesses) {
+		t.Fatalf("There should be %d witnesses, not %d", len(expectedWitnesses), len(witnesses))
+	}
+	for _, w := range expectedWitnesses {
+		if !contains(witnesses, w) {
+			t.Fatalf("Witnesses should contain %s", w)
 		}
 	}
 }
@@ -264,5 +305,50 @@ func TestBadgerEvents(t *testing.T) {
 			}
 		}
 
+	}
+}
+
+func TestBadgerRounds(t *testing.T) {
+	cacheSize := 0
+	store, participants := initBadgerStore(cacheSize, t)
+	defer removeBadgerStore(store, t)
+
+	round := NewRoundInfo()
+	events := make(map[string]Event)
+	for _, p := range participants {
+		event := NewEvent([][]byte{},
+			[]string{"", ""},
+			p.pubKey,
+			0)
+		events[p.hex] = event
+		round.AddEvent(event.Hex(), true)
+	}
+
+	if err := store.SetRound(0, *round); err != nil {
+		t.Fatal(err)
+	}
+
+	if c := store.LastRound(); c != 0 {
+		t.Fatalf("Store LastRound should be 0, not %d", c)
+	}
+
+	storedRound, err := store.GetRound(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(*round, storedRound) {
+		t.Fatalf("Round and StoredRound do not match")
+	}
+
+	witnesses := store.RoundWitnesses(0)
+	expectedWitnesses := round.Witnesses()
+	if len(witnesses) != len(expectedWitnesses) {
+		t.Fatalf("There should be %d witnesses, not %d", len(expectedWitnesses), len(witnesses))
+	}
+	for _, w := range expectedWitnesses {
+		if !contains(witnesses, w) {
+			t.Fatalf("Witnesses should contain %s", w)
+		}
 	}
 }
