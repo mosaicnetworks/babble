@@ -74,7 +74,7 @@ func TestNewBadgerStore(t *testing.T) {
 	//check roots
 	inmemRoots := store.inmemStore.roots
 	for participant, root := range inmemRoots {
-		dbRoot, err := store.getRootFromDB(participant)
+		dbRoot, err := store.dbGetRoot(participant)
 		if err != nil {
 			t.Fatalf("Error retrieving DB root for participant %s: %s", participant, err)
 		}
@@ -88,6 +88,87 @@ func TestNewBadgerStore(t *testing.T) {
 	}
 }
 
+//Call DB methods directly
+func TestDBMethods(t *testing.T) {
+	cacheSize := 10
+	testSize := 100
+	store, participants := initBadgerStore(cacheSize, t)
+	defer removeBadgerStore(store, t)
+
+	//inset events in db directly
+	events := make(map[string][]Event)
+	for _, p := range participants {
+		items := []Event{}
+		for k := 0; k < testSize; k++ {
+			event := NewEvent([][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], k))},
+				[]string{"", ""},
+				p.pubKey,
+				k)
+			items = append(items, event)
+			err := store.dbSetEvents([]Event{event})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		events[p.hex] = items
+	}
+
+	//check events where correctly inserted and can be retrieved
+	for p, evs := range events {
+		for k, ev := range evs {
+			rev, err := store.dbGetEvent(ev.Hex())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(ev.Body, rev.Body) {
+				t.Fatalf("events[%s][%d].Body should be %#v, not %#v", p, k, ev, rev)
+			}
+			if !reflect.DeepEqual(ev.S, rev.S) {
+				t.Fatalf("events[%s][%d].S should be %#v, not %#v", p, k, ev.S, rev.S)
+			}
+			if !reflect.DeepEqual(ev.R, rev.R) {
+				t.Fatalf("events[%s][%d].R should be %#v, not %#v", p, k, ev.R, rev.R)
+			}
+		}
+	}
+
+	//check that participant events where correctly added
+	skipIndex := -1 //do not skip any indexes
+	for _, p := range participants {
+		pEvents, err := store.dbParticipantEvents(p.hex, skipIndex)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if l := len(pEvents); l != testSize {
+			t.Fatalf("%s should have %d events, not %d", p.hex, testSize, l)
+		}
+
+		expectedEvents := events[p.hex][skipIndex+1:]
+		for k, e := range expectedEvents {
+			if e.Hex() != pEvents[k] {
+				t.Fatalf("ParticipantEvents[%s][%d] should be %s, not %s",
+					p.hex, k, e.Hex(), pEvents[k])
+			}
+		}
+	}
+
+	//check that partipant last was correctly added
+	for _, p := range participants {
+		last, err := store.dbGetLastFrom(p.hex)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		evs := events[p.hex]
+		expectedLast := evs[len(evs)-1]
+		if last != expectedLast.Hex() {
+			t.Fatalf("%s last should be %s, not %s", p.hex, expectedLast.Hex(), last)
+		}
+	}
+}
+
+//Check that the wrapper methods work
+//These methods use the inmemStore as a cache on top of the DB
 func TestBadgerEvents(t *testing.T) {
 	//Insert more events than can fit in cache to test retrieving from db.
 	cacheSize := 10
@@ -95,6 +176,7 @@ func TestBadgerEvents(t *testing.T) {
 	store, participants := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
 
+	//insert event
 	events := make(map[string][]Event)
 	for _, p := range participants {
 		items := []Event{}
@@ -112,6 +194,7 @@ func TestBadgerEvents(t *testing.T) {
 		events[p.hex] = items
 	}
 
+	// check that events were correclty inserted
 	for p, evs := range events {
 		for k, ev := range evs {
 			rev, err := store.GetEvent(ev.Hex())
@@ -130,6 +213,7 @@ func TestBadgerEvents(t *testing.T) {
 		}
 	}
 
+	//check retrieving events per participant
 	skipIndex := -1 //do not skip any indexes
 	for _, p := range participants {
 		pEvents, err := store.ParticipantEvents(p.hex, skipIndex)
@@ -146,6 +230,20 @@ func TestBadgerEvents(t *testing.T) {
 				t.Fatalf("ParticipantEvents[%s][%d] should be %s, not %s",
 					p.hex, k, e.Hex(), pEvents[k])
 			}
+		}
+	}
+
+	//check retrieving participant last
+	for _, p := range participants {
+		last, _, err := store.LastFrom(p.hex)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		evs := events[p.hex]
+		expectedLast := evs[len(evs)-1]
+		if last != expectedLast.Hex() {
+			t.Fatalf("%s last should be %s, not %s", p.hex, expectedLast.Hex(), last)
 		}
 	}
 

@@ -8,9 +8,10 @@ import (
 )
 
 type BadgerStore struct {
-	inmemStore *InmemStore
-	db         *badger.DB
-	path       string
+	participants map[string]int
+	inmemStore   *InmemStore
+	db           *badger.DB
+	path         string
 }
 
 func NewBadgerStore(participants map[string]int, cacheSize int, path string) (*BadgerStore, error) {
@@ -24,11 +25,12 @@ func NewBadgerStore(participants map[string]int, cacheSize int, path string) (*B
 		return nil, err
 	}
 	store := &BadgerStore{
-		inmemStore: inmemStore,
-		db:         handle,
-		path:       path,
+		participants: participants,
+		inmemStore:   inmemStore,
+		db:           handle,
+		path:         path,
 	}
-	if err := store.setRootsToDB(inmemStore.roots); err != nil {
+	if err := store.dbSetRoots(inmemStore.roots); err != nil {
 		return nil, err
 	}
 	return store, nil
@@ -38,11 +40,15 @@ func NewBadgerStore(participants map[string]int, cacheSize int, path string) (*B
 //Keys
 
 func participantEventKey(participant string, index int) []byte {
-	return []byte(fmt.Sprintf("%s%09d", participant, index))
+	return []byte(fmt.Sprintf("%s_%09d", participant, index))
 }
 
 func participantRootKey(participant string) []byte {
 	return []byte(fmt.Sprintf("%s_root", participant))
+}
+
+func participantLastKey(participant string) []byte {
+	return []byte(fmt.Sprintf("%s_last", participant))
 }
 
 //==============================================================================
@@ -57,7 +63,7 @@ func (s *BadgerStore) GetEvent(key string) (event Event, err error) {
 	event, err = s.inmemStore.GetEvent(key)
 	//try to get it from db
 	if err != nil {
-		event, err = s.getEventFromDB(key)
+		event, err = s.dbGetEvent(key)
 	}
 	return event, err
 }
@@ -68,16 +74,13 @@ func (s *BadgerStore) SetEvent(event Event) error {
 		return err
 	}
 	//try to add it to the db
-	if _, err := s.getEventFromDB(event.Hex()); err != nil {
-		return s.setEventsToDB([]Event{event})
-	}
-	return nil
+	return s.dbSetEvents([]Event{event})
 }
 
 func (s *BadgerStore) ParticipantEvents(participant string, skip int) ([]string, error) {
 	res, err := s.inmemStore.ParticipantEvents(participant, skip)
 	if err != nil {
-		res, err = s.participantEventsFromDB(participant, skip)
+		res, err = s.dbParticipantEvents(participant, skip)
 	}
 	return res, err
 }
@@ -85,17 +88,41 @@ func (s *BadgerStore) ParticipantEvents(participant string, skip int) ([]string,
 func (s *BadgerStore) ParticipantEvent(participant string, index int) (string, error) {
 	result, err := s.inmemStore.ParticipantEvent(participant, index)
 	if err != nil {
-		result, err = s.participantEventFromDB(participant, index)
+		result, err = s.dbParticipantEvent(participant, index)
 	}
 	return result, err
 }
 
 func (s *BadgerStore) LastFrom(participant string) (last string, isRoot bool, err error) {
-	return s.inmemStore.LastFrom(participant)
+	last, isRoot, err = s.inmemStore.LastFrom(participant)
+	if err != nil {
+		last, err = s.dbGetLastFrom(participant)
+		if err != nil && err.Error() == badger.ErrKeyNotFound.Error() {
+			if root, err := s.dbGetRoot(participant); err == nil {
+				last = root.X
+				isRoot = true
+			} else {
+				err = fmt.Errorf("No Root for %s", participant)
+			}
+		}
+	}
+	return
 }
 
 func (s *BadgerStore) Known() map[int]int {
-	return s.inmemStore.Known()
+	known := make(map[int]int)
+	for p, pid := range s.participants {
+		index := -1
+		last, isRoot, err := s.LastFrom(p)
+		if !isRoot && err == nil {
+			lastEvent, err := s.GetEvent(last)
+			if err == nil {
+				index = lastEvent.Index()
+			}
+		}
+		known[pid] = index
+	}
+	return known
 }
 
 func (s *BadgerStore) ConsensusEvents() []string {
@@ -137,7 +164,7 @@ func (s *BadgerStore) RoundEvents(r int) int {
 func (s *BadgerStore) GetRoot(participant string) (Root, error) {
 	root, err := s.inmemStore.GetRoot(participant)
 	if err != nil {
-		root, err = s.getRootFromDB(participant)
+		root, err = s.dbGetRoot(participant)
 	}
 	return root, err
 }
@@ -156,7 +183,7 @@ func (s *BadgerStore) Close() error {
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //DB Methods
 
-func (s *BadgerStore) getEventFromDB(key string) (Event, error) {
+func (s *BadgerStore) dbGetEvent(key string) (Event, error) {
 	var eventBytes []byte
 	err := s.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(key))
@@ -179,7 +206,7 @@ func (s *BadgerStore) getEventFromDB(key string) (Event, error) {
 	return *event, nil
 }
 
-func (s *BadgerStore) setEventsToDB(events []Event) error {
+func (s *BadgerStore) dbSetEvents(events []Event) error {
 	tx := s.db.NewTransaction(true)
 	defer tx.Discard()
 	for _, event := range events {
@@ -188,21 +215,34 @@ func (s *BadgerStore) setEventsToDB(events []Event) error {
 		if err != nil {
 			return err
 		}
+		//check if it already exists
+		new := false
+		_, err = tx.Get([]byte(eventHex))
+		if err != nil && err.Error() == badger.ErrKeyNotFound.Error() {
+			new = true
+		}
 		//insert [event hash] => [event bytes]
 		if err := tx.Set([]byte(eventHex), val); err != nil {
 			return err
 		}
-		//insert [(participant,index)] => [event hash]
-		peKey := participantEventKey(event.Creator(), event.Index())
-		if err := tx.Set(peKey, []byte(eventHex)); err != nil {
-			return err
-		}
 
+		if new {
+			//insert [participant_index] => [event hash]
+			peKey := participantEventKey(event.Creator(), event.Index())
+			if err := tx.Set(peKey, []byte(eventHex)); err != nil {
+				return err
+			}
+			//insert [participant_last] => [event hash]
+			plKey := participantLastKey(event.Creator())
+			if err := tx.Set(plKey, []byte(eventHex)); err != nil {
+				return err
+			}
+		}
 	}
 	return tx.Commit(nil)
 }
 
-func (s *BadgerStore) participantEventsFromDB(participant string, skip int) ([]string, error) {
+func (s *BadgerStore) dbParticipantEvents(participant string, skip int) ([]string, error) {
 	res := []string{}
 	err := s.db.View(func(txn *badger.Txn) error {
 		i := skip + 1
@@ -229,7 +269,7 @@ func (s *BadgerStore) participantEventsFromDB(participant string, skip int) ([]s
 	return res, err
 }
 
-func (s *BadgerStore) participantEventFromDB(participant string, index int) (string, error) {
+func (s *BadgerStore) dbParticipantEvent(participant string, index int) (string, error) {
 	data := []byte{}
 	key := participantEventKey(participant, index)
 	err := s.db.View(func(txn *badger.Txn) error {
@@ -241,12 +281,12 @@ func (s *BadgerStore) participantEventFromDB(participant string, index int) (str
 		return err
 	})
 	if err != nil {
-		return "", cm.NewStoreErr(cm.KeyNotFound, fmt.Sprintf("(%s,%d)", participant, index))
+		return "", cm.NewStoreErr(cm.KeyNotFound, fmt.Sprintf("%s_%09d", participant, index))
 	}
 	return string(data), nil
 }
 
-func (s *BadgerStore) setRootsToDB(roots map[string]Root) error {
+func (s *BadgerStore) dbSetRoots(roots map[string]Root) error {
 	tx := s.db.NewTransaction(true)
 	defer tx.Discard()
 	for participant, root := range roots {
@@ -263,7 +303,7 @@ func (s *BadgerStore) setRootsToDB(roots map[string]Root) error {
 	return tx.Commit(nil)
 }
 
-func (s *BadgerStore) getRootFromDB(participant string) (Root, error) {
+func (s *BadgerStore) dbGetRoot(participant string) (Root, error) {
 	var rootBytes []byte
 	key := participantRootKey(participant)
 	err := s.db.View(func(txn *badger.Txn) error {
@@ -285,4 +325,21 @@ func (s *BadgerStore) getRootFromDB(participant string) (Root, error) {
 	}
 
 	return *root, nil
+}
+
+func (s *BadgerStore) dbGetLastFrom(participant string) (string, error) {
+	data := []byte{}
+	key := participantLastKey(participant)
+	err := s.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(key)
+		if err != nil {
+			return err
+		}
+		data, err = item.Value()
+		return err
+	})
+	if err != nil {
+		return "", cm.NewStoreErr(cm.KeyNotFound, fmt.Sprintf("%s_last", participant))
+	}
+	return string(data), nil
 }
