@@ -1,5 +1,10 @@
 package hashgraph
 
+import (
+	"bytes"
+	"encoding/gob"
+)
+
 /*
 Roots constitute the base of a Hashgraph. Each Participant is assigned a Root on
 top of which Events will be added. The first Event of a participant must have a
@@ -69,4 +74,19 @@ func NewBaseRoot() Root {
 		Index: -1,
 		Round: -1,
 	}
+}
+
+func (root *Root) Marshal() ([]byte, error) {
+	var b bytes.Buffer
+	enc := gob.NewEncoder(&b) //will write to b
+	if err := enc.Encode(root); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
+}
+
+func (root *Root) Unmarshal(data []byte) error {
+	b := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(b) //will read from b
+	return dec.Decode(root)
 }

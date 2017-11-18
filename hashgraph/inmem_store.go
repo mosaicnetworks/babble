@@ -62,6 +62,10 @@ func (s *InmemStore) SetEvent(event Event) error {
 	return nil
 }
 
+func (s *InmemStore) addParticpantEvent(participant string, hash string, index int) error {
+	return s.participantEventsCache.Add(participant, hash, index)
+}
+
 func (s *InmemStore) ParticipantEvents(participant string, skip int) ([]string, error) {
 	return s.participantEventsCache.Get(participant, skip)
 }
@@ -71,10 +75,12 @@ func (s *InmemStore) ParticipantEvent(particant string, index int) (string, erro
 }
 
 func (s *InmemStore) LastFrom(participant string) (last string, isRoot bool, err error) {
+	//try to get the last event from this participant
 	last, err = s.participantEventsCache.GetLast(participant)
 	if err != nil {
 		return
 	}
+	//if there is none, grab the root
 	if last == "" {
 		root, ok := s.roots[participant]
 		if ok {
@@ -83,10 +89,6 @@ func (s *InmemStore) LastFrom(participant string) (last string, isRoot bool, err
 		}
 	}
 	return
-}
-
-func (s *InmemStore) addParticpantEvent(participant string, hash string, index int) error {
-	return s.participantEventsCache.Add(participant, hash, index)
 }
 
 func (s *InmemStore) Known() map[int]int {

@@ -71,6 +71,18 @@ func TestNewBadgerStore(t *testing.T) {
 		t.Fatalf("err: %s", err)
 	}
 
+	//check roots
+	inmemRoots := store.inmemStore.roots
+	for participant, root := range inmemRoots {
+		dbRoot, err := store.getRootFromDB(participant)
+		if err != nil {
+			t.Fatalf("Error retrieving DB root for participant %s: %s", participant, err)
+		}
+		if !reflect.DeepEqual(dbRoot, root) {
+			t.Fatalf("%s DB root should be %#v, not %#v", participant, root, dbRoot)
+		}
+	}
+
 	if err := store.Close(); err != nil {
 		t.Fatalf("err: %s", err)
 	}
