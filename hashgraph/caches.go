@@ -54,8 +54,6 @@ func (pec *ParticipantEventsCache) Get(participant string, skipIndex int) ([]str
 
 	cached, err := pe.Get(skipIndex)
 	if err != nil {
-		//XXX TODO
-		//LOAD REST FROM FILE
 		return []string{}, err
 	}
 

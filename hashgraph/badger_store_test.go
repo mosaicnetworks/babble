@@ -151,20 +151,6 @@ func TestDBEventMethods(t *testing.T) {
 			}
 		}
 	}
-
-	//check that partipant last was correctly added
-	for _, p := range participants {
-		last, err := store.dbGetLastFrom(p.hex)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		evs := events[p.hex]
-		expectedLast := evs[len(evs)-1]
-		if last != expectedLast.Hex() {
-			t.Fatalf("%s last should be %s, not %s", p.hex, expectedLast.Hex(), last)
-		}
-	}
 }
 
 func TestDBRoundMethods(t *testing.T) {

@@ -1,7 +1,6 @@
 package hashgraph
 
 import (
-	"fmt"
 	"strconv"
 
 	cm "github.com/babbleio/babble/common"
@@ -88,7 +87,7 @@ func (s *InmemStore) LastFrom(participant string) (last string, isRoot bool, err
 			last = root.X
 			isRoot = true
 		} else {
-			err = fmt.Errorf("No Root for %s", participant)
+			err = cm.NewStoreErr(cm.NoRoot, participant)
 		}
 	}
 	return

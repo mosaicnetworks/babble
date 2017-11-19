@@ -9,6 +9,7 @@ const (
 	TooLate
 	PassedIndex
 	SkippedIndex
+	NoRoot
 )
 
 type StoreErr struct {
@@ -34,6 +35,8 @@ func (e StoreErr) Error() string {
 		m = "Passed Index"
 	case SkippedIndex:
 		m = "Skipped Index"
+	case NoRoot:
+		m = "No Root"
 	}
 	return fmt.Sprintf("%s, %s", e.key, m)
 }
