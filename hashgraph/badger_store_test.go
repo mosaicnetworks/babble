@@ -7,8 +7,14 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/babbleio/babble/crypto"
+)
+
+var (
+	badgerDB = "badger"
+	testDB   = "test_data/test_db"
 )
 
 func initBadgerStore(cacheSize int, t *testing.T) (*BadgerStore, []pub) {
@@ -45,12 +51,11 @@ func removeBadgerStore(store *BadgerStore, t *testing.T) {
 	}
 }
 
-func TestNewBadgerStore(t *testing.T) {
-	dir, err := ioutil.TempDir("test_data", "badger")
+func createTestDB(name string, t *testing.T) *BadgerStore {
+	dir, err := ioutil.TempDir("test_data", name)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer os.RemoveAll(dir)
 
 	participants := map[string]int{
 		"alice":   0,
@@ -64,10 +69,17 @@ func TestNewBadgerStore(t *testing.T) {
 		t.Fatalf("err: %s", err)
 	}
 
-	if store.path != dir {
+	return store
+}
+
+func TestNewBadgerStore(t *testing.T) {
+	store := createTestDB(badgerDB, t)
+	defer os.RemoveAll(store.path)
+
+	if store.path != badgerDB {
 		t.Fatalf("unexpected path %q", store.path)
 	}
-	if _, err := os.Stat(dir); err != nil {
+	if _, err := os.Stat(badgerDB); err != nil {
 		t.Fatalf("err: %s", err)
 	}
 
@@ -86,6 +98,42 @@ func TestNewBadgerStore(t *testing.T) {
 	if err := store.Close(); err != nil {
 		t.Fatalf("err: %s", err)
 	}
+}
+
+func TestLoadBadgerStore(t *testing.T) {
+
+	//Create the test_db
+	tempStore := createTestDB("test_db", t)
+	defer os.RemoveAll(tempStore.path)
+	tempStore.Close()
+	time.Sleep(200 * time.Millisecond)
+
+	badgerStore, err := LoadBadgerStore(cacheSize, tempStore.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dbParticipants, err := badgerStore.dbGetParticipants()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(badgerStore.participants) != len(dbParticipants) {
+		t.Fatalf("store.participants should contain %d items, not %d",
+			len(dbParticipants),
+			len(badgerStore.participants))
+	}
+
+	for dbP, dbID := range dbParticipants {
+		id, ok := badgerStore.participants[dbP]
+		if !ok {
+			t.Fatalf("BadgerStore participants does not contains %s", dbP)
+		}
+		if id != dbID {
+			t.Fatalf("participant %s ID should be %d, not %d", dbP, dbID, id)
+		}
+	}
+
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -192,6 +240,31 @@ func TestDBRoundMethods(t *testing.T) {
 	for _, w := range expectedWitnesses {
 		if !contains(witnesses, w) {
 			t.Fatalf("Witnesses should contain %s", w)
+		}
+	}
+}
+
+func TestDBParticipantMethods(t *testing.T) {
+	cacheSize := 0
+	store, _ := initBadgerStore(cacheSize, t)
+	defer removeBadgerStore(store, t)
+
+	if err := store.dbSetParticipants(store.participants); err != nil {
+		t.Fatal(err)
+	}
+
+	participantsFromDB, err := store.dbGetParticipants()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for p, id := range store.participants {
+		dbID, ok := participantsFromDB[p]
+		if !ok {
+			t.Fatalf("DB does not contain participant %s", p)
+		}
+		if dbID != id {
+			t.Fatalf("DB participant %s should have ID %d, not %d", p, id, dbID)
 		}
 	}
 }

@@ -2,9 +2,17 @@ package hashgraph
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 
 	cm "github.com/babbleio/babble/common"
 	"github.com/dgraph-io/badger"
+)
+
+var (
+	participantPrefix = "participant"
+	rootSuffix        = "root"
+	roundPrefix       = "round"
 )
 
 type BadgerStore struct {
@@ -14,6 +22,7 @@ type BadgerStore struct {
 	path         string
 }
 
+//NewBadgerStore creates a brand new Store with a new database
 func NewBadgerStore(participants map[string]int, cacheSize int, path string) (*BadgerStore, error) {
 	inmemStore := NewInmemStore(participants, cacheSize)
 	opts := badger.DefaultOptions
@@ -30,25 +39,79 @@ func NewBadgerStore(participants map[string]int, cacheSize int, path string) (*B
 		db:           handle,
 		path:         path,
 	}
+	if err := store.dbSetParticipants(participants); err != nil {
+		return nil, err
+	}
 	if err := store.dbSetRoots(inmemStore.roots); err != nil {
 		return nil, err
 	}
 	return store, nil
 }
 
+//LoadBadgerStore creates a Store from an existing database
+func LoadBadgerStore(cacheSize int, path string) (*BadgerStore, error) {
+
+	if _, err := os.Stat(path); err != nil {
+		return nil, err
+	}
+
+	opts := badger.DefaultOptions
+	opts.Dir = path
+	opts.ValueDir = path
+	opts.SyncWrites = false
+	handle, err := badger.Open(opts)
+	if err != nil {
+		return nil, err
+	}
+	store := &BadgerStore{
+		db:   handle,
+		path: path,
+	}
+
+	participants, err := store.dbGetParticipants()
+	if err != nil {
+		return nil, err
+	}
+
+	inmemStore := NewInmemStore(participants, cacheSize)
+
+	//read roots from db and put them in InmemStore
+	roots := make(map[string]Root)
+	for p := range participants {
+		root, err := store.dbGetRoot(p)
+		if err != nil {
+			return nil, err
+		}
+		roots[p] = root
+	}
+
+	if err := inmemStore.Reset(roots); err != nil {
+		return nil, err
+	}
+
+	store.participants = participants
+	store.inmemStore = inmemStore
+
+	return store, nil
+}
+
 //==============================================================================
 //Keys
+
+func participantKey(participant string) []byte {
+	return []byte(fmt.Sprintf("%s_%s", participantPrefix, participant))
+}
 
 func participantEventKey(participant string, index int) []byte {
 	return []byte(fmt.Sprintf("%s_%09d", participant, index))
 }
 
 func participantRootKey(participant string) []byte {
-	return []byte(fmt.Sprintf("%s_root", participant))
+	return []byte(fmt.Sprintf("%s_%s", participant, rootSuffix))
 }
 
 func roundKey(index int) []byte {
-	return []byte(fmt.Sprintf("round_%09d", index))
+	return []byte(fmt.Sprintf("%s_%09d", roundPrefix, index))
 }
 
 //==============================================================================
@@ -90,7 +153,7 @@ func (s *BadgerStore) ParticipantEvent(participant string, index int) (string, e
 	if err != nil {
 		result, err = s.dbParticipantEvent(participant, index)
 	}
-	return result, mapError(err, fmt.Sprintf("%s_%09d", participant, index))
+	return result, mapError(err, string(participantEventKey(participant, index)))
 }
 
 func (s *BadgerStore) LastFrom(participant string) (last string, isRoot bool, err error) {
@@ -131,7 +194,7 @@ func (s *BadgerStore) GetRound(r int) (RoundInfo, error) {
 	if err != nil {
 		res, err = s.dbGetRound(r)
 	}
-	return res, mapError(err, fmt.Sprintf("round_%09d", r))
+	return res, mapError(err, string(roundKey(r)))
 }
 
 func (s *BadgerStore) SetRound(r int, round RoundInfo) error {
@@ -166,7 +229,7 @@ func (s *BadgerStore) GetRoot(participant string) (Root, error) {
 	if err != nil {
 		root, err = s.dbGetRoot(participant)
 	}
-	return root, mapError(err, fmt.Sprintf("%s_root", participant))
+	return root, mapError(err, string(participantRootKey(participant)))
 }
 
 func (s *BadgerStore) Reset(roots map[string]Root) error {
@@ -361,6 +424,45 @@ func (s *BadgerStore) dbSetRound(index int, round RoundInfo) error {
 		return err
 	}
 
+	return tx.Commit(nil)
+}
+
+func (s *BadgerStore) dbGetParticipants() (map[string]int, error) {
+	res := make(map[string]int)
+	err := s.db.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		prefix := []byte(participantPrefix)
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+			k := string(item.Key())
+			v, err := item.Value()
+			if err != nil {
+				return err
+			}
+			//key is of the form participant_0x.......
+			pubKey := k[len(participantPrefix)+1:]
+			id, err := strconv.Atoi(string(v))
+			if err != nil {
+				return err
+			}
+			res[pubKey] = id
+		}
+		return nil
+	})
+	return res, err
+}
+
+func (s *BadgerStore) dbSetParticipants(participants map[string]int) error {
+	tx := s.db.NewTransaction(true)
+	defer tx.Discard()
+	for participant, id := range participants {
+		key := participantKey(participant)
+		val := []byte(strconv.Itoa(id))
+		//insert [participant_participant] => [id]
+		if err := tx.Set(key, val); err != nil {
+			return err
+		}
+	}
 	return tx.Commit(nil)
 }
 
