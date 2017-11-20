@@ -88,7 +88,9 @@ func TestNewBadgerStore(t *testing.T) {
 	}
 }
 
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //Call DB methods directly
+
 func TestDBEventMethods(t *testing.T) {
 	cacheSize := 0
 	testSize := 100
@@ -194,8 +196,10 @@ func TestDBRoundMethods(t *testing.T) {
 	}
 }
 
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //Check that the wrapper methods work
 //These methods use the inmemStore as a cache on top of the DB
+
 func TestBadgerEvents(t *testing.T) {
 	//Insert more events than can fit in cache to test retrieving from db.
 	cacheSize := 10

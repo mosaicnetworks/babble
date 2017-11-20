@@ -3,6 +3,8 @@ package hashgraph
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"log"
+	"os"
 	"sort"
 	"strconv"
 	"testing"
@@ -22,6 +24,7 @@ import (
 var (
 	cacheSize = 100
 	n         = 3
+	badgerDir = "test_data/badger"
 )
 
 type Node struct {
@@ -1364,7 +1367,7 @@ func TestResetFromFrame(t *testing.T) {
 	0	 1	  2	   3
 */
 
-func initFunkyHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string) {
+func initFunkyHashgraph(db bool, logger *logrus.Logger) (Hashgraph, map[string]string) {
 	index := make(map[string]string)
 	nodes := []Node{}
 	orderedEvents := &[]Event{}
@@ -1421,7 +1424,18 @@ func initFunkyHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string) {
 		participants[node.PubHex] = node.ID
 	}
 
-	hashgraph := NewHashgraph(participants, NewInmemStore(participants, cacheSize), nil, logger)
+	var store Store
+	if db {
+		var err error
+		store, err = NewBadgerStore(participants, cacheSize, badgerDir)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		store = NewInmemStore(participants, cacheSize)
+	}
+
+	hashgraph := NewHashgraph(participants, store, nil, logger)
 	for i, ev := range *orderedEvents {
 		if err := hashgraph.InsertEvent(ev, true); err != nil {
 			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
@@ -1431,8 +1445,24 @@ func initFunkyHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string) {
 }
 
 func TestFunkyHashgraphFame(t *testing.T) {
-	h, index := initFunkyHashgraph(common.NewTestLogger(t))
 
+	t.Run("inmem", func(t *testing.T) {
+		h, index := initFunkyHashgraph(false, common.NewTestLogger(t))
+		testFunkyHashgraph(h, index, t)
+	})
+
+	t.Run("db", func(t *testing.T) {
+		h, index := initFunkyHashgraph(true, common.NewTestLogger(t))
+		testFunkyHashgraph(h, index, t)
+		h.Store.Close()
+		if err := os.RemoveAll(badgerDir); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+}
+
+func testFunkyHashgraph(h Hashgraph, index map[string]string, t *testing.T) {
 	h.DivideRounds()
 
 	if l := h.Store.LastRound(); l != 5 {
@@ -1458,7 +1488,6 @@ func TestFunkyHashgraphFame(t *testing.T) {
 	if !reflect.DeepEqual(expectedUndecidedRounds, h.UndecidedRounds) {
 		t.Fatalf("UndecidedRounds should be %v, not %v", expectedUndecidedRounds, h.UndecidedRounds)
 	}
-
 }
 
 func getName(index map[string]string, hash string) string {
