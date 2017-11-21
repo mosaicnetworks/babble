@@ -7,13 +7,12 @@ import (
 	"os"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/babbleio/babble/crypto"
 )
 
 var (
-	badgerDB = "badger"
+	badgerDB = "test_data/badger"
 	testDB   = "test_data/test_db"
 )
 
@@ -51,12 +50,7 @@ func removeBadgerStore(store *BadgerStore, t *testing.T) {
 	}
 }
 
-func createTestDB(name string, t *testing.T) *BadgerStore {
-	dir, err := ioutil.TempDir("test_data", name)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+func createTestDB(dir string, t *testing.T) *BadgerStore {
 	participants := map[string]int{
 		"alice":   0,
 		"bob":     1,
@@ -103,10 +97,9 @@ func TestNewBadgerStore(t *testing.T) {
 func TestLoadBadgerStore(t *testing.T) {
 
 	//Create the test_db
-	tempStore := createTestDB("test_db", t)
+	tempStore := createTestDB(testDB, t)
 	defer os.RemoveAll(tempStore.path)
 	tempStore.Close()
-	time.Sleep(200 * time.Millisecond)
 
 	badgerStore, err := LoadBadgerStore(cacheSize, tempStore.path)
 	if err != nil {
@@ -147,6 +140,8 @@ func TestDBEventMethods(t *testing.T) {
 
 	//inset events in db directly
 	events := make(map[string][]Event)
+	topologicalIndex := 0
+	topologicalEvents := []Event{}
 	for _, p := range participants {
 		items := []Event{}
 		for k := 0; k < testSize; k++ {
@@ -154,6 +149,10 @@ func TestDBEventMethods(t *testing.T) {
 				[]string{"", ""},
 				p.pubKey,
 				k)
+			event.topologicalIndex = topologicalIndex
+			topologicalIndex++
+			topologicalEvents = append(topologicalEvents, event)
+
 			items = append(items, event)
 			err := store.dbSetEvents([]Event{event})
 			if err != nil {
@@ -179,6 +178,23 @@ func TestDBEventMethods(t *testing.T) {
 			if !reflect.DeepEqual(ev.R, rev.R) {
 				t.Fatalf("events[%s][%d].R should be %#v, not %#v", p, k, ev.R, rev.R)
 			}
+		}
+	}
+
+	//check topological order of events was correctly created
+	dbTopologicalEvents, err := store.dbTopologicalEvents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dbTopologicalEvents) != len(topologicalEvents) {
+		t.Fatalf("Length of dbTopologicalEvents should be %d, not %d",
+			len(topologicalEvents), len(dbTopologicalEvents))
+	}
+	for i, dte := range dbTopologicalEvents {
+		if dte != topologicalEvents[i].Hex() {
+			t.Fatalf("dbTopologicalEvents[%d] should be %s, not %s", i,
+				topologicalEvents[i].Hex(),
+				dte)
 		}
 	}
 

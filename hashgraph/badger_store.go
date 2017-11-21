@@ -13,6 +13,7 @@ var (
 	participantPrefix = "participant"
 	rootSuffix        = "root"
 	roundPrefix       = "round"
+	topoPrefix        = "topo"
 )
 
 type BadgerStore struct {
@@ -97,6 +98,10 @@ func LoadBadgerStore(cacheSize int, path string) (*BadgerStore, error) {
 
 //==============================================================================
 //Keys
+
+func topologicalEventKey(index int) []byte {
+	return []byte(fmt.Sprintf("%s_%09d", topoPrefix, index))
+}
 
 func participantKey(participant string) []byte {
 	return []byte(fmt.Sprintf("%s_%s", participantPrefix, participant))
@@ -290,6 +295,11 @@ func (s *BadgerStore) dbSetEvents(events []Event) error {
 		}
 
 		if new {
+			//insert [topo_index] => [event hash]
+			topoKey := topologicalEventKey(event.topologicalIndex)
+			if err := tx.Set(topoKey, []byte(eventHex)); err != nil {
+				return err
+			}
 			//insert [participant_index] => [event hash]
 			peKey := participantEventKey(event.Creator(), event.Index())
 			if err := tx.Set(peKey, []byte(eventHex)); err != nil {
@@ -298,6 +308,33 @@ func (s *BadgerStore) dbSetEvents(events []Event) error {
 		}
 	}
 	return tx.Commit(nil)
+}
+
+func (s *BadgerStore) dbTopologicalEvents() ([]string, error) {
+	res := []string{}
+	t := 0
+	err := s.db.View(func(txn *badger.Txn) error {
+		key := topologicalEventKey(t)
+		item, errr := txn.Get(key)
+		for errr == nil {
+			v, errrr := item.Value()
+			if errrr != nil {
+				break
+			}
+			res = append(res, string(v))
+
+			t++
+			key = topologicalEventKey(t)
+			item, errr = txn.Get(key)
+		}
+
+		if !isDBKeyNotFound(errr) {
+			return errr
+		}
+
+		return nil
+	})
+	return res, err
 }
 
 func (s *BadgerStore) dbParticipantEvents(participant string, skip int) ([]string, error) {
