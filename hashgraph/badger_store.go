@@ -310,8 +310,8 @@ func (s *BadgerStore) dbSetEvents(events []Event) error {
 	return tx.Commit(nil)
 }
 
-func (s *BadgerStore) dbTopologicalEvents() ([]string, error) {
-	res := []string{}
+func (s *BadgerStore) dbTopologicalEvents() ([]Event, error) {
+	res := []Event{}
 	t := 0
 	err := s.db.View(func(txn *badger.Txn) error {
 		key := topologicalEventKey(t)
@@ -321,7 +321,22 @@ func (s *BadgerStore) dbTopologicalEvents() ([]string, error) {
 			if errrr != nil {
 				break
 			}
-			res = append(res, string(v))
+
+			evKey := string(v)
+			eventItem, err := txn.Get([]byte(evKey))
+			if err != nil {
+				return err
+			}
+			eventBytes, err := eventItem.Value()
+			if err != nil {
+				return err
+			}
+			event := new(Event)
+			if err := event.Unmarshal(eventBytes); err != nil {
+				return err
+			}
+
+			res = append(res, *event)
 
 			t++
 			key = topologicalEventKey(t)

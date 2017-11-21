@@ -191,10 +191,10 @@ func TestDBEventMethods(t *testing.T) {
 			len(topologicalEvents), len(dbTopologicalEvents))
 	}
 	for i, dte := range dbTopologicalEvents {
-		if dte != topologicalEvents[i].Hex() {
+		if dte.Hex() != topologicalEvents[i].Hex() {
 			t.Fatalf("dbTopologicalEvents[%d] should be %s, not %s", i,
 				topologicalEvents[i].Hex(),
-				dte)
+				dte.Hex())
 		}
 	}
 

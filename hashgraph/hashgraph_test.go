@@ -46,6 +46,7 @@ func NewNode(key *ecdsa.PrivateKey, id int) Node {
 	}
 	return node
 }
+
 func (node *Node) signAndAddEvent(event Event, name string, index map[string]string, orderedEvents *[]Event) {
 	event.Sign(node.Key)
 	node.Events = append(node.Events, event)
@@ -908,7 +909,7 @@ func contains(s []string, x string) bool {
 		e0  e1  e2
 		0   1    2
 */
-func initConsensusHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string) {
+func initConsensusHashgraph(db bool, logger *logrus.Logger) (Hashgraph, map[string]string) {
 	index := make(map[string]string)
 	nodes := []Node{}
 	orderedEvents := &[]Event{}
@@ -959,17 +960,30 @@ func initConsensusHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string
 		participants[node.PubHex] = node.ID
 	}
 
-	hashgraph := NewHashgraph(participants, NewInmemStore(participants, cacheSize), nil, logger)
+	var store Store
+	if db {
+		var err error
+		store, err = NewBadgerStore(participants, cacheSize, badgerDir)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		store = NewInmemStore(participants, cacheSize)
+	}
+
+	hashgraph := NewHashgraph(participants, store, nil, logger)
+
 	for i, ev := range *orderedEvents {
 		if err := hashgraph.InsertEvent(ev, true); err != nil {
 			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
 		}
 	}
+
 	return hashgraph, index
 }
 
 func TestDecideFame(t *testing.T) {
-	h, index := initConsensusHashgraph(common.NewTestLogger(t))
+	h, index := initConsensusHashgraph(false, common.NewTestLogger(t))
 
 	h.DivideRounds()
 	h.DecideFame()
@@ -1000,7 +1014,7 @@ func TestDecideFame(t *testing.T) {
 }
 
 func TestOldestSelfAncestorToSee(t *testing.T) {
-	h, index := initConsensusHashgraph(common.NewTestLogger(t))
+	h, index := initConsensusHashgraph(false, common.NewTestLogger(t))
 
 	if a := h.OldestSelfAncestorToSee(index["f0"], index["e1"]); a != index["e02"] {
 		t.Fatalf("oldest self ancestor of f0 to see e1 should be e02 not %s", getName(index, a))
@@ -1023,7 +1037,7 @@ func TestOldestSelfAncestorToSee(t *testing.T) {
 }
 
 func TestDecideRoundReceived(t *testing.T) {
-	h, index := initConsensusHashgraph(common.NewTestLogger(t))
+	h, index := initConsensusHashgraph(false, common.NewTestLogger(t))
 
 	h.DivideRounds()
 	h.DecideFame()
@@ -1041,7 +1055,7 @@ func TestDecideRoundReceived(t *testing.T) {
 }
 
 func TestFindOrder(t *testing.T) {
-	h, index := initConsensusHashgraph(common.NewTestLogger(t))
+	h, index := initConsensusHashgraph(false, common.NewTestLogger(t))
 
 	h.DivideRounds()
 	h.DecideFame()
@@ -1077,7 +1091,7 @@ func BenchmarkFindOrder(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		//we do not want to benchmark the initialization code
 		b.StopTimer()
-		h, _ := initConsensusHashgraph(common.NewBenchmarkLogger(b))
+		h, _ := initConsensusHashgraph(false, common.NewBenchmarkLogger(b))
 		b.StartTimer()
 
 		h.DivideRounds()
@@ -1087,7 +1101,7 @@ func BenchmarkFindOrder(b *testing.B) {
 }
 
 func TestKnown(t *testing.T) {
-	h, _ := initConsensusHashgraph(common.NewTestLogger(t))
+	h, _ := initConsensusHashgraph(false, common.NewTestLogger(t))
 
 	expectedKnown := map[int]int{
 		0: 8,
@@ -1104,7 +1118,7 @@ func TestKnown(t *testing.T) {
 }
 
 func TestReset(t *testing.T) {
-	h, index := initConsensusHashgraph(common.NewTestLogger(t))
+	h, index := initConsensusHashgraph(false, common.NewTestLogger(t))
 
 	evs := []string{"g1", "g0", "g2", "g10", "g21", "o02", "g02", "h1", "h0", "h2"}
 
@@ -1176,7 +1190,7 @@ func TestReset(t *testing.T) {
 }
 
 func TestGetFrame(t *testing.T) {
-	h, index := initConsensusHashgraph(common.NewTestLogger(t))
+	h, index := initConsensusHashgraph(false, common.NewTestLogger(t))
 
 	h.DivideRounds()
 	h.DecideFame()
@@ -1262,7 +1276,7 @@ func TestGetFrame(t *testing.T) {
 }
 
 func TestResetFromFrame(t *testing.T) {
-	h, _ := initConsensusHashgraph(common.NewTestLogger(t))
+	h, _ := initConsensusHashgraph(false, common.NewTestLogger(t))
 
 	h.DivideRounds()
 	h.DecideFame()
@@ -1308,6 +1322,63 @@ func TestResetFromFrame(t *testing.T) {
 		}
 		t.Fatalf("LastConsensusRound should be 1, not %s", disp)
 	}
+}
+
+func TestBootstrap(t *testing.T) {
+	logger := common.NewTestLogger(t)
+
+	//Initialize a first Hashgraph with a DB backend
+	//Add events and run consensus methods on it
+	h, _ := initConsensusHashgraph(true, logger)
+	h.DivideRounds()
+	h.DecideFame()
+	h.FindOrder()
+	h.Store.Close()
+	defer os.RemoveAll(badgerDir)
+
+	//Now we want to create a new Hashgraph based on the database of the previous
+	//Hashgraph and see if we can boostrap it to the same state.
+	recycledStore, err := LoadBadgerStore(cacheSize, badgerDir)
+	nh := NewHashgraph(recycledStore.participants, recycledStore, nil, logger)
+	err = nh.Bootstrap()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hConsensusEvents := h.ConsensusEvents()
+	nhConsensusEvents := nh.ConsensusEvents()
+	if len(hConsensusEvents) != len(nhConsensusEvents) {
+		t.Fatalf("Bootstrapped hashgraph should contain %d consensus events,not %d",
+			len(hConsensusEvents), len(nhConsensusEvents))
+	}
+
+	hKnown := h.Known()
+	nhKnown := nh.Known()
+	if !reflect.DeepEqual(hKnown, nhKnown) {
+		t.Fatalf("Bootstrapped hashgraph's Known should be %#v, not %#v",
+			hKnown, nhKnown)
+	}
+
+	if *h.LastConsensusRound != *nh.LastConsensusRound {
+		t.Fatalf("Bootstrapped hashgraph's LastConsensusRound should be %#v, not %#v",
+			*h.LastConsensusRound, *nh.LastConsensusRound)
+	}
+
+	if h.LastCommitedRoundEvents != nh.LastCommitedRoundEvents {
+		t.Fatalf("Bootstrapped hashgraph's LastCommitedRoundEvents should be %#v, not %#v",
+			h.LastCommitedRoundEvents, nh.LastCommitedRoundEvents)
+	}
+
+	if h.ConsensusTransactions != nh.ConsensusTransactions {
+		t.Fatalf("Bootstrapped hashgraph's ConsensusTransactions should be %#v, not %#v",
+			h.ConsensusTransactions, nh.ConsensusTransactions)
+	}
+
+	if h.PendingLoadedEvents != nh.PendingLoadedEvents {
+		t.Fatalf("Bootstrapped hashgraph's PendingLoadedEvents should be %#v, not %#v",
+			h.PendingLoadedEvents, nh.PendingLoadedEvents)
+	}
+
 }
 
 /*
@@ -1367,7 +1438,7 @@ func TestResetFromFrame(t *testing.T) {
 	0	 1	  2	   3
 */
 
-func initFunkyHashgraph(db bool, logger *logrus.Logger) (Hashgraph, map[string]string) {
+func initFunkyHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string) {
 	index := make(map[string]string)
 	nodes := []Node{}
 	orderedEvents := &[]Event{}
@@ -1424,45 +1495,21 @@ func initFunkyHashgraph(db bool, logger *logrus.Logger) (Hashgraph, map[string]s
 		participants[node.PubHex] = node.ID
 	}
 
-	var store Store
-	if db {
-		var err error
-		store, err = NewBadgerStore(participants, cacheSize, badgerDir)
-		if err != nil {
-			log.Fatal(err)
-		}
-	} else {
-		store = NewInmemStore(participants, cacheSize)
-	}
+	hashgraph := NewHashgraph(participants,
+		NewInmemStore(participants, cacheSize),
+		nil, logger)
 
-	hashgraph := NewHashgraph(participants, store, nil, logger)
 	for i, ev := range *orderedEvents {
 		if err := hashgraph.InsertEvent(ev, true); err != nil {
 			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
 		}
 	}
+
 	return hashgraph, index
 }
 
 func TestFunkyHashgraphFame(t *testing.T) {
-
-	t.Run("inmem", func(t *testing.T) {
-		h, index := initFunkyHashgraph(false, common.NewTestLogger(t))
-		testFunkyHashgraph(h, index, t)
-	})
-
-	t.Run("db", func(t *testing.T) {
-		h, index := initFunkyHashgraph(true, common.NewTestLogger(t))
-		testFunkyHashgraph(h, index, t)
-		h.Store.Close()
-		if err := os.RemoveAll(badgerDir); err != nil {
-			t.Fatal(err)
-		}
-	})
-
-}
-
-func testFunkyHashgraph(h Hashgraph, index map[string]string, t *testing.T) {
+	h, index := initFunkyHashgraph(common.NewTestLogger(t))
 	h.DivideRounds()
 
 	if l := h.Store.LastRound(); l != 5 {
@@ -1483,7 +1530,7 @@ func testFunkyHashgraph(h Hashgraph, index map[string]string, t *testing.T) {
 
 	h.DecideFame()
 
-	//rounds 0,1 and two should be decided
+	//rounds 0,1, 2 and 3 should be decided
 	expectedUndecidedRounds := []int{4, 5}
 	if !reflect.DeepEqual(expectedUndecidedRounds, h.UndecidedRounds) {
 		t.Fatalf("UndecidedRounds should be %v, not %v", expectedUndecidedRounds, h.UndecidedRounds)

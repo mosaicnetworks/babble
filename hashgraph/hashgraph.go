@@ -619,11 +619,21 @@ func (h *Hashgraph) DivideRounds() error {
 		witness := h.Witness(hash)
 		roundInfo, err := h.Store.GetRound(roundNumber)
 
-		if err != nil {
-			if !common.Is(err, common.KeyNotFound) {
-				return err
-			}
+		//If the RoundInfo is not found in the Store's Cache, then the Hashgraph
+		//is not aware of it yet. We need to add the roundNumber to the queue of
+		//undecided rounds so that it will be processed in the other consensus
+		//methods
+		if err != nil && !common.Is(err, common.KeyNotFound) {
+			return err
+		}
+		//If the RoundInfo is actually taken from the Store's DB, then it still
+		//has not been processed by the Hashgraph consensus methods (The 'queued'
+		//field is not exported and therefore not persisted in the DB).
+		//RoundInfos taken from the DB directly will always have this field set
+		//to false
+		if !roundInfo.queued {
 			h.UndecidedRounds = append(h.UndecidedRounds, roundNumber)
+			roundInfo.queued = true
 		}
 
 		roundInfo.AddEvent(hash, witness)
@@ -639,7 +649,7 @@ func (h *Hashgraph) DivideRounds() error {
 func (h *Hashgraph) DecideFame() error {
 	votes := make(map[string](map[string]bool)) //[x][y]=>vote(x,y)
 
-	decidedRounds := map[int]int{} // [round number] => index in h.UndefinedRounds
+	decidedRounds := map[int]int{} // [round number] => index in h.UndecidedRounds
 	defer h.updateUndecidedRounds(decidedRounds)
 
 	for pos, i := range h.UndecidedRounds {
@@ -972,6 +982,41 @@ func (h *Hashgraph) GetFrame() (Frame, error) {
 	}
 
 	return frame, nil
+}
+
+//Bootstrap loads all Events from the Store's DB (if there is one) and feeds
+//them to the Hashgraph (in topological order) for consensus ordering. After this
+//method call, the Hashgraph should be in a state coeherent with the 'tip' of the
+//Hashgraph
+func (h *Hashgraph) Bootstrap() error {
+	if badgerStore, ok := h.Store.(*BadgerStore); ok {
+		//Retrive the Events from the underlying DB. They come out in topological
+		//order
+		topologicalEvents, err := badgerStore.dbTopologicalEvents()
+		if err != nil {
+			return err
+		}
+
+		//Insert the Events in the Hashgraph
+		for _, e := range topologicalEvents {
+			if err := h.InsertEvent(e, true); err != nil {
+				return err
+			}
+		}
+
+		//Compute the consensus order of Events
+		if err := h.DivideRounds(); err != nil {
+			return err
+		}
+		if err := h.DecideFame(); err != nil {
+			return err
+		}
+		if err := h.FindOrder(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func middleBit(ehex string) bool {

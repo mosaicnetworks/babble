@@ -27,6 +27,7 @@ type RoundEvent struct {
 
 type RoundInfo struct {
 	Events map[string]RoundEvent
+	queued bool
 }
 
 func NewRoundInfo() *RoundInfo {
