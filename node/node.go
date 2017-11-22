@@ -3,7 +3,6 @@ package node
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"sort"
 	"sync"
 	"time"
 
@@ -48,20 +47,18 @@ type Node struct {
 	syncErrors   int
 }
 
-func NewNode(conf *Config, key *ecdsa.PrivateKey, participants []net.Peer, trans net.Transport, proxy proxy.AppProxy) Node {
+func NewNode(conf *Config,
+	id int,
+	key *ecdsa.PrivateKey,
+	participants []net.Peer,
+	store hg.Store,
+	trans net.Transport,
+	proxy proxy.AppProxy) Node {
+
 	localAddr := trans.LocalAddr()
 
-	sort.Sort(net.ByPubKey(participants))
-	pmap := make(map[string]int)
-	var id int
-	for i, p := range participants {
-		pmap[p.PubKeyHex] = i
-		if p.NetAddr == localAddr {
-			id = i
-		}
-	}
+	pmap, _ := store.Participants()
 
-	store := hg.NewInmemStore(pmap, conf.CacheSize)
 	commitCh := make(chan []hg.Event, 20)
 	core := NewCore(id, key, pmap, store, commitCh, conf.Logger)
 
@@ -501,11 +498,16 @@ func (n *Node) addTransaction(tx []byte) {
 func (n *Node) Shutdown() {
 	if n.getState() != Shutdown {
 		n.logger.Debug("Shutdown")
-		n.waitRoutines()
+
 		n.controlTimer.Shutdown()
 		close(n.shutdownCh)
-		n.trans.Close()
+
+		n.waitRoutines()
+
 		n.setState(Shutdown)
+		n.trans.Close()
+		n.core.hg.Store.Close()
+
 	}
 }
 

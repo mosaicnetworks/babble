@@ -126,6 +126,10 @@ func (s *BadgerStore) CacheSize() int {
 	return s.inmemStore.CacheSize()
 }
 
+func (s *BadgerStore) Participants() (map[string]int, error) {
+	return s.participants, nil
+}
+
 func (s *BadgerStore) GetEvent(key string) (event Event, err error) {
 	//try to get it from cache
 	event, err = s.inmemStore.GetEvent(key)
@@ -163,7 +167,6 @@ func (s *BadgerStore) ParticipantEvent(participant string, index int) (string, e
 
 func (s *BadgerStore) LastFrom(participant string) (last string, isRoot bool, err error) {
 	return s.inmemStore.LastFrom(participant)
-
 }
 
 func (s *BadgerStore) Known() map[int]int {
@@ -171,11 +174,20 @@ func (s *BadgerStore) Known() map[int]int {
 	for p, pid := range s.participants {
 		index := -1
 		last, isRoot, err := s.LastFrom(p)
-		if !isRoot && err == nil {
-			lastEvent, err := s.GetEvent(last)
-			if err == nil {
-				index = lastEvent.Index()
+		if err == nil {
+			if isRoot {
+				root, err := s.GetRoot(p)
+				if err != nil {
+					last = root.X
+					index = root.Index
+				}
+			} else {
+				lastEvent, err := s.GetEvent(last)
+				if err == nil {
+					index = lastEvent.Index()
+				}
 			}
+
 		}
 		known[pid] = index
 	}

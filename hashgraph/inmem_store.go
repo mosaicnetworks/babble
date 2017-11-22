@@ -8,6 +8,7 @@ import (
 
 type InmemStore struct {
 	cacheSize              int
+	participants           map[string]int
 	eventCache             *cm.LRU
 	roundCache             *cm.LRU
 	consensusCache         *cm.RollingIndex
@@ -24,6 +25,7 @@ func NewInmemStore(participants map[string]int, cacheSize int) *InmemStore {
 	}
 	return &InmemStore{
 		cacheSize:              cacheSize,
+		participants:           participants,
 		eventCache:             cm.NewLRU(cacheSize, nil),
 		roundCache:             cm.NewLRU(cacheSize, nil),
 		consensusCache:         cm.NewRollingIndex(cacheSize),
@@ -35,6 +37,10 @@ func NewInmemStore(participants map[string]int, cacheSize int) *InmemStore {
 
 func (s *InmemStore) CacheSize() int {
 	return s.cacheSize
+}
+
+func (s *InmemStore) Participants() (map[string]int, error) {
+	return s.participants, nil
 }
 
 func (s *InmemStore) GetEvent(key string) (Event, error) {

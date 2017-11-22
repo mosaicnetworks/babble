@@ -188,7 +188,7 @@ Make sure you have [Docker](https://docker.com) installed.
 Then, run the testnet:  
 
 ```bash
-[...]/babble$ cd docker
+[...]/babble$ cd demo
 [...]/babble/demo$ make
 ```
 

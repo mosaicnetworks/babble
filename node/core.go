@@ -85,6 +85,40 @@ func (c *Core) Init() error {
 	return c.SignAndInsertSelfEvent(initialEvent)
 }
 
+func (c *Core) Bootstrap() error {
+	if err := c.hg.Bootstrap(); err != nil {
+		return err
+	}
+
+	var head string
+	var seq int
+
+	last, isRoot, err := c.hg.Store.LastFrom(c.HexID())
+	if err != nil {
+		return err
+	}
+
+	if isRoot {
+		root, err := c.hg.Store.GetRoot(c.HexID())
+		if err != nil {
+			head = root.X
+			seq = root.Index
+		}
+	} else {
+		lastEvent, err := c.GetEvent(last)
+		if err != nil {
+			return err
+		}
+		head = last
+		seq = lastEvent.Index()
+	}
+
+	c.Head = head
+	c.Seq = seq
+
+	return nil
+}
+
 func (c *Core) SignAndInsertSelfEvent(event hg.Event) error {
 	if err := event.Sign(c.key); err != nil {
 		return err

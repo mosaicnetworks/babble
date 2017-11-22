@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/rand"
+	"os"
 	"reflect"
 	"sort"
 	"testing"
@@ -12,13 +13,14 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/babbleio/babble/common"
 	"github.com/babbleio/babble/crypto"
+	hg "github.com/babbleio/babble/hashgraph"
 	"github.com/babbleio/babble/net"
 	aproxy "github.com/babbleio/babble/proxy/app"
 )
 
 var ip = 9990
 
-func initPeers(n int) ([]*ecdsa.PrivateKey, []net.Peer) {
+func initPeers(n int) ([]*ecdsa.PrivateKey, []net.Peer, map[string]int) {
 	keys := []*ecdsa.PrivateKey{}
 	peers := []net.Peer{}
 
@@ -31,13 +33,20 @@ func initPeers(n int) ([]*ecdsa.PrivateKey, []net.Peer) {
 		})
 		ip++
 	}
+
 	sort.Sort(net.ByPubKey(peers))
-	return keys, peers
+	pmap := make(map[string]int)
+	for i, p := range peers {
+		pmap[p.PubKeyHex] = i
+	}
+
+	return keys, peers, pmap
 }
 
 func TestProcessSync(t *testing.T) {
-	keys, peers := initPeers(2)
+	keys, peers, pmap := initPeers(2)
 	testLogger := common.NewTestLogger(t)
+	config := TestConfig(t)
 
 	//Start two nodes
 
@@ -47,7 +56,10 @@ func TestProcessSync(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
-	node0 := NewNode(TestConfig(t), keys[0], peers, peer0Trans, aproxy.NewInmemAppProxy(testLogger))
+	node0 := NewNode(config, pmap[peers[0].PubKeyHex], keys[0], peers,
+		hg.NewInmemStore(pmap, config.CacheSize),
+		peer0Trans,
+		aproxy.NewInmemAppProxy(testLogger))
 	node0.Init()
 
 	node0.RunAsync(false)
@@ -58,7 +70,10 @@ func TestProcessSync(t *testing.T) {
 	}
 	defer peer1Trans.Close()
 
-	node1 := NewNode(TestConfig(t), keys[1], peers, peer1Trans, aproxy.NewInmemAppProxy(testLogger))
+	node1 := NewNode(config, pmap[peers[1].PubKeyHex], keys[1], peers,
+		hg.NewInmemStore(pmap, config.CacheSize),
+		peer1Trans,
+		aproxy.NewInmemAppProxy(testLogger))
 	node1.Init()
 
 	node1.RunAsync(false)
@@ -122,8 +137,9 @@ func TestProcessSync(t *testing.T) {
 }
 
 func TestProcessEagerSync(t *testing.T) {
-	keys, peers := initPeers(2)
+	keys, peers, pmap := initPeers(2)
 	testLogger := common.NewTestLogger(t)
+	config := TestConfig(t)
 
 	//Start two nodes
 
@@ -133,7 +149,10 @@ func TestProcessEagerSync(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
-	node0 := NewNode(TestConfig(t), keys[0], peers, peer0Trans, aproxy.NewInmemAppProxy(testLogger))
+	node0 := NewNode(TestConfig(t), pmap[peers[0].PubKeyHex], keys[0], peers,
+		hg.NewInmemStore(pmap, config.CacheSize),
+		peer0Trans,
+		aproxy.NewInmemAppProxy(testLogger))
 	node0.Init()
 
 	node0.RunAsync(false)
@@ -144,7 +163,10 @@ func TestProcessEagerSync(t *testing.T) {
 	}
 	defer peer1Trans.Close()
 
-	node1 := NewNode(TestConfig(t), keys[1], peers, peer1Trans, aproxy.NewInmemAppProxy(testLogger))
+	node1 := NewNode(TestConfig(t), pmap[peers[1].PubKeyHex], keys[1], peers,
+		hg.NewInmemStore(pmap, config.CacheSize),
+		peer1Trans,
+		aproxy.NewInmemAppProxy(testLogger))
 	node1.Init()
 
 	node1.RunAsync(false)
@@ -189,8 +211,9 @@ func TestProcessEagerSync(t *testing.T) {
 }
 
 func TestAddTransaction(t *testing.T) {
-	keys, peers := initPeers(2)
+	keys, peers, pmap := initPeers(2)
 	testLogger := common.NewTestLogger(t)
+	config := TestConfig(t)
 
 	//Start two nodes
 
@@ -201,7 +224,10 @@ func TestAddTransaction(t *testing.T) {
 	defer peer0Trans.Close()
 	peer0Proxy := aproxy.NewInmemAppProxy(testLogger)
 
-	node0 := NewNode(TestConfig(t), keys[0], peers, peer0Trans, peer0Proxy)
+	node0 := NewNode(TestConfig(t), pmap[peers[0].PubKeyHex], keys[0], peers,
+		hg.NewInmemStore(pmap, config.CacheSize),
+		peer0Trans,
+		peer0Proxy)
 	node0.Init()
 
 	node0.RunAsync(false)
@@ -213,7 +239,10 @@ func TestAddTransaction(t *testing.T) {
 	defer peer1Trans.Close()
 	peer1Proxy := aproxy.NewInmemAppProxy(testLogger)
 
-	node1 := NewNode(TestConfig(t), keys[1], peers, peer1Trans, peer1Proxy)
+	node1 := NewNode(TestConfig(t), pmap[peers[1].PubKeyHex], keys[1], peers,
+		hg.NewInmemStore(pmap, config.CacheSize),
+		peer1Trans,
+		peer1Proxy)
 	node1.Init()
 
 	node1.RunAsync(false)
@@ -259,25 +288,67 @@ func TestAddTransaction(t *testing.T) {
 	node1.Shutdown()
 }
 
-func initNodes(n int, syncLimit int, logger *logrus.Logger) ([]*ecdsa.PrivateKey, []*Node) {
-	conf := NewConfig(5*time.Millisecond, time.Second, 1000, syncLimit, logger)
-
-	keys, peers := initPeers(n)
+func initNodes(n int, syncLimit int, db bool, logger *logrus.Logger) ([]*ecdsa.PrivateKey, []*Node) {
+	keys, peers, pmap := initPeers(n)
 	nodes := []*Node{}
 	proxies := []*aproxy.InmemAppProxy{}
 	for i := 0; i < len(peers); i++ {
+		conf := NewConfig(5*time.Millisecond, time.Second, 1000, syncLimit,
+			fmt.Sprintf("test_data/db_%d", i), logger)
+
 		trans, err := net.NewTCPTransport(peers[i].NetAddr,
 			nil, 2, time.Second, logger)
 		if err != nil {
 			logger.Panicf("failed to create transport for peer %d: %s\n", i, err.Error())
 		}
+		var store hg.Store
+		if db {
+			store, err = hg.NewBadgerStore(pmap, conf.CacheSize, conf.DBPath)
+			if err != nil {
+				logger.Panicf("failed to create BadgerStore for peer %d: %s\n", i, err.Error())
+			}
+		} else {
+			store = hg.NewInmemStore(pmap, conf.CacheSize)
+		}
 		prox := aproxy.NewInmemAppProxy(logger)
-		node := NewNode(conf, keys[i], peers, trans, prox)
+		node := NewNode(conf, pmap[peers[i].PubKeyHex], keys[i], peers,
+			store,
+			trans,
+			prox)
 		node.Init()
 		nodes = append(nodes, &node)
 		proxies = append(proxies, prox)
 	}
 	return keys, nodes
+}
+
+func loadNodes(oldNodes []*Node, logger *logrus.Logger, t *testing.T) []*Node {
+	newNodes := []*Node{}
+	for _, oldNode := range oldNodes {
+		conf := oldNode.conf
+		id := oldNode.id
+		key := oldNode.core.key
+		peers := oldNode.peerSelector.Peers()
+		store, err := hg.LoadBadgerStore(conf.CacheSize, conf.DBPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		trans, err := net.NewTCPTransport(oldNode.localAddr,
+			nil, 2, time.Second, logger)
+		if err != nil {
+			t.Fatal(err)
+		}
+		prox := aproxy.NewInmemAppProxy(logger)
+
+		newNode := NewNode(conf, id, key, peers, store, trans, prox)
+
+		if err := newNode.core.Bootstrap(); err != nil {
+			t.Fatal(err)
+		}
+
+		newNodes = append(newNodes, &newNode)
+	}
+	return newNodes
 }
 
 func runNodes(nodes []*Node, gossip bool) {
@@ -295,6 +366,14 @@ func shutdownNodes(nodes []*Node) {
 	}
 }
 
+func deleteStores(nodes []*Node, t *testing.T) {
+	for _, n := range nodes {
+		if err := os.RemoveAll(n.conf.DBPath); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func getCommittedTransactions(n *Node) ([][]byte, error) {
 	InmemAppProxy, ok := n.proxy.(*aproxy.InmemAppProxy)
 	if !ok {
@@ -306,7 +385,7 @@ func getCommittedTransactions(n *Node) ([][]byte, error) {
 
 func TestGossip(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	_, nodes := initNodes(4, 1000, logger)
+	_, nodes := initNodes(4, 1000, false, logger)
 
 	err := gossip(nodes, 50, true, 3*time.Second)
 	if err != nil {
@@ -318,10 +397,10 @@ func TestGossip(t *testing.T) {
 
 func TestMissingNodeGossip(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	_, nodes := initNodes(4, 1000, logger)
+	_, nodes := initNodes(4, 1000, false, logger)
 	defer shutdownNodes(nodes)
 
-	err := gossip(nodes[1:], 50, false, 3*time.Second)
+	err := gossip(nodes[1:], 50, true, 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -331,7 +410,7 @@ func TestMissingNodeGossip(t *testing.T) {
 
 func TestSyncLimit(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	_, nodes := initNodes(4, 300, logger)
+	_, nodes := initNodes(4, 300, false, logger)
 
 	err := gossip(nodes, 10, false, 3*time.Second)
 	if err != nil {
@@ -370,7 +449,7 @@ func TestSyncLimit(t *testing.T) {
 
 func TestShutdown(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	_, nodes := initNodes(2, 1000, logger)
+	_, nodes := initNodes(2, 1000, false, logger)
 
 	runNodes(nodes, false)
 
@@ -382,6 +461,33 @@ func TestShutdown(t *testing.T) {
 	}
 
 	nodes[1].Shutdown()
+}
+
+func TestBootstrap(t *testing.T) {
+	logger := common.NewTestLogger(t)
+
+	// Create a first network with BadgerStore and wait till it reaches 50 consensus
+	//rounds before shutting it down
+	_, nodes := initNodes(4, 1000, true, logger)
+	err := gossip(nodes, 50, true, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes, t)
+
+	//Now try to recreate a network from the databases created in the first step
+	//and advance it to 100 consensus rounds
+	newNodes := loadNodes(nodes, logger, t)
+	defer deleteStores(newNodes, t)
+	err = gossip(newNodes, 100, true, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(newNodes, t)
+
+	//Check that nodes from both networks share the same early consensus events
+	checkGossip(append(nodes[:2], newNodes[2:]...), t)
+
 }
 
 func gossip(nodes []*Node, target int, shutdown bool, timeout time.Duration) error {
@@ -506,7 +612,7 @@ func submitTransaction(n *Node, tx []byte) error {
 func BenchmarkGossip(b *testing.B) {
 	logger := common.NewBenchmarkLogger(b)
 	for n := 0; n < b.N; n++ {
-		_, nodes := initNodes(3, 1000, logger)
+		_, nodes := initNodes(3, 1000, false, logger)
 		gossip(nodes, 5, true, 3*time.Second)
 	}
 }

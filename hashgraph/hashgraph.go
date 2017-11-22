@@ -197,8 +197,8 @@ func (h *Hashgraph) stronglySee(x, y string) bool {
 	return c >= h.SuperMajority()
 }
 
-//round: max of parent rounds
-//isRoot: true if round is taken from a Root
+//PRI.round: max of parent rounds
+//PRI.isRoot: true if round is taken from a Root
 func (h *Hashgraph) ParentRound(x string) ParentRoundInfo {
 	if c, ok := h.parentRoundCache.Get(x); ok {
 		return c.(ParentRoundInfo)

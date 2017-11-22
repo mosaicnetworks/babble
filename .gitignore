@@ -12,6 +12,7 @@ cmd/debug
 vendor
 
 node/logs
+node/test_data/*
 
 demo/conf/*
 
@@ -30,4 +31,4 @@ scripts/publish
 
 docs/_build
 
-hashgraph/test_data
+hashgraph/test_data/*
