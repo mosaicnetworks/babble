@@ -27,6 +27,7 @@ func NewControlTimer(timerFactory timerFactory) *ControlTimer {
 }
 
 func NewRandomControlTimer(base time.Duration) *ControlTimer {
+
 	randomTimeout := func() <-chan time.Time {
 		minVal := base
 		if minVal == 0 {

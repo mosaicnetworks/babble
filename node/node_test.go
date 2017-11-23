@@ -288,7 +288,7 @@ func TestAddTransaction(t *testing.T) {
 	node1.Shutdown()
 }
 
-func initNodes(n int, syncLimit int, db bool, logger *logrus.Logger) ([]*ecdsa.PrivateKey, []*Node) {
+func initNodes(n, cacheSize, syncLimit int, db bool, logger *logrus.Logger) ([]*ecdsa.PrivateKey, []*Node) {
 	keys, peers, pmap := initPeers(n)
 	nodes := []*Node{}
 	proxies := []*aproxy.InmemAppProxy{}
@@ -316,39 +316,44 @@ func initNodes(n int, syncLimit int, db bool, logger *logrus.Logger) ([]*ecdsa.P
 			trans,
 			prox)
 		node.Init()
-		nodes = append(nodes, &node)
+		nodes = append(nodes, node)
 		proxies = append(proxies, prox)
 	}
 	return keys, nodes
 }
 
-func loadNodes(oldNodes []*Node, logger *logrus.Logger, t *testing.T) []*Node {
+func recycleNodes(oldNodes []*Node, logger *logrus.Logger, t *testing.T) []*Node {
 	newNodes := []*Node{}
 	for _, oldNode := range oldNodes {
-		conf := oldNode.conf
-		id := oldNode.id
-		key := oldNode.core.key
-		peers := oldNode.peerSelector.Peers()
-		store, err := hg.LoadBadgerStore(conf.CacheSize, conf.DBPath)
-		if err != nil {
-			t.Fatal(err)
-		}
-		trans, err := net.NewTCPTransport(oldNode.localAddr,
-			nil, 2, time.Second, logger)
-		if err != nil {
-			t.Fatal(err)
-		}
-		prox := aproxy.NewInmemAppProxy(logger)
-
-		newNode := NewNode(conf, id, key, peers, store, trans, prox)
-
-		if err := newNode.core.Bootstrap(); err != nil {
-			t.Fatal(err)
-		}
-
-		newNodes = append(newNodes, &newNode)
+		newNode := recycleNode(oldNode, logger, t)
+		newNodes = append(newNodes, newNode)
 	}
 	return newNodes
+}
+
+func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
+	conf := oldNode.conf
+	id := oldNode.id
+	key := oldNode.core.key
+	peers := oldNode.peerSelector.Peers()
+	store, err := hg.LoadBadgerStore(conf.CacheSize, conf.DBPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	trans, err := net.NewTCPTransport(oldNode.localAddr,
+		nil, 2, time.Second, logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prox := aproxy.NewInmemAppProxy(logger)
+
+	newNode := NewNode(conf, id, key, peers, store, trans, prox)
+
+	if err := newNode.core.Bootstrap(); err != nil {
+		t.Fatal(err)
+	}
+
+	return newNode
 }
 
 func runNodes(nodes []*Node, gossip bool) {
@@ -385,19 +390,38 @@ func getCommittedTransactions(n *Node) ([][]byte, error) {
 
 func TestGossip(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	_, nodes := initNodes(4, 1000, false, logger)
 
-	err := gossip(nodes, 50, true, 3*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Run("inmem", func(t *testing.T) {
+		_, nodes := initNodes(4, 1000, 1000, false, logger)
 
-	checkGossip(nodes, t)
+		err := gossip(nodes, 50, true, 3*time.Second)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		checkGossip(nodes, t)
+	})
+
+	t.Run("badger", func(t *testing.T) {
+		//init nodes wiht BadgerStore and a small cache size
+		//the small cache will force checkGossip to fetch events from the DB
+		//thereby augmenting the power of this test
+		_, nodes := initNodes(4, 500, 1000, true, logger)
+		defer deleteStores(nodes, t)
+
+		err := gossip(nodes, 50, false, 3*time.Second)
+		if err != nil {
+			t.Fatal(err)
+		}
+		//checkGossip might need the DB to stay open
+		checkGossip(nodes, t)
+		shutdownNodes(nodes)
+	})
 }
 
 func TestMissingNodeGossip(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	_, nodes := initNodes(4, 1000, false, logger)
+	_, nodes := initNodes(4, 1000, 1000, false, logger)
 	defer shutdownNodes(nodes)
 
 	err := gossip(nodes[1:], 50, true, 3*time.Second)
@@ -410,7 +434,7 @@ func TestMissingNodeGossip(t *testing.T) {
 
 func TestSyncLimit(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	_, nodes := initNodes(4, 300, false, logger)
+	_, nodes := initNodes(4, 1000, 300, false, logger)
 
 	err := gossip(nodes, 10, false, 3*time.Second)
 	if err != nil {
@@ -449,7 +473,7 @@ func TestSyncLimit(t *testing.T) {
 
 func TestShutdown(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	_, nodes := initNodes(2, 1000, false, logger)
+	_, nodes := initNodes(2, 1000, 1000, false, logger)
 
 	runNodes(nodes, false)
 
@@ -463,31 +487,61 @@ func TestShutdown(t *testing.T) {
 	nodes[1].Shutdown()
 }
 
-func TestBootstrap(t *testing.T) {
+func TestBootstrapAllNodes(t *testing.T) {
 	logger := common.NewTestLogger(t)
 
-	// Create a first network with BadgerStore and wait till it reaches 50 consensus
+	//create a first network with BadgerStore and wait till it reaches 10 consensus
 	//rounds before shutting it down
-	_, nodes := initNodes(4, 1000, true, logger)
-	err := gossip(nodes, 50, true, 3*time.Second)
+	_, nodes := initNodes(4, 200, 1000, true, logger)
+	//make sure the databases get deleted at the end of the test
+	defer deleteStores(nodes, t)
+	err := gossip(nodes, 10, false, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes, t)
+	shutdownNodes(nodes)
+
+	//Now try to recreate a network from the databases created in the first step
+	//and advance it to 20 consensus rounds
+	newNodes := recycleNodes(nodes, logger, t)
+	err = gossip(newNodes, 20, false, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(newNodes, t)
+	shutdownNodes(newNodes)
+}
+
+func TestBootstrapOneNode(t *testing.T) {
+	logger := common.NewTestLogger(t)
+
+	//Create a first network with BadgerStore
+	_, nodes := initNodes(4, 200, 1000, true, logger)
+	//make sure the DBs get deleted at the end of the test
+	defer deleteStores(nodes, t)
+	//wait until it reaches 10 consensus rounds but do not shutdown
+	err := gossip(nodes, 10, false, 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
 	checkGossip(nodes, t)
 
-	//Now try to recreate a network from the databases created in the first step
-	//and advance it to 100 consensus rounds
-	newNodes := loadNodes(nodes, logger, t)
-	defer deleteStores(newNodes, t)
-	err = gossip(newNodes, 100, true, 3*time.Second)
+	//shutdown the last node and replace it with a new node bootstrapped from the
+	//database
+	nodes[3].Shutdown()
+	newNode := recycleNode(nodes[3], logger, t)
+	nodes[3] = newNode
+
+	//check if we can continue gossipping
+	go nodes[3].Run(true)
+	err = bombardAndWait(nodes, 20, 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
-	checkGossip(newNodes, t)
+	shutdownNodes(nodes)
 
-	//Check that nodes from both networks share the same early consensus events
-	checkGossip(append(nodes[:2], newNodes[2:]...), t)
-
+	checkGossip(nodes, t)
 }
 
 func gossip(nodes []*Node, target int, shutdown bool, timeout time.Duration) error {
@@ -612,7 +666,7 @@ func submitTransaction(n *Node, tx []byte) error {
 func BenchmarkGossip(b *testing.B) {
 	logger := common.NewBenchmarkLogger(b)
 	for n := 0; n < b.N; n++ {
-		_, nodes := initNodes(3, 1000, false, logger)
+		_, nodes := initNodes(3, 1000, 1000, false, logger)
 		gossip(nodes, 5, true, 3*time.Second)
 	}
 }

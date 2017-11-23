@@ -53,13 +53,13 @@ func NewNode(conf *Config,
 	participants []net.Peer,
 	store hg.Store,
 	trans net.Transport,
-	proxy proxy.AppProxy) Node {
+	proxy proxy.AppProxy) *Node {
 
 	localAddr := trans.LocalAddr()
 
 	pmap, _ := store.Participants()
 
-	commitCh := make(chan []hg.Event, 20)
+	commitCh := make(chan []hg.Event, 400)
 	core := NewCore(id, key, pmap, store, commitCh, conf.Logger)
 
 	peerSelector := NewRandomPeerSelector(participants, localAddr)
@@ -83,7 +83,7 @@ func NewNode(conf *Config,
 	//Initialize as Babbling
 	node.setState(Babbling)
 
-	return node
+	return &node
 }
 
 func (n *Node) Init() error {
@@ -108,7 +108,7 @@ func (n *Node) Run(gossip bool) {
 
 	//Execute some background work regardless of the state of the node.
 	//Process RPC requests as well as SumbitTx and CommitTx requests
-	go n.doBackgroundWork()
+	n.goFunc(n.doBackgroundWork)
 
 	//Execute Node State Machine
 	for {
@@ -499,15 +499,21 @@ func (n *Node) Shutdown() {
 	if n.getState() != Shutdown {
 		n.logger.Debug("Shutdown")
 
-		n.controlTimer.Shutdown()
-		close(n.shutdownCh)
+		//Exit any non-shutdown state immediately
+		n.setState(Shutdown)
 
+		//Stop and wait for concurrent operations
+		close(n.shutdownCh)
 		n.waitRoutines()
 
-		n.setState(Shutdown)
+		//For some reason this needs to be called after closing the shutdownCh
+		//Not entirely sure why...
+		n.controlTimer.Shutdown()
+
+		//transport and store should only be closed once all concurrent operations
+		//are finished otherwise they will panic trying to use close objects
 		n.trans.Close()
 		n.core.hg.Store.Close()
-
 	}
 }
 
