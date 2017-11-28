@@ -3,7 +3,7 @@ package hashgraph
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"time"
@@ -26,10 +26,10 @@ type EventBody struct {
 	creatorID            int
 }
 
-//gob encoding of body only
+//json encoding of body only
 func (e *EventBody) Marshal() ([]byte, error) {
 	var b bytes.Buffer
-	enc := gob.NewEncoder(&b) //will write to b
+	enc := json.NewEncoder(&b) //will write to b
 	if err := enc.Encode(e); err != nil {
 		return nil, err
 	}
@@ -38,8 +38,11 @@ func (e *EventBody) Marshal() ([]byte, error) {
 
 func (e *EventBody) Unmarshal(data []byte) error {
 	b := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(b) //will read from b
-	return dec.Decode(e)
+	dec := json.NewDecoder(b) //will read from b
+	if err := dec.Decode(e); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (e *EventBody) Hash() ([]byte, error) {
@@ -57,7 +60,7 @@ type EventCoordinates struct {
 
 type Event struct {
 	Body EventBody
-	R, S *big.Int //creator's digital signature of body
+	R, S big.Int //creator's digital signature of body
 
 	topologicalIndex int
 
@@ -81,7 +84,7 @@ func NewEvent(transactions [][]byte,
 		Transactions: transactions,
 		Parents:      parents,
 		Creator:      creator,
-		Timestamp:    time.Now().Round(0), //strip monotonic time
+		Timestamp:    time.Now().UTC(), //strip monotonic time
 		Index:        index,
 	}
 	return Event{
@@ -128,7 +131,11 @@ func (e *Event) Sign(privKey *ecdsa.PrivateKey) error {
 	if err != nil {
 		return err
 	}
-	e.R, e.S, err = crypto.Sign(privKey, signBytes)
+	R, S, err := crypto.Sign(privKey, signBytes)
+	if err != nil {
+		return err
+	}
+	e.R, e.S = *R, *S
 	return err
 }
 
@@ -141,13 +148,13 @@ func (e *Event) Verify() (bool, error) {
 		return false, err
 	}
 
-	return crypto.Verify(pubKey, signBytes, e.R, e.S), nil
+	return crypto.Verify(pubKey, signBytes, &e.R, &e.S), nil
 }
 
-//gob encoding of body and signature
+//json encoding of body and signature
 func (e *Event) Marshal() ([]byte, error) {
 	var b bytes.Buffer
-	enc := gob.NewEncoder(&b)
+	enc := json.NewEncoder(&b)
 	if err := enc.Encode(e); err != nil {
 		return nil, err
 	}
@@ -156,7 +163,7 @@ func (e *Event) Marshal() ([]byte, error) {
 
 func (e *Event) Unmarshal(data []byte) error {
 	b := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(b) //will read from b
+	dec := json.NewDecoder(b) //will read from b
 	return dec.Decode(e)
 }
 
@@ -256,5 +263,5 @@ type WireBody struct {
 
 type WireEvent struct {
 	Body WireBody
-	R, S *big.Int
+	R, S big.Int
 }

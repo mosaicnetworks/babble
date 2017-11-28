@@ -2,7 +2,7 @@ package hashgraph
 
 import (
 	"bytes"
-	"encoding/gob"
+	"encoding/json"
 )
 
 /*
@@ -78,7 +78,7 @@ func NewBaseRoot() Root {
 
 func (root *Root) Marshal() ([]byte, error) {
 	var b bytes.Buffer
-	enc := gob.NewEncoder(&b) //will write to b
+	enc := json.NewEncoder(&b) //will write to b
 	if err := enc.Encode(root); err != nil {
 		return nil, err
 	}
@@ -87,6 +87,6 @@ func (root *Root) Marshal() ([]byte, error) {
 
 func (root *Root) Unmarshal(data []byte) error {
 	b := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(b) //will read from b
+	dec := json.NewDecoder(b) //will read from b
 	return dec.Decode(root)
 }

@@ -6,6 +6,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"time"
 
 	_ "net/http/pprof"
@@ -14,6 +15,7 @@ import (
 	"gopkg.in/urfave/cli.v1"
 
 	"github.com/babbleio/babble/crypto"
+	hg "github.com/babbleio/babble/hashgraph"
 	"github.com/babbleio/babble/net"
 	"github.com/babbleio/babble/node"
 	"github.com/babbleio/babble/proxy"
@@ -82,6 +84,16 @@ var (
 		Usage: "Max number of events for sync",
 		Value: 1000,
 	}
+	StoreFlag = cli.StringFlag{
+		Name:  "store",
+		Usage: "badger, inmem",
+		Value: "badger",
+	}
+	StorePathFlag = cli.StringFlag{
+		Name:  "store_path",
+		Usage: "File containing the store database",
+		Value: defaultBadgerDir(),
+	}
 )
 
 func main() {
@@ -112,6 +124,8 @@ func main() {
 				TcpTimeoutFlag,
 				CacheSizeFlag,
 				SyncLimitFlag,
+				StoreFlag,
+				StorePathFlag,
 			},
 		},
 		{
@@ -153,6 +167,9 @@ func run(c *cli.Context) error {
 	tcpTimeout := c.Int(TcpTimeoutFlag.Name)
 	cacheSize := c.Int(CacheSizeFlag.Name)
 	syncLimit := c.Int(SyncLimitFlag.Name)
+	storeType := c.String(StoreFlag.Name)
+	storePath := c.String(StorePathFlag.Name)
+
 	logger.WithFields(logrus.Fields{
 		"datadir":      datadir,
 		"node_addr":    addr,
@@ -164,11 +181,13 @@ func run(c *cli.Context) error {
 		"max_pool":     maxPool,
 		"tcp_timeout":  tcpTimeout,
 		"cache_size":   cacheSize,
+		"store":        storeType,
+		"store_path":   storePath,
 	}).Debug("RUN")
 
 	conf := node.NewConfig(time.Duration(heartbeat)*time.Millisecond,
 		time.Duration(tcpTimeout)*time.Millisecond,
-		cacheSize, syncLimit, logger)
+		cacheSize, syncLimit, storeType, storePath, logger)
 
 	// Create the PEM key
 	pemKey := crypto.NewPemKey(datadir)
@@ -176,27 +195,75 @@ func run(c *cli.Context) error {
 	// Try a read
 	key, err := pemKey.ReadKey()
 	if err != nil {
-		return err
+		return cli.NewExitError(err, 1)
 	}
 
 	// Create the peer store
-	store := net.NewJSONPeers(datadir)
+	peerStore := net.NewJSONPeers(datadir)
 
 	// Try a read
-	peers, err := store.Peers()
+	peers, err := peerStore.Peers()
 	if err != nil {
-		return err
+		return cli.NewExitError(err, 1)
 	}
 
 	// There should be at least two peers
 	if len(peers) < 2 {
-		return fmt.Errorf("peers.json should define at least two peers")
+		return cli.NewExitError("peers.json should define at least two peers", 1)
+	}
+
+	//Sort peers by public key and assign them an int ID
+	//Every participant in the network will run this and assign the same IDs
+	sort.Sort(net.ByPubKey(peers))
+	pmap := make(map[string]int)
+	for i, p := range peers {
+		pmap[p.PubKeyHex] = i
+	}
+
+	//Find the ID of this node
+	nodePub := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey))
+	nodeID := pmap[nodePub]
+
+	logger.WithFields(logrus.Fields{
+		"pmap": pmap,
+		"id":   nodeID,
+	}).Debug("PARTICIPANTS")
+
+	//Instantiate the Store (inmem or badger)
+	var store hg.Store
+	var needBootstrap bool
+	switch storeType {
+	case "inmem":
+		store = hg.NewInmemStore(pmap, conf.CacheSize)
+	case "badger":
+		//If the file already exists, load and bootstrap the store using the file
+		if _, err := os.Stat(conf.StorePath); err == nil {
+			logger.Debug("loading badger store from existing database")
+			store, err = hg.LoadBadgerStore(conf.CacheSize, conf.StorePath)
+			if err != nil {
+				return cli.NewExitError(
+					fmt.Sprintf("failed to load BadgerStore from existing file: %s", err),
+					1)
+			}
+			needBootstrap = true
+		} else {
+			//Otherwise create a new one
+			logger.Debug("creating new badger store from fresh database")
+			store, err = hg.NewBadgerStore(pmap, conf.CacheSize, conf.StorePath)
+			if err != nil {
+				return cli.NewExitError(
+					fmt.Sprintf("failed to create new BadgerStore: %s", err),
+					1)
+			}
+		}
+	default:
+		return cli.NewExitError(fmt.Sprintf("invalid store option: %s", storeType), 1)
 	}
 
 	trans, err := net.NewTCPTransport(addr,
 		nil, maxPool, conf.TCPTimeout, logger)
 	if err != nil {
-		return err
+		return cli.NewExitError(err, 1)
 	}
 
 	var prox proxy.AppProxy
@@ -207,10 +274,14 @@ func run(c *cli.Context) error {
 			conf.TCPTimeout, logger)
 	}
 
-	node := node.NewNode(conf, key, peers, trans, prox)
-	node.Init()
+	node := node.NewNode(conf, nodeID, key, peers, store, trans, prox)
+	if err := node.Init(needBootstrap); err != nil {
+		return cli.NewExitError(
+			fmt.Sprintf("failed to initialize node: %s", err),
+			1)
+	}
 
-	serviceServer := service.NewService(serviceAddress, &node, logger)
+	serviceServer := service.NewService(serviceAddress, node, logger)
 	go serviceServer.Serve()
 
 	node.Run(true)
@@ -224,6 +295,14 @@ func printVersion(c *cli.Context) error {
 }
 
 //------------------------------------------------------------------------------
+
+func defaultBadgerDir() string {
+	dataDir := defaultDataDir()
+	if dataDir != "" {
+		return filepath.Join(dataDir, "badger_db")
+	}
+	return ""
+}
 
 func defaultDataDir() string {
 	// Try to place the data folder in the user's home dir

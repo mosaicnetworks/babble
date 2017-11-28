@@ -77,7 +77,7 @@ e01 |   |
 e0  e1  e2
 0   1   2
 */
-func initHashgraph(t *testing.T) (Hashgraph, map[string]string) {
+func initHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
 	index := make(map[string]string)
 	nodes := []Node{}
 	orderedEvents := &[]Event{}
@@ -380,7 +380,7 @@ s00 |  e21
 e0  e1  e2
 0   1    2
 */
-func initRoundHashgraph(t *testing.T) (Hashgraph, map[string]string) {
+func initRoundHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
 	index := make(map[string]string)
 	nodes := []Node{}
 	orderedEvents := &[]Event{}
@@ -909,7 +909,7 @@ func contains(s []string, x string) bool {
 		e0  e1  e2
 		0   1    2
 */
-func initConsensusHashgraph(db bool, logger *logrus.Logger) (Hashgraph, map[string]string) {
+func initConsensusHashgraph(db bool, logger *logrus.Logger) (*Hashgraph, map[string]string) {
 	index := make(map[string]string)
 	nodes := []Node{}
 	orderedEvents := &[]Event{}
@@ -1378,7 +1378,6 @@ func TestBootstrap(t *testing.T) {
 		t.Fatalf("Bootstrapped hashgraph's PendingLoadedEvents should be %#v, not %#v",
 			h.PendingLoadedEvents, nh.PendingLoadedEvents)
 	}
-
 }
 
 /*
@@ -1438,7 +1437,7 @@ func TestBootstrap(t *testing.T) {
 	0	 1	  2	   3
 */
 
-func initFunkyHashgraph(logger *logrus.Logger) (Hashgraph, map[string]string) {
+func initFunkyHashgraph(logger *logrus.Logger) (*Hashgraph, map[string]string) {
 	index := make(map[string]string)
 	nodes := []Node{}
 	orderedEvents := &[]Event{}

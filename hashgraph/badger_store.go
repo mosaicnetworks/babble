@@ -343,11 +343,11 @@ func (s *BadgerStore) dbTopologicalEvents() ([]Event, error) {
 			if err != nil {
 				return err
 			}
+
 			event := new(Event)
 			if err := event.Unmarshal(eventBytes); err != nil {
 				return err
 			}
-
 			res = append(res, *event)
 
 			t++
@@ -361,6 +361,7 @@ func (s *BadgerStore) dbTopologicalEvents() ([]Event, error) {
 
 		return nil
 	})
+
 	return res, err
 }
 

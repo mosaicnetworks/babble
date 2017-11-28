@@ -11,11 +11,6 @@ import (
 	"github.com/babbleio/babble/crypto"
 )
 
-var (
-	badgerDB = "test_data/badger"
-	testDB   = "test_data/test_db"
-)
-
 func initBadgerStore(cacheSize int, t *testing.T) (*BadgerStore, []pub) {
 	n := 3
 	participantPubs := []pub{}
@@ -24,10 +19,12 @@ func initBadgerStore(cacheSize int, t *testing.T) (*BadgerStore, []pub) {
 		key, _ := crypto.GenerateECDSAKey()
 		pubKey := crypto.FromECDSAPub(&key.PublicKey)
 		participantPubs = append(participantPubs,
-			pub{i, pubKey, fmt.Sprintf("0x%X", pubKey)})
+			pub{i, key, pubKey, fmt.Sprintf("0x%X", pubKey)})
 		participants[fmt.Sprintf("0x%X", pubKey)] = i
 	}
 
+	os.RemoveAll("test_data")
+	os.Mkdir("test_data", os.ModeDir|0777)
 	dir, err := ioutil.TempDir("test_data", "badger")
 	if err != nil {
 		log.Fatal(err)
@@ -67,13 +64,17 @@ func createTestDB(dir string, t *testing.T) *BadgerStore {
 }
 
 func TestNewBadgerStore(t *testing.T) {
-	store := createTestDB(badgerDB, t)
+	os.RemoveAll("test_data")
+	os.Mkdir("test_data", os.ModeDir|0777)
+
+	dbPath := "test_data/badger"
+	store := createTestDB(dbPath, t)
 	defer os.RemoveAll(store.path)
 
-	if store.path != badgerDB {
+	if store.path != dbPath {
 		t.Fatalf("unexpected path %q", store.path)
 	}
-	if _, err := os.Stat(badgerDB); err != nil {
+	if _, err := os.Stat(dbPath); err != nil {
 		t.Fatalf("err: %s", err)
 	}
 
@@ -95,9 +96,12 @@ func TestNewBadgerStore(t *testing.T) {
 }
 
 func TestLoadBadgerStore(t *testing.T) {
+	os.RemoveAll("test_data")
+	os.Mkdir("test_data", os.ModeDir|0777)
+	dbPath := "test_data/badger"
 
-	//Create the test_db
-	tempStore := createTestDB(testDB, t)
+	//Create the test db
+	tempStore := createTestDB(dbPath, t)
 	defer os.RemoveAll(tempStore.path)
 	tempStore.Close()
 
@@ -149,6 +153,7 @@ func TestDBEventMethods(t *testing.T) {
 				[]string{"", ""},
 				p.pubKey,
 				k)
+			event.Sign(p.privKey)
 			event.topologicalIndex = topologicalIndex
 			topologicalIndex++
 			topologicalEvents = append(topologicalEvents, event)
@@ -170,13 +175,16 @@ func TestDBEventMethods(t *testing.T) {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(ev.Body, rev.Body) {
-				t.Fatalf("events[%s][%d].Body should be %#v, not %#v", p, k, ev, rev)
+				t.Fatalf("events[%s][%d].Body should be %#v, not %#v", p, k, ev.Body, rev.Body)
 			}
 			if !reflect.DeepEqual(ev.S, rev.S) {
 				t.Fatalf("events[%s][%d].S should be %#v, not %#v", p, k, ev.S, rev.S)
 			}
 			if !reflect.DeepEqual(ev.R, rev.R) {
 				t.Fatalf("events[%s][%d].R should be %#v, not %#v", p, k, ev.R, rev.R)
+			}
+			if ver, err := rev.Verify(); err != nil && !ver {
+				t.Fatalf("failed to verify signature. err: %s", err)
 			}
 		}
 	}
@@ -191,10 +199,31 @@ func TestDBEventMethods(t *testing.T) {
 			len(topologicalEvents), len(dbTopologicalEvents))
 	}
 	for i, dte := range dbTopologicalEvents {
-		if dte.Hex() != topologicalEvents[i].Hex() {
-			t.Fatalf("dbTopologicalEvents[%d] should be %s, not %s", i,
-				topologicalEvents[i].Hex(),
+		te := topologicalEvents[i]
+
+		if dte.Hex() != te.Hex() {
+			t.Fatalf("dbTopologicalEvents[%d].Hex should be %s, not %s", i,
+				te.Hex(),
 				dte.Hex())
+		}
+		if !reflect.DeepEqual(te.Body, dte.Body) {
+			t.Fatalf("dbTopologicalEvents[%d].Body should be %#v, not %#v", i,
+				te.Body,
+				dte.Body)
+		}
+		if !reflect.DeepEqual(te.R, dte.R) {
+			t.Fatalf("dbTopologicalEvents[%d].R should be %#v, not %#v", i,
+				te.R,
+				dte.R)
+		}
+		if !reflect.DeepEqual(te.S, dte.S) {
+			t.Fatalf("dbTopologicalEvents[%d].S should be %#v, not %#v", i,
+				te.S,
+				dte.S)
+		}
+
+		if ver, err := dte.Verify(); err != nil && !ver {
+			t.Fatalf("failed to verify signature. err: %s", err)
 		}
 	}
 

@@ -36,7 +36,7 @@ type Hashgraph struct {
 	logger *logrus.Logger
 }
 
-func NewHashgraph(participants map[string]int, store Store, commitCh chan []Event, logger *logrus.Logger) Hashgraph {
+func NewHashgraph(participants map[string]int, store Store, commitCh chan []Event, logger *logrus.Logger) *Hashgraph {
 	if logger == nil {
 		logger = logrus.New()
 		logger.Level = logrus.DebugLevel
@@ -48,7 +48,7 @@ func NewHashgraph(participants map[string]int, store Store, commitCh chan []Even
 	}
 
 	cacheSize := store.CacheSize()
-	return Hashgraph{
+	return &Hashgraph{
 		Participants:            participants,
 		ReverseParticipants:     reverseParticipants,
 		Store:                   store,
@@ -990,7 +990,7 @@ func (h *Hashgraph) GetFrame() (Frame, error) {
 //Hashgraph
 func (h *Hashgraph) Bootstrap() error {
 	if badgerStore, ok := h.Store.(*BadgerStore); ok {
-		//Retrive the Events from the underlying DB. They come out in topological
+		//Retreive the Events from the underlying DB. They come out in topological
 		//order
 		topologicalEvents, err := badgerStore.dbTopologicalEvents()
 		if err != nil {

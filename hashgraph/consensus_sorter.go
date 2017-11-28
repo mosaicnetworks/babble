@@ -36,9 +36,9 @@ func (b ConsensusSorter) Less(i, j int) bool {
 
 	w := b.GetPseudoRandomNumber(*b.a[i].roundReceived)
 	wsi := new(big.Int)
-	wsi = wsi.Xor(b.a[i].S, w)
+	wsi = wsi.Xor(&b.a[i].S, w)
 	wsj := new(big.Int)
-	wsj = wsj.Xor(b.a[j].S, w)
+	wsj = wsj.Xor(&b.a[j].S, w)
 	return wsi.Cmp(wsj) < 0
 }
 func (b ConsensusSorter) GetPseudoRandomNumber(round int) *big.Int {

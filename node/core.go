@@ -17,7 +17,7 @@ type Core struct {
 	key    *ecdsa.PrivateKey
 	pubKey []byte
 	hexID  string
-	hg     hg.Hashgraph
+	hg     *hg.Hashgraph
 
 	participants        map[string]int //[PubKey] => id
 	reverseParticipants map[int]string //[id] => PubKey

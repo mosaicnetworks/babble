@@ -2,7 +2,7 @@ package net
 
 import (
 	"bufio"
-	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -39,10 +39,10 @@ be simple TCP, TLS, etc.
 
 This transport is very simple and lightweight. Each RPC request is
 framed by sending a byte that indicates the message type, followed
-by the gob encoded request.
+by the json encoded request.
 
 The response is an error string followed by the response object,
-both are encoded using gob.
+both are encoded using msgpack
 */
 type NetworkTransport struct {
 	logger *logrus.Logger
@@ -76,8 +76,8 @@ type netConn struct {
 	conn   net.Conn
 	r      *bufio.Reader
 	w      *bufio.Writer
-	dec    *gob.Decoder
-	enc    *gob.Encoder
+	dec    *json.Decoder
+	enc    *json.Encoder
 }
 
 func (n *netConn) Release() error {
@@ -181,8 +181,8 @@ func (n *NetworkTransport) getConn(target string, timeout time.Duration) (*netCo
 		w:      bufio.NewWriter(conn),
 	}
 	// Setup encoder/decoders
-	netConn.dec = gob.NewDecoder(netConn.r)
-	netConn.enc = gob.NewEncoder(netConn.w)
+	netConn.dec = json.NewDecoder(netConn.r)
+	netConn.enc = json.NewEncoder(netConn.w)
 
 	// Done
 	return netConn, nil
@@ -311,8 +311,8 @@ func (n *NetworkTransport) handleConn(conn net.Conn) {
 	defer conn.Close()
 	r := bufio.NewReader(conn)
 	w := bufio.NewWriter(conn)
-	dec := gob.NewDecoder(r)
-	enc := gob.NewEncoder(w)
+	dec := json.NewDecoder(r)
+	enc := json.NewEncoder(w)
 
 	for {
 		if err := n.handleCommand(r, dec, enc); err != nil {
@@ -329,7 +329,7 @@ func (n *NetworkTransport) handleConn(conn net.Conn) {
 }
 
 // handleCommand is used to decode and dispatch a single command.
-func (n *NetworkTransport) handleCommand(r *bufio.Reader, dec *gob.Decoder, enc *gob.Encoder) error {
+func (n *NetworkTransport) handleCommand(r *bufio.Reader, dec *json.Decoder, enc *json.Encoder) error {
 	// Get the rpc type
 	rpcType, err := r.ReadByte()
 	if err != nil {

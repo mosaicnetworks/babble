@@ -81,17 +81,22 @@ func NewNode(conf *Config,
 	}
 
 	//Initialize as Babbling
+	node.setStarting(true)
 	node.setState(Babbling)
 
 	return &node
 }
 
-func (n *Node) Init() error {
+func (n *Node) Init(bootstrap bool) error {
 	peerAddresses := []string{}
 	for _, p := range n.peerSelector.Peers() {
 		peerAddresses = append(peerAddresses, p.NetAddr)
 	}
 	n.logger.WithField("peers", peerAddresses).Debug("Init Node")
+
+	if bootstrap {
+		return n.core.Bootstrap()
+	}
 	return n.core.Init()
 }
 
@@ -291,7 +296,7 @@ func (n *Node) preGossip() (bool, error) {
 	defer n.coreLock.Unlock()
 
 	//Check if it is necessary to gossip
-	needGossip := n.core.NeedGossip()
+	needGossip := n.core.NeedGossip() || n.isStarting()
 	if !needGossip {
 		n.logger.Debug("Nothing to gossip")
 		return false, nil
@@ -333,6 +338,8 @@ func (n *Node) gossip(peerAddr string) error {
 	n.selectorLock.Unlock()
 
 	n.logStats()
+
+	n.setStarting(false)
 
 	return nil
 }

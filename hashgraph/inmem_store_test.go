@@ -1,6 +1,7 @@
 package hashgraph
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 	"reflect"
 	"testing"
@@ -9,9 +10,10 @@ import (
 )
 
 type pub struct {
-	id     int
-	pubKey []byte
-	hex    string
+	id      int
+	privKey *ecdsa.PrivateKey
+	pubKey  []byte
+	hex     string
 }
 
 func initInmemStore(cacheSize int) (*InmemStore, []pub) {
@@ -22,7 +24,7 @@ func initInmemStore(cacheSize int) (*InmemStore, []pub) {
 		key, _ := crypto.GenerateECDSAKey()
 		pubKey := crypto.FromECDSAPub(&key.PublicKey)
 		participantPubs = append(participantPubs,
-			pub{i, pubKey, fmt.Sprintf("0x%X", pubKey)})
+			pub{i, key, pubKey, fmt.Sprintf("0x%X", pubKey)})
 		participants[fmt.Sprintf("0x%X", pubKey)] = i
 	}
 

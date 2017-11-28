@@ -2,7 +2,7 @@ package hashgraph
 
 import (
 	"bytes"
-	"encoding/gob"
+	"encoding/json"
 	"math/big"
 )
 
@@ -110,7 +110,7 @@ func (r *RoundInfo) PseudoRandomNumber() *big.Int {
 
 func (r *RoundInfo) Marshal() ([]byte, error) {
 	var b bytes.Buffer
-	enc := gob.NewEncoder(&b)
+	enc := json.NewEncoder(&b)
 	if err := enc.Encode(r); err != nil {
 		return nil, err
 	}
@@ -119,6 +119,6 @@ func (r *RoundInfo) Marshal() ([]byte, error) {
 
 func (r *RoundInfo) Unmarshal(data []byte) error {
 	b := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(b) //will read from b
+	dec := json.NewDecoder(b) //will read from b
 	return dec.Decode(r)
 }
