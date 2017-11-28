@@ -147,9 +147,12 @@ There are various strategies to keep the size of the Hashgraph limited. In our
 implementation, the **Hashgraph** object has a dependency on a **Store** object  
 which contains the actual data and is abstracted behind an interface.
 
-The current implementation of the **Store** interface uses a set of in-memory LRU  
-caches which can be extended to persist stale items to disk. The size of the LRU  
-caches is configurable.
+There are currently two implementations of the **Store** interface. The ``InmemStore``
+uses a set of in-memory LRU caches which can be extended to persist stale items 
+to disk and the size of the LRU caches is configurable. The ``BadgerStore`` is 
+a wrapper around this cache that also persists objects to a key-value store on disk.
+The database produced by the ``BadgerStore`` can be reused to bootstrap a node 
+back to a specific state.
 
 Service
 -------

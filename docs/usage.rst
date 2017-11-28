@@ -164,29 +164,29 @@ Let us take a look at the help provided by the Babble CLI:
 
 ::
 
-    babble run --help
-    
     NAME:
-        main run - Run node
+    babble run - Run node
 
     USAGE:
-        main run [command options] [arguments...]
+    babble run [command options] [arguments...]
 
     OPTIONS:
-        --datadir value       Directory for the configuration (default: "/home/<usr>/.babble")
-        --node_addr value     IP:Port to bind Babble (default: "127.0.0.1:1337")
-        --no_client           Run Babble with dummy in-memory App client
-        --proxy_addr value    IP:Port to bind Proxy Server (default: "127.0.0.1:1338")
-        --client_addr value   IP:Port of Client App (default: "127.0.0.1:1339")
-        --service_addr value  IP:Port of HTTP Service (default: "127.0.0.1:8000")
-        --log_level value     debug, info, warn, error, fatal, panic (default: "debug")
-        --heartbeat value     Heartbeat timer milliseconds (time between gossips) (default: 1000)
-        --max_pool value      Max number of pooled connections (default: 2)
-        --tcp_timeout value   TCP timeout milliseconds (default: 1000)
-        --cache_size value    Number of items in LRU caches (default: 500)
-        --sync_limit value    Max number of events for sync (default: 1000)
+       --datadir value       Directory for the configuration (default: "/home/martin/.babble")
+       --node_addr value     IP:Port to bind Babble (default: "127.0.0.1:1337")
+       --no_client           Run Babble with dummy in-memory App client
+       --proxy_addr value    IP:Port to bind Proxy Server (default: "127.0.0.1:1338")
+       --client_addr value   IP:Port of Client App (default: "127.0.0.1:1339")
+       --service_addr value  IP:Port of HTTP Service (default: "127.0.0.1:8000")
+       --log_level value     debug, info, warn, error, fatal, panic (default: "debug")
+       --heartbeat value     Heartbeat timer milliseconds (time between gossips) (default: 1000)
+       --max_pool value      Max number of pooled connections (default: 2)
+       --tcp_timeout value   TCP timeout milliseconds (default: 1000)
+       --cache_size value    Number of items in LRU caches (default: 500)
+       --sync_limit value    Max number of events for sync (default: 1000)
+       --store value         badger, inmem (default: "badger")
+       --store_path value    File containing the store database (default: "/home/martin/.babble/badger_db")
+
 	
-    
 So we have just seen what the ``datadir`` flag does. The ``node_addr`` flag corresponds to the NetAddr
 in the peers.json file; that is the endpoint that Babble uses to communicate with other Babble nodes.
 
@@ -197,8 +197,20 @@ to specify two other endpoints:
  - ``proxy_addr``  : where Babble listens for transactions from the App
  - ``client_addr`` : where the App listens for transactions from Babble 
 
-Finally, we need to specify where Babble exposes its HTTP API where one can query the Hashgraph data store.
-This is defined by the service_addr flag.
+We also need to specify where Babble exposes its HTTP API where one can query the Hashgraph data store.
+This is defined by the ``service_addr`` flag.
+
+Finally, we can choose to run Babble with a database backend or only with an in-memory
+cache. By default, Babble will look for a database file in ``~/.babble/babdger_db``
+but this can be set with the ``store_path`` option. If the file exists, the node
+will load the database and bootstrap itself to a state consistent with the database 
+and it will be able to proceed with the consensus algorithm from there. If the 
+file does not exist yet, it will be created and the node will start from a clean slate. 
+
+In some cases, it can be preferable to run Babble without a database backend. Indeed,
+even if using a database can be indispensable in some deployments, it has a big 
+impact on performance. To use an in-memory store only, set the option ``store inmem``.
+
 
 Here is how the Docker demo starts Babble nodes together wth the Dummy application:
 
