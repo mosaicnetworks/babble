@@ -6,7 +6,7 @@ import (
 
 	"time"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	bproxy "github.com/babbleio/babble/proxy/babble"
 )
 

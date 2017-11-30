@@ -4,7 +4,7 @@ package net
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"net"
 	"time"
 )

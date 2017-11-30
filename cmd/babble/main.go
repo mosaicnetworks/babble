@@ -11,7 +11,7 @@ import (
 
 	_ "net/http/pprof"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"gopkg.in/urfave/cli.v1"
 
 	"github.com/babbleio/babble/crypto"
