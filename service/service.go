@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/babbleio/babble/node"
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/gorilla/mux"
 )
 

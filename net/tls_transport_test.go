@@ -7,7 +7,7 @@ import (
 	"github.com/babbleio/babble/common"
 	"crypto/tls"
 	"crypto/x509"
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net"
