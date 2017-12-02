@@ -482,7 +482,7 @@ func TestBootstrapAllNodes(t *testing.T) {
 
 	//create a first network with BadgerStore and wait till it reaches 10 consensus
 	//rounds before shutting it down
-	_, nodes := initNodes(4, 1000, 1000, "badger", logger, t)
+	_, nodes := initNodes(4, 10000, 1000, "badger", logger, t)
 	err := gossip(nodes, 10, false, 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
@@ -499,38 +499,9 @@ func TestBootstrapAllNodes(t *testing.T) {
 	}
 	checkGossip(newNodes, t)
 	shutdownNodes(newNodes)
-}
 
-func TestBootstrapOneNode(t *testing.T) {
-	logger := common.NewTestLogger(t)
-
-	os.RemoveAll("test_data")
-	os.Mkdir("test_data", os.ModeDir|0777)
-
-	//Create a first network with BadgerStore
-	_, nodes := initNodes(4, 200, 1000, "badger", logger, t)
-	//wait until it reaches 10 consensus rounds but do not shutdown
-	err := gossip(nodes, 10, false, 3*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	checkGossip(nodes, t)
-
-	//shutdown the last node and replace it with a new node bootstrapped from the
-	//database
-	nodes[3].Shutdown()
-	newNode := recycleNode(nodes[3], logger, t)
-	nodes[3] = newNode
-
-	//check if we can continue gossipping
-	go nodes[3].Run(true)
-	err = bombardAndWait(nodes, 20, 3*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	shutdownNodes(nodes)
-
-	checkGossip(nodes, t)
+	//Check that both networks did not have completely different consensus events
+	checkGossip([]*Node{nodes[0], newNodes[0]}, t)
 }
 
 func gossip(nodes []*Node, target int, shutdown bool, timeout time.Duration) error {
