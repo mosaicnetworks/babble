@@ -1,10 +1,10 @@
 package: github.com/babbleio/babble
 import:
-- package: github.com/Sirupsen/logrus
+- package: github.com/sirupsen/logrus
 - package: gopkg.in/urfave/cli.v1
 - package: github.com/stretchr/testify
   version: ^1.1.4
 - package: github.com/gorilla/mux
   version: ~1.5.0
 - package: github.com/dgraph-io/badger
-  version: ~1.1.0
+  version: 9f8b956593906e9092faa04268b4a73937be2486

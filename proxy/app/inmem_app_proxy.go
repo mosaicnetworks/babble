@@ -1,6 +1,6 @@
 package app
 
-import "github.com/Sirupsen/logrus"
+import "github.com/sirupsen/logrus"
 
 //InmemProxy is used for testing
 type InmemAppProxy struct {

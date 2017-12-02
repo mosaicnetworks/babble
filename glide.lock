@@ -1,10 +1,10 @@
-hash: b9ea78aed292b41125f6128109c02a76da5d20b8025ed2cfeffb74c47c69d4d7
-updated: 2017-11-17T10:50:39.500798527Z
+hash: af49b5b19b46d3935c5961f2a519bd58e810627ac392edf59e88930d9d1e7021
+updated: 2017-11-30T14:10:04.840454577+08:00
 imports:
 - name: github.com/AndreasBriese/bbloom
   version: 28f7e881ca57bc00e028f9ede9f0d9104cfeef5e
 - name: github.com/dgraph-io/badger
-  version: c7225883aa76fb3dd4707923c67c64bc1b4631bc
+  version: 9f8b956593906e9092faa04268b4a73937be2486
   subpackages:
   - options
   - protos
@@ -23,7 +23,7 @@ imports:
   version: 24fca303ac6da784b9e8269f724ddeb0b2eea5e7
 - name: github.com/pkg/errors
   version: f15c970de5b76fac0b59abb32d62c17cc7bed265
-- name: github.com/Sirupsen/logrus
+- name: github.com/sirupsen/logrus
   version: 89742aefa4b206dcf400792f3bd35b542998eb3b
 - name: github.com/stretchr/testify
   version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0

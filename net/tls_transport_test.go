@@ -1,25 +1,25 @@
-
 package net
 
 import (
 	"testing"
 
-	"github.com/babbleio/babble/common"
 	"crypto/tls"
 	"crypto/x509"
-	"github.com/Sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/babbleio/babble/common"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 )
 
 type Test struct {
-	t *testing.T
-	assert *assert.Assertions
-	logger *logrus.Logger
+	t        *testing.T
+	assert   *assert.Assertions
+	logger   *logrus.Logger
 	testdata string
 }
 
@@ -66,12 +66,13 @@ func TestTLSTransport_EnvironCert(t *testing.T) {
 	test := NewTest(t)
 	timeout := 5 * time.Second
 	serverName := "node1.babble.net"
+	pool := caPool(test.readFile("ca.crt"))
 
 	err := os.Setenv("SSL_CERT_FILE", filepath.Join(test.testdata, "ca.crt"))
 	test.assert.Nil(err, "setting CERT FILE environment variable")
 
-	server := test.transport(test.tlsConfig(serverName, "signed1", nil), timeout)
-	client := test.transport(test.tlsConfig(serverName, "signed2", nil), timeout)
+	server := test.transport(test.tlsConfig(serverName, "signed1", pool), timeout)
+	client := test.transport(test.tlsConfig(serverName, "signed2", pool), timeout)
 
 	conn, err := client.stream.Dial(server.stream.Addr().String(), timeout)
 	test.assert.Nil(err)
@@ -100,8 +101,8 @@ func (t *Test) tlsConfig(serverName, certName string, pool *x509.CertPool) *tls.
 
 func (t *Test) readCertificate(name string) tls.Certificate {
 	cert, err := tls.X509KeyPair(
-		t.readFile(name + ".crt"),
-		t.readFile(name + ".key"))
+		t.readFile(name+".crt"),
+		t.readFile(name+".key"))
 	t.assert.Nil(err, "loading certificate `%s`", name)
 	return cert
 }
@@ -112,4 +113,3 @@ func (t *Test) readFile(filename string) []byte {
 	t.assert.Nil(err, "reading file `%s`", filename)
 	return bytes
 }
-

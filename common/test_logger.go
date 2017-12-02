@@ -3,7 +3,7 @@ package common
 import (
 	"testing"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // This can be used as the destination for a logger and it'll

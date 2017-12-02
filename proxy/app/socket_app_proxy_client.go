@@ -6,7 +6,7 @@ import (
 	"net/rpc/jsonrpc"
 	"time"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 type SocketAppProxyClient struct {
