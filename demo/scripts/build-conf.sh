@@ -17,11 +17,7 @@ for i in $(seq 1 $N)
 do
     dest=$DEST/node$i
     mkdir -p $dest
-    if [[ "`uname`" == "Darwin" ]]; then
-        docker run --rm mosaicnetworks/babble keygen | gsed -n -e "2 w $dest/pub" -e "4,+4 w $dest/priv_key.pem"
-    else
-        docker run --rm mosaicnetworks/babble keygen | sed -n -e "2 w $dest/pub" -e "4,+4 w $dest/priv_key.pem"
-    fi
+    docker run --rm mosaicnetworks/babble keygen | sed -n -e "2 w $dest/pub" -e "4,+4 w $dest/priv_key.pem"
     echo "$IPBASE$i:$PORT" > $dest/addr
 done
 

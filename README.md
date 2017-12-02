@@ -156,6 +156,17 @@ Babble uses [Glide](http://github.com/Masterminds/glide) to manage dependencies.
 ```
 This will download all dependencies and put them in the **vendor** folder.
 
+### macOS requirements
+
+Bash scripts used in this project assume the use of gnu versions of coreutils.
+
+Please ensure you have gnu versions of these programs installed:-
+
+```
+# --with-default-names makes the `sed` and `awk` commands default to gnu sed and gnu awk respectively.
+brew install gnu-sed gawk --with-default-names
+```
+
 ### Testing
 
 Babble has extensive unit-testing. Use the Go tool to run tests:  
