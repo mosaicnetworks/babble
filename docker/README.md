@@ -20,6 +20,11 @@ Simple wrapper around the Dummy Client application for Babble. This is effective
 a group chat application.  
 Refer to demo/ for usage.
 
+## Watcher image
+
+This image describes a container that monitors the consensus stats for a Babble 
+docker network. It is based on the watch.sh script.
+
 ## Glider Image
 
 The glider image contains all the tools to compile Babble for almost any platform.  

@@ -1,9 +1,9 @@
 BABBLE_VERSION=0.1.2
 DUMMY_VERSION=0.1.0
-GLIDER_VERSION=0.0.2
 WATCHER_VERSION=0.0.1
+GLIDER_VERSION=0.0.2
 
-all: babble-image dummy-image glider-image watcher-image
+all: babble-image dummy-image watcher-image glider-image 
 
 demo: babble-image dummy-image watcher-image
 
@@ -18,10 +18,10 @@ dummy-image:
 		-o dummy/dummy ../cmd/dummy_client/
 	docker build --no-cache=true -t mosaicnetworks/dummy:$(DUMMY_VERSION) dummy/
 
-glider-image:
-	docker build --no-cache=true -t mosaicnetworks/glider:$(GLIDER_VERSION) glider/
-
 watcher-image:
 	docker build --no-cache=true -t mosaicnetworks/watcher:$(WATCHER_VERSION) -t mosaicnetworks/watcher:latest watcher/
 
-.PHONY: all demo babble-image dummy-image glider-image watcher-image
+glider-image:
+	docker build --no-cache=true -t mosaicnetworks/glider:$(GLIDER_VERSION) glider/
+
+.PHONY: all demo babble-image dummy-image watcher-image glider-image
