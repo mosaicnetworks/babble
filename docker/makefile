@@ -1,10 +1,11 @@
 BABBLE_VERSION=0.1.2
 DUMMY_VERSION=0.1.0
 GLIDER_VERSION=0.0.2
+WATCHER_VERSION=0.0.1
 
-all: babble-image dummy-image glider-image 
+all: babble-image dummy-image glider-image watcher-image
 
-demo: babble-image dummy-image
+demo: babble-image dummy-image watcher-image
 
 babble-image:
 	CGO_ENABLED=0 go build \
@@ -20,4 +21,7 @@ dummy-image:
 glider-image:
 	docker build --no-cache=true -t mosaicnetworks/glider:$(GLIDER_VERSION) glider/
 
-.PHONY: all demo babble-image dummy-image glider-image
+watcher-image:
+	docker build --no-cache=true -t mosaicnetworks/watcher:$(WATCHER_VERSION) -t mosaicnetworks/watcher:latest watcher/
+
+.PHONY: all demo babble-image dummy-image glider-image watcher-image
