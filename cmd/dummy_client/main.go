@@ -67,18 +67,16 @@ func run(c *cli.Context) error {
 	}
 
 	scanner := bufio.NewScanner(os.Stdin)
-	var text string
-	for text != "q" { // break the loop if text == "q"
+	for scanner.Scan() {
 		fmt.Print("Enter your text: ")
-		scanner.Scan()
-		text = scanner.Text()
-		if text != "q" {
-			message := fmt.Sprintf("%s: %s", name, text)
-			if err := client.SubmitTx([]byte(message)); err != nil {
-				fmt.Printf("Error in SubmitTx: %v\n", err)
-			}
+		text := scanner.Text()
+		message := fmt.Sprintf("%s: %s", name, text)
+		if err := client.SubmitTx([]byte(message)); err != nil {
+			fmt.Printf("Error in SubmitTx: %v\n", err)
 		}
 	}
+
+	select {}
 
 	return nil
 }

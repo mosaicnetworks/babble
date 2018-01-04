@@ -10,17 +10,17 @@ ssh -q -i babble.pem -o "UserKnownHostsFile /dev/null" -o "StrictHostKeyChecking
  ubuntu@$public_ip  <<-EOF
     nohup /home/ubuntu/bin/babble run \
     --datadir=/home/ubuntu/babble_conf \
+    --store=inmem \
     --cache_size=10000 \
     --tcp_timeout=500 \
     --heartbeat=50 \
-    --node_addr=$private_ip:1337 \
-    --proxy_addr=0.0.0.0:1338 \
-    --client_addr=$private_ip:1339 \
-    --service_addr=0.0.0.0:8080 > logs 2>&1 &
+    --node_addr=:1337 \
+    --proxy_addr=:1338 \
+    --client_addr=:1339 \
+    --service_addr=:8080 > babble_logs 2>&1 &
 
     nohup /home/ubuntu/bin/dummy \
     --name=$private_ip \
-    --client_addr=$private_ip:1339\
-    --proxy_addr=0.0.0.0:1338 \
-    --log_level="info" < /dev/null > 2>&1 &
+    --client_addr=:1339 \
+    --proxy_addr=:1338 < /dev/null > dummy_logs 2>&1 &
 EOF

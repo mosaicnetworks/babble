@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 N=${1:-4}
 
 watch -n 1 '
