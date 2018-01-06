@@ -3,12 +3,12 @@ package net
 import "github.com/babbleio/babble/hashgraph"
 
 type SyncRequest struct {
-	From  string
-	Known map[int]int
+	FromID int
+	Known  map[int]int
 }
 
 type SyncResponse struct {
-	From      string
+	FromID    int
 	SyncLimit bool
 	Events    []hashgraph.WireEvent
 	Known     map[int]int
@@ -17,11 +17,11 @@ type SyncResponse struct {
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 type EagerSyncRequest struct {
-	From   string
+	FromID int
 	Events []hashgraph.WireEvent
 }
 
 type EagerSyncResponse struct {
-	From    string
+	FromID  int
 	Success bool
 }

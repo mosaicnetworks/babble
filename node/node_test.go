@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/babbleio/babble/common"
 	"github.com/babbleio/babble/crypto"
 	hg "github.com/babbleio/babble/hashgraph"
 	"github.com/babbleio/babble/net"
 	aproxy "github.com/babbleio/babble/proxy/app"
+	"github.com/sirupsen/logrus"
 )
 
 var ip = 9990
@@ -94,11 +94,11 @@ func TestProcessSync(t *testing.T) {
 	}
 
 	args := net.SyncRequest{
-		From:  node0.localAddr,
-		Known: node0Known,
+		FromID: node0.id,
+		Known:  node0Known,
 	}
 	expectedResp := net.SyncResponse{
-		From:   node1.localAddr,
+		FromID: node1.id,
 		Events: unknownWire,
 		Known:  node1Known,
 	}
@@ -111,8 +111,8 @@ func TestProcessSync(t *testing.T) {
 	}
 
 	// Verify the response
-	if expectedResp.From != out.From {
-		t.Fatalf("SyncResponse.From should be %s, not %s", expectedResp.From, out.From)
+	if expectedResp.FromID != out.FromID {
+		t.Fatalf("SyncResponse.FromID should be %s, not %s", expectedResp.FromID, out.FromID)
 	}
 
 	if l := len(out.Events); l != len(expectedResp.Events) {
@@ -186,11 +186,11 @@ func TestProcessEagerSync(t *testing.T) {
 	}
 
 	args := net.EagerSyncRequest{
-		From:   node0.localAddr,
+		FromID: node0.id,
 		Events: unknownWire,
 	}
 	expectedResp := net.EagerSyncResponse{
-		From:    node1.localAddr,
+		FromID:  node1.id,
 		Success: true,
 	}
 
@@ -256,8 +256,8 @@ func TestAddTransaction(t *testing.T) {
 
 	node0Known := node0.core.Known()
 	args := net.SyncRequest{
-		From:  node0.localAddr,
-		Known: node0Known,
+		FromID: node0.id,
+		Known:  node0Known,
 	}
 
 	var out net.SyncResponse
@@ -436,11 +436,11 @@ func TestSyncLimit(t *testing.T) {
 	}
 
 	args := net.SyncRequest{
-		From:  nodes[0].localAddr,
-		Known: node0Known,
+		FromID: nodes[0].id,
+		Known:  node0Known,
 	}
 	expectedResp := net.SyncResponse{
-		From:      nodes[1].localAddr,
+		FromID:    nodes[1].id,
 		SyncLimit: true,
 	}
 
@@ -450,8 +450,8 @@ func TestSyncLimit(t *testing.T) {
 	}
 
 	// Verify the response
-	if expectedResp.From != out.From {
-		t.Fatalf("SyncResponse.From should be %s, not %s", expectedResp.From, out.From)
+	if expectedResp.FromID != out.FromID {
+		t.Fatalf("SyncResponse.FromID should be %s, not %s", expectedResp.FromID, out.FromID)
 	}
 	if expectedResp.SyncLimit != true {
 		t.Fatal("SyncResponse.SyncLimit should be true")

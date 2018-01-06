@@ -69,7 +69,7 @@ func NewNode(conf *Config,
 		conf:         conf,
 		core:         &core,
 		localAddr:    localAddr,
-		logger:       conf.Logger.WithField("node", localAddr),
+		logger:       conf.Logger.WithField("this_id", id),
 		peerSelector: peerSelector,
 		trans:        trans,
 		netCh:        trans.Consumer(),
@@ -194,7 +194,7 @@ func (n *Node) processRPC(rpc net.RPC) {
 		//XXX Use a SyncResponse by default but this should be either a special
 		//ErrorResponse type or a type that corresponds to the request
 		resp := &net.SyncResponse{
-			From: n.localAddr,
+			FromID: n.id,
 		}
 		rpc.Respond(resp, fmt.Errorf("not ready: %s", s.String()))
 		return
@@ -213,12 +213,12 @@ func (n *Node) processRPC(rpc net.RPC) {
 
 func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 	n.logger.WithFields(logrus.Fields{
-		"from":  cmd.From,
-		"known": cmd.Known,
+		"from_id": cmd.FromID,
+		"known":   cmd.Known,
 	}).Debug("process SyncRequest")
 
 	resp := &net.SyncResponse{
-		From: n.localAddr,
+		FromID: n.id,
 	}
 	var respErr error
 
@@ -271,8 +271,8 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 
 func (n *Node) processEagerSyncRequest(rpc net.RPC, cmd *net.EagerSyncRequest) {
 	n.logger.WithFields(logrus.Fields{
-		"from":   cmd.From,
-		"events": len(cmd.Events),
+		"from_id": cmd.FromID,
+		"events":  len(cmd.Events),
 	}).Debug("EagerSyncRequest")
 
 	success := true
@@ -285,7 +285,7 @@ func (n *Node) processEagerSyncRequest(rpc net.RPC, cmd *net.EagerSyncRequest) {
 	}
 
 	resp := &net.EagerSyncResponse{
-		From:    n.localAddr,
+		FromID:  n.id,
 		Success: success,
 	}
 	rpc.Respond(resp, err)
@@ -360,6 +360,7 @@ func (n *Node) pull(peerAddr string) (syncLimit bool, otherKnown map[int]int, er
 		return false, nil, err
 	}
 	n.logger.WithFields(logrus.Fields{
+		"from_id":    resp.FromID,
 		"sync_limit": resp.SyncLimit,
 		"events":     len(resp.Events),
 		"known":      resp.Known,
@@ -421,7 +422,7 @@ func (n *Node) push(peerAddr string, known map[int]int) error {
 		return err
 	}
 	n.logger.WithFields(logrus.Fields{
-		"from":    resp2.From,
+		"from_id": resp2.FromID,
 		"success": resp2.Success,
 	}).Debug("EagerSyncResponse")
 
@@ -441,8 +442,8 @@ func (n *Node) fastForward() error {
 
 func (n *Node) requestSync(target string, known map[int]int) (net.SyncResponse, error) {
 	args := net.SyncRequest{
-		From:  n.localAddr,
-		Known: known,
+		FromID: n.id,
+		Known:  known,
 	}
 
 	var out net.SyncResponse
@@ -453,7 +454,7 @@ func (n *Node) requestSync(target string, known map[int]int) (net.SyncResponse, 
 
 func (n *Node) requestEagerSync(target string, events []hg.WireEvent) (net.EagerSyncResponse, error) {
 	args := net.EagerSyncRequest{
-		From:   n.localAddr,
+		FromID: n.id,
 		Events: events,
 	}
 

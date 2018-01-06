@@ -41,7 +41,7 @@ func TestTransport_Sync(t *testing.T) {
 
 		// Make the RPC request
 		args := SyncRequest{
-			From: "A",
+			FromID: 0,
 			Known: map[int]int{
 				0: 1,
 				1: 2,
@@ -49,7 +49,7 @@ func TestTransport_Sync(t *testing.T) {
 			},
 		}
 		resp := SyncResponse{
-			From: "B",
+			FromID: 1,
 			Events: []hashgraph.WireEvent{
 				hashgraph.WireEvent{
 					Body: hashgraph.WireBody{
@@ -110,7 +110,7 @@ func TestTransport_EagerSync(t *testing.T) {
 
 		// Make the RPC request
 		args := EagerSyncRequest{
-			From: "A",
+			FromID: 0,
 			Events: []hashgraph.WireEvent{
 				hashgraph.WireEvent{
 					Body: hashgraph.WireBody{
@@ -124,6 +124,7 @@ func TestTransport_EagerSync(t *testing.T) {
 			},
 		}
 		resp := EagerSyncResponse{
+			FromID:  1,
 			Success: true,
 		}
 
