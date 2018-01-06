@@ -74,10 +74,15 @@ func newTCPTransport(bindAddr string,
 		listener:  list.(*net.TCPListener),
 	}
 
-	_, ok := stream.Addr().(*net.TCPAddr)
+	// Verify that we have a usable advertise address
+	addr, ok := stream.Addr().(*net.TCPAddr)
 	if !ok {
 		list.Close()
 		return nil, errNotTCP
+	}
+	if addr.IP.IsUnspecified() {
+		list.Close()
+		return nil, errNotAdvertisable
 	}
 
 	// Create the network transport
