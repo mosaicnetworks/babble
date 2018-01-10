@@ -316,23 +316,23 @@ and yet they are both ancestors of event e20
 func TestFork(t *testing.T) {
 	index := make(map[string]string)
 	nodes := []Node{}
-
 	participants := make(map[string]int)
-	for _, node := range nodes {
+
+	for i := 0; i < n; i++ {
+		key, _ := crypto.GenerateECDSAKey()
+		node := NewNode(key, i)
+		nodes = append(nodes, node)
 		participants[node.PubHex] = node.ID
 	}
 
 	store := NewInmemStore(participants, cacheSize)
 	hashgraph := NewHashgraph(participants, store, nil, common.NewTestLogger(t))
 
-	for i := 0; i < n; i++ {
-		key, _ := crypto.GenerateECDSAKey()
-		node := NewNode(key, i)
+	for i, node := range nodes {
 		event := NewEvent([][]byte{}, []string{"", ""}, node.Pub, 0)
 		event.Sign(node.Key)
 		index[fmt.Sprintf("e%d", i)] = event.Hex()
 		hashgraph.InsertEvent(event, true)
-		nodes = append(nodes, node)
 	}
 
 	//a and e2 need to have different hashes
