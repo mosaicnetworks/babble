@@ -53,7 +53,6 @@ func TestInmemEvents(t *testing.T) {
 			}
 		}
 		events[p.hex] = items
-
 	}
 
 	for p, evs := range events {
@@ -147,5 +146,32 @@ func TestInmemRounds(t *testing.T) {
 		if !contains(witnesses, w) {
 			t.Fatalf("Witnesses should contain %s", w)
 		}
+	}
+}
+
+func TestInmemBlocks(t *testing.T) {
+	store, _ := initInmemStore(10)
+
+	roundReceived := 1
+	transactions := [][]byte{
+		[]byte("tx1"),
+		[]byte("tx2"),
+		[]byte("tx3"),
+		[]byte("tx4"),
+		[]byte("tx5"),
+	}
+	block := NewBlock(roundReceived, transactions)
+
+	if err := store.SetBlock(block); err != nil {
+		t.Fatal(err)
+	}
+
+	storedBlock, err := store.GetBlock(roundReceived)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(storedBlock, block) {
+		t.Fatalf("Block and StoredBlock do not match")
 	}
 }

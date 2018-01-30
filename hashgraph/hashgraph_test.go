@@ -1100,6 +1100,30 @@ func BenchmarkFindOrder(b *testing.B) {
 	}
 }
 
+func TestBlocks(t *testing.T) {
+	h, _ := initConsensusHashgraph(false, common.NewTestLogger(t))
+
+	h.DivideRounds()
+	h.DecideFame()
+	h.FindOrder()
+
+	block0, err := h.Store.GetBlock(1)
+	if err != nil {
+		t.Fatalf("Store should contain a block with RoundReceiced 1: %v", err)
+	}
+
+	if rr := block0.RoundReceived; rr != 1 {
+		t.Fatalf("Block0's RoundReceived should be 1, not %d", rr)
+	}
+
+	if l := len(block0.Transactions); l != 1 {
+		t.Fatalf("Block0 should contain 1 transaction, not %d", l)
+	}
+	if tx := block0.Transactions[0]; !reflect.DeepEqual(tx, []byte("e21")) {
+		t.Fatalf("Block0.Transactions[0] should be 'e21', not %s", tx)
+	}
+}
+
 func TestKnown(t *testing.T) {
 	h, _ := initConsensusHashgraph(false, common.NewTestLogger(t))
 
@@ -1446,39 +1470,40 @@ func initFunkyHashgraph(logger *logrus.Logger) (*Hashgraph, map[string]string) {
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
 		node := NewNode(key, i)
-		event := NewEvent([][]byte{}, []string{"", ""}, node.Pub, 0)
-		node.signAndAddEvent(event, fmt.Sprintf("w0%d", i), index, orderedEvents)
+		name := fmt.Sprintf("w0%d", i)
+		event := NewEvent([][]byte{[]byte(name)}, []string{"", ""}, node.Pub, 0)
+		node.signAndAddEvent(event, name, index, orderedEvents)
 		nodes = append(nodes, node)
 	}
 
 	plays := []play{
-		play{2, 1, "w02", "w03", "a23", [][]byte{}},
-		play{1, 1, "w01", "a23", "a12", [][]byte{}},
-		play{0, 1, "w00", "", "a00", [][]byte{}},
-		play{1, 2, "a12", "a00", "a10", [][]byte{}},
-		play{2, 2, "a23", "a12", "a21", [][]byte{}},
-		play{3, 1, "w03", "a21", "w13", [][]byte{}},
-		play{2, 3, "a21", "w13", "w12", [][]byte{}},
-		play{1, 3, "a10", "w12", "w11", [][]byte{}},
-		play{0, 2, "a00", "w11", "w10", [][]byte{}},
-		play{2, 4, "w12", "w11", "b21", [][]byte{}},
-		play{3, 2, "w13", "b21", "w23", [][]byte{}},
-		play{1, 4, "w11", "w23", "w21", [][]byte{}},
-		play{0, 3, "w10", "", "b00", [][]byte{}},
-		play{1, 5, "w21", "b00", "c10", [][]byte{}},
-		play{2, 5, "b21", "c10", "w22", [][]byte{}},
-		play{0, 4, "b00", "w22", "w20", [][]byte{}},
-		play{1, 6, "c10", "w20", "w31", [][]byte{}},
-		play{2, 6, "w22", "w31", "w32", [][]byte{}},
-		play{0, 5, "w20", "w32", "w30", [][]byte{}},
-		play{3, 3, "w23", "w32", "w33", [][]byte{}},
-		play{1, 7, "w31", "w33", "d13", [][]byte{}},
-		play{0, 6, "w30", "d13", "w40", [][]byte{}},
-		play{1, 8, "d13", "w40", "w41", [][]byte{}},
-		play{2, 7, "w32", "w41", "w42", [][]byte{}},
-		play{3, 4, "w33", "w42", "w43", [][]byte{}},
-		play{2, 8, "w42", "w43", "e23", [][]byte{}},
-		play{1, 9, "w41", "e23", "w51", [][]byte{}},
+		play{2, 1, "w02", "w03", "a23", [][]byte{[]byte("a23")}},
+		play{1, 1, "w01", "a23", "a12", [][]byte{[]byte("a12")}},
+		play{0, 1, "w00", "", "a00", [][]byte{[]byte("a00")}},
+		play{1, 2, "a12", "a00", "a10", [][]byte{[]byte("a10")}},
+		play{2, 2, "a23", "a12", "a21", [][]byte{[]byte("a21")}},
+		play{3, 1, "w03", "a21", "w13", [][]byte{[]byte("w13")}},
+		play{2, 3, "a21", "w13", "w12", [][]byte{[]byte("w12")}},
+		play{1, 3, "a10", "w12", "w11", [][]byte{[]byte("w11")}},
+		play{0, 2, "a00", "w11", "w10", [][]byte{[]byte("w10")}},
+		play{2, 4, "w12", "w11", "b21", [][]byte{[]byte("b21")}},
+		play{3, 2, "w13", "b21", "w23", [][]byte{[]byte("w23")}},
+		play{1, 4, "w11", "w23", "w21", [][]byte{[]byte("w21")}},
+		play{0, 3, "w10", "", "b00", [][]byte{[]byte("b00")}},
+		play{1, 5, "w21", "b00", "c10", [][]byte{[]byte("c10")}},
+		play{2, 5, "b21", "c10", "w22", [][]byte{[]byte("w22")}},
+		play{0, 4, "b00", "w22", "w20", [][]byte{[]byte("w20")}},
+		play{1, 6, "c10", "w20", "w31", [][]byte{[]byte("w31")}},
+		play{2, 6, "w22", "w31", "w32", [][]byte{[]byte("w32")}},
+		play{0, 5, "w20", "w32", "w30", [][]byte{[]byte("w30")}},
+		play{3, 3, "w23", "w32", "w33", [][]byte{[]byte("w33")}},
+		play{1, 7, "w31", "w33", "d13", [][]byte{[]byte("d13")}},
+		play{0, 6, "w30", "d13", "w40", [][]byte{[]byte("w40")}},
+		play{1, 8, "d13", "w40", "w41", [][]byte{[]byte("w41")}},
+		play{2, 7, "w32", "w41", "w42", [][]byte{[]byte("w42")}},
+		play{3, 4, "w33", "w42", "w43", [][]byte{[]byte("w43")}},
+		play{2, 8, "w42", "w43", "e23", [][]byte{[]byte("e23")}},
+		play{1, 9, "w41", "e23", "w51", [][]byte{[]byte("w51")}},
 	}
 
 	for _, p := range plays {
@@ -1533,6 +1558,33 @@ func TestFunkyHashgraphFame(t *testing.T) {
 	expectedUndecidedRounds := []int{4, 5}
 	if !reflect.DeepEqual(expectedUndecidedRounds, h.UndecidedRounds) {
 		t.Fatalf("UndecidedRounds should be %v, not %v", expectedUndecidedRounds, h.UndecidedRounds)
+	}
+}
+
+func TestFunkyHashgraphBlocks(t *testing.T) {
+	h, _ := initFunkyHashgraph(common.NewTestLogger(t))
+	h.DivideRounds()
+	h.DecideFame()
+	h.FindOrder()
+
+	expectedBlockTxCounts := map[int]int{
+		1: 6,
+		2: 7,
+		3: 7,
+	}
+
+	for rr := 1; rr <= 3; rr++ {
+		b, err := h.Store.GetBlock(rr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i, tx := range b.Transactions {
+			t.Logf("block %d, tx %d: %s", rr, i, string(tx))
+		}
+		if txs := len(b.Transactions); txs != expectedBlockTxCounts[rr] {
+			t.Fatalf("Blocks[%d] should contain %d transactions, not %d", rr,
+				expectedBlockTxCounts[rr], txs)
+		}
 	}
 }
 

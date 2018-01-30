@@ -9,19 +9,17 @@ import (
 )
 
 type Block struct {
-	Index          int
-	ConsensusRound int
-	Transactions   [][]byte
+	RoundReceived int
+	Transactions  [][]byte
 
 	hash []byte
 	hex  string
 }
 
-func NewBlock(index int, consensusRound int, transactions [][]byte) Block {
+func NewBlock(roundReceived int, transactions [][]byte) Block {
 	return Block{
-		Index:          index,
-		ConsensusRound: consensusRound,
-		Transactions:   transactions,
+		RoundReceived: roundReceived,
+		Transactions:  transactions,
 	}
 }
 

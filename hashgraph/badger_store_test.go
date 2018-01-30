@@ -314,6 +314,35 @@ func TestDBParticipantMethods(t *testing.T) {
 	}
 }
 
+func TestDBBlockMethods(t *testing.T) {
+	cacheSize := 0
+	store, _ := initBadgerStore(cacheSize, t)
+	defer removeBadgerStore(store, t)
+
+	roundReceived := 1
+	transactions := [][]byte{
+		[]byte("tx1"),
+		[]byte("tx2"),
+		[]byte("tx3"),
+		[]byte("tx4"),
+		[]byte("tx5"),
+	}
+	block := NewBlock(roundReceived, transactions)
+
+	if err := store.dbSetBlock(block); err != nil {
+		t.Fatal(err)
+	}
+
+	storedBlock, err := store.dbGetBlock(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(block, storedBlock) {
+		t.Fatalf("Round and StoredRound do not match")
+	}
+}
+
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //Check that the wrapper methods work
 //These methods use the inmemStore as a cache on top of the DB

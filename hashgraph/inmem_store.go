@@ -11,6 +11,7 @@ type InmemStore struct {
 	participants           map[string]int
 	eventCache             *cm.LRU
 	roundCache             *cm.LRU
+	blockCache             *cm.LRU
 	consensusCache         *cm.RollingIndex
 	totConsensusEvents     int
 	participantEventsCache *ParticipantEventsCache
@@ -28,6 +29,7 @@ func NewInmemStore(participants map[string]int, cacheSize int) *InmemStore {
 		participants:           participants,
 		eventCache:             cm.NewLRU(cacheSize, nil),
 		roundCache:             cm.NewLRU(cacheSize, nil),
+		blockCache:             cm.NewLRU(cacheSize, nil),
 		consensusCache:         cm.NewRollingIndex(cacheSize),
 		participantEventsCache: NewParticipantEventsCache(cacheSize, participants),
 		roots:     roots,
@@ -164,6 +166,19 @@ func (s *InmemStore) GetRoot(participant string) (Root, error) {
 		return Root{}, cm.NewStoreErr(cm.KeyNotFound, participant)
 	}
 	return res, nil
+}
+
+func (s *InmemStore) GetBlock(rr int) (Block, error) {
+	res, ok := s.blockCache.Get(rr)
+	if !ok {
+		return Block{}, cm.NewStoreErr(cm.KeyNotFound, strconv.Itoa(rr))
+	}
+	return res.(Block), nil
+}
+
+func (s *InmemStore) SetBlock(block Block) error {
+	s.blockCache.Add(block.RoundReceived, block)
+	return nil
 }
 
 func (s *InmemStore) Reset(roots map[string]Root) error {

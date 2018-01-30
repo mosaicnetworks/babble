@@ -14,6 +14,7 @@ var (
 	rootSuffix        = "root"
 	roundPrefix       = "round"
 	topoPrefix        = "topo"
+	blockPrefix       = "block"
 )
 
 type BadgerStore struct {
@@ -117,6 +118,10 @@ func participantRootKey(participant string) []byte {
 
 func roundKey(index int) []byte {
 	return []byte(fmt.Sprintf("%s_%09d", roundPrefix, index))
+}
+
+func blockKey(roundReceived int) []byte {
+	return []byte(fmt.Sprintf("%s_%09d", blockPrefix, roundReceived))
 }
 
 //==============================================================================
@@ -247,6 +252,21 @@ func (s *BadgerStore) GetRoot(participant string) (Root, error) {
 		root, err = s.dbGetRoot(participant)
 	}
 	return root, mapError(err, string(participantRootKey(participant)))
+}
+
+func (s *BadgerStore) GetBlock(rr int) (Block, error) {
+	res, err := s.inmemStore.GetBlock(rr)
+	if err != nil {
+		res, err = s.dbGetBlock(rr)
+	}
+	return res, mapError(err, string(blockKey(rr)))
+}
+
+func (s *BadgerStore) SetBlock(block Block) error {
+	if err := s.inmemStore.SetBlock(block); err != nil {
+		return err
+	}
+	return s.dbSetBlock(block)
 }
 
 func (s *BadgerStore) Reset(roots map[string]Root) error {
@@ -528,6 +548,48 @@ func (s *BadgerStore) dbSetParticipants(participants map[string]int) error {
 			return err
 		}
 	}
+	return tx.Commit(nil)
+}
+
+func (s *BadgerStore) dbGetBlock(roundReceived int) (Block, error) {
+	var blockBytes []byte
+	key := blockKey(roundReceived)
+	err := s.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(key)
+		if err != nil {
+			return err
+		}
+		blockBytes, err = item.Value()
+		return err
+	})
+
+	if err != nil {
+		return Block{}, err
+	}
+
+	block := new(Block)
+	if err := block.Unmarshal(blockBytes); err != nil {
+		return Block{}, err
+	}
+
+	return *block, nil
+}
+
+func (s *BadgerStore) dbSetBlock(block Block) error {
+	tx := s.db.NewTransaction(true)
+	defer tx.Discard()
+
+	key := blockKey(block.RoundReceived)
+	val, err := block.Marshal()
+	if err != nil {
+		return err
+	}
+
+	//insert [round_received] => [block bytes]
+	if err := tx.Set(key, val); err != nil {
+		return err
+	}
+
 	return tx.Commit(nil)
 }
 

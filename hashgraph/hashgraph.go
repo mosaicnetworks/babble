@@ -822,6 +822,8 @@ func (h *Hashgraph) FindOrder() error {
 	sorter := NewConsensusSorter(newConsensusEvents)
 	sort.Sort(sorter)
 
+	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	blocks := make(map[int]Block)
 	for _, e := range newConsensusEvents {
 		err := h.Store.AddConsensusEvent(e.Hex())
 		if err != nil {
@@ -831,11 +833,24 @@ func (h *Hashgraph) FindOrder() error {
 		if e.IsLoaded() {
 			h.PendingLoadedEvents--
 		}
+
+		b, ok := blocks[*e.roundReceived]
+		if !ok {
+			b = NewBlock(*e.roundReceived, e.Transactions())
+		} else {
+			b.Transactions = append(b.Transactions, e.Transactions()...)
+		}
+		blocks[*e.roundReceived] = b
+	}
+
+	for _, b := range blocks {
+		h.Store.SetBlock(b)
 	}
 
 	if h.commitCh != nil && len(newConsensusEvents) > 0 {
 		h.commitCh <- newConsensusEvents
 	}
+	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 	return nil
 }

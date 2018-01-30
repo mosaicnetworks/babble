@@ -18,6 +18,8 @@ type Store interface {
 	RoundWitnesses(int) []string
 	RoundEvents(int) int
 	GetRoot(string) (Root, error)
+	GetBlock(int) (Block, error)
+	SetBlock(Block) error
 	Reset(map[string]Root) error
 	Close() error
 }
