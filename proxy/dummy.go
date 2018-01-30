@@ -6,17 +6,43 @@ import (
 
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/babbleio/babble/hashgraph"
 	bproxy "github.com/babbleio/babble/proxy/babble"
+	"github.com/sirupsen/logrus"
 )
 
 type State struct {
 	logger *logrus.Logger
 }
 
-func (a *State) CommitTx(tx []byte) error {
-	a.logger.WithField("Tx", string(tx)).Debug("CommitTx")
-	a.writeMessage(tx)
+func (a *State) CommitBlock(block hashgraph.Block) error {
+	a.logger.WithField("block", block).Debug("CommitBlock")
+	return a.writeBlock(block)
+}
+
+func (a *State) writeBlock(block hashgraph.Block) error {
+	file, err := a.getFile()
+	if err != nil {
+		a.logger.Error(err)
+		return err
+	}
+	defer file.Close()
+
+	// write some text to file
+	for _, tx := range block.Transactions {
+		_, err = file.WriteString(fmt.Sprintf("%s\n", string(tx)))
+		if err != nil {
+			a.logger.Error(err)
+			return err
+		}
+	}
+
+	err = file.Sync()
+	if err != nil {
+		a.logger.Error(err)
+		return err
+	}
+
 	return nil
 }
 
@@ -76,9 +102,9 @@ func NewDummySocketClient(clientAddr string, nodeAddr string, logger *logrus.Log
 func (c *DummySocketClient) Run() {
 	for {
 		select {
-		case tx := <-c.babbleProxy.CommitCh():
-			c.logger.Debug("CommitTx")
-			c.state.CommitTx(tx)
+		case block := <-c.babbleProxy.CommitCh():
+			c.logger.Debug("CommitBlock")
+			c.state.CommitBlock(block)
 		}
 	}
 }

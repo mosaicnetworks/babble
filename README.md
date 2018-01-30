@@ -47,7 +47,7 @@ Babble is designed to integrate with applications written in any programming lan
     =          |                ^          =
     ===========|================|===========
                |                |
---------- SubmitTx(tx) ---- CommitTx(tx) ------- (JSON-RPC/TCP)
+--------- SubmitTx(tx) ---- CommitBlock(Block) ------- (JSON-RPC/TCP)
                |                |
  ==============|================|===============================
  = BABBLE      |                |                              =

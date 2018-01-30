@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/babbleio/babble/common"
+	"github.com/babbleio/babble/hashgraph"
 	aproxy "github.com/babbleio/babble/proxy/app"
 )
 
@@ -53,21 +54,21 @@ func TestSocketProxyClient(t *testing.T) {
 	}
 	clientCh := dummyClient.babbleProxy.CommitCh()
 
-	tx := []byte("the test transaction")
+	block := hashgraph.NewBlock(1, [][]byte{[]byte("the test transaction")})
 
 	// Listen for a request
 	go func() {
 		select {
-		case st := <-clientCh:
-			if !reflect.DeepEqual(st, tx) {
-				t.Fatalf("tx mismatch: %#v %#v", tx, st)
+		case sb := <-clientCh:
+			if !reflect.DeepEqual(sb, block) {
+				t.Fatalf("block mismatch: %#v %#v", block, sb)
 			}
 		case <-time.After(200 * time.Millisecond):
 			t.Fatalf("timeout")
 		}
 	}()
 
-	err = proxy.CommitTx(tx)
+	err = proxy.CommitBlock(block)
 	if err != nil {
 		t.Fatal(err)
 	}

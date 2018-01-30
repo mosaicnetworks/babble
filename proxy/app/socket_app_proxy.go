@@ -5,6 +5,7 @@ import (
 
 	"fmt"
 
+	"github.com/babbleio/babble/hashgraph"
 	"github.com/sirupsen/logrus"
 )
 
@@ -46,13 +47,13 @@ func (p *SocketAppProxy) SubmitCh() chan []byte {
 	return p.server.submitCh
 }
 
-func (p *SocketAppProxy) CommitTx(tx []byte) error {
-	ack, err := p.client.CommitTx(tx)
+func (p *SocketAppProxy) CommitBlock(block hashgraph.Block) error {
+	ack, err := p.client.CommitBlock(block)
 	if err != nil {
 		return err
 	}
 	if !*ack {
-		return fmt.Errorf("App returned false to CommitTx")
+		return fmt.Errorf("App returned false to CommitBlock")
 	}
 	return nil
 }

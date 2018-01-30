@@ -1,12 +1,15 @@
 package app
 
-import "github.com/sirupsen/logrus"
+import (
+	"github.com/babbleio/babble/hashgraph"
+	"github.com/sirupsen/logrus"
+)
 
 //InmemProxy is used for testing
 type InmemAppProxy struct {
-	submitCh    chan []byte
-	commitedTxs [][]byte
-	logger      *logrus.Logger
+	submitCh             chan []byte
+	commitedTransactions [][]byte
+	logger               *logrus.Logger
 }
 
 func NewInmemAppProxy(logger *logrus.Logger) *InmemAppProxy {
@@ -15,29 +18,31 @@ func NewInmemAppProxy(logger *logrus.Logger) *InmemAppProxy {
 		logger.Level = logrus.DebugLevel
 	}
 	return &InmemAppProxy{
-		submitCh:    make(chan []byte),
-		commitedTxs: [][]byte{},
-		logger:      logger,
+		submitCh:             make(chan []byte),
+		commitedTransactions: [][]byte{},
+		logger:               logger,
 	}
 }
+
+//------------------------------------------------------------------------------
+//Implement AppProxy Interface
 
 func (p *InmemAppProxy) SubmitCh() chan []byte {
 	return p.submitCh
 }
 
-func (p *InmemAppProxy) CommitTx(tx []byte) error {
-	p.logger.WithField("tx", tx).Debug("InmemProxy CommitTx")
-	p.commitedTxs = append(p.commitedTxs, tx)
+func (p *InmemAppProxy) CommitBlock(block hashgraph.Block) error {
+	p.logger.WithField("block", block).Debug("InmemProxy CommitBlock")
+	p.commitedTransactions = append(p.commitedTransactions, block.Transactions...)
 	return nil
 }
 
-//-------------------------------------------------------
-//Implement AppProxy Interface
+//------------------------------------------------------------------------------
 
 func (p *InmemAppProxy) SubmitTx(tx []byte) {
 	p.submitCh <- tx
 }
 
 func (p *InmemAppProxy) GetCommittedTransactions() [][]byte {
-	return p.commitedTxs
+	return p.commitedTransactions
 }

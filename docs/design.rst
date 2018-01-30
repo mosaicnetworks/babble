@@ -20,7 +20,7 @@ Overview
             =          |                ^          =
             ===========|================|===========
                        |                |
-            --------- SubmitTx(tx) ---- CommitTx(tx) ------- (JSON-RPC/TCP)
+            --------- SubmitTx(tx) ---- CommitBlock(Block) ------- (JSON-RPC/TCP)
                        |                |
          ==============|================|===============================
          = BABBLE      |                |                              =
@@ -67,8 +67,8 @@ They communicate via a very simple **JSON-RPC** interface over a **TCP** connect
 
 The App submits transactions for consensus ordering via the **SubmitTx** endpoint  
 exposed by the **App Proxy**. Babble asynchrously processes transactions and  
-eventually feeds them back to the App, in consensus order,  with a **CommitTx**  
-message.
+eventually feeds them back to the App, in consensus order and bundled in Blocks,  
+with a **CommitBlock** message.
 
 Transactions are just raw bytes and Babble does not need to know what  
 they represent. Therefore, encoding and decoding transactions is done by the App.
@@ -99,14 +99,25 @@ example of how to make a SubmitTx request manually:
     printf "{\"method\":\"Babble.SubmitTx\",\"params\":[\"Y2xpZW50IDE6IGhlbGxv\"],\"id\":0}" | nc -v  172.77.5.1 1338
 
 
-Example CommitTx request (from Babble to App):
+Example CommitBlock request (from Babble to App):
 
 ::
 
-    request: {"method":"State.CommitTx","params":["Y2xpZW50IDE6IGhlbGxv"],"id":0}
+    request: {
+                "method":"State.CommitBlock",
+                "params":[
+                {
+                    "RoundReceived":24,
+                    "Transactions":["Tm9kZTEgVHgx","Tm9kZTEgVHgy","Tm9kZTEgVHgz","Tm9kZTEgVHg0","Tm9kZTEgVHg1","Tm9kZTEgVHg2","Tm9kZTEgVHg3","Tm9kZTEgVHg4","Tm9kZTEgVHg5"]
+                }],
+                "id":0
+            }
     response: {"id":0,"result":true,"error":null}
 
-The content of "params" is the base64 encoding of the raw transaction bytes ("client1: hello").
+The content of "params" is the JSON representation of a Block with a RoundReceived 
+of 24 and 9 transactions.
+
+The transactions themselves are base64 string encodings.
 
 Transport
 ---------

@@ -6,6 +6,7 @@ import (
 	"net/rpc/jsonrpc"
 	"time"
 
+	"github.com/babbleio/babble/hashgraph"
 	"github.com/sirupsen/logrus"
 )
 
@@ -31,13 +32,13 @@ func (p *SocketAppProxyClient) getConnection() (*rpc.Client, error) {
 	return jsonrpc.NewClient(conn), nil
 }
 
-func (p *SocketAppProxyClient) CommitTx(tx []byte) (*bool, error) {
+func (p *SocketAppProxyClient) CommitBlock(block hashgraph.Block) (*bool, error) {
 	rpcConn, err := p.getConnection()
 	if err != nil {
 		return nil, err
 	}
 	var ack bool
-	err = rpcConn.Call("State.CommitTx", tx, &ack)
+	err = rpcConn.Call("State.CommitBlock", block, &ack)
 	if err != nil {
 		return nil, err
 	}

@@ -4,17 +4,19 @@ import (
 	"net"
 	"net/rpc"
 	"net/rpc/jsonrpc"
+
+	"github.com/babbleio/babble/hashgraph"
 )
 
 type SocketBabbleProxyServer struct {
 	netListener *net.Listener
 	rpcServer   *rpc.Server
-	commitCh    chan []byte
+	commitCh    chan hashgraph.Block
 }
 
 func NewSocketBabbleProxyServer(bindAddress string) (*SocketBabbleProxyServer, error) {
 	server := &SocketBabbleProxyServer{
-		commitCh: make(chan []byte),
+		commitCh: make(chan hashgraph.Block),
 	}
 
 	if err := server.register(bindAddress); err != nil {
@@ -51,8 +53,8 @@ func (p *SocketBabbleProxyServer) listen() error {
 	return nil
 }
 
-func (p *SocketBabbleProxyServer) CommitTx(tx []byte, ack *bool) error {
-	p.commitCh <- tx
+func (p *SocketBabbleProxyServer) CommitBlock(block hashgraph.Block, ack *bool) error {
+	p.commitCh <- block
 	*ack = true
 	return nil
 }
