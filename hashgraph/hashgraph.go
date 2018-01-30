@@ -22,7 +22,7 @@ type Hashgraph struct {
 	LastCommitedRoundEvents int            //number of events in round before LastConsensusRound
 	ConsensusTransactions   int            //number of consensus transactions
 	PendingLoadedEvents     int            //number of loaded events that are not yet committed
-	commitCh                chan []Event   //channel for committing events
+	commitCh                chan Block     //channel for committing Blocks
 	topologicalIndex        int            //counter used to order events in topological order
 	superMajority           int
 
@@ -36,7 +36,7 @@ type Hashgraph struct {
 	logger *logrus.Logger
 }
 
-func NewHashgraph(participants map[string]int, store Store, commitCh chan []Event, logger *logrus.Logger) *Hashgraph {
+func NewHashgraph(participants map[string]int, store Store, commitCh chan Block, logger *logrus.Logger) *Hashgraph {
 	if logger == nil {
 		logger = logrus.New()
 		logger.Level = logrus.DebugLevel
@@ -823,7 +823,8 @@ func (h *Hashgraph) FindOrder() error {
 	sort.Sort(sorter)
 
 	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	blocks := make(map[int]Block)
+	blockMap := make(map[int]Block) // [RoundReceived] => Block
+	blockOrder := []int{}           // [index] => RoundReceived
 	for _, e := range newConsensusEvents {
 		err := h.Store.AddConsensusEvent(e.Hex())
 		if err != nil {
@@ -834,21 +835,22 @@ func (h *Hashgraph) FindOrder() error {
 			h.PendingLoadedEvents--
 		}
 
-		b, ok := blocks[*e.roundReceived]
+		b, ok := blockMap[*e.roundReceived]
 		if !ok {
 			b = NewBlock(*e.roundReceived, e.Transactions())
+			blockOrder = append(blockOrder, *e.roundReceived)
 		} else {
 			b.Transactions = append(b.Transactions, e.Transactions()...)
 		}
-		blocks[*e.roundReceived] = b
+		blockMap[*e.roundReceived] = b
 	}
 
-	for _, b := range blocks {
-		h.Store.SetBlock(b)
-	}
-
-	if h.commitCh != nil && len(newConsensusEvents) > 0 {
-		h.commitCh <- newConsensusEvents
+	for _, rr := range blockOrder {
+		block, _ := blockMap[rr]
+		h.Store.SetBlock(block)
+		if h.commitCh != nil && len(block.Transactions) > 0 {
+			h.commitCh <- block
+		}
 	}
 	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

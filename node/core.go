@@ -34,7 +34,7 @@ func NewCore(
 	key *ecdsa.PrivateKey,
 	participants map[string]int,
 	store hg.Store,
-	commitCh chan []hg.Event,
+	commitCh chan hg.Block,
 	logger *logrus.Logger) Core {
 	if logger == nil {
 		logger = logrus.New()

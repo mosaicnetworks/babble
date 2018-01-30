@@ -36,7 +36,7 @@ type Node struct {
 	proxy    proxy.AppProxy
 	submitCh chan []byte
 
-	commitCh chan []hg.Event
+	commitCh chan hg.Block
 
 	shutdownCh chan struct{}
 
@@ -59,7 +59,7 @@ func NewNode(conf *Config,
 
 	pmap, _ := store.Participants()
 
-	commitCh := make(chan []hg.Event, 400)
+	commitCh := make(chan hg.Block, 400)
 	core := NewCore(id, key, pmap, store, commitCh, conf.Logger)
 
 	peerSelector := NewRandomPeerSelector(participants, localAddr)
@@ -147,10 +147,10 @@ func (n *Node) doBackgroundWork() {
 			if !n.controlTimer.set {
 				n.controlTimer.resetCh <- struct{}{}
 			}
-		case events := <-n.commitCh:
-			n.logger.WithField("events", len(events)).Debug("Committing Events")
-			if err := n.commit(events); err != nil {
-				n.logger.WithField("error", err).Error("Committing Event")
+		case block := <-n.commitCh:
+			n.logger.WithField("block", block).Debug("Committing Block")
+			if err := n.commit(block); err != nil {
+				n.logger.WithField("error", err).Error("Committing Block")
 			}
 		case <-n.shutdownCh:
 			return
@@ -486,12 +486,10 @@ func (n *Node) sync(events []hg.WireEvent) error {
 	return nil
 }
 
-func (n *Node) commit(events []hg.Event) error {
-	for _, ev := range events {
-		for _, tx := range ev.Transactions() {
-			if err := n.proxy.CommitTx(tx); err != nil {
-				return err
-			}
+func (n *Node) commit(block hg.Block) error {
+	for _, tx := range block.Transactions {
+		if err := n.proxy.CommitTx(tx); err != nil {
+			return err
 		}
 	}
 	return nil
