@@ -605,9 +605,8 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 	}
 
 	event := &Event{
-		Body: body,
-		R:    wevent.R,
-		S:    wevent.S,
+		Body:      body,
+		Signature: wevent.Signature,
 	}
 
 	return event, nil

@@ -598,12 +598,8 @@ func TestReadWireInfo(t *testing.T) {
 			t.Fatalf("Error converting %s.Body from light wire", k)
 		}
 
-		if !reflect.DeepEqual(ev.R, evFromWire.R) {
-			t.Fatalf("Error converting %s.R from light wire", k)
-		}
-
-		if !reflect.DeepEqual(ev.S, evFromWire.S) {
-			t.Fatalf("Error converting %s.S from light wire", k)
+		if !reflect.DeepEqual(ev.Signature, evFromWire.Signature) {
+			t.Fatalf("Error converting %s.Signature from light wire", k)
 		}
 
 		ok, err := ev.Verify()
@@ -1154,9 +1150,8 @@ func TestReset(t *testing.T) {
 		}
 
 		copyEvent := Event{
-			Body: event.Body,
-			R:    event.R,
-			S:    event.S,
+			Body:      event.Body,
+			Signature: event.Signature,
 		}
 
 		backup[ev] = copyEvent

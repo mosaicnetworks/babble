@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/babbleio/babble/crypto"
@@ -59,8 +58,8 @@ type EventCoordinates struct {
 }
 
 type Event struct {
-	Body EventBody
-	R, S big.Int //creator's digital signature of body
+	Body      EventBody
+	Signature string //creator's digital signature of body
 
 	topologicalIndex int
 
@@ -135,7 +134,7 @@ func (e *Event) Sign(privKey *ecdsa.PrivateKey) error {
 	if err != nil {
 		return err
 	}
-	e.R, e.S = *R, *S
+	e.Signature = crypto.EncodeSignature(R, S)
 	return err
 }
 
@@ -148,7 +147,12 @@ func (e *Event) Verify() (bool, error) {
 		return false, err
 	}
 
-	return crypto.Verify(pubKey, signBytes, &e.R, &e.S), nil
+	r, s, err := crypto.DecodeSignature(e.Signature)
+	if err != nil {
+		return false, err
+	}
+
+	return crypto.Verify(pubKey, signBytes, r, s), nil
 }
 
 //json encoding of body and signature
@@ -215,8 +219,7 @@ func (e *Event) ToWire() WireEvent {
 			Timestamp:            e.Body.Timestamp,
 			Index:                e.Body.Index,
 		},
-		R: e.R,
-		S: e.S,
+		Signature: e.Signature,
 	}
 }
 
@@ -262,6 +265,6 @@ type WireBody struct {
 }
 
 type WireEvent struct {
-	Body WireBody
-	R, S big.Int
+	Body      WireBody
+	Signature string
 }

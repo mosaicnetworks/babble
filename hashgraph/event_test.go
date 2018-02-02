@@ -117,8 +117,7 @@ func TestWireEvent(t *testing.T) {
 			Timestamp:            event.Body.Timestamp,
 			Index:                event.Body.Index,
 		},
-		R: event.R,
-		S: event.S,
+		Signature: event.Signature,
 	}
 
 	wireEvent := event.ToWire()
