@@ -51,19 +51,37 @@ func (r *RollingIndex) GetItem(index int) (interface{}, error) {
 	return r.items[findex], nil
 }
 
-func (r *RollingIndex) Add(item interface{}, index int) error {
-	if index <= r.lastIndex {
-		return NewStoreErr(PassedIndex, string(index))
-	}
-	if r.lastIndex >= 0 && index > r.lastIndex+1 {
+func (r *RollingIndex) Set(item interface{}, index int) error {
+
+	//only allow to set items with index <= lastIndex + 1
+	//so that we may assume there are no gaps between items
+	if 0 <= r.lastIndex && index > r.lastIndex+1 {
 		return NewStoreErr(SkippedIndex, string(index))
 	}
 
-	if len(r.items) >= 2*r.size {
-		r.Roll()
+	//adding a new item
+	if r.lastIndex < 0 || (index == r.lastIndex+1) {
+		if len(r.items) >= 2*r.size {
+			r.Roll()
+		}
+		r.items = append(r.items, item)
+		r.lastIndex = index
+		return nil
 	}
-	r.items = append(r.items, item)
-	r.lastIndex = index
+
+	//replace and existing item
+	//make sure index is also greater or equal than the oldest cached item's index
+	cachedItems := len(r.items)
+	oldestCachedIndex := r.lastIndex - cachedItems + 1
+
+	if index < oldestCachedIndex {
+		return NewStoreErr(TooLate, string(index))
+	}
+
+	//replacing existing item
+	position := index - oldestCachedIndex //position of 'index' in RollingIndex
+	r.items[position] = item
+
 	return nil
 }
 

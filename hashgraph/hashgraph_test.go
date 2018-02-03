@@ -1108,14 +1108,14 @@ func TestBlocks(t *testing.T) {
 		t.Fatalf("Store should contain a block with RoundReceiced 1: %v", err)
 	}
 
-	if rr := block0.RoundReceived; rr != 1 {
+	if rr := block0.RoundReceived(); rr != 1 {
 		t.Fatalf("Block0's RoundReceived should be 1, not %d", rr)
 	}
 
-	if l := len(block0.Transactions); l != 1 {
+	if l := len(block0.Transactions()); l != 1 {
 		t.Fatalf("Block0 should contain 1 transaction, not %d", l)
 	}
-	if tx := block0.Transactions[0]; !reflect.DeepEqual(tx, []byte("e21")) {
+	if tx := block0.Transactions()[0]; !reflect.DeepEqual(tx, []byte("e21")) {
 		t.Fatalf("Block0.Transactions[0] should be 'e21', not %s", tx)
 	}
 }
@@ -1129,7 +1129,7 @@ func TestKnown(t *testing.T) {
 		2: 7,
 	}
 
-	known := h.Known()
+	known := h.KnownEvents()
 	for _, id := range h.Participants {
 		if l := known[id]; l != expectedKnown[id] {
 			t.Fatalf("Known[%d] should be %d, not %d", id, expectedKnown[id], l)
@@ -1200,7 +1200,7 @@ func TestReset(t *testing.T) {
 		2: 7,
 	}
 
-	known := h.Known()
+	known := h.KnownEvents()
 	for _, id := range h.Participants {
 		if l := known[id]; l != expectedKnown[id] {
 			t.Fatalf("Known[%d] should be %d, not %d", id, expectedKnown[id], l)
@@ -1323,7 +1323,7 @@ func TestResetFromFrame(t *testing.T) {
 		2: 7,
 	}
 
-	known := h.Known()
+	known := h.KnownEvents()
 	for _, id := range h.Participants {
 		if l := known[id]; l != expectedKnown[id] {
 			t.Fatalf("Known[%d] should be %d, not %d", id, expectedKnown[id], l)
@@ -1371,8 +1371,8 @@ func TestBootstrap(t *testing.T) {
 			len(hConsensusEvents), len(nhConsensusEvents))
 	}
 
-	hKnown := h.Known()
-	nhKnown := nh.Known()
+	hKnown := h.KnownEvents()
+	nhKnown := nh.KnownEvents()
 	if !reflect.DeepEqual(hKnown, nhKnown) {
 		t.Fatalf("Bootstrapped hashgraph's Known should be %#v, not %#v",
 			hKnown, nhKnown)
@@ -1573,10 +1573,10 @@ func TestFunkyHashgraphBlocks(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for i, tx := range b.Transactions {
+		for i, tx := range b.Transactions() {
 			t.Logf("block %d, tx %d: %s", rr, i, string(tx))
 		}
-		if txs := len(b.Transactions); txs != expectedBlockTxCounts[rr] {
+		if txs := len(b.Transactions()); txs != expectedBlockTxCounts[rr] {
 			t.Fatalf("Blocks[%d] should contain %d transactions, not %d", rr,
 				expectedBlockTxCounts[rr], txs)
 		}

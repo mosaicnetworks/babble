@@ -13,7 +13,7 @@ func TestRollingIndex(t *testing.T) {
 	items := []string{}
 	for i := 0; i < testSize; i++ {
 		item := fmt.Sprintf("item%d", i)
-		RollingIndex.Add(item, i)
+		RollingIndex.Set(item, i)
 		items = append(items, item)
 	}
 	cached, lastIndex := RollingIndex.GetLastWindow()
@@ -32,12 +32,12 @@ func TestRollingIndex(t *testing.T) {
 		}
 	}
 
-	err := RollingIndex.Add("PassedIndex", expectedLastIndex-1)
+	err := RollingIndex.Set("PassedIndex", expectedLastIndex-1)
 	if err == nil || !Is(err, PassedIndex) {
 		t.Fatalf("Should return ErrPassedIndex")
 	}
 
-	err = RollingIndex.Add("ErrSkippedIndex", expectedLastIndex+2)
+	err = RollingIndex.Set("ErrSkippedIndex", expectedLastIndex+2)
 	if err == nil || !Is(err, SkippedIndex) {
 		t.Fatalf("Should return ErrSkippedIndex")
 	}
@@ -73,7 +73,7 @@ func TestRollingIndexSkip(t *testing.T) {
 	items := []string{}
 	for i := 0; i < testSize; i++ {
 		item := fmt.Sprintf("item%d", i)
-		RollingIndex.Add(item, i)
+		RollingIndex.Set(item, i)
 		items = append(items, item)
 	}
 

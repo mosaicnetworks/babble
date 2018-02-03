@@ -48,7 +48,7 @@ func NewHashgraph(participants map[string]int, store Store, commitCh chan Block,
 	}
 
 	cacheSize := store.CacheSize()
-	return &Hashgraph{
+	hashgraph := Hashgraph{
 		Participants:            participants,
 		ReverseParticipants:     reverseParticipants,
 		Store:                   store,
@@ -63,6 +63,8 @@ func NewHashgraph(participants map[string]int, store Store, commitCh chan Block,
 		superMajority:           2*len(participants)/3 + 1,
 		UndecidedRounds:         []int{0}, //initialize
 	}
+
+	return &hashgraph
 }
 
 func (h *Hashgraph) SuperMajority() int {
@@ -405,7 +407,7 @@ func (h *Hashgraph) CheckSelfParent(event Event) error {
 	selfParent := event.SelfParent()
 	creator := event.Creator()
 
-	creatorLastKnown, _, err := h.Store.LastFrom(creator)
+	creatorLastKnown, _, err := h.Store.LastEventFrom(creator)
 	if err != nil {
 		return err
 	}
@@ -535,7 +537,7 @@ func (h *Hashgraph) SetWireInfo(event *Event) error {
 	otherParentIndex := -1
 
 	//could be the first Event inserted for this creator. In this case, use Root
-	if lf, isRoot, _ := h.Store.LastFrom(event.Creator()); isRoot && lf == event.SelfParent() {
+	if lf, isRoot, _ := h.Store.LastEventFrom(event.Creator()); isRoot && lf == event.SelfParent() {
 		root, err := h.Store.GetRoot(event.Creator())
 		if err != nil {
 			return err
@@ -839,7 +841,7 @@ func (h *Hashgraph) FindOrder() error {
 			b = NewBlock(*e.roundReceived, e.Transactions())
 			blockOrder = append(blockOrder, *e.roundReceived)
 		} else {
-			b.Transactions = append(b.Transactions, e.Transactions()...)
+			b.AppendTransactions(e.Transactions())
 		}
 		blockMap[*e.roundReceived] = b
 	}
@@ -847,7 +849,7 @@ func (h *Hashgraph) FindOrder() error {
 	for _, rr := range blockOrder {
 		block, _ := blockMap[rr]
 		h.Store.SetBlock(block)
-		if h.commitCh != nil && len(block.Transactions) > 0 {
+		if h.commitCh != nil && len(block.Transactions()) > 0 {
 			h.commitCh <- block
 		}
 	}
@@ -871,8 +873,8 @@ func (h *Hashgraph) ConsensusEvents() []string {
 }
 
 //number of events per participants
-func (h *Hashgraph) Known() map[int]int {
-	return h.Store.Known()
+func (h *Hashgraph) KnownEvents() map[int]int {
+	return h.Store.KnownEvents()
 }
 
 func (h *Hashgraph) Reset(roots map[string]Root) error {
@@ -944,7 +946,7 @@ func (h *Hashgraph) GetFrame() (Frame, error) {
 	for p := range h.Participants {
 		if _, ok := roots[p]; !ok {
 			var root Root
-			last, isRoot, err := h.Store.LastFrom(p)
+			last, isRoot, err := h.Store.LastEventFrom(p)
 			if err != nil {
 				return Frame{}, err
 			}

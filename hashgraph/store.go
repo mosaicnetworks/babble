@@ -7,8 +7,8 @@ type Store interface {
 	SetEvent(Event) error
 	ParticipantEvents(string, int) ([]string, error)
 	ParticipantEvent(string, int) (string, error)
-	LastFrom(string) (string, bool, error)
-	Known() map[int]int
+	LastEventFrom(string) (string, bool, error)
+	KnownEvents() map[int]int
 	ConsensusEvents() []string
 	ConsensusEventsCount() int
 	AddConsensusEvent(string) error
@@ -20,6 +20,10 @@ type Store interface {
 	GetRoot(string) (Root, error)
 	GetBlock(int) (Block, error)
 	SetBlock(Block) error
+	ParticipantBlockSignatures(string, int) ([]BlockSignature, error)
+	ParticipantBlockSignature(string, int) (BlockSignature, error)
+	LastBlockSignatureFrom(string) (BlockSignature, error)
+	KnownBlockSignatures() map[int]int
 	Reset(map[string]Root) error
 	Close() error
 }

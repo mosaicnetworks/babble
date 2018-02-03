@@ -162,14 +162,40 @@ func (c *Core) GetFrame() (hg.Frame, error) {
 	return c.hg.GetFrame()
 }
 
-//returns events that c knowns about that are not in 'known'
-func (c *Core) Diff(known map[int]int) (events []hg.Event, err error) {
+//returns events that c knowns about and are not in 'known'
+func (c *Core) EventDiff(known map[int]int) (events []hg.Event, err error) {
 	unknown := []hg.Event{}
-	//known represents the number of events known for every participant
+	//known represents the indez of the last event known for every participant
 	//compare this to our view of events and fill unknown with events that we know of
 	// and the other doesnt
 	for id, ct := range known {
 		pk := c.reverseParticipants[id]
+		//get participant Events with index > ct
+		participantEvents, err := c.hg.Store.ParticipantEvents(pk, ct)
+		if err != nil {
+			return []hg.Event{}, err
+		}
+		for _, e := range participantEvents {
+			ev, err := c.hg.Store.GetEvent(e)
+			if err != nil {
+				return []hg.Event{}, err
+			}
+			unknown = append(unknown, ev)
+		}
+	}
+	sort.Sort(hg.ByTopologicalOrder(unknown))
+
+	return unknown, nil
+}
+
+//return block signatures that c knowns about and are not in 'known'
+func (c *Core) SignatureDiff(known map[int]int) (signature []hg.BlockSignature, err error) {
+	unknown := []hg.BlockSignature{}
+	//known represents the RoundReceived of the latest Block signature for every
+	//participant
+	for id, ct := range known {
+		pk := c.reverseParticipants[id]
+
 		participantEvents, err := c.hg.Store.ParticipantEvents(pk, ct)
 		if err != nil {
 			return []hg.Event{}, err
