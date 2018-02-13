@@ -170,20 +170,20 @@ func (s *InmemStore) GetRoot(participant string) (Root, error) {
 	return res, nil
 }
 
-func (s *InmemStore) GetBlock(rr int) (Block, error) {
-	res, ok := s.blockCache.Get(rr)
+func (s *InmemStore) GetBlock(index int) (Block, error) {
+	res, ok := s.blockCache.Get(index)
 	if !ok {
-		return Block{}, cm.NewStoreErr(cm.KeyNotFound, strconv.Itoa(rr))
+		return Block{}, cm.NewStoreErr(cm.KeyNotFound, strconv.Itoa(index))
 	}
 	return res.(Block), nil
 }
 
 func (s *InmemStore) SetBlock(block Block) error {
-	_, err := s.GetBlock(block.RoundReceived())
+	_, err := s.GetBlock(block.Index())
 	if err != nil && !cm.Is(err, cm.KeyNotFound) {
 		return err
 	}
-	s.blockCache.Add(block.RoundReceived(), block)
+	s.blockCache.Add(block.Index(), block)
 	for participant, _ := range block.Signatures {
 		blockSig, _ := block.GetSignature(participant)
 		if err := s.participantBlockSignaturesCache.Set(participant, blockSig); err != nil {
@@ -197,8 +197,8 @@ func (s *InmemStore) ParticipantBlockSignatures(participant string, skip int) ([
 	return s.participantBlockSignaturesCache.Get(participant, skip)
 }
 
-func (s *InmemStore) ParticipantBlockSignature(participant string, roundReceived int) (BlockSignature, error) {
-	return s.participantBlockSignaturesCache.GetItem(participant, roundReceived)
+func (s *InmemStore) ParticipantBlockSignature(participant string, index int) (BlockSignature, error) {
+	return s.participantBlockSignaturesCache.GetItem(participant, index)
 }
 
 func (s *InmemStore) LastBlockSignatureFrom(participant string) (BlockSignature, error) {

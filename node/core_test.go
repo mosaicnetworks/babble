@@ -110,7 +110,7 @@ func insertEvent(cores []Core, keys []*ecdsa.PrivateKey, index map[string]string
 	return nil
 }
 
-func TestDiff(t *testing.T) {
+func TestEventDiff(t *testing.T) {
 	cores, keys, index := initCores(3, t)
 
 	initHashgraph(cores, keys, index, 0)
@@ -147,6 +147,44 @@ func TestDiff(t *testing.T) {
 		}
 	}
 
+}
+
+func TestBlockDiff(t *testing.T) {
+	cores, keys, index := initCores(3, t)
+
+	initHashgraph(cores, keys, index, 0)
+
+	blocks := make([]hg.Block, 4)
+	for i := 0; i < 4; i++ {
+		block := hg.NewBlock(i, i, [][]byte(nil))
+		for _, c := range cores {
+			sig, err := block.Sign(c.key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			block.SetSignature(sig)
+		}
+		blocks[i] = block
+	}
+
+	//make only core0 record all the signatures
+	for _, b := range blocks {
+		if err := cores[0].hg.Store.SetBlock(b); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	//check diff between core0 and core1
+	knownBy1 := cores[1].KnownBlockSignatures()
+	unknownBy1, err := cores[0].BlockSignatureDiff(knownBy1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	//4 blocks and 3 participants => 12 BlockSignatures
+	if l := len(unknownBy1); l != 12 {
+		t.Fatalf("length of unknown should be 12, not %d", l)
+	}
 }
 
 func TestSync(t *testing.T) {
@@ -525,7 +563,7 @@ func synchronizeCores(cores []Core, from int, to int, payload [][]byte) error {
 
 	cores[to].AddTransactions(payload)
 
-	return cores[to].Sync(unknownWire)
+	return cores[to].Sync(unknownWire, nil)
 }
 
 func syncAndRunConsensus(cores []Core, from int, to int, payload [][]byte) error {

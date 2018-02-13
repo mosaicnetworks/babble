@@ -112,7 +112,7 @@ func (n *Node) Run(gossip bool) {
 	go n.controlTimer.Run()
 
 	//Execute some background work regardless of the state of the node.
-	//Process RPC requests as well as SumbitTx and CommitTx requests
+	//Process RPC requests as well as SumbitTx and CommitBlock requests
 	n.goFunc(n.doBackgroundWork)
 
 	//Execute Node State Machine
@@ -148,7 +148,10 @@ func (n *Node) doBackgroundWork() {
 				n.controlTimer.resetCh <- struct{}{}
 			}
 		case block := <-n.commitCh:
-			n.logger.WithField("block", block).Debug("Committing Block")
+			n.logger.WithFields(logrus.Fields{
+				"round_received": block.RoundReceived(),
+				"txs":            len(block.Transactions()),
+			}).Debug("Committing Block")
 			if err := n.commit(block); err != nil {
 				n.logger.WithField("error", err).Error("Committing Block")
 			}
@@ -213,8 +216,9 @@ func (n *Node) processRPC(rpc net.RPC) {
 
 func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 	n.logger.WithFields(logrus.Fields{
-		"from_id": cmd.FromID,
-		"known":   cmd.Known,
+		"from_id":          cmd.FromID,
+		"known_events":     cmd.KnownEvents,
+		"known_signatures": cmd.KnownBlockSignatures,
 	}).Debug("process SyncRequest")
 
 	resp := &net.SyncResponse{
@@ -224,7 +228,7 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 
 	//Check sync limit
 	n.coreLock.Lock()
-	overSyncLimit := n.core.OverSyncLimit(cmd.Known, n.conf.SyncLimit)
+	overSyncLimit := n.core.OverSyncLimit(cmd.KnownEvents, n.conf.SyncLimit)
 	n.coreLock.Unlock()
 	if overSyncLimit {
 		n.logger.Debug("SyncLimit")
@@ -233,7 +237,8 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 		//Compute Diff
 		start := time.Now()
 		n.coreLock.Lock()
-		diff, err := n.core.EventDiff(cmd.Known)
+		eventDiff, err := n.core.EventDiff(cmd.KnownEvents)
+		sigDiff, err := n.core.BlockSignatureDiff(cmd.KnownBlockSignatures)
 		n.coreLock.Unlock()
 
 		elapsed := time.Since(start)
@@ -244,26 +249,31 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 		}
 
 		//Convert to WireEvents
-		wireEvents, err := n.core.ToWire(diff)
+		wireEvents, err := n.core.ToWire(eventDiff)
 		if err != nil {
 			n.logger.WithField("error", err).Debug("Converting to WireEvent")
 			respErr = err
 		} else {
 			resp.Events = wireEvents
 		}
+
+		resp.BlockSignatures = sigDiff
 	}
 
 	//Get Self Known
 	n.coreLock.Lock()
-	known := n.core.KnownEvents()
+	knownEvents := n.core.KnownEvents()
+	knownBlockSignatures := n.core.KnownBlockSignatures()
 	n.coreLock.Unlock()
-	resp.Known = known
+	resp.KnownEvents = knownEvents
+	resp.KnownBlockSignatures = knownBlockSignatures
 
 	n.logger.WithFields(logrus.Fields{
-		"Events":    len(resp.Events),
-		"Known":     resp.Known,
-		"SyncLimit": resp.SyncLimit,
-		"Error":     respErr,
+		"events":           len(resp.Events),
+		"known_events":     resp.KnownEvents,
+		"known_signatures": resp.KnownBlockSignatures,
+		"sync_limit":       resp.SyncLimit,
+		"error":            respErr,
 	}).Debug("Responding to SyncRequest")
 
 	rpc.Respond(resp, respErr)
@@ -271,13 +281,14 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 
 func (n *Node) processEagerSyncRequest(rpc net.RPC, cmd *net.EagerSyncRequest) {
 	n.logger.WithFields(logrus.Fields{
-		"from_id": cmd.FromID,
-		"events":  len(cmd.Events),
+		"from_id":    cmd.FromID,
+		"events":     len(cmd.Events),
+		"signatures": len(cmd.BlockSignatures),
 	}).Debug("EagerSyncRequest")
 
 	success := true
 	n.coreLock.Lock()
-	err := n.sync(cmd.Events)
+	err := n.sync(cmd.Events, cmd.BlockSignatures)
 	n.coreLock.Unlock()
 	if err != nil {
 		n.logger.WithField("error", err).Error("sync()")
@@ -314,7 +325,7 @@ func (n *Node) preGossip() (bool, error) {
 
 func (n *Node) gossip(peerAddr string) error {
 	//pull
-	syncLimit, otherKnown, err := n.pull(peerAddr)
+	syncLimit, otherKnownEvents, otherKnownBlockSignatures, err := n.pull(peerAddr)
 	if err != nil {
 		return err
 	}
@@ -327,7 +338,7 @@ func (n *Node) gossip(peerAddr string) error {
 	}
 
 	//push
-	err = n.push(peerAddr, otherKnown)
+	err = n.push(peerAddr, otherKnownEvents, otherKnownBlockSignatures)
 	if err != nil {
 		return err
 	}
@@ -344,49 +355,53 @@ func (n *Node) gossip(peerAddr string) error {
 	return nil
 }
 
-func (n *Node) pull(peerAddr string) (syncLimit bool, otherKnown map[int]int, err error) {
+func (n *Node) pull(peerAddr string) (syncLimit bool,
+	otherKnownEvents, otherKnownBlockSignatures map[int]int, err error) {
 	//Compute Known
 	n.coreLock.Lock()
-	known := n.core.KnownEvents()
+	knownEvents := n.core.KnownEvents()
+	knownBlockSignatures := n.core.KnownBlockSignatures()
 	n.coreLock.Unlock()
 
 	//Send SyncRequest
 	start := time.Now()
-	resp, err := n.requestSync(peerAddr, known)
+	resp, err := n.requestSync(peerAddr, knownEvents, knownBlockSignatures)
 	elapsed := time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestSync()")
 	if err != nil {
 		n.logger.WithField("error", err).Error("requestSync()")
-		return false, nil, err
+		return false, nil, nil, err
 	}
 	n.logger.WithFields(logrus.Fields{
-		"from_id":    resp.FromID,
-		"sync_limit": resp.SyncLimit,
-		"events":     len(resp.Events),
-		"known":      resp.Known,
+		"from_id":          resp.FromID,
+		"sync_limit":       resp.SyncLimit,
+		"events":           len(resp.Events),
+		"signatures":       len(resp.BlockSignatures),
+		"known_events":     resp.KnownEvents,
+		"known_signatures": resp.KnownBlockSignatures,
 	}).Debug("SyncResponse")
 
 	if resp.SyncLimit {
-		return true, nil, nil
+		return true, nil, nil, nil
 	}
 
 	//Add Events to Hashgraph and create new Head if necessary
 	n.coreLock.Lock()
-	err = n.sync(resp.Events)
+	err = n.sync(resp.Events, resp.BlockSignatures)
 	n.coreLock.Unlock()
 	if err != nil {
 		n.logger.WithField("error", err).Error("sync()")
-		return false, nil, err
+		return false, nil, nil, err
 	}
 
-	return false, resp.Known, nil
+	return false, resp.KnownEvents, resp.KnownBlockSignatures, nil
 }
 
-func (n *Node) push(peerAddr string, known map[int]int) error {
+func (n *Node) push(peerAddr string, knownEvents, knownBlockSignatures map[int]int) error {
 
 	//Check SyncLimit
 	n.coreLock.Lock()
-	overSyncLimit := n.core.OverSyncLimit(known, n.conf.SyncLimit)
+	overSyncLimit := n.core.OverSyncLimit(knownEvents, n.conf.SyncLimit)
 	n.coreLock.Unlock()
 	if overSyncLimit {
 		n.logger.Debug("SyncLimit")
@@ -396,7 +411,8 @@ func (n *Node) push(peerAddr string, known map[int]int) error {
 	//Compute Diff
 	start := time.Now()
 	n.coreLock.Lock()
-	diff, err := n.core.EventDiff(known)
+	eventDiff, err := n.core.EventDiff(knownEvents)
+	sigDiff, err := n.core.BlockSignatureDiff(knownBlockSignatures)
 	n.coreLock.Unlock()
 	elapsed := time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Diff()")
@@ -406,7 +422,7 @@ func (n *Node) push(peerAddr string, known map[int]int) error {
 	}
 
 	//Convert to WireEvents
-	wireEvents, err := n.core.ToWire(diff)
+	wireEvents, err := n.core.ToWire(eventDiff)
 	if err != nil {
 		n.logger.WithField("error", err).Debug("Converting to WireEvent")
 		return err
@@ -414,7 +430,7 @@ func (n *Node) push(peerAddr string, known map[int]int) error {
 
 	//Create and Send EagerSyncRequest
 	start = time.Now()
-	resp2, err := n.requestEagerSync(peerAddr, wireEvents)
+	resp2, err := n.requestEagerSync(peerAddr, wireEvents, sigDiff)
 	elapsed = time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestEagerSync()")
 	if err != nil {
@@ -440,10 +456,13 @@ func (n *Node) fastForward() error {
 	return nil
 }
 
-func (n *Node) requestSync(target string, known map[int]int) (net.SyncResponse, error) {
+func (n *Node) requestSync(target string,
+	knownEvents, knownBlockSignatures map[int]int) (net.SyncResponse, error) {
+
 	args := net.SyncRequest{
-		FromID: n.id,
-		Known:  known,
+		FromID:               n.id,
+		KnownEvents:          knownEvents,
+		KnownBlockSignatures: knownBlockSignatures,
 	}
 
 	var out net.SyncResponse
@@ -452,10 +471,13 @@ func (n *Node) requestSync(target string, known map[int]int) (net.SyncResponse, 
 	return out, err
 }
 
-func (n *Node) requestEagerSync(target string, events []hg.WireEvent) (net.EagerSyncResponse, error) {
+func (n *Node) requestEagerSync(target string,
+	events []hg.WireEvent,
+	blockSignatures []hg.BlockSignature) (net.EagerSyncResponse, error) {
 	args := net.EagerSyncRequest{
-		FromID: n.id,
-		Events: events,
+		FromID:          n.id,
+		Events:          events,
+		BlockSignatures: blockSignatures,
 	}
 
 	var out net.EagerSyncResponse
@@ -464,10 +486,10 @@ func (n *Node) requestEagerSync(target string, events []hg.WireEvent) (net.Eager
 	return out, err
 }
 
-func (n *Node) sync(events []hg.WireEvent) error {
+func (n *Node) sync(events []hg.WireEvent, blockSignatures []hg.BlockSignature) error {
 	//Insert Events in Hashgraph and create new Head if necessary
 	start := time.Now()
-	err := n.core.Sync(events)
+	err := n.core.Sync(events, blockSignatures)
 	elapsed := time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed Sync()")
 	if err != nil {
@@ -487,6 +509,9 @@ func (n *Node) sync(events []hg.WireEvent) error {
 }
 
 func (n *Node) commit(block hg.Block) error {
+	if err := n.core.SignBlock(block); err != nil {
+		return err
+	}
 	return n.proxy.CommitBlock(block)
 }
 

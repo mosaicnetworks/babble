@@ -11,6 +11,7 @@ import (
 )
 
 type BlockBody struct {
+	Index         int
 	RoundReceived int
 	Transactions  [][]byte
 }
@@ -45,9 +46,9 @@ func (bb *BlockBody) Hash() ([]byte, error) {
 //------------------------------------------------------------------------------
 
 type BlockSignature struct {
-	Validator     []byte
-	RoundReceived int
-	Signature     string
+	Validator []byte
+	Index     int
+	Signature string
 }
 
 func (bs *BlockSignature) ValidatorHex() string {
@@ -82,8 +83,9 @@ type Block struct {
 	hex  string
 }
 
-func NewBlock(roundReceived int, transactions [][]byte) Block {
+func NewBlock(blockIndex, roundReceived int, transactions [][]byte) Block {
 	body := BlockBody{
+		Index:         blockIndex,
 		RoundReceived: roundReceived,
 		Transactions:  transactions,
 	}
@@ -91,6 +93,10 @@ func NewBlock(roundReceived int, transactions [][]byte) Block {
 		Body:       body,
 		Signatures: make(map[string]string),
 	}
+}
+
+func (b *Block) Index() int {
+	return b.Body.Index
 }
 
 func (b *Block) Transactions() [][]byte {
@@ -109,39 +115,14 @@ func (b *Block) GetSignature(validator string) (res BlockSignature, err error) {
 
 	validatorBytes, _ := hex.DecodeString(validator[2:])
 	return BlockSignature{
-		Validator:     validatorBytes,
-		RoundReceived: b.RoundReceived(),
-		Signature:     sig,
+		Validator: validatorBytes,
+		Index:     b.Index(),
+		Signature: sig,
 	}, nil
 }
 
 func (b *Block) AppendTransactions(txs [][]byte) {
 	b.Body.Transactions = append(b.Body.Transactions, txs...)
-}
-
-func (b *Block) AppendSignature(sig BlockSignature) error {
-
-	validatorHex := fmt.Sprintf("0x%X", sig.Validator)
-
-	//do nothing if the signature is already present
-	_, ok := b.Signatures[validatorHex]
-	if ok {
-		return nil
-	}
-
-	//check that the signature is valid
-	valid, err := b.Verify(sig)
-	if err != nil {
-		return fmt.Errorf("Error verifying block signature: %s", err)
-	}
-	if !valid {
-		return fmt.Errorf("Invalid block signature")
-	}
-
-	//append it to the block
-	b.Signatures[validatorHex] = sig.Signature
-
-	return nil
 }
 
 func (b *Block) Marshal() ([]byte, error) {
@@ -192,9 +173,9 @@ func (b *Block) Sign(privKey *ecdsa.PrivateKey) (bs BlockSignature, err error) {
 		return bs, err
 	}
 	signature := BlockSignature{
-		Validator:     crypto.FromECDSAPub(&privKey.PublicKey),
-		RoundReceived: b.RoundReceived(),
-		Signature:     crypto.EncodeSignature(R, S),
+		Validator: crypto.FromECDSAPub(&privKey.PublicKey),
+		Index:     b.Index(),
+		Signature: crypto.EncodeSignature(R, S),
 	}
 
 	return signature, nil

@@ -120,12 +120,12 @@ func roundKey(index int) []byte {
 	return []byte(fmt.Sprintf("%s_%09d", roundPrefix, index))
 }
 
-func blockKey(roundReceived int) []byte {
-	return []byte(fmt.Sprintf("%s_%09d", blockPrefix, roundReceived))
+func blockKey(index int) []byte {
+	return []byte(fmt.Sprintf("%s_%09d", blockPrefix, index))
 }
 
-func participantBlockSignatureKey(participant string, roundReceived int) []byte {
-	return []byte(fmt.Sprintf("%s_blocksig_%09d", participant, roundReceived))
+func participantBlockSignatureKey(participant string, index int) []byte {
+	return []byte(fmt.Sprintf("%s_blocksig_%09d", participant, index))
 }
 
 //==============================================================================
@@ -580,9 +580,9 @@ func (s *BadgerStore) dbSetParticipants(participants map[string]int) error {
 	return tx.Commit(nil)
 }
 
-func (s *BadgerStore) dbGetBlock(roundReceived int) (Block, error) {
+func (s *BadgerStore) dbGetBlock(index int) (Block, error) {
 	var blockBytes []byte
-	key := blockKey(roundReceived)
+	key := blockKey(index)
 	err := s.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(key)
 		if err != nil {
@@ -608,13 +608,13 @@ func (s *BadgerStore) dbSetBlock(block Block) error {
 	tx := s.db.NewTransaction(true)
 	defer tx.Discard()
 
-	key := blockKey(block.RoundReceived())
+	key := blockKey(block.Index())
 	val, err := block.Marshal()
 	if err != nil {
 		return err
 	}
 
-	//insert [round_received] => [block bytes]
+	//insert [index] => [block bytes]
 	if err := tx.Set(key, val); err != nil {
 		return err
 	}
@@ -626,7 +626,7 @@ func (s *BadgerStore) dbSetBlock(block Block) error {
 		if err != nil {
 			return err
 		}
-		pbsKey := participantBlockSignatureKey(validator, block.RoundReceived())
+		pbsKey := participantBlockSignatureKey(validator, block.Index())
 		if err := tx.Set(pbsKey, blockSigBytes); err != nil {
 			return err
 		}
@@ -668,9 +668,9 @@ func (s *BadgerStore) dbParticipantBlockSignatures(participant string, skip int)
 	return res, err
 }
 
-func (s *BadgerStore) dbParticipantBlockSignature(participant string, roundReceived int) (BlockSignature, error) {
+func (s *BadgerStore) dbParticipantBlockSignature(participant string, index int) (BlockSignature, error) {
 	data := []byte{}
-	key := participantBlockSignatureKey(participant, roundReceived)
+	key := participantBlockSignatureKey(participant, index)
 	err := s.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(key)
 		if err != nil {

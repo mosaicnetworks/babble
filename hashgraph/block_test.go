@@ -10,7 +10,7 @@ import (
 func TestSignBlock(t *testing.T) {
 	privateKey, _ := crypto.GenerateECDSAKey()
 
-	block := NewBlock(1,
+	block := NewBlock(0, 1,
 		[][]byte{
 			[]byte("abc"),
 			[]byte("def"),
@@ -35,7 +35,7 @@ func TestAppendSignature(t *testing.T) {
 	privateKey, _ := crypto.GenerateECDSAKey()
 	pubKeyBytes := crypto.FromECDSAPub(&privateKey.PublicKey)
 
-	block := NewBlock(1,
+	block := NewBlock(0, 1,
 		[][]byte{
 			[]byte("abc"),
 			[]byte("def"),
@@ -47,7 +47,7 @@ func TestAppendSignature(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = block.AppendSignature(sig)
+	err = block.SetSignature(sig)
 	if err != nil {
 		t.Fatal(err)
 	}

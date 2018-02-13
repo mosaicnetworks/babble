@@ -32,7 +32,10 @@ func (p *InmemAppProxy) SubmitCh() chan []byte {
 }
 
 func (p *InmemAppProxy) CommitBlock(block hashgraph.Block) error {
-	p.logger.WithField("block", block).Debug("InmemProxy CommitBlock")
+	p.logger.WithFields(logrus.Fields{
+		"round_received": block.RoundReceived(),
+		"txs":            len(block.Transactions()),
+	}).Debug("InmemProxy CommitBlock")
 	p.commitedTransactions = append(p.commitedTransactions, block.Transactions()...)
 	return nil
 }

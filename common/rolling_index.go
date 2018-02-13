@@ -1,5 +1,7 @@
 package common
 
+import "strconv"
+
 type RollingIndex struct {
 	size      int
 	lastIndex int
@@ -29,7 +31,7 @@ func (r *RollingIndex) Get(skipIndex int) ([]interface{}, error) {
 	//assume there are no gaps between indexes
 	oldestCachedIndex := r.lastIndex - cachedItems + 1
 	if skipIndex+1 < oldestCachedIndex {
-		return res, NewStoreErr(TooLate, string(SkippedIndex))
+		return res, NewStoreErr(TooLate, strconv.Itoa(skipIndex))
 	}
 
 	//index of 'skipped' in RollingIndex
@@ -56,7 +58,7 @@ func (r *RollingIndex) Set(item interface{}, index int) error {
 	//only allow to set items with index <= lastIndex + 1
 	//so that we may assume there are no gaps between items
 	if 0 <= r.lastIndex && index > r.lastIndex+1 {
-		return NewStoreErr(SkippedIndex, string(index))
+		return NewStoreErr(SkippedIndex, strconv.Itoa(index))
 	}
 
 	//adding a new item
@@ -75,7 +77,7 @@ func (r *RollingIndex) Set(item interface{}, index int) error {
 	oldestCachedIndex := r.lastIndex - cachedItems + 1
 
 	if index < oldestCachedIndex {
-		return NewStoreErr(TooLate, string(index))
+		return NewStoreErr(TooLate, strconv.Itoa(index))
 	}
 
 	//replacing existing item

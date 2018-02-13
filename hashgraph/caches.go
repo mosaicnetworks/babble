@@ -143,7 +143,7 @@ func (psc *ParticipantBlockSignaturesCache) participantID(participant string) (i
 	return id, nil
 }
 
-//return participant BlockSignatures where RoundReceived > skip
+//return participant BlockSignatures where index > skip
 func (psc *ParticipantBlockSignaturesCache) Get(participant string, skipIndex int) ([]BlockSignature, error) {
 	id, err := psc.participantID(participant)
 	if err != nil {
@@ -189,10 +189,10 @@ func (psc *ParticipantBlockSignaturesCache) Set(participant string, sig BlockSig
 		return err
 	}
 
-	return psc.rim.Set(id, sig, sig.RoundReceived)
+	return psc.rim.Set(id, sig, sig.Index)
 }
 
-//returns [participant id] => last BlockSignature RoundReceived
+//returns [participant id] => last BlockSignature Index
 func (psc *ParticipantBlockSignaturesCache) Known() map[int]int {
 	return psc.rim.Known()
 }

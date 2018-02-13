@@ -166,7 +166,8 @@ func TestInmemRounds(t *testing.T) {
 func TestInmemBlocks(t *testing.T) {
 	store, participants := initInmemStore(10)
 
-	roundReceived := 0
+	index := 0
+	roundReceived := 7
 	transactions := [][]byte{
 		[]byte("tx1"),
 		[]byte("tx2"),
@@ -174,7 +175,7 @@ func TestInmemBlocks(t *testing.T) {
 		[]byte("tx4"),
 		[]byte("tx5"),
 	}
-	block := NewBlock(roundReceived, transactions)
+	block := NewBlock(index, roundReceived, transactions)
 
 	sig1, err := block.Sign(participants[0].privKey)
 	if err != nil {
@@ -194,7 +195,7 @@ func TestInmemBlocks(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		storedBlock, err := store.GetBlock(roundReceived)
+		storedBlock, err := store.GetBlock(index)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -205,7 +206,7 @@ func TestInmemBlocks(t *testing.T) {
 	})
 
 	t.Run("Check signatures in stored Block", func(t *testing.T) {
-		storedBlock, err := store.GetBlock(roundReceived)
+		storedBlock, err := store.GetBlock(index)
 		if err != nil {
 			t.Fatal(err)
 		}

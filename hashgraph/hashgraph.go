@@ -19,6 +19,7 @@ type Hashgraph struct {
 	UndeterminedEvents      []string       //[index] => hash
 	UndecidedRounds         []int          //queue of Rounds which have undecided witnesses
 	LastConsensusRound      *int           //index of last round where the fame of all witnesses has been decided
+	LastBlockIndex          int            //index of last block
 	LastCommitedRoundEvents int            //number of events in round before LastConsensusRound
 	ConsensusTransactions   int            //number of consensus transactions
 	PendingLoadedEvents     int            //number of loaded events that are not yet committed
@@ -61,7 +62,8 @@ func NewHashgraph(participants map[string]int, store Store, commitCh chan Block,
 		roundCache:              common.NewLRU(cacheSize, nil),
 		logger:                  logger,
 		superMajority:           2*len(participants)/3 + 1,
-		UndecidedRounds:         []int{0}, //initialize
+		UndecidedRounds:         []int{0}, //initialize,
+		LastBlockIndex:          -1,
 	}
 
 	return &hashgraph
@@ -824,8 +826,9 @@ func (h *Hashgraph) FindOrder() error {
 	sort.Sort(sorter)
 
 	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	blockMap := make(map[int]Block) // [RoundReceived] => Block
-	blockOrder := []int{}           // [index] => RoundReceived
+	//XXX move this to a special function
+	blockMap := make(map[int][][]byte) // [RoundReceived] => []Transactions
+	blockOrder := []int{}              // [index] => RoundReceived
 	for _, e := range newConsensusEvents {
 		err := h.Store.AddConsensusEvent(e.Hex())
 		if err != nil {
@@ -836,26 +839,39 @@ func (h *Hashgraph) FindOrder() error {
 			h.PendingLoadedEvents--
 		}
 
-		b, ok := blockMap[*e.roundReceived]
+		btxs, ok := blockMap[*e.roundReceived]
 		if !ok {
-			b = NewBlock(*e.roundReceived, e.Transactions())
+			btxs = [][]byte{}
 			blockOrder = append(blockOrder, *e.roundReceived)
-		} else {
-			b.AppendTransactions(e.Transactions())
 		}
-		blockMap[*e.roundReceived] = b
+		btxs = append(btxs, e.Transactions()...)
+		blockMap[*e.roundReceived] = btxs
 	}
 
 	for _, rr := range blockOrder {
-		block, _ := blockMap[rr]
-		h.Store.SetBlock(block)
-		if h.commitCh != nil && len(block.Transactions()) > 0 {
-			h.commitCh <- block
+		blockTxs, _ := blockMap[rr]
+		if len(blockTxs) > 0 {
+			block, err := h.CreateAndInsertBlock(rr, blockTxs)
+			if err != nil {
+				return err
+			}
+			if h.commitCh != nil {
+				h.commitCh <- block
+			}
 		}
 	}
 	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 	return nil
+}
+
+func (h *Hashgraph) CreateAndInsertBlock(roundReceived int, txs [][]byte) (Block, error) {
+	block := NewBlock(h.LastBlockIndex+1, roundReceived, txs)
+	if err := h.Store.SetBlock(block); err != nil {
+		return Block{}, err
+	}
+	h.LastBlockIndex++
+	return block, nil
 }
 
 func (h *Hashgraph) MedianTimestamp(eventHashes []string) time.Time {
@@ -872,9 +888,14 @@ func (h *Hashgraph) ConsensusEvents() []string {
 	return h.Store.ConsensusEvents()
 }
 
-//number of events per participants
+//last event index per participant
 func (h *Hashgraph) KnownEvents() map[int]int {
 	return h.Store.KnownEvents()
+}
+
+//round_received of last block signature per participant
+func (h *Hashgraph) KnownBlockSignatures() map[int]int {
+	return h.Store.KnownBlockSignatures()
 }
 
 func (h *Hashgraph) Reset(roots map[string]Root) error {

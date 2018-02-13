@@ -30,10 +30,15 @@ func TestNetworkTransport_Sync(t *testing.T) {
 	// Make the RPC request
 	args := SyncRequest{
 		FromID: 0,
-		Known: map[int]int{
+		KnownEvents: map[int]int{
 			0: 1,
 			1: 2,
 			2: 3,
+		},
+		KnownBlockSignatures: map[int]int{
+			0: -1,
+			1: -1,
+			2: -1,
 		},
 	}
 	resp := SyncResponse{
@@ -49,10 +54,22 @@ func TestNetworkTransport_Sync(t *testing.T) {
 				},
 			},
 		},
-		Known: map[int]int{
+		BlockSignatures: []hashgraph.BlockSignature{
+			hashgraph.BlockSignature{
+				Validator: []byte("validator pub key"),
+				Index:     0,
+				Signature: "r|s",
+			},
+		},
+		KnownEvents: map[int]int{
 			0: 5,
 			1: 5,
 			2: 6,
+		},
+		KnownBlockSignatures: map[int]int{
+			0: 1,
+			1: 2,
+			2: 3,
 		},
 	}
 
@@ -114,6 +131,13 @@ func TestNetworkTransport_EagerSync(t *testing.T) {
 				},
 			},
 		},
+		BlockSignatures: []hashgraph.BlockSignature{
+			hashgraph.BlockSignature{
+				Validator: []byte("validator pub key"),
+				Index:     0,
+				Signature: "r|s",
+			},
+		},
 	}
 	resp := EagerSyncResponse{
 		FromID:  1,
@@ -154,6 +178,7 @@ func TestNetworkTransport_EagerSync(t *testing.T) {
 		t.Fatalf("command mismatch: %#v %#v", resp, out)
 	}
 }
+
 func TestNetworkTransport_PooledConn(t *testing.T) {
 	// Transport 1 is consumer
 	trans1, err := NewTCPTransport("127.0.0.1:0", nil, 2, time.Second, common.NewTestLogger(t))
@@ -166,10 +191,15 @@ func TestNetworkTransport_PooledConn(t *testing.T) {
 	// Make the RPC request
 	args := SyncRequest{
 		FromID: 0,
-		Known: map[int]int{
+		KnownEvents: map[int]int{
 			0: 1,
 			1: 2,
 			2: 3,
+		},
+		KnownBlockSignatures: map[int]int{
+			0: -1,
+			1: -1,
+			2: -1,
 		},
 	}
 	resp := SyncResponse{
@@ -184,6 +214,23 @@ func TestNetworkTransport_PooledConn(t *testing.T) {
 					CreatorID:            9,
 				},
 			},
+		},
+		BlockSignatures: []hashgraph.BlockSignature{
+			hashgraph.BlockSignature{
+				Validator: []byte("validator pub key"),
+				Index:     0,
+				Signature: "r|s",
+			},
+		},
+		KnownEvents: map[int]int{
+			0: 5,
+			1: 5,
+			2: 6,
+		},
+		KnownBlockSignatures: map[int]int{
+			0: 1,
+			1: 2,
+			2: 3,
 		},
 	}
 

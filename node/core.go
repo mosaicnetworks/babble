@@ -8,6 +8,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/babbleio/babble/common"
 	"github.com/babbleio/babble/crypto"
 	hg "github.com/babbleio/babble/hashgraph"
 )
@@ -78,11 +79,15 @@ func (c *Core) HexID() string {
 }
 
 func (c *Core) Init() error {
+	//Create and save the first Event
 	initialEvent := hg.NewEvent([][]byte(nil),
 		[]string{"", ""},
 		c.PubKey(),
 		c.Seq)
-	return c.SignAndInsertSelfEvent(initialEvent)
+	if err := c.SignAndInsertSelfEvent(initialEvent); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *Core) Bootstrap() error {
@@ -119,6 +124,8 @@ func (c *Core) Bootstrap() error {
 	return nil
 }
 
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 func (c *Core) SignAndInsertSelfEvent(event hg.Event) error {
 	if err := event.Sign(c.key); err != nil {
 		return err
@@ -143,6 +150,25 @@ func (c *Core) InsertEvent(event hg.Event, setWireInfo bool) error {
 func (c *Core) KnownEvents() map[int]int {
 	return c.hg.KnownEvents()
 }
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+func (c *Core) SignBlock(block hg.Block) error {
+	sig, err := block.Sign(c.key)
+	if err != nil {
+		return err
+	}
+	if err := block.SetSignature(sig); err != nil {
+		return err
+	}
+	return c.hg.Store.SetBlock(block)
+}
+
+func (c *Core) KnownBlockSignatures() map[int]int {
+	return c.hg.KnownBlockSignatures()
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 func (c *Core) OverSyncLimit(knownEvents map[int]int, syncLimit int) bool {
 	totUnknown := 0
@@ -188,16 +214,30 @@ func (c *Core) EventDiff(known map[int]int) (events []hg.Event, err error) {
 	return unknown, nil
 }
 
-func (c *Core) Sync(unknown []hg.WireEvent) error {
+func (c *Core) BlockSignatureDiff(known map[int]int) (blockSignatures []hg.BlockSignature, err error) {
+	unknown := []hg.BlockSignature{}
+	for id, rr := range known {
+		pk := c.reverseParticipants[id]
+		participantSigs, err := c.hg.Store.ParticipantBlockSignatures(pk, rr)
+		if err != nil {
+			return []hg.BlockSignature{}, err
+		}
+		unknown = append(unknown, participantSigs...)
+	}
+	return unknown, nil
+}
+
+func (c *Core) Sync(unknownEvents []hg.WireEvent, unknownBlockSignatures []hg.BlockSignature) error {
 
 	c.logger.WithFields(logrus.Fields{
-		"unknown": len(unknown),
-		"txPool":  len(c.transactionPool),
+		"unknown_events":     len(unknownEvents),
+		"unknown_signatures": len(unknownBlockSignatures),
+		"txPool":             len(c.transactionPool),
 	}).Debug("Sync")
 
 	otherHead := ""
 	//add unknown events
-	for k, we := range unknown {
+	for k, we := range unknownEvents {
 		ev, err := c.hg.ReadWireInfo(we)
 		if err != nil {
 			return err
@@ -206,14 +246,39 @@ func (c *Core) Sync(unknown []hg.WireEvent) error {
 			return err
 		}
 		//assume last event corresponds to other-head
-		if k == len(unknown)-1 {
+		if k == len(unknownEvents)-1 {
 			otherHead = ev.Hex()
+		}
+	}
+
+	for _, s := range unknownBlockSignatures {
+		block, err := c.hg.Store.GetBlock(s.Index)
+		if err != nil && common.Is(err, common.KeyNotFound) {
+			//We haven't computed this block yet
+			//XXX could be smart and stash the signature anyway
+			return nil
+		}
+		if ok, err := block.Verify(s); !ok {
+			//XXX/
+			//return fmt.Errorf("Error verifyng block %d signature: %v", block.Index(), err)
+			c.logger.WithFields(logrus.Fields{
+				"index": block.Index(),
+				"error": err,
+			}).Error("verifying block signature")
+		}
+
+		if err := block.SetSignature(s); err != nil {
+			return err
+		}
+
+		if err := c.hg.Store.SetBlock(block); err != nil {
+			return err
 		}
 	}
 
 	//create new event with self head and other head
 	//only if there are pending loaded events or the transaction pool is not empty
-	if len(unknown) > 0 || len(c.transactionPool) > 0 {
+	if len(unknownEvents) > 0 || len(c.transactionPool) > 0 {
 		newHead := hg.NewEvent(c.transactionPool,
 			[]string{c.Head, otherHead},
 			c.PubKey(),

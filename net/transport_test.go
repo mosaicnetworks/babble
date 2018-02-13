@@ -42,10 +42,15 @@ func TestTransport_Sync(t *testing.T) {
 		// Make the RPC request
 		args := SyncRequest{
 			FromID: 0,
-			Known: map[int]int{
+			KnownEvents: map[int]int{
 				0: 1,
 				1: 2,
 				2: 3,
+			},
+			KnownBlockSignatures: map[int]int{
+				0: -1,
+				1: -1,
+				2: -1,
 			},
 		}
 		resp := SyncResponse{
@@ -61,10 +66,22 @@ func TestTransport_Sync(t *testing.T) {
 					},
 				},
 			},
-			Known: map[int]int{
-				0: 4,
+			BlockSignatures: []hashgraph.BlockSignature{
+				hashgraph.BlockSignature{
+					Validator: []byte("validator pub key"),
+					Index:     0,
+					Signature: "r|s",
+				},
+			},
+			KnownEvents: map[int]int{
+				0: 5,
 				1: 5,
 				2: 6,
+			},
+			KnownBlockSignatures: map[int]int{
+				0: 1,
+				1: 2,
+				2: 3,
 			},
 		}
 
@@ -102,6 +119,7 @@ func TestTransport_Sync(t *testing.T) {
 		}
 	}
 }
+
 func TestTransport_EagerSync(t *testing.T) {
 	for ttype := 0; ttype < numTestTransports; ttype++ {
 		addr1, trans1 := NewTestTransport(ttype, "")
@@ -120,6 +138,13 @@ func TestTransport_EagerSync(t *testing.T) {
 						OtherParentIndex:     0,
 						CreatorID:            9,
 					},
+				},
+			},
+			BlockSignatures: []hashgraph.BlockSignature{
+				hashgraph.BlockSignature{
+					Validator: []byte("validator pub key"),
+					Index:     0,
+					Signature: "r|s",
 				},
 			},
 		}

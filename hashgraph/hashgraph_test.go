@@ -1103,9 +1103,9 @@ func TestBlocks(t *testing.T) {
 	h.DecideFame()
 	h.FindOrder()
 
-	block0, err := h.Store.GetBlock(1)
+	block0, err := h.Store.GetBlock(0)
 	if err != nil {
-		t.Fatalf("Store should contain a block with RoundReceiced 1: %v", err)
+		t.Fatalf("Store should contain a block with Index 0: %v", err)
 	}
 
 	if rr := block0.RoundReceived(); rr != 1 {
@@ -1563,22 +1563,22 @@ func TestFunkyHashgraphBlocks(t *testing.T) {
 	h.FindOrder()
 
 	expectedBlockTxCounts := map[int]int{
-		1: 6,
+		0: 6,
+		1: 7,
 		2: 7,
-		3: 7,
 	}
 
-	for rr := 1; rr <= 3; rr++ {
-		b, err := h.Store.GetBlock(rr)
+	for bi := 0; bi < 3; bi++ {
+		b, err := h.Store.GetBlock(bi)
 		if err != nil {
 			t.Fatal(err)
 		}
 		for i, tx := range b.Transactions() {
-			t.Logf("block %d, tx %d: %s", rr, i, string(tx))
+			t.Logf("block %d, tx %d: %s", bi, i, string(tx))
 		}
-		if txs := len(b.Transactions()); txs != expectedBlockTxCounts[rr] {
-			t.Fatalf("Blocks[%d] should contain %d transactions, not %d", rr,
-				expectedBlockTxCounts[rr], txs)
+		if txs := len(b.Transactions()); txs != expectedBlockTxCounts[bi] {
+			t.Fatalf("Blocks[%d] should contain %d transactions, not %d", bi,
+				expectedBlockTxCounts[bi], txs)
 		}
 	}
 }

@@ -311,7 +311,8 @@ func TestDBBlockMethods(t *testing.T) {
 	store, participants := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
 
-	roundReceived := 0
+	index := 0
+	roundReceived := 5
 	transactions := [][]byte{
 		[]byte("tx1"),
 		[]byte("tx2"),
@@ -319,7 +320,7 @@ func TestDBBlockMethods(t *testing.T) {
 		[]byte("tx4"),
 		[]byte("tx5"),
 	}
-	block := NewBlock(roundReceived, transactions)
+	block := NewBlock(index, roundReceived, transactions)
 
 	sig1, err := block.Sign(participants[0].privKey)
 	if err != nil {
@@ -339,7 +340,7 @@ func TestDBBlockMethods(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		storedBlock, err := store.dbGetBlock(roundReceived)
+		storedBlock, err := store.dbGetBlock(index)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -350,7 +351,7 @@ func TestDBBlockMethods(t *testing.T) {
 	})
 
 	t.Run("Check signatures in stored Block", func(t *testing.T) {
-		storedBlock, err := store.dbGetBlock(roundReceived)
+		storedBlock, err := store.dbGetBlock(index)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -547,7 +548,8 @@ func TestBadgerBlocks(t *testing.T) {
 	store, participants := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
 
-	roundReceived := 0
+	index := 0
+	roundReceived := 5
 	transactions := [][]byte{
 		[]byte("tx1"),
 		[]byte("tx2"),
@@ -555,7 +557,7 @@ func TestBadgerBlocks(t *testing.T) {
 		[]byte("tx4"),
 		[]byte("tx5"),
 	}
-	block := NewBlock(roundReceived, transactions)
+	block := NewBlock(index, roundReceived, transactions)
 
 	sig1, err := block.Sign(participants[0].privKey)
 	if err != nil {
@@ -575,7 +577,7 @@ func TestBadgerBlocks(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		storedBlock, err := store.GetBlock(roundReceived)
+		storedBlock, err := store.GetBlock(index)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -586,7 +588,7 @@ func TestBadgerBlocks(t *testing.T) {
 	})
 
 	t.Run("Check signatures in stored Block", func(t *testing.T) {
-		storedBlock, err := store.GetBlock(roundReceived)
+		storedBlock, err := store.GetBlock(index)
 		if err != nil {
 			t.Fatal(err)
 		}
