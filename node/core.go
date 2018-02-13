@@ -93,7 +93,7 @@ func (c *Core) Bootstrap() error {
 	var head string
 	var seq int
 
-	last, isRoot, err := c.hg.Store.LastFrom(c.HexID())
+	last, isRoot, err := c.hg.Store.LastEventFrom(c.HexID())
 	if err != nil {
 		return err
 	}
@@ -140,16 +140,16 @@ func (c *Core) InsertEvent(event hg.Event, setWireInfo bool) error {
 	return nil
 }
 
-func (c *Core) Known() map[int]int {
-	return c.hg.Known()
+func (c *Core) KnownEvents() map[int]int {
+	return c.hg.KnownEvents()
 }
 
-func (c *Core) OverSyncLimit(known map[int]int, syncLimit int) bool {
+func (c *Core) OverSyncLimit(knownEvents map[int]int, syncLimit int) bool {
 	totUnknown := 0
-	myKnown := c.Known()
-	for i, li := range myKnown {
-		if li > known[i] {
-			totUnknown += li - known[i]
+	myKnownEvents := c.KnownEvents()
+	for i, li := range myKnownEvents {
+		if li > knownEvents[i] {
+			totUnknown += li - knownEvents[i]
 		}
 	}
 	if totUnknown > syncLimit {
@@ -171,31 +171,6 @@ func (c *Core) EventDiff(known map[int]int) (events []hg.Event, err error) {
 	for id, ct := range known {
 		pk := c.reverseParticipants[id]
 		//get participant Events with index > ct
-		participantEvents, err := c.hg.Store.ParticipantEvents(pk, ct)
-		if err != nil {
-			return []hg.Event{}, err
-		}
-		for _, e := range participantEvents {
-			ev, err := c.hg.Store.GetEvent(e)
-			if err != nil {
-				return []hg.Event{}, err
-			}
-			unknown = append(unknown, ev)
-		}
-	}
-	sort.Sort(hg.ByTopologicalOrder(unknown))
-
-	return unknown, nil
-}
-
-//return block signatures that c knowns about and are not in 'known'
-func (c *Core) SignatureDiff(known map[int]int) (signature []hg.BlockSignature, err error) {
-	unknown := []hg.BlockSignature{}
-	//known represents the RoundReceived of the latest Block signature for every
-	//participant
-	for id, ct := range known {
-		pk := c.reverseParticipants[id]
-
 		participantEvents, err := c.hg.Store.ParticipantEvents(pk, ct)
 		if err != nil {
 			return []hg.Event{}, err

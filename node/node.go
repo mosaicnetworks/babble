@@ -233,7 +233,7 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 		//Compute Diff
 		start := time.Now()
 		n.coreLock.Lock()
-		diff, err := n.core.Diff(cmd.Known)
+		diff, err := n.core.EventDiff(cmd.Known)
 		n.coreLock.Unlock()
 
 		elapsed := time.Since(start)
@@ -255,7 +255,7 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 
 	//Get Self Known
 	n.coreLock.Lock()
-	known := n.core.Known()
+	known := n.core.KnownEvents()
 	n.coreLock.Unlock()
 	resp.Known = known
 
@@ -347,7 +347,7 @@ func (n *Node) gossip(peerAddr string) error {
 func (n *Node) pull(peerAddr string) (syncLimit bool, otherKnown map[int]int, err error) {
 	//Compute Known
 	n.coreLock.Lock()
-	known := n.core.Known()
+	known := n.core.KnownEvents()
 	n.coreLock.Unlock()
 
 	//Send SyncRequest
@@ -396,7 +396,7 @@ func (n *Node) push(peerAddr string, known map[int]int) error {
 	//Compute Diff
 	start := time.Now()
 	n.coreLock.Lock()
-	diff, err := n.core.Diff(known)
+	diff, err := n.core.EventDiff(known)
 	n.coreLock.Unlock()
 	elapsed := time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Diff()")

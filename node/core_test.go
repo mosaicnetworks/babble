@@ -130,8 +130,8 @@ func TestDiff(t *testing.T) {
 	   0   1   2        0   1   2
 	*/
 
-	knownBy1 := cores[1].Known()
-	unknownBy1, err := cores[0].Diff(knownBy1)
+	knownBy1 := cores[1].KnownEvents()
+	unknownBy1, err := cores[0].EventDiff(knownBy1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +173,7 @@ func TestSync(t *testing.T) {
 	   0   1   2        0   1   2       0   1   2
 	*/
 
-	knownBy0 := cores[0].Known()
+	knownBy0 := cores[0].KnownEvents()
 	if k := knownBy0[cores[0].ID()]; k != 1 {
 		t.Fatalf("core 0 should have last-index 1 for core 0, not %d", k)
 	}
@@ -211,7 +211,7 @@ func TestSync(t *testing.T) {
 	   0   1   2        0   1   2       0   1   2
 	*/
 
-	knownBy2 := cores[2].Known()
+	knownBy2 := cores[2].KnownEvents()
 	if k := knownBy2[cores[0].ID()]; k != 1 {
 		t.Fatalf("core 2 should have last-index 1 for core 0, not %d", k)
 	}
@@ -251,7 +251,7 @@ func TestSync(t *testing.T) {
 	   0   1   2        0   1   2       0   1   2
 	*/
 
-	knownBy1 := cores[1].Known()
+	knownBy1 := cores[1].KnownEvents()
 	if k := knownBy1[cores[0].ID()]; k != 1 {
 		t.Fatalf("core 1 should have last-index 1 for core 0, not %d", k)
 	}
@@ -512,8 +512,8 @@ func TestConsensusFF(t *testing.T) {
 }
 
 func synchronizeCores(cores []Core, from int, to int, payload [][]byte) error {
-	knownByTo := cores[to].Known()
-	unknownByTo, err := cores[from].Diff(knownByTo)
+	knownByTo := cores[to].KnownEvents()
+	unknownByTo, err := cores[from].EventDiff(knownByTo)
 	if err != nil {
 		return err
 	}

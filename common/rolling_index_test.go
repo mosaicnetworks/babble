@@ -32,12 +32,7 @@ func TestRollingIndex(t *testing.T) {
 		}
 	}
 
-	err := RollingIndex.Set("PassedIndex", expectedLastIndex-1)
-	if err == nil || !Is(err, PassedIndex) {
-		t.Fatalf("Should return ErrPassedIndex")
-	}
-
-	err = RollingIndex.Set("ErrSkippedIndex", expectedLastIndex+2)
+	err := RollingIndex.Set("ErrSkippedIndex", expectedLastIndex+2)
 	if err == nil || !Is(err, SkippedIndex) {
 		t.Fatalf("Should return ErrSkippedIndex")
 	}
@@ -64,6 +59,23 @@ func TestRollingIndex(t *testing.T) {
 	if err == nil || !Is(err, KeyNotFound) {
 		t.Fatalf("Should return KeyNotFound")
 	}
+
+	//Test updating an item in place
+	updateIndex := 26
+	updateValue := "Updated Item"
+
+	err = RollingIndex.Set(updateValue, updateIndex)
+	if err != nil {
+		t.Fatalf("SetItem(%d) err: %v", updateIndex, err)
+	}
+	item, err = RollingIndex.GetItem(updateIndex)
+	if err != nil {
+		t.Fatalf("GetItem(%d) err: %v", updateIndex, err)
+	}
+	if uv := item.(string); uv != updateValue {
+		t.Fatalf("Updated item %d should be %s, not %s", updateIndex, updateValue, uv)
+	}
+
 }
 
 func TestRollingIndexSkip(t *testing.T) {

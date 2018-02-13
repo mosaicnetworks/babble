@@ -80,10 +80,10 @@ func TestProcessSync(t *testing.T) {
 
 	//Manually prepare SyncRequest and expected SyncResponse
 
-	node0Known := node0.core.Known()
-	node1Known := node1.core.Known()
+	node0Known := node0.core.KnownEvents()
+	node1Known := node1.core.KnownEvents()
 
-	unknown, err := node1.core.Diff(node0Known)
+	unknown, err := node1.core.EventDiff(node0Known)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,9 +173,9 @@ func TestProcessEagerSync(t *testing.T) {
 
 	//Manually prepare EagerSyncRequest and expected EagerSyncResponse
 
-	node1Known := node1.core.Known()
+	node1Known := node1.core.KnownEvents()
 
-	unknown, err := node0.core.Diff(node1Known)
+	unknown, err := node0.core.EventDiff(node1Known)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,7 +254,7 @@ func TestAddTransaction(t *testing.T) {
 
 	//simulate a SyncRequest from node0 to node1
 
-	node0Known := node0.core.Known()
+	node0Known := node0.core.KnownEvents()
 	args := net.SyncRequest{
 		FromID: node0.id,
 		Known:  node0Known,
@@ -430,7 +430,7 @@ func TestSyncLimit(t *testing.T) {
 	defer shutdownNodes(nodes)
 
 	//create fake node[0] known to artificially reach SyncLimit
-	node0Known := nodes[0].core.Known()
+	node0Known := nodes[0].core.KnownEvents()
 	for k := range node0Known {
 		node0Known[k] = 0
 	}
