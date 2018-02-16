@@ -564,6 +564,7 @@ func (n *Node) GetStats() map[string]string {
 
 	s := map[string]string{
 		"last_consensus_round":   toString(lastConsensusRound),
+		"last_block_index":       strconv.Itoa(n.core.GetLastBlockIndex()),
 		"consensus_events":       strconv.Itoa(consensusEvents),
 		"consensus_transactions": strconv.Itoa(n.core.GetConsensusTransactionsCount()),
 		"undetermined_events":    strconv.Itoa(len(n.core.GetUndeterminedEvents())),
@@ -583,6 +584,7 @@ func (n *Node) logStats() {
 	stats := n.GetStats()
 	n.logger.WithFields(logrus.Fields{
 		"last_consensus_round":   stats["last_consensus_round"],
+		"last_block_index":       stats["last_block_index"],
 		"consensus_events":       stats["consensus_events"],
 		"consensus_transactions": stats["consensus_transactions"],
 		"undetermined_events":    stats["undetermined_events"],
@@ -603,4 +605,8 @@ func (n *Node) SyncRate() float64 {
 		syncErrorRate = float64(n.syncErrors) / float64(n.syncRequests)
 	}
 	return 1 - syncErrorRate
+}
+
+func (n *Node) GetBlock(blockIndex int) (hg.Block, error) {
+	return n.core.hg.Store.GetBlock(blockIndex)
 }

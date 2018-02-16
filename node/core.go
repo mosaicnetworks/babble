@@ -224,6 +224,7 @@ func (c *Core) BlockSignatureDiff(known map[int]int) (blockSignatures []hg.Block
 		}
 		unknown = append(unknown, participantSigs...)
 	}
+	//XXX TODO sort by block index
 	return unknown, nil
 }
 
@@ -259,8 +260,6 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent, unknownBlockSignatures []hg.Bl
 			return nil
 		}
 		if ok, err := block.Verify(s); !ok {
-			//XXX/
-			//return fmt.Errorf("Error verifyng block %d signature: %v", block.Index(), err)
 			c.logger.WithFields(logrus.Fields{
 				"index": block.Index(),
 				"error": err,
@@ -428,6 +427,10 @@ func (c *Core) GetConsensusTransactionsCount() int {
 
 func (c *Core) GetLastCommitedRoundEventsCount() int {
 	return c.hg.LastCommitedRoundEvents
+}
+
+func (c *Core) GetLastBlockIndex() int {
+	return c.hg.LastBlockIndex
 }
 
 func (c *Core) NeedGossip() bool {
