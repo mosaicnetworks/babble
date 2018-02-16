@@ -453,8 +453,8 @@ func (h *Hashgraph) InitEventCoordinates(event *Event) error {
 	members := len(h.Participants)
 
 	event.firstDescendants = make([]EventCoordinates, members)
-	for fakeID := 0; fakeID < members; fakeID++ {
-		event.firstDescendants[fakeID] = EventCoordinates{
+	for id := 0; id < members; id++ {
+		event.firstDescendants[id] = EventCoordinates{
 			index: math.MaxInt32,
 		}
 	}
@@ -465,8 +465,8 @@ func (h *Hashgraph) InitEventCoordinates(event *Event) error {
 	otherParent, otherParentError := h.Store.GetEvent(event.OtherParent())
 
 	if selfParentError != nil && otherParentError != nil {
-		for fakeID := 0; fakeID < members; fakeID++ {
-			event.lastAncestors[fakeID] = EventCoordinates{
+		for id := 0; id < members; id++ {
+			event.lastAncestors[id] = EventCoordinates{
 				index: -1,
 			}
 		}
@@ -490,23 +490,23 @@ func (h *Hashgraph) InitEventCoordinates(event *Event) error {
 	index := event.Index()
 
 	creator := event.Creator()
-	fakeCreatorID, ok := h.Participants[creator]
+	creatorID, ok := h.Participants[creator]
 	if !ok {
-		return fmt.Errorf("Could not find fake creator id")
+		return fmt.Errorf("Could not find creator id (%s)", creator)
 	}
 	hash := event.Hex()
 
-	event.firstDescendants[fakeCreatorID] = EventCoordinates{index: index, hash: hash}
-	event.lastAncestors[fakeCreatorID] = EventCoordinates{index: index, hash: hash}
+	event.firstDescendants[creatorID] = EventCoordinates{index: index, hash: hash}
+	event.lastAncestors[creatorID] = EventCoordinates{index: index, hash: hash}
 
 	return nil
 }
 
 //update first decendant of each last ancestor to point to event
 func (h *Hashgraph) UpdateAncestorFirstDescendant(event Event) error {
-	fakeCreatorID, ok := h.Participants[event.Creator()]
+	creatorID, ok := h.Participants[event.Creator()]
 	if !ok {
-		return fmt.Errorf("Could not find creator fake id (%s)", event.Creator())
+		return fmt.Errorf("Could not find creator id (%s)", event.Creator())
 	}
 	index := event.Index()
 	hash := event.Hex()
@@ -518,8 +518,8 @@ func (h *Hashgraph) UpdateAncestorFirstDescendant(event Event) error {
 			if err != nil {
 				break
 			}
-			if a.firstDescendants[fakeCreatorID].index == math.MaxInt32 {
-				a.firstDescendants[fakeCreatorID] = EventCoordinates{index: index, hash: hash}
+			if a.firstDescendants[creatorID].index == math.MaxInt32 {
+				a.firstDescendants[creatorID] = EventCoordinates{index: index, hash: hash}
 				if err := h.Store.SetEvent(a); err != nil {
 					return err
 				}
@@ -825,8 +825,15 @@ func (h *Hashgraph) FindOrder() error {
 	sorter := NewConsensusSorter(newConsensusEvents)
 	sort.Sort(sorter)
 
-	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	//XXX move this to a special function
+	if err := h.handleNewConsensusEvents(newConsensusEvents); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (h *Hashgraph) handleNewConsensusEvents(newConsensusEvents []Event) error {
+
 	blockMap := make(map[int][][]byte) // [RoundReceived] => []Transactions
 	blockOrder := []int{}              // [index] => RoundReceived
 	for _, e := range newConsensusEvents {
@@ -851,7 +858,7 @@ func (h *Hashgraph) FindOrder() error {
 	for _, rr := range blockOrder {
 		blockTxs, _ := blockMap[rr]
 		if len(blockTxs) > 0 {
-			block, err := h.CreateAndInsertBlock(rr, blockTxs)
+			block, err := h.createAndInsertBlock(rr, blockTxs)
 			if err != nil {
 				return err
 			}
@@ -860,12 +867,11 @@ func (h *Hashgraph) FindOrder() error {
 			}
 		}
 	}
-	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 	return nil
 }
 
-func (h *Hashgraph) CreateAndInsertBlock(roundReceived int, txs [][]byte) (Block, error) {
+func (h *Hashgraph) createAndInsertBlock(roundReceived int, txs [][]byte) (Block, error) {
 	block := NewBlock(h.LastBlockIndex+1, roundReceived, txs)
 	if err := h.Store.SetBlock(block); err != nil {
 		return Block{}, err
