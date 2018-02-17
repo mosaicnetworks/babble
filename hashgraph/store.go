@@ -20,10 +20,6 @@ type Store interface {
 	GetRoot(string) (Root, error)
 	GetBlock(int) (Block, error)
 	SetBlock(Block) error
-	ParticipantBlockSignatures(string, int) ([]BlockSignature, error)
-	ParticipantBlockSignature(string, int) (BlockSignature, error)
-	LastBlockSignatureFrom(string) (BlockSignature, error)
-	KnownBlockSignatures() map[int]int
 	Reset(map[string]Root) error
 	Close() error
 }

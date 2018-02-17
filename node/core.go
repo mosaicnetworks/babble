@@ -8,7 +8,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/babbleio/babble/common"
 	"github.com/babbleio/babble/crypto"
 	hg "github.com/babbleio/babble/hashgraph"
 )
@@ -25,7 +24,8 @@ type Core struct {
 	Head                string
 	Seq                 int
 
-	transactionPool [][]byte
+	transactionPool    [][]byte
+	blockSignaturePool []hg.BlockSignature
 
 	logger *logrus.Logger
 }
@@ -54,6 +54,7 @@ func NewCore(
 		participants:        participants,
 		reverseParticipants: reverseParticipants,
 		transactionPool:     [][]byte{},
+		blockSignaturePool:  []hg.BlockSignature{},
 		logger:              logger,
 	}
 	return core
@@ -80,7 +81,7 @@ func (c *Core) HexID() string {
 
 func (c *Core) Init() error {
 	//Create and save the first Event
-	initialEvent := hg.NewEvent([][]byte(nil),
+	initialEvent := hg.NewEvent([][]byte(nil), nil,
 		[]string{"", ""},
 		c.PubKey(),
 		c.Seq)
@@ -153,19 +154,15 @@ func (c *Core) KnownEvents() map[int]int {
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-func (c *Core) SignBlock(block hg.Block) error {
+func (c *Core) SignBlock(block hg.Block) (hg.BlockSignature, error) {
 	sig, err := block.Sign(c.key)
 	if err != nil {
-		return err
+		return hg.BlockSignature{}, err
 	}
 	if err := block.SetSignature(sig); err != nil {
-		return err
+		return hg.BlockSignature{}, err
 	}
-	return c.hg.Store.SetBlock(block)
-}
-
-func (c *Core) KnownBlockSignatures() map[int]int {
-	return c.hg.KnownBlockSignatures()
+	return sig, c.hg.Store.SetBlock(block)
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -214,26 +211,12 @@ func (c *Core) EventDiff(known map[int]int) (events []hg.Event, err error) {
 	return unknown, nil
 }
 
-func (c *Core) BlockSignatureDiff(known map[int]int) (blockSignatures []hg.BlockSignature, err error) {
-	unknown := []hg.BlockSignature{}
-	for id, rr := range known {
-		pk := c.reverseParticipants[id]
-		participantSigs, err := c.hg.Store.ParticipantBlockSignatures(pk, rr)
-		if err != nil {
-			return []hg.BlockSignature{}, err
-		}
-		unknown = append(unknown, participantSigs...)
-	}
-	//XXX TODO sort by block index
-	return unknown, nil
-}
-
-func (c *Core) Sync(unknownEvents []hg.WireEvent, unknownBlockSignatures []hg.BlockSignature) error {
+func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 
 	c.logger.WithFields(logrus.Fields{
-		"unknown_events":     len(unknownEvents),
-		"unknown_signatures": len(unknownBlockSignatures),
-		"txPool":             len(c.transactionPool),
+		"unknown_events":       len(unknownEvents),
+		"transaction_pool":     len(c.transactionPool),
+		"block_signature_pool": len(c.blockSignaturePool),
 	}).Debug("Sync")
 
 	otherHead := ""
@@ -252,33 +235,13 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent, unknownBlockSignatures []hg.Bl
 		}
 	}
 
-	for _, s := range unknownBlockSignatures {
-		block, err := c.hg.Store.GetBlock(s.Index)
-		if err != nil && common.Is(err, common.KeyNotFound) {
-			//We haven't computed this block yet
-			//XXX could be smart and stash the signature anyway
-			return nil
-		}
-		if ok, err := block.Verify(s); !ok {
-			c.logger.WithFields(logrus.Fields{
-				"index": block.Index(),
-				"error": err,
-			}).Error("verifying block signature")
-		}
-
-		if err := block.SetSignature(s); err != nil {
-			return err
-		}
-
-		if err := c.hg.Store.SetBlock(block); err != nil {
-			return err
-		}
-	}
-
 	//create new event with self head and other head
-	//only if there are pending loaded events or the transaction pool is not empty
-	if len(unknownEvents) > 0 || len(c.transactionPool) > 0 {
-		newHead := hg.NewEvent(c.transactionPool,
+	//only if there are pending loaded events or the pools are not empty
+	if len(unknownEvents) > 0 ||
+		len(c.transactionPool) > 0 ||
+		len(c.blockSignaturePool) > 0 {
+
+		newHead := hg.NewEvent(c.transactionPool, c.blockSignaturePool,
 			[]string{c.Head, otherHead},
 			c.PubKey(),
 			c.Seq+1)
@@ -287,22 +250,24 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent, unknownBlockSignatures []hg.Bl
 			return fmt.Errorf("Error inserting new head: %s", err)
 		}
 
-		//empty the transaction pool
+		//empty the pools
 		c.transactionPool = [][]byte{}
+		c.blockSignaturePool = []hg.BlockSignature{}
 	}
 
 	return nil
 }
 
 func (c *Core) AddSelfEvent() error {
-	if len(c.transactionPool) == 0 {
-		c.logger.Debug("Empty TxPool")
+	if len(c.transactionPool) == 0 && len(c.blockSignaturePool) == 0 {
+		c.logger.Debug("Empty transaction pool and block signature pool")
 		return nil
 	}
 
 	//create new event with self head and empty other parent
 	//empty transaction pool in its payload
 	newHead := hg.NewEvent(c.transactionPool,
+		c.blockSignaturePool,
 		[]string{c.Head, ""},
 		c.PubKey(), c.Seq+1)
 
@@ -311,10 +276,12 @@ func (c *Core) AddSelfEvent() error {
 	}
 
 	c.logger.WithFields(logrus.Fields{
-		"transactions": len(c.transactionPool),
+		"transactions":     len(c.transactionPool),
+		"block_signatures": len(c.blockSignaturePool),
 	}).Debug("Created Self-Event")
 
 	c.transactionPool = [][]byte{}
+	c.blockSignaturePool = []hg.BlockSignature{}
 
 	return nil
 }
@@ -369,6 +336,10 @@ func (c *Core) RunConsensus() error {
 
 func (c *Core) AddTransactions(txs [][]byte) {
 	c.transactionPool = append(c.transactionPool, txs...)
+}
+
+func (c *Core) AddBlockSignature(bs hg.BlockSignature) {
+	c.blockSignaturePool = append(c.blockSignaturePool, bs)
 }
 
 func (c *Core) GetHead() (hg.Event, error) {
@@ -434,5 +405,7 @@ func (c *Core) GetLastBlockIndex() int {
 }
 
 func (c *Core) NeedGossip() bool {
-	return c.hg.PendingLoadedEvents > 0 || len(c.transactionPool) > 0
+	return c.hg.PendingLoadedEvents > 0 ||
+		len(c.transactionPool) > 0 ||
+		len(c.blockSignaturePool) > 0
 }

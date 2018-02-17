@@ -30,15 +30,10 @@ func TestNetworkTransport_Sync(t *testing.T) {
 	// Make the RPC request
 	args := SyncRequest{
 		FromID: 0,
-		KnownEvents: map[int]int{
+		Known: map[int]int{
 			0: 1,
 			1: 2,
 			2: 3,
-		},
-		KnownBlockSignatures: map[int]int{
-			0: -1,
-			1: -1,
-			2: -1,
 		},
 	}
 	resp := SyncResponse{
@@ -54,22 +49,10 @@ func TestNetworkTransport_Sync(t *testing.T) {
 				},
 			},
 		},
-		BlockSignatures: []hashgraph.BlockSignature{
-			hashgraph.BlockSignature{
-				Validator: []byte("validator pub key"),
-				Index:     0,
-				Signature: "r|s",
-			},
-		},
-		KnownEvents: map[int]int{
+		Known: map[int]int{
 			0: 5,
 			1: 5,
 			2: 6,
-		},
-		KnownBlockSignatures: map[int]int{
-			0: 1,
-			1: 2,
-			2: 3,
 		},
 	}
 
@@ -131,13 +114,6 @@ func TestNetworkTransport_EagerSync(t *testing.T) {
 				},
 			},
 		},
-		BlockSignatures: []hashgraph.BlockSignature{
-			hashgraph.BlockSignature{
-				Validator: []byte("validator pub key"),
-				Index:     0,
-				Signature: "r|s",
-			},
-		},
 	}
 	resp := EagerSyncResponse{
 		FromID:  1,
@@ -191,15 +167,10 @@ func TestNetworkTransport_PooledConn(t *testing.T) {
 	// Make the RPC request
 	args := SyncRequest{
 		FromID: 0,
-		KnownEvents: map[int]int{
+		Known: map[int]int{
 			0: 1,
 			1: 2,
 			2: 3,
-		},
-		KnownBlockSignatures: map[int]int{
-			0: -1,
-			1: -1,
-			2: -1,
 		},
 	}
 	resp := SyncResponse{
@@ -215,22 +186,10 @@ func TestNetworkTransport_PooledConn(t *testing.T) {
 				},
 			},
 		},
-		BlockSignatures: []hashgraph.BlockSignature{
-			hashgraph.BlockSignature{
-				Validator: []byte("validator pub key"),
-				Index:     0,
-				Signature: "r|s",
-			},
-		},
-		KnownEvents: map[int]int{
+		Known: map[int]int{
 			0: 5,
 			1: 5,
 			2: 6,
-		},
-		KnownBlockSignatures: map[int]int{
-			0: 1,
-			1: 2,
-			2: 3,
 		},
 	}
 

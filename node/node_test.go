@@ -81,9 +81,7 @@ func TestProcessSync(t *testing.T) {
 	//Manually prepare SyncRequest and expected SyncResponse
 
 	node0KnownEvents := node0.core.KnownEvents()
-	node0KnownSignatures := node0.core.KnownBlockSignatures()
 	node1KnownEvents := node1.core.KnownEvents()
-	node1KnownSignatures := node1.core.KnownBlockSignatures()
 
 	unknownEvents, err := node1.core.EventDiff(node0KnownEvents)
 	if err != nil {
@@ -96,15 +94,13 @@ func TestProcessSync(t *testing.T) {
 	}
 
 	args := net.SyncRequest{
-		FromID:               node0.id,
-		KnownEvents:          node0KnownEvents,
-		KnownBlockSignatures: node0KnownSignatures,
+		FromID: node0.id,
+		Known:  node0KnownEvents,
 	}
 	expectedResp := net.SyncResponse{
-		FromID:               node1.id,
-		Events:               unknownWireEvents,
-		KnownEvents:          node1KnownEvents,
-		KnownBlockSignatures: node1KnownSignatures,
+		FromID: node1.id,
+		Events: unknownWireEvents,
+		Known:  node1KnownEvents,
 	}
 
 	//Make actual SyncRequest and check SyncResponse
@@ -132,14 +128,9 @@ func TestProcessSync(t *testing.T) {
 		}
 	}
 
-	if !reflect.DeepEqual(expectedResp.KnownEvents, out.KnownEvents) {
+	if !reflect.DeepEqual(expectedResp.Known, out.Known) {
 		t.Fatalf("SyncResponse.KnownEvents should be %#v, not %#v",
-			expectedResp.KnownEvents, out.KnownEvents)
-	}
-
-	if !reflect.DeepEqual(expectedResp.KnownBlockSignatures, out.KnownBlockSignatures) {
-		t.Fatalf("SyncResponse.KnownBlockSignatures should be %#v, not %#v",
-			expectedResp.KnownBlockSignatures, out.KnownBlockSignatures)
+			expectedResp.Known, out.Known)
 	}
 
 	node0.Shutdown()
@@ -266,8 +257,8 @@ func TestAddTransaction(t *testing.T) {
 
 	node0KnownEvents := node0.core.KnownEvents()
 	args := net.SyncRequest{
-		FromID:      node0.id,
-		KnownEvents: node0KnownEvents,
+		FromID: node0.id,
+		Known:  node0KnownEvents,
 	}
 
 	var out net.SyncResponse
@@ -275,7 +266,7 @@ func TestAddTransaction(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := node0.sync(out.Events, nil); err != nil {
+	if err := node0.sync(out.Events); err != nil {
 		t.Fatal(err)
 	}
 
@@ -446,8 +437,8 @@ func TestSyncLimit(t *testing.T) {
 	}
 
 	args := net.SyncRequest{
-		FromID:      nodes[0].id,
-		KnownEvents: node0KnownEvents,
+		FromID: nodes[0].id,
+		Known:  node0KnownEvents,
 	}
 	expectedResp := net.SyncResponse{
 		FromID:    nodes[1].id,

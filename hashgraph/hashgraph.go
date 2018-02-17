@@ -363,7 +363,7 @@ func (h *Hashgraph) InsertEvent(event Event, setWireInfo bool) error {
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("Invalid signature")
+		return fmt.Errorf("Invalid Event signature")
 	}
 
 	if err := h.CheckSelfParent(event); err != nil {
@@ -401,7 +401,55 @@ func (h *Hashgraph) InsertEvent(event Event, setWireInfo bool) error {
 		h.PendingLoadedEvents++
 	}
 
+	h.recordBlockSignatures(event.BlockSignatures())
+
 	return nil
+}
+
+func (h *Hashgraph) recordBlockSignatures(blockSignatures []BlockSignature) {
+	for _, bs := range blockSignatures {
+		//check if validator belongs to list of participants
+		validatorHex := fmt.Sprintf("0x%X", bs.Validator)
+		if _, ok := h.Participants[validatorHex]; !ok {
+			h.logger.WithFields(logrus.Fields{
+				"index":     bs.Index,
+				"validator": validatorHex,
+			}).Warning("Verifying Block signature. Unknown validator")
+			continue
+		}
+
+		block, err := h.Store.GetBlock(bs.Index)
+		if err != nil {
+			h.logger.WithFields(logrus.Fields{
+				"index": bs.Index,
+				"msg":   err,
+			}).Warning("Verifying Block signature. Could not fetch Block")
+			continue
+		}
+		valid, err := block.Verify(bs)
+		if err != nil {
+			h.logger.WithFields(logrus.Fields{
+				"index": bs.Index,
+				"msg":   err,
+			}).Warning("Verifying Block signature")
+			continue
+		}
+		if !valid {
+			h.logger.WithFields(logrus.Fields{
+				"index": bs.Index,
+			}).Warning("Verifying Block signature. Invalid signature")
+			continue
+		}
+
+		block.SetSignature(bs)
+
+		if err := h.Store.SetBlock(block); err != nil {
+			h.logger.WithFields(logrus.Fields{
+				"index": bs.Index,
+				"msg":   err,
+			}).Warning("Saving Block")
+		}
+	}
 }
 
 //Check the SelfParent is the Creator's last known Event
@@ -596,9 +644,10 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 	}
 
 	body := EventBody{
-		Transactions: wevent.Body.Transactions,
-		Parents:      []string{selfParent, otherParent},
-		Creator:      creatorBytes,
+		Transactions:    wevent.Body.Transactions,
+		BlockSignatures: wevent.BlockSignatures(creatorBytes),
+		Parents:         []string{selfParent, otherParent},
+		Creator:         creatorBytes,
 
 		Timestamp:            wevent.Body.Timestamp,
 		Index:                wevent.Body.Index,
@@ -897,11 +946,6 @@ func (h *Hashgraph) ConsensusEvents() []string {
 //last event index per participant
 func (h *Hashgraph) KnownEvents() map[int]int {
 	return h.Store.KnownEvents()
-}
-
-//round_received of last block signature per participant
-func (h *Hashgraph) KnownBlockSignatures() map[int]int {
-	return h.Store.KnownBlockSignatures()
 }
 
 func (h *Hashgraph) Reset(roots map[string]Root) error {

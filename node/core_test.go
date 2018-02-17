@@ -69,21 +69,21 @@ func initHashgraph(cores []Core, keys []*ecdsa.PrivateKey, index map[string]stri
 		}
 	}
 
-	event01 := hg.NewEvent([][]byte{},
+	event01 := hg.NewEvent([][]byte{}, nil,
 		[]string{index["e0"], index["e1"]}, //e0 and e1
 		cores[0].PubKey(), 1)
 	if err := insertEvent(cores, keys, index, event01, "e01", participant, 0); err != nil {
 		fmt.Printf("error inserting e01: %s\n", err)
 	}
 
-	event20 := hg.NewEvent([][]byte{},
+	event20 := hg.NewEvent([][]byte{}, nil,
 		[]string{index["e2"], index["e01"]}, //e2 and e01
 		cores[2].PubKey(), 1)
 	if err := insertEvent(cores, keys, index, event20, "e20", participant, 2); err != nil {
 		fmt.Printf("error inserting e20: %s\n", err)
 	}
 
-	event12 := hg.NewEvent([][]byte{},
+	event12 := hg.NewEvent([][]byte{}, nil,
 		[]string{index["e1"], index["e20"]}, //e1 and e20
 		cores[1].PubKey(), 1)
 	if err := insertEvent(cores, keys, index, event12, "e12", participant, 1); err != nil {
@@ -147,44 +147,6 @@ func TestEventDiff(t *testing.T) {
 		}
 	}
 
-}
-
-func TestBlockDiff(t *testing.T) {
-	cores, keys, index := initCores(3, t)
-
-	initHashgraph(cores, keys, index, 0)
-
-	blocks := make([]hg.Block, 4)
-	for i := 0; i < 4; i++ {
-		block := hg.NewBlock(i, i, [][]byte(nil))
-		for _, c := range cores {
-			sig, err := block.Sign(c.key)
-			if err != nil {
-				t.Fatal(err)
-			}
-			block.SetSignature(sig)
-		}
-		blocks[i] = block
-	}
-
-	//make only core0 record all the signatures
-	for _, b := range blocks {
-		if err := cores[0].hg.Store.SetBlock(b); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	//check diff between core0 and core1
-	knownBy1 := cores[1].KnownBlockSignatures()
-	unknownBy1, err := cores[0].BlockSignatureDiff(knownBy1)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	//4 blocks and 3 participants => 12 BlockSignatures
-	if l := len(unknownBy1); l != 12 {
-		t.Fatalf("length of unknown should be 12, not %d", l)
-	}
 }
 
 func TestSync(t *testing.T) {
@@ -563,7 +525,7 @@ func synchronizeCores(cores []Core, from int, to int, payload [][]byte) error {
 
 	cores[to].AddTransactions(payload)
 
-	return cores[to].Sync(unknownWire, nil)
+	return cores[to].Sync(unknownWire)
 }
 
 func syncAndRunConsensus(cores []Core, from int, to int, payload [][]byte) error {

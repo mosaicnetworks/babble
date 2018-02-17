@@ -73,6 +73,18 @@ func (bs *BlockSignature) Unmarshal(data []byte) error {
 	return nil
 }
 
+func (bs *BlockSignature) ToWire() WireBlockSignature {
+	return WireBlockSignature{
+		Index:     bs.Index,
+		Signature: bs.Signature,
+	}
+}
+
+type WireBlockSignature struct {
+	Index     int
+	Signature string
+}
+
 //------------------------------------------------------------------------------
 
 type Block struct {

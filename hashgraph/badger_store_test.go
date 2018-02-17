@@ -149,7 +149,9 @@ func TestDBEventMethods(t *testing.T) {
 	for _, p := range participants {
 		items := []Event{}
 		for k := 0; k < testSize; k++ {
-			event := NewEvent([][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], k))},
+			event := NewEvent(
+				[][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], k))},
+				[]BlockSignature{BlockSignature{Validator: []byte("validator"), Index: 0, Signature: "r|s"}},
 				[]string{"", ""},
 				p.pubKey,
 				k)
@@ -249,6 +251,7 @@ func TestDBRoundMethods(t *testing.T) {
 	events := make(map[string]Event)
 	for _, p := range participants {
 		event := NewEvent([][]byte{},
+			[]BlockSignature{},
 			[]string{"", ""},
 			p.pubKey,
 			0)
@@ -372,31 +375,6 @@ func TestDBBlockMethods(t *testing.T) {
 			t.Fatal("Validator2 block signatures differ")
 		}
 	})
-
-	t.Run("Check signatures in ParticipantBlockSignaturesCache", func(t *testing.T) {
-		p1bs, err := store.dbParticipantBlockSignatures(participants[0].hex, -1)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if l := len(p1bs); l != 1 {
-			t.Fatalf("Validator1 ParticipantBlockSignatures should contain 1 item, not %d", l)
-		}
-		if cs1 := p1bs[0]; !reflect.DeepEqual(cs1, sig1) {
-			t.Fatalf("ParticipantBlockSignature[validator1][0] should be %v, not %v", sig1, cs1)
-		}
-
-		p2bs, err := store.dbParticipantBlockSignatures(participants[1].hex, -1)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if l := len(p2bs); l != 1 {
-			t.Fatalf("Validator2 ParticipantBlockSignatures should contain 1 item, not %d", l)
-		}
-		if cs2 := p2bs[0]; !reflect.DeepEqual(cs2, sig2) {
-			t.Fatalf("ParticipantBlockSignature[validator2][0] should be %v, not %v", sig2, cs2)
-		}
-	})
-
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -416,6 +394,7 @@ func TestBadgerEvents(t *testing.T) {
 		items := []Event{}
 		for k := 0; k < testSize; k++ {
 			event := NewEvent([][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], k))},
+				[]BlockSignature{BlockSignature{Validator: []byte("validator"), Index: 0, Signature: "r|s"}},
 				[]string{"", ""},
 				p.pubKey,
 				k)
@@ -507,6 +486,7 @@ func TestBadgerRounds(t *testing.T) {
 	events := make(map[string]Event)
 	for _, p := range participants {
 		event := NewEvent([][]byte{},
+			[]BlockSignature{},
 			[]string{"", ""},
 			p.pubKey,
 			0)
@@ -608,52 +588,5 @@ func TestBadgerBlocks(t *testing.T) {
 		if val2Sig != sig2.Signature {
 			t.Fatal("Validator2 block signatures differ")
 		}
-	})
-
-	t.Run("Check signatures in ParticipantBlockSignaturesCache", func(t *testing.T) {
-		p1bs, err := store.ParticipantBlockSignatures(participants[0].hex, -1)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if l := len(p1bs); l != 1 {
-			t.Fatalf("Validator1 ParticipantBlockSignatures should contain 1 item, not %d", l)
-		}
-		if cs1 := p1bs[0]; !reflect.DeepEqual(cs1, sig1) {
-			t.Fatalf("ParticipantBlockSignature[validator1][0] should be %v, not %v", sig1, cs1)
-		}
-
-		p2bs, err := store.ParticipantBlockSignatures(participants[1].hex, -1)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if l := len(p2bs); l != 1 {
-			t.Fatalf("Validator2 ParticipantBlockSignatures should contain 1 item, not %d", l)
-		}
-		if cs2 := p2bs[0]; !reflect.DeepEqual(cs2, sig2) {
-			t.Fatalf("ParticipantBlockSignature[validator2][0] should be %v, not %v", sig2, cs2)
-		}
-	})
-
-	t.Run("Check retrieving a specific signature", func(t *testing.T) {
-		p1bs, err := store.ParticipantBlockSignature(participants[0].hex, 0)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !reflect.DeepEqual(p1bs, sig1) {
-			t.Fatalf("Validator1's BlockSignature for RoundReceived 0 should be %v, not %v", sig1, p1bs)
-		}
-	})
-
-	t.Run("Test KnownBlockSignatures", func(t *testing.T) {
-		known := store.KnownBlockSignatures()
-		expectedKnown := make(map[int]int)
-		expectedKnown[participants[0].id] = 0
-		expectedKnown[participants[1].id] = 0
-		expectedKnown[participants[2].id] = -1
-
-		if !reflect.DeepEqual(expectedKnown, known) {
-			t.Fatalf("Incorrect KnownBlockSignatures. Got %#v, expected %#v", known, expectedKnown)
-		}
-
 	})
 }

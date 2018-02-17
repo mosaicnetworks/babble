@@ -7,17 +7,16 @@ import (
 )
 
 type InmemStore struct {
-	cacheSize                       int
-	participants                    map[string]int
-	eventCache                      *cm.LRU
-	roundCache                      *cm.LRU
-	blockCache                      *cm.LRU
-	consensusCache                  *cm.RollingIndex
-	totConsensusEvents              int
-	participantEventsCache          *ParticipantEventsCache
-	participantBlockSignaturesCache *ParticipantBlockSignaturesCache
-	roots                           map[string]Root
-	lastRound                       int
+	cacheSize              int
+	participants           map[string]int
+	eventCache             *cm.LRU
+	roundCache             *cm.LRU
+	blockCache             *cm.LRU
+	consensusCache         *cm.RollingIndex
+	totConsensusEvents     int
+	participantEventsCache *ParticipantEventsCache
+	roots                  map[string]Root
+	lastRound              int
 }
 
 func NewInmemStore(participants map[string]int, cacheSize int) *InmemStore {
@@ -26,14 +25,13 @@ func NewInmemStore(participants map[string]int, cacheSize int) *InmemStore {
 		roots[pk] = NewBaseRoot()
 	}
 	return &InmemStore{
-		cacheSize:                       cacheSize,
-		participants:                    participants,
-		eventCache:                      cm.NewLRU(cacheSize, nil),
-		roundCache:                      cm.NewLRU(cacheSize, nil),
-		blockCache:                      cm.NewLRU(cacheSize, nil),
-		consensusCache:                  cm.NewRollingIndex(cacheSize),
-		participantEventsCache:          NewParticipantEventsCache(cacheSize, participants),
-		participantBlockSignaturesCache: NewParticipantBlockSignaturesCache(cacheSize, participants),
+		cacheSize:              cacheSize,
+		participants:           participants,
+		eventCache:             cm.NewLRU(cacheSize, nil),
+		roundCache:             cm.NewLRU(cacheSize, nil),
+		blockCache:             cm.NewLRU(cacheSize, nil),
+		consensusCache:         cm.NewRollingIndex(cacheSize),
+		participantEventsCache: NewParticipantEventsCache(cacheSize, participants),
 		roots:     roots,
 		lastRound: -1,
 	}
@@ -184,30 +182,9 @@ func (s *InmemStore) SetBlock(block Block) error {
 		return err
 	}
 	s.blockCache.Add(block.Index(), block)
-	for participant, _ := range block.Signatures {
-		blockSig, _ := block.GetSignature(participant)
-		if err := s.participantBlockSignaturesCache.Set(participant, blockSig); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
-func (s *InmemStore) ParticipantBlockSignatures(participant string, skip int) ([]BlockSignature, error) {
-	return s.participantBlockSignaturesCache.Get(participant, skip)
-}
-
-func (s *InmemStore) ParticipantBlockSignature(participant string, index int) (BlockSignature, error) {
-	return s.participantBlockSignaturesCache.GetItem(participant, index)
-}
-
-func (s *InmemStore) LastBlockSignatureFrom(participant string) (BlockSignature, error) {
-	return s.participantBlockSignaturesCache.GetLast(participant)
-}
-
-func (s *InmemStore) KnownBlockSignatures() map[int]int {
-	return s.participantBlockSignaturesCache.Known()
-}
 func (s *InmemStore) Reset(roots map[string]Root) error {
 	s.roots = roots
 	s.eventCache = cm.NewLRU(s.cacheSize, nil)
