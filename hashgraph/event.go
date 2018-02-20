@@ -167,14 +167,14 @@ func (e *Event) Unmarshal(data []byte) error {
 	return dec.Decode(e)
 }
 
-//sha256 hash of body and signature
+//sha256 hash of body
 func (e *Event) Hash() ([]byte, error) {
 	if len(e.hash) == 0 {
-		hashBytes, err := e.Marshal()
+		hash, err := e.Body.Hash()
 		if err != nil {
 			return nil, err
 		}
-		e.hash = crypto.SHA256(hashBytes)
+		e.hash = hash
 	}
 	return e.hash, nil
 }

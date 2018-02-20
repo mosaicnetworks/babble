@@ -82,7 +82,14 @@ func (c *Core) Init() error {
 		[]string{"", ""},
 		c.PubKey(),
 		c.Seq)
-	return c.SignAndInsertSelfEvent(initialEvent)
+	//We want to make the initial Event deterministic so that when a node is
+	//restarted it will initilaize the same Event. cf. issues 19 and 10
+	initialEvent.Body.Timestamp = time.Time{}.UTC()
+	err := c.SignAndInsertSelfEvent(initialEvent)
+	c.logger.WithFields(logrus.Fields{
+		"index": initialEvent.Index(),
+		"hash":  initialEvent.Hex()}).Debug("Initial Event")
+	return err
 }
 
 func (c *Core) Bootstrap() error {

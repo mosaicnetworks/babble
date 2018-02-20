@@ -70,6 +70,12 @@ func TestRollingIndexSkip(t *testing.T) {
 	size := 10
 	testSize := 25
 	RollingIndex := NewRollingIndex(size)
+
+	_, err := RollingIndex.Get(-1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	items := []string{}
 	for i := 0; i < testSize; i++ {
 		item := fmt.Sprintf("item%d", i)

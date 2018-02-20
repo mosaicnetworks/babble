@@ -359,7 +359,7 @@ func (h *Hashgraph) InsertEvent(event Event, setWireInfo bool) error {
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("Invalid signature")
+		return fmt.Errorf("Invalid Event signature")
 	}
 
 	if err := h.CheckSelfParent(event); err != nil {

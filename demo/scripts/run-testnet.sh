@@ -23,7 +23,7 @@ do
     --client_addr="172.77.5.$(($N+$i)):1339" \
     --service_addr="172.77.5.$i:80" \
     --sync_limit=500 \
-    --store=inmem
+    --store="inmem"
     docker cp $MPWD/conf/node$i node$i:/.babble
     docker start node$i
 
