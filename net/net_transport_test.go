@@ -154,6 +154,7 @@ func TestNetworkTransport_EagerSync(t *testing.T) {
 		t.Fatalf("command mismatch: %#v %#v", resp, out)
 	}
 }
+
 func TestNetworkTransport_PooledConn(t *testing.T) {
 	// Transport 1 is consumer
 	trans1, err := NewTCPTransport("127.0.0.1:0", nil, 2, time.Second, common.NewTestLogger(t))
@@ -184,6 +185,11 @@ func TestNetworkTransport_PooledConn(t *testing.T) {
 					CreatorID:            9,
 				},
 			},
+		},
+		Known: map[int]int{
+			0: 5,
+			1: 5,
+			2: 6,
 		},
 	}
 

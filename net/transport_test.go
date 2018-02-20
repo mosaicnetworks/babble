@@ -62,7 +62,7 @@ func TestTransport_Sync(t *testing.T) {
 				},
 			},
 			Known: map[int]int{
-				0: 4,
+				0: 5,
 				1: 5,
 				2: 6,
 			},
@@ -102,6 +102,7 @@ func TestTransport_Sync(t *testing.T) {
 		}
 	}
 }
+
 func TestTransport_EagerSync(t *testing.T) {
 	for ttype := 0; ttype < numTestTransports; ttype++ {
 		addr1, trans1 := NewTestTransport(ttype, "")

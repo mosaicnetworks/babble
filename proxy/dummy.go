@@ -29,7 +29,7 @@ func (a *State) writeBlock(block hashgraph.Block) error {
 	defer file.Close()
 
 	// write some text to file
-	for _, tx := range block.Transactions {
+	for _, tx := range block.Transactions() {
 		_, err = file.WriteString(fmt.Sprintf("%s\n", string(tx)))
 		if err != nil {
 			a.logger.Error(err)

@@ -27,88 +27,176 @@ func NewBaseParentRoundInfo() ParentRoundInfo {
 	}
 }
 
+func getValues(mapping map[string]int) []int {
+	keys := make([]int, len(mapping))
+	i := 0
+	for _, id := range mapping {
+		keys[i] = id
+		i++
+	}
+	return keys
+}
+
+//------------------------------------------------------------------------------
+
 type ParticipantEventsCache struct {
-	size              int
-	participants      map[string]int //[public key] => id
-	participantEvents map[string]*cm.RollingIndex
+	participants map[string]int
+	rim          *cm.RollingIndexMap
 }
 
 func NewParticipantEventsCache(size int, participants map[string]int) *ParticipantEventsCache {
-	items := make(map[string]*cm.RollingIndex)
-	for pk, _ := range participants {
-		items[pk] = cm.NewRollingIndex(size)
-	}
 	return &ParticipantEventsCache{
-		size:              size,
-		participants:      participants,
-		participantEvents: items,
+		participants: participants,
+		rim:          cm.NewRollingIndexMap(size, getValues(participants)),
 	}
+}
+
+func (pec *ParticipantEventsCache) participantID(participant string) (int, error) {
+	id, ok := pec.participants[participant]
+	if !ok {
+		return -1, cm.NewStoreErr(cm.UnknownParticipant, participant)
+	}
+	return id, nil
 }
 
 //return participant events with index > skip
 func (pec *ParticipantEventsCache) Get(participant string, skipIndex int) ([]string, error) {
-	pe, ok := pec.participantEvents[participant]
-	if !ok {
-		return []string{}, cm.NewStoreErr(cm.KeyNotFound, participant)
-	}
-
-	cached, err := pe.Get(skipIndex)
+	id, err := pec.participantID(participant)
 	if err != nil {
 		return []string{}, err
 	}
 
-	res := []string{}
-	for k := 0; k < len(cached); k++ {
-		res = append(res, cached[k].(string))
+	pe, err := pec.rim.Get(id, skipIndex)
+	if err != nil {
+		return []string{}, err
+	}
+
+	res := make([]string, len(pe))
+	for k := 0; k < len(pe); k++ {
+		res[k] = pe[k].(string)
 	}
 	return res, nil
 }
 
 func (pec *ParticipantEventsCache) GetItem(participant string, index int) (string, error) {
-	res, err := pec.participantEvents[participant].GetItem(index)
+	id, err := pec.participantID(participant)
 	if err != nil {
 		return "", err
 	}
-	return res.(string), nil
+
+	item, err := pec.rim.GetItem(id, index)
+	if err != nil {
+		return "", err
+	}
+	return item.(string), nil
 }
 
 func (pec *ParticipantEventsCache) GetLast(participant string) (string, error) {
-	pe, ok := pec.participantEvents[participant]
-	if !ok {
-		return "", cm.NewStoreErr(cm.KeyNotFound, participant)
+	id, err := pec.participantID(participant)
+	if err != nil {
+		return "", err
 	}
-	cached, _ := pe.GetLastWindow()
-	if len(cached) == 0 {
-		return "", nil
+
+	last, err := pec.rim.GetLast(id)
+	if err != nil {
+		return "", err
 	}
-	last := cached[len(cached)-1]
 	return last.(string), nil
 }
 
-func (pec *ParticipantEventsCache) Add(participant string, hash string, index int) error {
-	pe, ok := pec.participantEvents[participant]
-	if !ok {
-		pe = cm.NewRollingIndex(pec.size)
-		pec.participantEvents[participant] = pe
+func (pec *ParticipantEventsCache) Set(participant string, hash string, index int) error {
+	id, err := pec.participantID(participant)
+	if err != nil {
+		return err
 	}
-	return pe.Add(hash, index)
+	return pec.rim.Set(id, hash, index)
 }
 
 //returns [participant id] => lastKnownIndex
 func (pec *ParticipantEventsCache) Known() map[int]int {
-	known := make(map[int]int)
-	for p, evs := range pec.participantEvents {
-		_, lastIndex := evs.GetLastWindow()
-		known[pec.participants[p]] = lastIndex
-	}
-	return known
+	return pec.rim.Known()
 }
 
 func (pec *ParticipantEventsCache) Reset() error {
-	items := make(map[string]*cm.RollingIndex)
-	for pk := range pec.participants {
-		items[pk] = cm.NewRollingIndex(pec.size)
+	return pec.rim.Reset()
+}
+
+//------------------------------------------------------------------------------
+
+type ParticipantBlockSignaturesCache struct {
+	participants map[string]int
+	rim          *cm.RollingIndexMap
+}
+
+func NewParticipantBlockSignaturesCache(size int, participants map[string]int) *ParticipantBlockSignaturesCache {
+	return &ParticipantBlockSignaturesCache{
+		participants: participants,
+		rim:          cm.NewRollingIndexMap(size, getValues(participants)),
 	}
-	pec.participantEvents = items
-	return nil
+}
+
+func (psc *ParticipantBlockSignaturesCache) participantID(participant string) (int, error) {
+	id, ok := psc.participants[participant]
+	if !ok {
+		return -1, cm.NewStoreErr(cm.UnknownParticipant, participant)
+	}
+	return id, nil
+}
+
+//return participant BlockSignatures where index > skip
+func (psc *ParticipantBlockSignaturesCache) Get(participant string, skipIndex int) ([]BlockSignature, error) {
+	id, err := psc.participantID(participant)
+	if err != nil {
+		return []BlockSignature{}, err
+	}
+
+	ps, err := psc.rim.Get(id, skipIndex)
+	if err != nil {
+		return []BlockSignature{}, err
+	}
+
+	res := make([]BlockSignature, len(ps))
+	for k := 0; k < len(ps); k++ {
+		res[k] = ps[k].(BlockSignature)
+	}
+	return res, nil
+}
+
+func (psc *ParticipantBlockSignaturesCache) GetItem(participant string, index int) (BlockSignature, error) {
+	id, err := psc.participantID(participant)
+	if err != nil {
+		return BlockSignature{}, err
+	}
+
+	item, err := psc.rim.GetItem(id, index)
+	if err != nil {
+		return BlockSignature{}, err
+	}
+	return item.(BlockSignature), nil
+}
+
+func (psc *ParticipantBlockSignaturesCache) GetLast(participant string) (BlockSignature, error) {
+	last, err := psc.rim.GetLast(psc.participants[participant])
+	if err != nil {
+		return BlockSignature{}, err
+	}
+	return last.(BlockSignature), nil
+}
+
+func (psc *ParticipantBlockSignaturesCache) Set(participant string, sig BlockSignature) error {
+	id, err := psc.participantID(participant)
+	if err != nil {
+		return err
+	}
+
+	return psc.rim.Set(id, sig, sig.Index)
+}
+
+//returns [participant id] => last BlockSignature Index
+func (psc *ParticipantBlockSignaturesCache) Known() map[int]int {
+	return psc.rim.Known()
+}
+
+func (psc *ParticipantBlockSignaturesCache) Reset() error {
+	return psc.rim.Reset()
 }

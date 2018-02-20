@@ -7,4 +7,4 @@ import:
 - package: github.com/gorilla/mux
   version: ~1.5.0
 - package: github.com/dgraph-io/badger
-  version: 9f8b956593906e9092faa04268b4a73937be2486
+  version: ~1.3.0

@@ -10,6 +10,7 @@ const (
 	PassedIndex
 	SkippedIndex
 	NoRoot
+	UnknownParticipant
 )
 
 type StoreErr struct {
@@ -37,7 +38,10 @@ func (e StoreErr) Error() string {
 		m = "Skipped Index"
 	case NoRoot:
 		m = "No Root"
+	case UnknownParticipant:
+		m = "Unknown Participant"
 	}
+
 	return fmt.Sprintf("%s, %s", e.key, m)
 }
 

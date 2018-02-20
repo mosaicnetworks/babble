@@ -30,5 +30,3 @@ scripts/publish
 .idea/
 
 docs/_build
-
-hashgraph/test_data
