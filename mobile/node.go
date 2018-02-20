@@ -12,7 +12,6 @@ import (
 	"github.com/babbleio/babble/node"
 	"github.com/babbleio/babble/proxy"
 	aproxy "github.com/babbleio/babble/proxy/app"
-	"github.com/sirupsen/logrus"
 	// "github.com/babbleio/babble/crypto"
 	// hg "github.com/babbleio/babble/hashgraph"
 	// "github.com/babbleio/babble/net"
@@ -40,8 +39,7 @@ func New(peers string, privKey string, events *EventHandler, config *Config) *No
 		sub.message(netPeers[0].NetAddr)
 	}
 
-	logger := logrus.New()
-	logger.Level = logrus.DebugLevel
+	logger := Logger()
 
 	conf := node.NewConfig(
 		time.Duration(config.HeartBeat)*time.Millisecond,
@@ -50,7 +48,7 @@ func New(peers string, privKey string, events *EventHandler, config *Config) *No
 		config.SyncLimit,
 		"inmem",
 		"",
-		nil)
+		logger)
 
 	maxPool := config.MaxPool
 
@@ -104,7 +102,7 @@ func New(peers string, privKey string, events *EventHandler, config *Config) *No
 
 	//node.Run(true)
 
-	return &Node{}
+	return &Node{node: node}
 }
 
 func Hello(input string) string {
