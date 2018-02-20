@@ -37,12 +37,14 @@ func (k *PemKey) ReadKey() (*ecdsa.PrivateKey, error) {
 		return nil, err
 	}
 
-	// Check for no key
+	return k.ReadKeyFromBuf(buf)
+}
+
+func (k *PemKey) ReadKeyFromBuf(buf []byte) (*ecdsa.PrivateKey, error) {
 	if len(buf) == 0 {
 		return nil, nil
 	}
 
-	// Decode the PEM key
 	block, _ := pem.Decode(buf)
 	if block == nil {
 		return nil, fmt.Errorf("Error decoding PEM block from data")
