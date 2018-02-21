@@ -12,7 +12,7 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/sirupsen/logrus"
-	"gopkg.in/urfave/cli.v1"
+	cli "gopkg.in/urfave/cli.v1"
 
 	"github.com/babbleio/babble/crypto"
 	hg "github.com/babbleio/babble/hashgraph"
@@ -235,6 +235,7 @@ func run(c *cli.Context) error {
 	switch storeType {
 	case "inmem":
 		store = hg.NewInmemStore(pmap, conf.CacheSize)
+		needBootstrap = true
 	case "badger":
 		//If the file already exists, load and bootstrap the store using the file
 		if _, err := os.Stat(conf.StorePath); err == nil {
