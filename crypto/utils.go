@@ -4,18 +4,10 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/sha256"
 	"fmt"
 	"math/big"
 	"strings"
 )
-
-func SHA256(hashBytes []byte) []byte {
-	hasher := sha256.New()
-	hasher.Write(hashBytes)
-	hash := hasher.Sum(nil)
-	return hash
-}
 
 func GenerateECDSAKey() (*ecdsa.PrivateKey, error) {
 	return ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

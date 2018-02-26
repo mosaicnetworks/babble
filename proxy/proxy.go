@@ -4,7 +4,7 @@ import "github.com/babbleio/babble/hashgraph"
 
 type AppProxy interface {
 	SubmitCh() chan []byte
-	CommitBlock(block hashgraph.Block) error
+	CommitBlock(block hashgraph.Block) ([]byte, error)
 }
 
 type BabbleProxy interface {

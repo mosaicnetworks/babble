@@ -59,16 +59,16 @@ func TestSocketProxyClient(t *testing.T) {
 	// Listen for a request
 	go func() {
 		select {
-		case sb := <-clientCh:
-			if !reflect.DeepEqual(sb, block) {
-				t.Fatalf("block mismatch: %#v %#v", block, sb)
+		case commit := <-clientCh:
+			if !reflect.DeepEqual(commit.Block, block) {
+				t.Fatalf("block mismatch: %#v %#v", block, commit.Block)
 			}
 		case <-time.After(200 * time.Millisecond):
 			t.Fatalf("timeout")
 		}
 	}()
 
-	err = proxy.CommitBlock(block)
+	_, err = proxy.CommitBlock(block)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -3,8 +3,6 @@ package app
 import (
 	"time"
 
-	"fmt"
-
 	"github.com/babbleio/babble/hashgraph"
 	"github.com/sirupsen/logrus"
 )
@@ -47,13 +45,6 @@ func (p *SocketAppProxy) SubmitCh() chan []byte {
 	return p.server.submitCh
 }
 
-func (p *SocketAppProxy) CommitBlock(block hashgraph.Block) error {
-	ack, err := p.client.CommitBlock(block)
-	if err != nil {
-		return err
-	}
-	if !*ack {
-		return fmt.Errorf("App returned false to CommitBlock")
-	}
-	return nil
+func (p *SocketAppProxy) CommitBlock(block hashgraph.Block) ([]byte, error) {
+	return p.client.CommitBlock(block)
 }

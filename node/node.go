@@ -500,7 +500,14 @@ func (n *Node) commit(block hg.Block) error {
 	}
 	n.core.AddBlockSignature(sig)
 
-	return n.proxy.CommitBlock(block)
+	stateHash, err := n.proxy.CommitBlock(block)
+	n.logger.WithFields(logrus.Fields{
+		"block":      block.Index(),
+		"state_hash": fmt.Sprintf("0x%X", stateHash),
+		"err":        err,
+	}).Debug("CommitBlock Response")
+
+	return err
 }
 
 func (n *Node) addTransaction(tx []byte) {

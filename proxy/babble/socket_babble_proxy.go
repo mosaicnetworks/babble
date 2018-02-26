@@ -3,8 +3,6 @@ package babble
 import (
 	"fmt"
 	"time"
-
-	"github.com/babbleio/babble/hashgraph"
 )
 
 type SocketBabbleProxy struct {
@@ -17,7 +15,7 @@ type SocketBabbleProxy struct {
 
 func NewSocketBabbleProxy(nodeAddr string, bindAddr string, timeout time.Duration) (*SocketBabbleProxy, error) {
 	client := NewSocketBabbleProxyClient(nodeAddr, timeout)
-	server, err := NewSocketBabbleProxyServer(bindAddr)
+	server, err := NewSocketBabbleProxyServer(bindAddr, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +34,7 @@ func NewSocketBabbleProxy(nodeAddr string, bindAddr string, timeout time.Duratio
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //Implement BabbleProxy interface
 
-func (p *SocketBabbleProxy) CommitCh() chan hashgraph.Block {
+func (p *SocketBabbleProxy) CommitCh() chan Commit {
 	return p.server.commitCh
 }
 

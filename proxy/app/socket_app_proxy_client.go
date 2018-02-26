@@ -32,15 +32,15 @@ func (p *SocketAppProxyClient) getConnection() (*rpc.Client, error) {
 	return jsonrpc.NewClient(conn), nil
 }
 
-func (p *SocketAppProxyClient) CommitBlock(block hashgraph.Block) (*bool, error) {
+func (p *SocketAppProxyClient) CommitBlock(block hashgraph.Block) ([]byte, error) {
 	rpcConn, err := p.getConnection()
 	if err != nil {
 		return nil, err
 	}
-	var ack bool
-	err = rpcConn.Call("State.CommitBlock", block, &ack)
+	var stateHash []byte
+	err = rpcConn.Call("State.CommitBlock", block, &stateHash)
 	if err != nil {
 		return nil, err
 	}
-	return &ack, nil
+	return stateHash, nil
 }
