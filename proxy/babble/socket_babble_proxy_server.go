@@ -8,7 +8,12 @@ import (
 	"time"
 
 	"github.com/babbleio/babble/hashgraph"
+	"github.com/sirupsen/logrus"
 )
+
+type StateHash struct {
+	Hash []byte
+}
 
 // CommitResponse captures both a response and a potential error.
 type CommitResponse struct {
@@ -32,12 +37,17 @@ type SocketBabbleProxyServer struct {
 	rpcServer   *rpc.Server
 	commitCh    chan Commit
 	timeout     time.Duration
+	logger      *logrus.Logger
 }
 
-func NewSocketBabbleProxyServer(bindAddress string, timeout time.Duration) (*SocketBabbleProxyServer, error) {
+func NewSocketBabbleProxyServer(bindAddress string,
+	timeout time.Duration,
+	logger *logrus.Logger) (*SocketBabbleProxyServer, error) {
+
 	server := &SocketBabbleProxyServer{
 		commitCh: make(chan Commit),
 		timeout:  timeout,
+		logger:   logger,
 	}
 
 	if err := server.register(bindAddress); err != nil {
@@ -73,7 +83,7 @@ func (p *SocketBabbleProxyServer) listen() error {
 	}
 }
 
-func (p *SocketBabbleProxyServer) CommitBlock(block hashgraph.Block, stateHash *[]byte) (err error) {
+func (p *SocketBabbleProxyServer) CommitBlock(block hashgraph.Block, stateHash *StateHash) (err error) {
 	// Send the Commit over
 	respCh := make(chan CommitResponse)
 	p.commitCh <- Commit{
@@ -84,13 +94,20 @@ func (p *SocketBabbleProxyServer) CommitBlock(block hashgraph.Block, stateHash *
 	// Wait for a response
 	select {
 	case commitResp := <-respCh:
-		stateHash = &commitResp.StateHash
+		stateHash.Hash = commitResp.StateHash
 		if commitResp.Error != nil {
 			err = commitResp.Error
 		}
 	case <-time.After(p.timeout):
 		err = fmt.Errorf("command timed out")
 	}
+
+	p.logger.WithFields(logrus.Fields{
+		"block":      block.Index(),
+		"state_hash": stateHash.Hash,
+		"err":        err,
+	}).Debug("BabbleProxyServer.CommitBlock")
+
 	return
 
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/babbleio/babble/hashgraph"
+	bp "github.com/babbleio/babble/proxy/babble"
 	"github.com/sirupsen/logrus"
 )
 
@@ -37,10 +38,14 @@ func (p *SocketAppProxyClient) CommitBlock(block hashgraph.Block) ([]byte, error
 	if err != nil {
 		return nil, err
 	}
-	var stateHash []byte
+
+	var stateHash bp.StateHash
 	err = rpcConn.Call("State.CommitBlock", block, &stateHash)
-	if err != nil {
-		return nil, err
-	}
-	return stateHash, nil
+
+	p.logger.WithFields(logrus.Fields{
+		"block":      block.Index(),
+		"state_hash": stateHash.Hash,
+	}).Debug("AppProxyClient.CommitBlock")
+
+	return stateHash.Hash, err
 }

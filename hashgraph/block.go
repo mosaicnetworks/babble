@@ -13,6 +13,7 @@ import (
 type BlockBody struct {
 	Index         int
 	RoundReceived int
+	StateHash     []byte
 	Transactions  [][]byte
 }
 
@@ -117,6 +118,10 @@ func (b *Block) Transactions() [][]byte {
 
 func (b *Block) RoundReceived() int {
 	return b.Body.RoundReceived
+}
+
+func (b *Block) StateHash() []byte {
+	return b.Body.StateHash
 }
 
 func (b *Block) GetSignature(validator string) (res BlockSignature, err error) {

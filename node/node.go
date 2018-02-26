@@ -492,13 +492,6 @@ func (n *Node) sync(events []hg.WireEvent) error {
 }
 
 func (n *Node) commit(block hg.Block) error {
-	n.coreLock.Lock()
-	defer n.coreLock.Unlock()
-	sig, err := n.core.SignBlock(block)
-	if err != nil {
-		return err
-	}
-	n.core.AddBlockSignature(sig)
 
 	stateHash, err := n.proxy.CommitBlock(block)
 	n.logger.WithFields(logrus.Fields{
@@ -506,6 +499,16 @@ func (n *Node) commit(block hg.Block) error {
 		"state_hash": fmt.Sprintf("0x%X", stateHash),
 		"err":        err,
 	}).Debug("CommitBlock Response")
+
+	block.Body.StateHash = stateHash
+
+	n.coreLock.Lock()
+	defer n.coreLock.Unlock()
+	sig, err := n.core.SignBlock(block)
+	if err != nil {
+		return err
+	}
+	n.core.AddBlockSignature(sig)
 
 	return err
 }

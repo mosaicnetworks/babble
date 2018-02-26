@@ -74,8 +74,6 @@ func (a *State) writeMessage(tx []byte) {
 	if err != nil {
 		a.logger.Error(err)
 	}
-
-	a.stateHash = crypto.SimpleHashFromTwoHashes(a.stateHash, crypto.SHA256(tx))
 }
 
 func (a *State) getFile() (*os.File, error) {
@@ -93,7 +91,7 @@ type DummySocketClient struct {
 
 func NewDummySocketClient(clientAddr string, nodeAddr string, logger *logrus.Logger) (*DummySocketClient, error) {
 
-	babbleProxy, err := bproxy.NewSocketBabbleProxy(nodeAddr, clientAddr, 1*time.Second)
+	babbleProxy, err := bproxy.NewSocketBabbleProxy(nodeAddr, clientAddr, 1*time.Second, logger)
 	if err != nil {
 		return nil, err
 	}

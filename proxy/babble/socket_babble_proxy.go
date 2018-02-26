@@ -3,6 +3,8 @@ package babble
 import (
 	"fmt"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 type SocketBabbleProxy struct {
@@ -13,9 +15,18 @@ type SocketBabbleProxy struct {
 	server *SocketBabbleProxyServer
 }
 
-func NewSocketBabbleProxy(nodeAddr string, bindAddr string, timeout time.Duration) (*SocketBabbleProxy, error) {
+func NewSocketBabbleProxy(nodeAddr string,
+	bindAddr string,
+	timeout time.Duration,
+	logger *logrus.Logger) (*SocketBabbleProxy, error) {
+
+	if logger == nil {
+		logger = logrus.New()
+		logger.Level = logrus.DebugLevel
+	}
+
 	client := NewSocketBabbleProxyClient(nodeAddr, timeout)
-	server, err := NewSocketBabbleProxyServer(bindAddr, timeout)
+	server, err := NewSocketBabbleProxyServer(bindAddr, timeout, logger)
 	if err != nil {
 		return nil, err
 	}

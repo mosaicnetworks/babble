@@ -68,8 +68,9 @@ func TestSocketProxyClient(t *testing.T) {
 		}
 	}()
 
-	_, err = proxy.CommitBlock(block)
+	stateHash, err := proxy.CommitBlock(block)
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Logf("stateHash: %v", stateHash)
 }

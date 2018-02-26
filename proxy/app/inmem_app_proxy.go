@@ -39,7 +39,7 @@ func (iap *InmemAppProxy) commit(block hashgraph.Block) ([]byte, error) {
 
 	iap.stateHash = hash
 
-	return hash, nil
+	return iap.stateHash, nil
 
 }
 
