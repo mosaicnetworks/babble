@@ -15,7 +15,8 @@ var (
 func Logger() *logrus.Logger {
 	lock.Do(func() {
 		logger = logrus.New()
-		logger.Formatter = new(logrus.JSONFormatter)
+		//logger.Formatter = new(logrus.JSONFormatter)
+		//logger.Formatter = new(logrus.
 		logger.Level = logrus.DebugLevel
 	})
 	return logger

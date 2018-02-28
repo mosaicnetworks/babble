@@ -5,10 +5,10 @@ import android.content.Context;
 import android.util.Log;
 import android.widget.TextView;
 
-import mobile.Message;
-import mobile.MessageHandler;
+import mobile.CommitHandler;
+import mobile.TxContext;
 
-public class AppMessageHandler implements MessageHandler {
+public class AppMessageHandler implements CommitHandler {
     protected MainActivity context;
 
     public AppMessageHandler(Context context) {
@@ -16,13 +16,13 @@ public class AppMessageHandler implements MessageHandler {
     }
 
     @Override
-    public void onMessage(final Message message) {
+    public void onCommit(final TxContext msg) {
         context.runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 Log.i("Babble", "Received OnMessage event");
                 TextView tv = context.findViewById(R.id.text);
-                tv.setText(message.getData());
+                tv.setText(msg.getData());
             }
         });
     }
