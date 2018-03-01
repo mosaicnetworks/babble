@@ -8,9 +8,10 @@ blockchain, which is better suited for representing an immutable ordered list of
 transactions. In this system, the order is governed by the Hashgraph consensus 
 algorithm but the transactions are mapped onto a linear data structure composed 
 of blocks; each block containing an ordered list of transactions, a hash of the 
-previous block, and a collection of signatures from the set of validators. This 
-method enables hashgraph-based systems to implement any Inter-Blockchain 
-Communication protocol and integrate with an Internet of Blockchains. 
+previous block, a hash of the resulting application state, and a collection of 
+signatures from the set of validators. This method enables hashgraph-based 
+systems to implement any Inter-Blockchain Communication protocol and integrate 
+with an Internet of Blockchains. 
 
 Motivation
 ----------
@@ -18,9 +19,9 @@ Motivation
 The consumable output of any consensus system is an ordered list of 
 transactions. Developers have been using blockchains to model such lists because 
 they are efficient to work with. A linear data structure composed of batches of 
-transactions, hashed and signed together, easily allowing to verify the validity 
-of any transaction, is the right tool for the job. Although the word blockchain 
-is now used in a much broader sense, it originally designated a data structure. 
+transactions, hashed and signed together, easily allowing to verify any 
+transaction, is the right tool for the job. Although the word blockchain is now 
+used in a much broader sense, it originally designated a data structure. 
 Consensus algorithms, public/private networks, cryptocurrencies, etc., are 
 independent concepts.   
 
@@ -101,9 +102,10 @@ Implementation
     Caption:
     --------
 
-    E: List of Events contained in Block. Here, we mention Events because it is easier  
-    to represent than transactions. Blocks would actually contain only the transactions  
-    of the Events, but that is complicated to represent in this diagram.
+    E: List of Events contained in Block. Here, we mention Events because it is 
+    easier to represent than transactions. Blocks would actually contain only 
+    the transactions of the Events, but that is complicated to represent in this 
+    diagram.
 
     Sij: Signature of Block i by validator j
 
@@ -116,12 +118,15 @@ not change.
 
 We gather the transactions of all the Events from the same *Round Received* into 
 blocks. When Events get assigned a *Round Received* and sorted, we package their 
-transactions (in canonical order) into a block and produce a signature of the 
-block's hash. Block signatures will be exchanged as part of the regular gossip 
-routine and appended to their corresponding blocks as they are received from 
-other peers. Once a block has collected signatures from at least 1/3 of 
-validators, it is deemed accepted because, by hypothesis, at least one of those 
-signatures originates from an honest peer.  
+transactions (in canonical order) into a block and commit that block to the 
+application. The application returns a hash of the state obtained by applying
+the block's transactions sequentially and we append this hash to the block's
+body before signing it. Block signatures will be exchanged as part of the 
+regular gossip routine and appended to their corresponding blocks as they are 
+received from other peers if they match the local block. Once a block has 
+collected signatures from at least 1/3 of validators, it is deemed accepted 
+because, by hypothesis, at least one of those signatures originates from an 
+honest peer.  
 
 We extend the Event data structure to contain a set of block-signatures by the 
 Event's creator. Having assigned a *RoundReceived* to a set of Events and 
@@ -152,7 +157,8 @@ Block Structure
           Index:         int,
           RoundReceived: int,
           PrevBlockHash: []byte,
-          BodyHash:      []byte
+          BodyHash:      []byte,
+          StateHash:     []byte, 
       }
       Body:{
           Transactions: [][]byte
@@ -170,18 +176,15 @@ Events who's transactions are included in the block; it serves the purpose tying
 back to the underlying hashgraph. We do not produce a block when all the Events 
 of a *Round Received* are empty. Hence, two consecutive blocks may have 
 non-consecutive RoundReceived values and we use an additional property to index 
-the blocks.
+the blocks. The block Body also contains a hash of the application's state 
+resulting from applying the block's transactions sequentially. Counting 
+signatures from one third of validators provides a proof that all honest nodes 
+have not only applied the same transactions in the same order, but also computed 
+the same state. 
+
 
 Enhancements
-------------
-
-Signed States
-~~~~~~~~~~~~~
-
-Blocks could also contain a hash of the application's state resulting from 
-applying the block's transactions sequentially. Counting signatures from one 
-third of validators provides a proof that all honest nodes have not only applied 
-the same transactions in the same order, but also computed the same state. 
+------------ 
 
 Dynamic Validator Set
 ~~~~~~~~~~~~~~~~~~~~~

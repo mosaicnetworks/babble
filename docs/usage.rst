@@ -3,21 +3,23 @@
 Usage
 =====
 
-In this section we will guide you through deploying an application on top of Babble.
-Babble comes with the Dummy application which is used in this demonstration. It is a 
-simple chat application where participants write messages on a channel and Babble
-guarantees that everyone sees the same messages in the same order.
+In this section we will guide you through deploying an application on top of 
+Babble. Babble comes with the Dummy application which is used in this 
+demonstration. It is a simple chat application where participants write 
+messages on a channel and Babble guarantees that everyone sees the same messages 
+in the same order.
 
 Docker
 ------
 
-We have provided a series of scripts to bootstrap a demo. Let us first use the easy 
-method to view the demo and then we will take a closer look at what is happening behind
-the scenes.  
+We have provided a series of scripts to bootstrap a demo. Let us first use the 
+easy method to view the demo and then we will take a closer look at what is 
+happening behind the scenes.  
 
 Make sure you have `Docker <https://docker.com>`__ installed.  
 
-The demo will pull Docker images from our `official public Docker registry <https://hub.docker.com/u/mosaicnetworks/>`__ 
+The demo will pull Docker images from our `official public Docker registry 
+<https://hub.docker.com/u/mosaicnetworks/>`__ 
 
 ::
 
@@ -25,15 +27,15 @@ The demo will pull Docker images from our `official public Docker registry <http
     [...]/babble/demo$ make
 
 
-Once the testnet is started, a script is automatically launched to monitor consensus  
-figures:  
+Once the testnet is started, a script is automatically launched to monitor 
+consensus figures:  
 
 ::
 
-    consensus_events:131055 consensus_transactions:0 events_per_second:265.53 id:0 last_consensus_round:14432 num_peers:3 round_events:10 rounds_per_second:29.24 sync_rate:1.00 transaction_pool:0 undetermined_events:26
-    consensus_events:131055 consensus_transactions:0 events_per_second:266.39 id:3 last_consensus_round:14432 num_peers:3 round_events:10 rounds_per_second:29.34 sync_rate:1.00 transaction_pool:0 undetermined_events:25
-    consensus_events:131055 consensus_transactions:0 events_per_second:267.30 id:2 last_consensus_round:14432 num_peers:3 round_events:10 rounds_per_second:29.44 sync_rate:1.00 transaction_pool:0 undetermined_events:31
-    consensus_events:131067 consensus_transactions:0 events_per_second:268.27 id:1 last_consensus_round:14433 num_peers:3 round_events:11 rounds_per_second:29.54 sync_rate:1.00 transaction_pool:0 undetermined_events:21
+    consensus_events:180 consensus_transactions:40 events_per_second:0.00 id:1 last_block_index:3 last_consensus_round:17 num_peers:3 round_events:7 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:18
+    consensus_events:180 consensus_transactions:40 events_per_second:0.00 id:3 last_block_index:3 last_consensus_round:17 num_peers:3 round_events:7 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:20
+    consensus_events:180 consensus_transactions:40 events_per_second:0.00 id:2 last_block_index:3 last_consensus_round:17 num_peers:3 round_events:7 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:21
+    consensus_events:180 consensus_transactions:40 events_per_second:0.00 id:0 last_block_index:3 last_consensus_round:17 num_peers:3 round_events:7 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:20
 
 Running ``docker ps -a`` will show you that 9 docker containers have been launched:  
 
@@ -73,38 +75,42 @@ Finally, stop the testnet:
 Manual Setup
 ------------
 
-The above scripts hide a lot of the complications involved in setting up a Babble network.
-They generate the configuration files automatically, copy them to the right places and launch
-the nodes in Docker containers. We recommend looking at these scripts closely to understand 
-how the demo works. Here, we will attempt to explain the individual steps that take place 
-behind the scenes.
+The above scripts hide a lot of the complications involved in setting up a 
+Babble network. They generate the configuration files automatically, copy them 
+to the right places and launch the nodes in Docker containers. We recommend 
+looking at these scripts closely to understand how the demo works. Here, we will 
+attempt to explain the individual steps that take place behind the scenes.
 
 Configuration 
 ~~~~~~~~~~~~~
 
-Babble reads configuration from the directory specified by the ``datadir`` flag which defaults
-to ``~/.babble`` on linux/osx. This directory must contain two files:
+Babble reads configuration from the directory specified by the ``datadir`` flag 
+which defaults to ``~/.babble`` on linux/osx. This directory must contain two 
+files:
 
  - ``peers.json``  : Lists all the participants in the network.
  - ``priv_key.pem``: Contains the private key of the validator runnning the node. 
 
-Every participant has a cryptographic key-pair that is used to encrypt, sign and verify messages. 
-The private key is secret but the public key is used by other nodes to verify messages signed with
-the private key. The encryption scheme used by Babble is ECDSA with the P256 curve.
+Every participant has a cryptographic key-pair that is used to encrypt, sign and 
+verify messages. The private key is secret but the public key is used by other 
+nodes to verify messages signed with the private key. The encryption scheme used 
+by Babble is ECDSA with the P256 curve.
 
-To run a Babble network, it is necessary to predefine who the participants are going to be. Each
-participant will generate a key-pair and decide which network address it is going to be using for 
-the Babble protocol. Someone, or some process, then needs to aggregate the public keys and network
-addresses of all participants into a single file - the peers.json file. Every participant uses a 
-copy of the same peers.json file. Babble will read that file to identify the participants in the 
-network, communicate with them and verify their cryptographic signatures.
+To run a Babble network, it is necessary to predefine who the participants are 
+going to be. Each participant will generate a key-pair and decide which network 
+address it is going to be using for the Babble protocol. Someone, or some 
+process, then needs to aggregate the public keys and network addresses of all 
+participants into a single file - the peers.json file. Every participant uses a 
+copy of the same peers.json file. Babble will read that file to identify the 
+participants in the network, communicate with them and verify their 
+cryptographic signatures.
 
-To generate key-pairs in a format usable by Babble, we have created the ``keygen`` command. It
-is left to the user to derive a scheme to produce the configuration files but the docker demo
-scripts are a good place to start.
+To generate key-pairs in a format usable by Babble, we have created the 
+``keygen`` command. It is left to the user to derive a scheme to produce the 
+configuration files but the docker demo scripts are a good place to start.
 
-So let us say I want to participate in a Babble network. I am going to start by running ```babble keygen```
-to create a key-pair:
+So let us say I want to participate in a Babble network. I am going to start by 
+running ```babble keygen``` to create a key-pair:
 
 ::
 
@@ -131,11 +137,12 @@ priv_key.pem file would be:
     -----END EC PRIVATE KEY-----
 
 
-Next, I am going to copy the public key (0x0471AEE3C...) and communicate it to whoever is responsible
-for producing the peers.json file. At the same time, I will tell them that I am going to be listening 
-on 172.77.5.2:1337.
+Next, I am going to copy the public key (0x0471AEE3C...) and communicate it to 
+whoever is responsible for producing the peers.json file. At the same time, I 
+will tell them that I am going to be listening on 172.77.5.2:1337.
 
-Suppose three other people do the same thing. The resulting peers.json file could look something like this:
+Suppose three other people do the same thing. The resulting peers.json file 
+could look something like this:
 
 ::
 
@@ -158,9 +165,10 @@ Suppose three other people do the same thing. The resulting peers.json file coul
 	}
     ]
 
-Now everyone is going to take a copy of this peers.json file and put it in a folder together with the
-priv_key.pem file they generated in the previous step. That is the folder that they need to specify as
-the datadir when they run Babble.
+Now everyone is going to take a copy of this peers.json file and put it in a 
+folder together with the priv_key.pem file they generated in the previous step. 
+That is the folder that they need to specify as the datadir when they run 
+Babble.
 
 Babble Executable
 -----------------
@@ -192,32 +200,37 @@ Let us take a look at the help provided by the Babble CLI:
        --store_path value    File containing the store database (default: "/home/martin/.babble/badger_db")
 
 	
-So we have just seen what the ``datadir`` flag does. The ``node_addr`` flag corresponds to the NetAddr
-in the peers.json file; that is the endpoint that Babble uses to communicate with other Babble nodes.
+So we have just seen what the ``datadir`` flag does. The ``node_addr`` flag 
+corresponds to the NetAddr in the peers.json file; that is the endpoint that 
+Babble uses to communicate with other Babble nodes.
 
-As we explained in the architecture section, each Babble node works in conjunction with an application for
-which it orders transactions. Babble and the application are connected by a TCP interface. Therefore, we need
-to specify two other endpoints:
+As we explained in the architecture section, each Babble node works in 
+conjunction with an application for which it orders transactions. Babble and the 
+application are connected by a TCP interface. Therefore, we need to specify two 
+other endpoints:
 
  - ``proxy_addr``  : where Babble listens for transactions from the App
  - ``client_addr`` : where the App listens for transactions from Babble 
 
-We also need to specify where Babble exposes its HTTP API where one can query the Hashgraph data store.
-This is defined by the ``service_addr`` flag.
+We also need to specify where Babble exposes its HTTP API where one can query 
+the Hashgraph data store. This is defined by the ``service_addr`` flag.
 
-Finally, we can choose to run Babble with a database backend or only with an in-memory
-cache. By default, Babble will look for a database file in ``~/.babble/babdger_db``
-but this can be set with the ``store_path`` option. If the file exists, the node
-will load the database and bootstrap itself to a state consistent with the database 
-and it will be able to proceed with the consensus algorithm from there. If the 
-file does not exist yet, it will be created and the node will start from a clean slate. 
+Finally, we can choose to run Babble with a database backend or only with an 
+in-memory cache. By default, Babble will look for a database file in 
+``~/.babble/babdger_db`` but this can be set with the ``store_path`` option. If 
+the file exists, the node will load the database and bootstrap itself to a state 
+consistent with the database and it will be able to proceed with the consensus 
+algorithm from there. If the file does not exist yet, it will be created and the 
+node will start from a clean slate. 
 
-In some cases, it can be preferable to run Babble without a database backend. Indeed,
-even if using a database can be indispensable in some deployments, it has a big 
-impact on performance. To use an in-memory store only, set the option ``store inmem``.
+In some cases, it can be preferable to run Babble without a database backend. 
+Indeed, even if using a database can be indispensable in some deployments, it 
+has a big impact on performance. To use an in-memory store only, set the option 
+``store inmem``.
 
 
-Here is how the Docker demo starts Babble nodes together wth the Dummy application:
+Here is how the Docker demo starts Babble nodes together wth the Dummy 
+application:
 
 ::
 
@@ -242,15 +255,21 @@ Here is how the Docker demo starts Babble nodes together wth the Dummy applicati
         --log_level="info"
     done
 
-Stats and Logs
---------------
+Stats, blocks and Logs
+----------------------
 
-Once a node is up and running, we can call the ``Stats`` endpoint exposed by the HTTP service:
+Once a node is up and running, we can call the ``stats`` endpoint exposed by the 
+HTTP service:
 
 ::
 
-    curl -s http://172.77.5.1:80/Stats
+    curl -s http://172.77.5.1:80/stats
     
+or request to see a specific block:
+
+::
+
+    curl -s http://172.77.5.1:80/block/1
 
 Or we can look at the logs produced by Babble:
 

@@ -103,11 +103,11 @@ hashgraph onto a blockchain.
 A blockchain is a data structure where transactions are packaged in hash-linked 
 blocks. Each block is identified by a cryptographic hash and contains a hash of 
 the previous block, so that blocks can form a chain from the first block ever to 
-the formed block. In this way, all the block - and transactions - are connected 
-via a linear linked list structure. In our system, blocks contain a collection 
-of signatures of their own hash from the participants. A block with valid 
-signatures from at least one third of validators can be considered valid because
-- by hypothesis - at least of those signatures is from an honest member. 
+the last formed block. In this way, all the block - and transactions - are 
+connected via a linear linked list structure. In our system, blocks contain a 
+collection of signatures of their own hash from the participants. A block with 
+valid signatures from at least one third of validators can be considered valid 
+because - by hypothesis - at least of those signatures is from an honest member. 
 
 Projecting the hashgraph onto a blockchain makes it much easier for third 
 parties to verify the consensus order. It makes it possible to build 
@@ -158,22 +158,43 @@ an example of how to make a SubmitTx request manually:
 Example CommitBlock request (from Babble to App):
 
 ::
-
-    request: {
-                "method":"State.CommitBlock",
-                "params":[
-                {
-                    "RoundReceived":24,
-                    "Transactions":["Tm9kZTEgVHgx","Tm9kZTEgVHgy","Tm9kZTEgVHgz","Tm9kZTEgVHg0","Tm9kZTEgVHg1","Tm9kZTEgVHg2","Tm9kZTEgVHg3","Tm9kZTEgVHg4","Tm9kZTEgVHg5"]
-                }],
-                "id":0
+    
+    request:
+            {
+                "method": "State.CommitBlock",
+                "params": [
+                    {
+                    "Body": {
+                        "Index": 0,
+                        "RoundReceived": 7,
+                        "StateHash": null,
+                        "Transactions": [
+                        "Tm9kZTEgVHg5",
+                        "Tm9kZTEgVHgx",
+                        "Tm9kZTEgVHgy",
+                        "Tm9kZTEgVHgz",
+                        "Tm9kZTEgVHg0",
+                        "Tm9kZTEgVHg1",
+                        "Tm9kZTEgVHg2",
+                        "Tm9kZTEgVHg3",
+                        "Tm9kZTEgVHg4",
+                        "Tm9kZTEgVHgxMA=="
+                        ]
+                    },
+                    "Signatures": {}
+                    }
+                ],
+                "id": 0
             }
-    response: {"id":0,"result":true,"error":null}
 
-The content of "params" is the JSON representation of a Block with a 
-RoundReceived of 24 and 9 transactions.
+    response: {"id":0,"result":{"Hash":"6SKQataObI6oSY5n6mvf1swZR3T4Tek+C8yJmGijF00="},"error":null}
 
-The transactions themselves are base64 string encodings.
+The content of the request's "params" is the JSON representation of a Block 
+with a RoundReceived of 7 and 10 transactions. The transactions themselves are 
+base64 string encodings.
+
+The response's Hash value is the base64 representation of the application's 
+State-hash resulting from processing the block's transaction sequentially.
 
 Transport
 ---------

@@ -235,10 +235,11 @@ Once the testnet is started, a script is automatically launched to monitor
 consensus figures:
 
 ```
-consensus_events:98 consensus_transactions:40 events_per_second:0.00 id:3 last_consensus_round:11 num_peers:3 round_events:12 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:34
-consensus_events:98 consensus_transactions:40 events_per_second:0.00 id:1 last_consensus_round:11 num_peers:3 round_events:12 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:35
-consensus_events:98 consensus_transactions:40 events_per_second:0.00 id:0 last_consensus_round:11 num_peers:3 round_events:12 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:34
-consensus_events:98 consensus_transactions:40 events_per_second:0.00 id:2 last_consensus_round:11 num_peers:3 round_events:12 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:35
+consensus_events:180 consensus_transactions:40 events_per_second:0.00 id:1 last_block_index:3 last_consensus_round:17 num_peers:3 round_events:7 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:18
+consensus_events:180 consensus_transactions:40 events_per_second:0.00 id:3 last_block_index:3 last_consensus_round:17 num_peers:3 round_events:7 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:20
+consensus_events:180 consensus_transactions:40 events_per_second:0.00 id:2 last_block_index:3 last_consensus_round:17 num_peers:3 round_events:7 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:21
+consensus_events:180 consensus_transactions:40 events_per_second:0.00 id:0 last_block_index:3 last_consensus_round:17 num_peers:3 round_events:7 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:20
+
 
 ```
 
