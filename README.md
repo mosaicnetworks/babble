@@ -162,8 +162,8 @@ build/
 
 ### Go
 Babble is written in [Golang](https://golang.org/). Hence, the first step is to 
-install **Go version 1.9 or above**which is both the programming language  and a 
-CLI tool for managing Go code. Go isvery opinionated and will require you to 
+install **Go version 1.9 or above** which is both the programming language  and a 
+CLI tool for managing Go code. Go is very opinionated and will require you to 
 [define a workspace](https://golang.org/doc/code.html#Workspaces) where all your 
 go code will reside.
 
