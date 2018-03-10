@@ -1,6 +1,6 @@
 BABBLE_VERSION=0.2.1
 DUMMY_VERSION=0.2.1
-WATCHER_VERSION=0.0.1
+WATCHER_VERSION=0.0.2
 GLIDER_VERSION=0.0.2
 
 all: babble-image dummy-image watcher-image glider-image 
