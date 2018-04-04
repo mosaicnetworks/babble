@@ -55,7 +55,7 @@ public class BabbleNode implements CommitHandler, ErrorHandler {
         }
     }
 
-    String  Gson2Stirng ( Pear[] pears) {
+    String  Gson2Stirng ( Peer[] pears) {
 
          try {
             Gson gson = new Gson();

@@ -149,10 +149,10 @@ public class GameView extends SurfaceView implements Runnable {
         try {
 
             int iD = Integer.parseInt(key.replace("N", ""));
-            Pear[] arr= node.cnfgData.peers;
+            Peer[] arr= node.cnfgData.peers;
 
-            Arrays.sort (arr, new Comparator<Pear>() {
-                public int compare(Pear p1, Pear p2)
+            Arrays.sort (arr, new Comparator<Peer>() {
+                public int compare(Peer p1, Peer p2)
                 {
                     return p1.pubKeyHex.compareTo(p2.pubKeyHex);
                 }
@@ -170,10 +170,10 @@ public class GameView extends SurfaceView implements Runnable {
         String iP = "Undefined" ;
 
         try {
-            Pear[] arr= node.cnfgData.peers;
+            Peer[] arr= node.cnfgData.peers;
 
-            Arrays.sort (arr, new Comparator<Pear>() {
-                public int compare(Pear p1, Pear p2)
+            Arrays.sort (arr, new Comparator<Peer>() {
+                public int compare(Peer p1, Peer p2)
                 {
                     return p1.pubKeyHex.compareTo(p2.pubKeyHex);
                 }

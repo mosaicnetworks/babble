@@ -4,7 +4,7 @@ import com.google.gson.annotations.SerializedName;
 import java.io.Serializable;
 
 
-public class Pear implements Serializable {
+public class Peer implements Serializable {
 
     @SerializedName("NetAddr")
     public String netAddr;
