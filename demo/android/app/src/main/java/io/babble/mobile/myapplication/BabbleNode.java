@@ -28,7 +28,20 @@ public class BabbleNode implements CommitHandler, ErrorHandler {
     public Map<String, Ball> store = new HashMap<>();
     public ConfigData cnfgData = null;
 
-     ConfigData getConfigData () {
+
+    public void SubmitTx(int x, int y, int cR, int cB, int  cF){
+
+        byte[] binBuf = new byte[] {
+                (byte)(x & 0x000000FF), (byte)(x & 0x0000FF00), (byte)(x & 0x00FF0000), (byte)(x & 0xFF000000),
+                (byte)(y & 0x000000FF), (byte)(y & 0x0000FF00), (byte)(y & 0x00FF0000), (byte)(y & 0xFF000000),
+                (byte)(cR & 0x000000FF), (byte)(cR & 0x0000FF00), (byte)(cR & 0x00FF0000), (byte)(cR & 0xFF000000),
+                (byte)(cB & 0x000000FF), (byte)(cB & 0x0000FF00), (byte)(cB & 0x00FF0000), (byte)(cB & 0xFF000000),
+                (byte)(cF & 0x000000FF), (byte)(cF & 0x0000FF00), (byte)(cF & 0x00FF0000), (byte)(cF & 0xFF000000)};
+
+        node.submitTx(binBuf);
+    }
+
+    ConfigData getConfigData () {
 
         File folder = context.getExternalFilesDir(null);    //===/storage/sdcard0/Android/data/io.babble.mobile.myapplication/files==
         if (!folder.exists()) {
@@ -82,6 +95,7 @@ public class BabbleNode implements CommitHandler, ErrorHandler {
         String peers = Gson2Stirng(cnfgData.peers);
 
         node = Mobile.new_(nodeAddr, peers, privKey, events, Mobile.defaultConfig());
+
        //node.run();
     }
 
@@ -102,7 +116,7 @@ public class BabbleNode implements CommitHandler, ErrorHandler {
 
             String nodeId = "N" + txContext.getInfo().getID();
             Ball b = txContext.getBall();
-        Log.i("Babble", ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>.");
+
             store.put(nodeId, b);
     }
 
