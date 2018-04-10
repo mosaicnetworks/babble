@@ -82,6 +82,8 @@ public class GameView extends SurfaceView implements Runnable {
             this.x = x;
             this.y = y;
             invalidate();
+
+            node.SubmitTx((int) x, (int) y, node.cnfgData.circleRadius, getColorByName(node.cnfgData.circleBackColor), getColorByName(node.cnfgData.circleForeColor));
         }
 
         return super.onTouchEvent(event);
@@ -134,7 +136,6 @@ public class GameView extends SurfaceView implements Runnable {
             Class color = Class.forName("android.graphics.Color");
             Field field = color.getField(name);
             colorId = field.getInt(null);
-
         } catch (Exception e) {
             e.printStackTrace();
             colorId = Color.RED;
@@ -245,7 +246,7 @@ public class GameView extends SurfaceView implements Runnable {
                         1f, cBackColor, cForeColor, value1.getSize(), iP, optimalFontSize));
             }
         }
-     }
+    }
 
     long timeRefreshNodes = System.currentTimeMillis();
 
