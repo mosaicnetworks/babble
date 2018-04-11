@@ -18,20 +18,22 @@ type Node struct {
 	nodeID int
 	node   *node.Node
 	proxy  proxy.AppProxy
-	sub    *Subscription
 	logger *logrus.Logger
 }
 
 // New initializes Node struct
-func New(node_addr string, peers string, privKey string, events *EventHandler, config *Config) *Node {
+func New(nodeAddr string,
+	peers string,
+	privKey string,
+	subscription *Subscription,
+	config *MobileConfig) *Node {
 
-	logger := Logger()
-	sub := &Subscription{events: events}
+	logger := initLogger()
 
 	var netPeers []net.Peer
 	err := json.Unmarshal([]byte(peers), &netPeers)
 	if err != nil {
-		sub.error(err.Error())
+		subscription.OnError(err.Error())
 		return nil
 	}
 
@@ -49,7 +51,7 @@ func New(node_addr string, peers string, privKey string, events *EventHandler, c
 	pemKey := &crypto.PemKey{}
 	key, err := pemKey.ReadKeyFromBuf([]byte(privKey))
 	if err != nil {
-		sub.error("Fail to read private key")
+		subscription.OnError("Failed to read private key")
 		return nil
 	}
 
@@ -59,7 +61,7 @@ func New(node_addr string, peers string, privKey string, events *EventHandler, c
 		pmap[p.PubKeyHex] = i
 	}
 
-	logger.WithField("node_addr", node_addr).Debug("Node Address")
+	logger.WithField("node_addr", nodeAddr).Debug("Node Address")
 
 	//Find the ID of this node
 	nodePub := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey))
@@ -74,31 +76,32 @@ func New(node_addr string, peers string, privKey string, events *EventHandler, c
 	store := hg.NewInmemStore(pmap, conf.CacheSize)
 
 	trans, err := net.NewTCPTransport(
-		node_addr, nil, maxPool, conf.TCPTimeout, logger)
+		nodeAddr, nil, maxPool, conf.TCPTimeout, logger)
 	if err != nil {
-		sub.error(err.Error())
+		subscription.OnError(err.Error())
 		return nil
 	}
 
 	var prox proxy.AppProxy
-	prox = NewAppProxy(sub, logger)
+	prox = newMobileAppProxy(subscription, logger)
 
 	node := node.NewNode(conf, nodeID, key, netPeers, store, trans, prox)
 	if err := node.Init(needBootstrap); err != nil {
-		sub.error(fmt.Sprintf("failed to initialize node: %s", err))
+		subscription.OnError(fmt.Sprintf("failed to initialize node: %s", err))
 	}
 
 	return &Node{
 		node:   node,
 		proxy:  prox,
-		sub:    sub,
 		nodeID: nodeID,
 		logger: logger,
 	}
 }
 
-func Hello(input string) string {
-	return fmt.Sprintf("Hello, %s!", input)
+func initLogger() *logrus.Logger {
+	logger := logrus.New()
+	logger.Level = logrus.DebugLevel
+	return logger
 }
 
 func (n *Node) Run(async bool) {
@@ -113,19 +116,6 @@ func (n *Node) Shutdown() {
 	n.node.Shutdown()
 }
 
-func (n *Node) pack(tx []byte) []byte {
-	var buf []byte
-
-	buf = append(buf, '*', 'b')            // prefix
-	buf = append(buf, byte(n.nodeID&0x0F)) // node ID
-	buf = append(buf, byte((n.nodeID>>8)&0x0F))
-	buf = append(buf, tx...) // ball data
-
-	n.logger.WithField("bytes", fmt.Sprintf("[% x]", buf)).Debug("Pack Transaction")
-
-	return buf
-}
-
 func (n *Node) SubmitTx(tx []byte) {
-	n.proxy.SubmitCh() <- n.pack(tx)
+	n.proxy.SubmitCh() <- tx
 }
