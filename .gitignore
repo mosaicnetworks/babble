@@ -1,37 +1,17 @@
+# IDE
 .vscode
+.idea/
 
+# Go test output
 */*.test
 */*.out
 
-*/messages.txt
-
+# Build output
 build
 
-cmd/debug
-
+# Dependencies
 vendor
 
-node/logs
-node/test_data
-
-demo/conf/*
-
-docker/babble/babble
-docker/dummy/dummy
-
-terraform/babble.pem
-terraform/terraform.tfstate*
-terraform/secret.tfvars
-terraform/conf/*
-terraform/ips.dat
-
-scripts/publish
-
-.idea/
-
-docs/_build
-
-hashgraph/test_data
-
+# gomobile compilation output
 *.aar
 *.jar
