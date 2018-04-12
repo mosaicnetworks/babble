@@ -25,7 +25,8 @@ type Node struct {
 func New(nodeAddr string,
 	peers string,
 	privKey string,
-	subscription *Subscription,
+	commitHandler CommitHandler,
+	exceptionHandler ExceptionHandler,
 	config *MobileConfig) *Node {
 
 	logger := initLogger()
@@ -33,7 +34,7 @@ func New(nodeAddr string,
 	var netPeers []net.Peer
 	err := json.Unmarshal([]byte(peers), &netPeers)
 	if err != nil {
-		subscription.OnError(err.Error())
+		exceptionHandler.OnException(fmt.Sprintf("l37: %s. %s", err.Error(), peers))
 		return nil
 	}
 
@@ -51,7 +52,7 @@ func New(nodeAddr string,
 	pemKey := &crypto.PemKey{}
 	key, err := pemKey.ReadKeyFromBuf([]byte(privKey))
 	if err != nil {
-		subscription.OnError("Failed to read private key")
+		exceptionHandler.OnException(fmt.Sprintf("l55: %s", "Failed to read private key"))
 		return nil
 	}
 
@@ -78,16 +79,16 @@ func New(nodeAddr string,
 	trans, err := net.NewTCPTransport(
 		nodeAddr, nil, maxPool, conf.TCPTimeout, logger)
 	if err != nil {
-		subscription.OnError(err.Error())
+		exceptionHandler.OnException(fmt.Sprintf("l82: %s", err.Error()))
 		return nil
 	}
 
 	var prox proxy.AppProxy
-	prox = newMobileAppProxy(subscription, logger)
+	prox = newMobileAppProxy(commitHandler, exceptionHandler, logger)
 
 	node := node.NewNode(conf, nodeID, key, netPeers, store, trans, prox)
 	if err := node.Init(needBootstrap); err != nil {
-		subscription.OnError(fmt.Sprintf("failed to initialize node: %s", err))
+		exceptionHandler.OnException(fmt.Sprintf("l91 %s", fmt.Sprintf("failed to initialize node: %s", err)))
 	}
 
 	return &Node{

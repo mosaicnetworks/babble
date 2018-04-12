@@ -11,18 +11,21 @@ This type is not exported
 
 // mobileAppProxy object
 type mobileAppProxy struct {
-	submitCh     chan []byte
-	logger       *logrus.Logger
-	subscription *Subscription
+	submitCh         chan []byte
+	logger           *logrus.Logger
+	commitHandler    CommitHandler
+	exceptionHandler ExceptionHandler
 }
 
 // newMobileAppProxy create proxy
-func newMobileAppProxy(subscription *Subscription,
+func newMobileAppProxy(commitHandler CommitHandler,
+	exceptionHandler ExceptionHandler,
 	logger *logrus.Logger) (proxy *mobileAppProxy) {
 	proxy = &mobileAppProxy{
-		submitCh:     make(chan []byte),
-		logger:       logger,
-		subscription: subscription,
+		submitCh:         make(chan []byte),
+		logger:           logger,
+		commitHandler:    commitHandler,
+		exceptionHandler: exceptionHandler,
 	}
 	return
 }
@@ -34,8 +37,12 @@ func (p *mobileAppProxy) SubmitCh() chan []byte {
 	return p.submitCh
 }
 
-// CommitBlock commits a new Block to the App
+// CommitBlock commits a Block's transactions one by one.
+// gomobile cannot export a Block object because it doesn't support arrays of
+// arrays of bytes
 func (p *mobileAppProxy) CommitBlock(block hashgraph.Block) error {
-	p.subscription.OnCommit(block)
+	for _, tx := range block.Transactions {
+		p.commitHandler.OnCommit(tx)
+	}
 	return nil
 }
