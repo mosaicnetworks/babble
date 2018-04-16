@@ -3,6 +3,7 @@ package mobile
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"time"
 
@@ -22,37 +23,39 @@ type Node struct {
 }
 
 // New initializes Node struct
-func New(nodeAddr string,
+func New(privKey string,
+	nodeAddr string,
 	peers string,
-	privKey string,
 	commitHandler CommitHandler,
 	exceptionHandler ExceptionHandler,
 	config *MobileConfig) *Node {
 
 	logger := initLogger()
 
-	var netPeers []net.Peer
-	err := json.Unmarshal([]byte(peers), &netPeers)
-	if err != nil {
-		exceptionHandler.OnException(fmt.Sprintf("l37: %s. %s", err.Error(), peers))
-		return nil
-	}
+	logger.WithFields(logrus.Fields{
+		"nodeAddr": nodeAddr,
+		"peers":    peers,
+		"config":   fmt.Sprintf("%v", config),
+	}).Debug("New Mobile Node")
 
-	conf := node.NewConfig(
-		time.Duration(config.HeartBeat)*time.Millisecond,
-		time.Duration(1000)*time.Millisecond,
-		config.CacheSize,
-		config.SyncLimit,
-		"inmem",
-		"",
-		logger)
-
-	maxPool := config.MaxPool
-
+	//Check private key
 	pemKey := &crypto.PemKey{}
 	key, err := pemKey.ReadKeyFromBuf([]byte(privKey))
 	if err != nil {
-		exceptionHandler.OnException(fmt.Sprintf("l55: %s", "Failed to read private key"))
+		exceptionHandler.OnException(fmt.Sprintf("Failed to read private key: %s", err))
+		return nil
+	}
+
+	//Check peers
+	var netPeers []net.Peer
+	if err := json.Unmarshal([]byte(peers), &netPeers); err != nil {
+		exceptionHandler.OnException(fmt.Sprintf("Unmarshalling json peers: %s. %s", err.Error(), peers))
+		return nil
+	}
+
+	// There should be at least two peers
+	if len(peers) < 2 {
+		exceptionHandler.OnException(fmt.Sprintf("Should define at least two peers"))
 		return nil
 	}
 
@@ -61,8 +64,6 @@ func New(nodeAddr string,
 	for i, p := range netPeers {
 		pmap[p.PubKeyHex] = i
 	}
-
-	logger.WithField("node_addr", nodeAddr).Debug("Node Address")
 
 	//Find the ID of this node
 	nodePub := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey))
@@ -73,13 +74,49 @@ func New(nodeAddr string,
 		"id":   nodeID,
 	}).Debug("PARTICIPANTS")
 
-	needBootstrap := false
-	store := hg.NewInmemStore(pmap, conf.CacheSize)
+	conf := node.NewConfig(
+		time.Duration(config.Heartbeat)*time.Millisecond,
+		time.Duration(config.TCPTimeout)*time.Millisecond,
+		config.CacheSize,
+		config.SyncLimit,
+		config.StoreType,
+		config.StorePath,
+		logger)
+
+	//Instantiate the Store (inmem or badger)
+	var store hg.Store
+	var needBootstrap bool
+	switch conf.StoreType {
+	case "inmem":
+		store = hg.NewInmemStore(pmap, conf.CacheSize)
+	case "badger":
+		//If the file already exists, load and bootstrap the store using the file
+		if _, err := os.Stat(conf.StorePath); err == nil {
+			logger.Debug("loading badger store from existing database")
+			store, err = hg.LoadBadgerStore(conf.CacheSize, conf.StorePath)
+			if err != nil {
+				exceptionHandler.OnException(fmt.Sprintf("failed to load BadgerStore from existing file: %s", err))
+				return nil
+			}
+			needBootstrap = true
+		} else {
+			//Otherwise create a new one
+			logger.Debug("creating new badger store from fresh database")
+			store, err = hg.NewBadgerStore(pmap, conf.CacheSize, conf.StorePath)
+			if err != nil {
+				exceptionHandler.OnException(fmt.Sprintf("failed to create new BadgerStore: %s", err))
+				return nil
+			}
+		}
+	default:
+		exceptionHandler.OnException(fmt.Sprintf("Invalid StoreType: %s", conf.StoreType))
+		return nil
+	}
 
 	trans, err := net.NewTCPTransport(
-		nodeAddr, nil, maxPool, conf.TCPTimeout, logger)
+		nodeAddr, nil, config.MaxPool, conf.TCPTimeout, logger)
 	if err != nil {
-		exceptionHandler.OnException(fmt.Sprintf("l82: %s", err.Error()))
+		exceptionHandler.OnException(fmt.Sprintf("Creating TCP Transport: %s", err.Error()))
 		return nil
 	}
 
@@ -88,7 +125,8 @@ func New(nodeAddr string,
 
 	node := node.NewNode(conf, nodeID, key, netPeers, store, trans, prox)
 	if err := node.Init(needBootstrap); err != nil {
-		exceptionHandler.OnException(fmt.Sprintf("l91 %s", fmt.Sprintf("failed to initialize node: %s", err)))
+		exceptionHandler.OnException(fmt.Sprintf("Initializing node: %s", err))
+		return nil
 	}
 
 	return &Node{

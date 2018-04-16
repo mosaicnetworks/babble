@@ -235,7 +235,6 @@ func run(c *cli.Context) error {
 	switch storeType {
 	case "inmem":
 		store = hg.NewInmemStore(pmap, conf.CacheSize)
-		needBootstrap = true
 	case "badger":
 		//If the file already exists, load and bootstrap the store using the file
 		if _, err := os.Stat(conf.StorePath); err == nil {

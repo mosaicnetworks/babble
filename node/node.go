@@ -95,6 +95,7 @@ func (n *Node) Init(bootstrap bool) error {
 	n.logger.WithField("peers", peerAddresses).Debug("Init Node")
 
 	if bootstrap {
+		n.logger.Debug("Bootstrap")
 		return n.core.Bootstrap()
 	}
 	return n.core.Init()
