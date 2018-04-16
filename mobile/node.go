@@ -156,5 +156,9 @@ func (n *Node) Shutdown() {
 }
 
 func (n *Node) SubmitTx(tx []byte) {
-	n.proxy.SubmitCh() <- tx
+	//have to make a copy or the tx will be garbage collected and weird stuff
+	//happens in transaction pool
+	t := make([]byte, len(tx), len(tx))
+	copy(t, tx)
+	n.proxy.SubmitCh() <- t
 }
