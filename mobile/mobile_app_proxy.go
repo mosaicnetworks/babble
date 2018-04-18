@@ -41,8 +41,11 @@ func (p *mobileAppProxy) SubmitCh() chan []byte {
 // gomobile cannot export a Block object because it doesn't support arrays of
 // arrays of bytes
 func (p *mobileAppProxy) CommitBlock(block hashgraph.Block) error {
-	for _, tx := range block.Transactions {
-		p.commitHandler.OnCommit(tx)
+	blockBytes, err := block.Marshal()
+	if err != nil {
+		p.logger.Debug("mobileAppProxy error marhsalling Block")
+		return err
 	}
+	p.commitHandler.OnCommit(blockBytes)
 	return nil
 }

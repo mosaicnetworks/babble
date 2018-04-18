@@ -24,8 +24,8 @@ func NewBlock(roundReceived int, transactions [][]byte) Block {
 }
 
 func (b *Block) Marshal() ([]byte, error) {
-	var bf bytes.Buffer
-	enc := json.NewEncoder(&bf)
+	bf := bytes.NewBuffer([]byte{})
+	enc := json.NewEncoder(bf)
 	if err := enc.Encode(b); err != nil {
 		return nil, err
 	}
