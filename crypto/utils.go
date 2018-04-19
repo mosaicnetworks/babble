@@ -4,16 +4,10 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/sha256"
+	"fmt"
 	"math/big"
+	"strings"
 )
-
-func SHA256(hashBytes []byte) []byte {
-	hasher := sha256.New()
-	hasher.Write(hashBytes)
-	hash := hasher.Sum(nil)
-	return hash
-}
 
 func GenerateECDSAKey() (*ecdsa.PrivateKey, error) {
 	return ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -40,4 +34,18 @@ func Sign(priv *ecdsa.PrivateKey, hash []byte) (r, s *big.Int, err error) {
 
 func Verify(pub *ecdsa.PublicKey, hash []byte, r, s *big.Int) bool {
 	return ecdsa.Verify(pub, hash, r, s)
+}
+
+func EncodeSignature(r, s *big.Int) string {
+	return fmt.Sprintf("%s|%s", r.Text(36), s.Text(36))
+}
+
+func DecodeSignature(sig string) (r, s *big.Int, err error) {
+	values := strings.Split(sig, "|")
+	if len(values) != 2 {
+		return r, s, fmt.Errorf("wrong number of values in signature: got %d, want 2", len(values))
+	}
+	r, _ = new(big.Int).SetString(values[0], 36)
+	s, _ = new(big.Int).SetString(values[1], 36)
+	return r, s, nil
 }

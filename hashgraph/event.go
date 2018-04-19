@@ -5,18 +5,18 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/babbleio/babble/crypto"
 )
 
 type EventBody struct {
-	Transactions [][]byte  //the payload
-	Parents      []string  //hashes of the event's parents, self-parent first
-	Creator      []byte    //creator's public key
-	Timestamp    time.Time //creator's claimed timestamp of the event's creation
-	Index        int       //index in the sequence of events created by Creator
+	Transactions    [][]byte         //the payload
+	Parents         []string         //hashes of the event's parents, self-parent first
+	Creator         []byte           //creator's public key
+	Timestamp       time.Time        //creator's claimed timestamp of the event's creation
+	Index           int              //index in the sequence of events created by Creator
+	BlockSignatures []BlockSignature //list of Block signatures signed by the Event's Creator ONLY
 
 	//wire
 	//It is cheaper to send ints then hashes over the wire
@@ -59,8 +59,8 @@ type EventCoordinates struct {
 }
 
 type Event struct {
-	Body EventBody
-	R, S big.Int //creator's digital signature of body
+	Body      EventBody
+	Signature string //creator's digital signature of body
 
 	topologicalIndex int
 
@@ -76,16 +76,18 @@ type Event struct {
 }
 
 func NewEvent(transactions [][]byte,
+	blockSignatures []BlockSignature,
 	parents []string,
 	creator []byte,
 	index int) Event {
 
 	body := EventBody{
-		Transactions: transactions,
-		Parents:      parents,
-		Creator:      creator,
-		Timestamp:    time.Now().UTC(), //strip monotonic time
-		Index:        index,
+		Transactions:    transactions,
+		BlockSignatures: blockSignatures,
+		Parents:         parents,
+		Creator:         creator,
+		Timestamp:       time.Now().UTC(), //strip monotonic time
+		Index:           index,
 	}
 	return Event{
 		Body: body,
@@ -115,14 +117,23 @@ func (e *Event) Index() int {
 	return e.Body.Index
 }
 
+func (e *Event) BlockSignatures() []BlockSignature {
+	return e.Body.BlockSignatures
+}
+
 //True if Event contains a payload or is the initial Event of its creator
 func (e *Event) IsLoaded() bool {
 	if e.Body.Index == 0 {
 		return true
 	}
 
-	return e.Body.Transactions != nil &&
+	hasTransactions := e.Body.Transactions != nil &&
 		len(e.Body.Transactions) > 0
+
+	hasBlockSignatures := e.Body.BlockSignatures != nil &&
+		len(e.Body.BlockSignatures) > 0
+
+	return hasTransactions || hasBlockSignatures
 }
 
 //ecdsa sig
@@ -135,7 +146,7 @@ func (e *Event) Sign(privKey *ecdsa.PrivateKey) error {
 	if err != nil {
 		return err
 	}
-	e.R, e.S = *R, *S
+	e.Signature = crypto.EncodeSignature(R, S)
 	return err
 }
 
@@ -148,7 +159,12 @@ func (e *Event) Verify() (bool, error) {
 		return false, err
 	}
 
-	return crypto.Verify(pubKey, signBytes, &e.R, &e.S), nil
+	r, s, err := crypto.DecodeSignature(e.Signature)
+	if err != nil {
+		return false, err
+	}
+
+	return crypto.Verify(pubKey, signBytes, r, s), nil
 }
 
 //json encoding of body and signature
@@ -167,14 +183,14 @@ func (e *Event) Unmarshal(data []byte) error {
 	return dec.Decode(e)
 }
 
-//sha256 hash of body and signature
+//sha256 hash of body
 func (e *Event) Hash() ([]byte, error) {
 	if len(e.hash) == 0 {
-		hashBytes, err := e.Marshal()
+		hash, err := e.Body.Hash()
 		if err != nil {
 			return nil, err
 		}
-		e.hash = crypto.SHA256(hashBytes)
+		e.hash = hash
 	}
 	return e.hash, nil
 }
@@ -204,7 +220,20 @@ func (e *Event) SetWireInfo(selfParentIndex,
 	e.Body.creatorID = creatorID
 }
 
+func (e *Event) WireBlockSignatures() []WireBlockSignature {
+	if e.Body.BlockSignatures != nil {
+		wireSignatures := make([]WireBlockSignature, len(e.Body.BlockSignatures))
+		for i, bs := range e.Body.BlockSignatures {
+			wireSignatures[i] = bs.ToWire()
+		}
+
+		return wireSignatures
+	}
+	return nil
+}
+
 func (e *Event) ToWire() WireEvent {
+
 	return WireEvent{
 		Body: WireBody{
 			Transactions:         e.Body.Transactions,
@@ -214,9 +243,9 @@ func (e *Event) ToWire() WireEvent {
 			CreatorID:            e.Body.creatorID,
 			Timestamp:            e.Body.Timestamp,
 			Index:                e.Body.Index,
+			BlockSignatures:      e.WireBlockSignatures(),
 		},
-		R: e.R,
-		S: e.S,
+		Signature: e.Signature,
 	}
 }
 
@@ -250,7 +279,8 @@ func (a ByTopologicalOrder) Less(i, j int) bool {
 // WireEvent
 
 type WireBody struct {
-	Transactions [][]byte
+	Transactions    [][]byte
+	BlockSignatures []WireBlockSignature
 
 	SelfParentIndex      int
 	OtherParentCreatorID int
@@ -262,6 +292,21 @@ type WireBody struct {
 }
 
 type WireEvent struct {
-	Body WireBody
-	R, S big.Int
+	Body      WireBody
+	Signature string
+}
+
+func (we *WireEvent) BlockSignatures(validator []byte) []BlockSignature {
+	if we.Body.BlockSignatures != nil {
+		blockSignatures := make([]BlockSignature, len(we.Body.BlockSignatures))
+		for k, bs := range we.Body.BlockSignatures {
+			blockSignatures[k] = BlockSignature{
+				Validator: validator,
+				Index:     bs.Index,
+				Signature: bs.Signature,
+			}
+		}
+		return blockSignatures
+	}
+	return nil
 }

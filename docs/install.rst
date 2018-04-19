@@ -1,3 +1,5 @@
+.. _install:
+
 Install
 =======
 
@@ -13,8 +15,8 @@ Clone the `repository <https://github.com/babbleio/babble>`__ in the appropriate
     [...]/babbleio$ git clone https://github.com/babbleio/babble.git
 
 
-The easiest way to build binaries is to do so in a hermetic Docker container. Use  
-this simple command:  
+The easiest way to build binaries is to do so in a hermetic Docker container. 
+Use this simple command:  
 
 ::
 
@@ -61,16 +63,17 @@ the build/ folder.
 Go Devs
 ^^^^^^^
 
-Babble is written in `Golang <https://golang.org/>`__. Hence, the first step is to install  
-**Go version 1.9 or above** which is both the programming language  
-and a CLI tool for managing Go code. Go is very opinionated  and will require you to  
-`define a workspace <https://golang.org/doc/code.html#Workspaces>`__ where all your go code will reside. 
+Babble is written in `Golang <https://golang.org/>`__. Hence, the first step is 
+to install **Go version 1.9 or above** which is both the programming language  
+and a CLI tool for managing Go code. Go is very opinionated  and will require 
+you to `define a workspace <https://golang.org/doc/code.html#Workspaces>`__ 
+where all your go code will reside. 
 
 Dependencies  
 ^^^^^^^^^^^^
 
-Babble uses `Glide <http://github.com/Masterminds/glide>`__ to manage dependencies.
-For Ubuntu users:
+Babble uses `Glide <http://github.com/Masterminds/glide>`__ to manage 
+dependencies. For Ubuntu users:
 
 ::
 

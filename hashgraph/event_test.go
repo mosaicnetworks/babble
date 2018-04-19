@@ -14,6 +14,13 @@ func createDummyEventBody() EventBody {
 	body.Parents = []string{"self", "other"}
 	body.Creator = []byte("public key")
 	body.Timestamp = time.Now().UTC()
+	body.BlockSignatures = []BlockSignature{
+		BlockSignature{
+			Validator: body.Creator,
+			Index:     0,
+			Signature: "r|s",
+		},
+	}
 	return body
 }
 
@@ -31,7 +38,10 @@ func TestMarshallBody(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(body.Transactions, newBody.Transactions) {
-		t.Fatalf("Payloads do not match. Expected %#v, got %#v", body.Transactions, newBody.Transactions)
+		t.Fatalf("Transactions do not match. Expected %#v, got %#v", body.Transactions, newBody.Transactions)
+	}
+	if !reflect.DeepEqual(body.BlockSignatures, newBody.BlockSignatures) {
+		t.Fatalf("BlockSignatures do not match. Expected %#v, got %#v", body.BlockSignatures, newBody.BlockSignatures)
 	}
 	if !reflect.DeepEqual(body.Parents, newBody.Parents) {
 		t.Fatalf("Parents do not match. Expected %#v, got %#v", body.Parents, newBody.Parents)
@@ -116,9 +126,9 @@ func TestWireEvent(t *testing.T) {
 			CreatorID:            67,
 			Timestamp:            event.Body.Timestamp,
 			Index:                event.Body.Index,
+			BlockSignatures:      event.WireBlockSignatures(),
 		},
-		R: event.R,
-		S: event.S,
+		Signature: event.Signature,
 	}
 
 	wireEvent := event.ToWire()
@@ -130,9 +140,9 @@ func TestWireEvent(t *testing.T) {
 
 func TestIsLoaded(t *testing.T) {
 	//nil payload
-	event := NewEvent(nil, []string{"p1", "p2"}, []byte("creator"), 1)
+	event := NewEvent(nil, nil, []string{"p1", "p2"}, []byte("creator"), 1)
 	if event.IsLoaded() {
-		t.Fatalf("IsLoaded() should return false for nil Body.Transactions")
+		t.Fatalf("IsLoaded() should return false for nil Body.Transactions and Body.BlockSignatures")
 	}
 
 	//empty payload
@@ -141,15 +151,27 @@ func TestIsLoaded(t *testing.T) {
 		t.Fatalf("IsLoaded() should return false for empty Body.Transactions")
 	}
 
+	event.Body.BlockSignatures = []BlockSignature{}
+	if event.IsLoaded() {
+		t.Fatalf("IsLoaded() should return false for empty Body.BlockSignatures")
+	}
+
 	//initial event
 	event.Body.Index = 0
 	if !event.IsLoaded() {
 		t.Fatalf("IsLoaded() should return true for initial event")
 	}
 
-	//non-empty payload
+	//non-empty tx payload
 	event.Body.Transactions = [][]byte{[]byte("abc")}
 	if !event.IsLoaded() {
-		t.Fatalf("IsLoaded() should return true for non-empty payload")
+		t.Fatalf("IsLoaded() should return true for non-empty transaction payload")
+	}
+
+	//non-empy signature payload
+	event.Body.Transactions = nil
+	event.Body.BlockSignatures = []BlockSignature{BlockSignature{Validator: []byte("validator"), Index: 0, Signature: "r|s"}}
+	if !event.IsLoaded() {
+		t.Fatalf("IsLoaded() should return true for non-empty signature payload")
 	}
 }

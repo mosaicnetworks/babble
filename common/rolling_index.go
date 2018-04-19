@@ -1,5 +1,7 @@
 package common
 
+import "strconv"
+
 type RollingIndex struct {
 	size      int
 	lastIndex int
@@ -29,7 +31,7 @@ func (r *RollingIndex) Get(skipIndex int) ([]interface{}, error) {
 	//assume there are no gaps between indexes
 	oldestCachedIndex := r.lastIndex - cachedItems + 1
 	if skipIndex+1 < oldestCachedIndex {
-		return res, NewStoreErr(TooLate, string(SkippedIndex))
+		return res, NewStoreErr(TooLate, strconv.Itoa(skipIndex))
 	}
 
 	//index of 'skipped' in RollingIndex
@@ -42,28 +44,46 @@ func (r *RollingIndex) GetItem(index int) (interface{}, error) {
 	items := len(r.items)
 	oldestCached := r.lastIndex - items + 1
 	if index < oldestCached {
-		return nil, NewStoreErr(TooLate, string(index))
+		return nil, NewStoreErr(TooLate, strconv.Itoa(index))
 	}
 	findex := index - oldestCached
 	if findex >= items {
-		return nil, NewStoreErr(KeyNotFound, string(index))
+		return nil, NewStoreErr(KeyNotFound, strconv.Itoa(index))
 	}
 	return r.items[findex], nil
 }
 
-func (r *RollingIndex) Add(item interface{}, index int) error {
-	if index <= r.lastIndex {
-		return NewStoreErr(PassedIndex, string(index))
-	}
-	if r.lastIndex >= 0 && index > r.lastIndex+1 {
-		return NewStoreErr(SkippedIndex, string(index))
+func (r *RollingIndex) Set(item interface{}, index int) error {
+
+	//only allow to set items with index <= lastIndex + 1
+	//so that we may assume there are no gaps between items
+	if 0 <= r.lastIndex && index > r.lastIndex+1 {
+		return NewStoreErr(SkippedIndex, strconv.Itoa(index))
 	}
 
-	if len(r.items) >= 2*r.size {
-		r.Roll()
+	//adding a new item
+	if r.lastIndex < 0 || (index == r.lastIndex+1) {
+		if len(r.items) >= 2*r.size {
+			r.Roll()
+		}
+		r.items = append(r.items, item)
+		r.lastIndex = index
+		return nil
 	}
-	r.items = append(r.items, item)
-	r.lastIndex = index
+
+	//replace and existing item
+	//make sure index is also greater or equal than the oldest cached item's index
+	cachedItems := len(r.items)
+	oldestCachedIndex := r.lastIndex - cachedItems + 1
+
+	if index < oldestCachedIndex {
+		return NewStoreErr(TooLate, strconv.Itoa(index))
+	}
+
+	//replacing existing item
+	position := index - oldestCachedIndex //position of 'index' in RollingIndex
+	r.items[position] = item
+
 	return nil
 }
 

@@ -71,7 +71,7 @@ func (s *InmemStore) SetEvent(event Event) error {
 }
 
 func (s *InmemStore) addParticpantEvent(participant string, hash string, index int) error {
-	return s.participantEventsCache.Add(participant, hash, index)
+	return s.participantEventsCache.Set(participant, hash, index)
 }
 
 func (s *InmemStore) ParticipantEvents(participant string, skip int) ([]string, error) {
@@ -82,7 +82,7 @@ func (s *InmemStore) ParticipantEvent(particant string, index int) (string, erro
 	return s.participantEventsCache.GetItem(particant, index)
 }
 
-func (s *InmemStore) LastFrom(participant string) (last string, isRoot bool, err error) {
+func (s *InmemStore) LastEventFrom(participant string) (last string, isRoot bool, err error) {
 	//try to get the last event from this participant
 	last, err = s.participantEventsCache.GetLast(participant)
 	if err != nil {
@@ -101,15 +101,15 @@ func (s *InmemStore) LastFrom(participant string) (last string, isRoot bool, err
 	return
 }
 
-func (s *InmemStore) Known() map[int]int {
+func (s *InmemStore) KnownEvents() map[int]int {
 	return s.participantEventsCache.Known()
 }
 
 func (s *InmemStore) ConsensusEvents() []string {
 	lastWindow, _ := s.consensusCache.GetLastWindow()
-	res := []string{}
-	for _, item := range lastWindow {
-		res = append(res, item.(string))
+	res := make([]string, len(lastWindow))
+	for i, item := range lastWindow {
+		res[i] = item.(string)
 	}
 	return res
 }
@@ -119,7 +119,7 @@ func (s *InmemStore) ConsensusEventsCount() int {
 }
 
 func (s *InmemStore) AddConsensusEvent(key string) error {
-	s.consensusCache.Add(key, s.totConsensusEvents)
+	s.consensusCache.Set(key, s.totConsensusEvents)
 	s.totConsensusEvents++
 	return nil
 }
@@ -168,16 +168,20 @@ func (s *InmemStore) GetRoot(participant string) (Root, error) {
 	return res, nil
 }
 
-func (s *InmemStore) GetBlock(rr int) (Block, error) {
-	res, ok := s.blockCache.Get(rr)
+func (s *InmemStore) GetBlock(index int) (Block, error) {
+	res, ok := s.blockCache.Get(index)
 	if !ok {
-		return Block{}, cm.NewStoreErr(cm.KeyNotFound, strconv.Itoa(rr))
+		return Block{}, cm.NewStoreErr(cm.KeyNotFound, strconv.Itoa(index))
 	}
 	return res.(Block), nil
 }
 
 func (s *InmemStore) SetBlock(block Block) error {
-	s.blockCache.Add(block.RoundReceived, block)
+	_, err := s.GetBlock(block.Index())
+	if err != nil && !cm.Is(err, cm.KeyNotFound) {
+		return err
+	}
+	s.blockCache.Add(block.Index(), block)
 	return nil
 }
 

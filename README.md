@@ -1,35 +1,45 @@
 # BABBLE
-## Consensus platform for distributed applications.
+## BFT Consensus platform for distributed applications.
 
 [![CircleCI](https://circleci.com/gh/babbleio/babble.svg?style=svg)](https://circleci.com/gh/babbleio/babble)
 
-Babble allows many computers to behave as one. It uses Peer to Peer (P2P) networking
-and a consensus algorithm to guarantee that multiple connected computers process
-the same commands in the same order; a technique known as state machine replication.
-This makes for secure systems that can tolerate arbitrary failures including malicious
-behaviour.
+Babble allows many computers to behave as one. It uses Peer to Peer (P2P) 
+networking and a consensus algorithm to guarantee that multiple connected 
+computers process the same commands in the same order; a technique known as 
+state machine replication. This makes for secure systems that can tolerate 
+arbitrary failures including malicious behaviour.
 
-For guidance on how to install and use Babble please visit our [documentation](http://docs.babble.io) pages.
+For guidance on how to install and use Babble please visit our 
+[documentation](http://docs.babble.io) pages.
 
 **NOTE**:
 This is alpha software. Please contact us if you intend to run it in production.
 
-## Consensus Algorithm
+## Consensus Algorithm and Blockchain
 
 We use the Hashgraph consensus algorithm, invented by Leemon Baird.
-It is best described in the [white-paper](http://www.swirlds.com/downloads/SWIRLDS-TR-2016-01.pdf) and its [accompanying document](http://www.swirlds.com/downloads/SWIRLDS-TR-2016-02.pdf).
-The algorithm is protected by [patents](http://www.swirlds.com/ip/) in the USA. Therefore, anyone intending to
-use this software in the USA should obtain a license from the patent holders.
+It is best described in the 
+[white-paper](http://www.swirlds.com/downloads/SWIRLDS-TR-2016-01.pdf) and its 
+[accompanying document](http://www.swirlds.com/downloads/SWIRLDS-TR-2016-02.pdf).
+The algorithm is protected by [patents](http://www.swirlds.com/ip/) in the USA. 
+Therefore, anyone intending to use this software in the USA should obtain a 
+license from the patent holders.
 
-Hashgraph is based on the intuitive idea that gossiping about gossip itself yields
-enough information to compute a consensus ordering of events. It attains the
-theoretical limit of tolerating up to one-third of faulty nodes without compromising
-on speed. For those familiar with the jargon, it is a leaderless, asynchronous BFT
-consensus algorithm.
+Hashgraph is based on the intuitive idea that gossiping about gossip itself 
+yields enough information to compute a consensus ordering of events. It attains 
+the theoretical limit of tolerating up to one-third of faulty nodes without 
+compromising on speed. For those familiar with the jargon, it is a leaderless, 
+asynchronous BFT consensus algorithm.
+
+Babble projects the output of the consensus algorithm onto a linear blockchain 
+which is more suitable for representing an ordered list of transactions and 
+facilitates the creation of light-clients. For information about this projection
+please refer to [documentation](http://docs.babble.io/blockchain.html) pages.
 
 ## Design
 
-Babble is designed to integrate with applications written in any programming language.
+Babble is designed to integrate with applications written in any programming 
+language.
 
 
 ```
@@ -79,17 +89,33 @@ Babble is designed to integrate with applications written in any programming lan
 
                     Network
 ```
-The above diagram shows how Babble fits in the typical architecture of a distributed
-application. Users interact with an App's Service which reads data from its State.
-However, the Service never updates the State directly. Instead, it passes commands
-to an ordering system which communicates to other nodes and feeds the commands back
-to the State in consensus order. Babble is an ordering system that plugs into the
-App thanks to a very simple JSON-RPC interface over TCP.
+Almost any software application can be modelled in terms of a *service* and a 
+*state*. The *service* is responsible for processing commands (ex. user input), 
+while the *state* is responsible for manipulating and storing the data (eg. 
+database). Usually, when commands require updating the data, the *service* will 
+invoke the *state* directly. In a distributed application, however, commands 
+(referred to as *transactions* in this context), must be broadcasted to all 
+replicas and put in a common order before being applied to the *state*. This is 
+what ensures that all replicas process the same commands in the same order. 
+Hence, the *service* no longer communicates directly with the *state* (except 
+for read-only requests), but forwards commands to a *transaction ordering 
+system* which takes care of broadcasting and ordering the transactions across 
+all replicas before feeding them back to the application's *state*. 
+
+Babble is an ordering system that plugs into any application thanks to a very 
+simple JSON-RPC interface over TCP. It uses a consensus algorithm, to replicate 
+and order the transactions, and a blockchain to represent the resulting list. 
+A blockchain is a linear data structure composed of batches of transactions, 
+hashed and signed together, easily allowing to verify any transaction. So, 
+instead of applying commands directly to the *state*, Babble applications must 
+forward the commands to Babble and let them be processed asynchronously by the 
+consensus system before receiving them back, in blocks, ready to be applied 
+to the *state*.  
 
 ## Build from source
 
-The easiest way to build binaries is to do so in a hermetic Docker container. Use
-this simple command:
+The easiest way to build binaries is to do so in a hermetic Docker container. 
+Use this simple command:
 
 ```bash
 [...]/babble$ make dist
@@ -135,13 +161,15 @@ build/
 ## Dev
 
 ### Go
-Babble is written in [Golang](https://golang.org/). Hence, the first step is to install **Go version 1.9 or above**
-which is both the programming language  and a CLI tool for managing Go code. Go is
-very opinionated and will require you to [define a workspace](https://golang.org/doc/code.html#Workspaces) where all your go code will
-reside.
+Babble is written in [Golang](https://golang.org/). Hence, the first step is to 
+install **Go version 1.9 or above** which is both the programming language  and a 
+CLI tool for managing Go code. Go is very opinionated and will require you to 
+[define a workspace](https://golang.org/doc/code.html#Workspaces) where all your 
+go code will reside.
 
 ### Babble and dependencies
-Clone the [repository](https://github.com/babbleio/babble) in the appropriate GOPATH subdirectory:
+Clone the [repository](https://github.com/babbleio/babble) in the appropriate 
+GOPATH subdirectory:
 
 ```bash
 $ mkdir -p $GOPATH/src/github.com/babbleio/
@@ -188,8 +216,8 @@ ok      github.com/babbleio/babble/crypto   0.028s
 
 ## Demo
 
-To see Babble in action, we have provided a series of scripts to bootstrap a test
-network locally.
+To see Babble in action, we have provided a series of scripts to bootstrap a 
+test network locally.
 
 **NOTE:**
 This has been tested on Ubuntu 16.04 and macOS.
@@ -203,14 +231,15 @@ Then, run the testnet:
 [...]/babble/demo$ make
 ```
 
-Once the testnet is started, a script is automatically launched to monitor consensus
-figures:
+Once the testnet is started, a script is automatically launched to monitor 
+consensus figures:
 
 ```
-consensus_events:98 consensus_transactions:40 events_per_second:0.00 id:3 last_consensus_round:11 num_peers:3 round_events:12 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:34
-consensus_events:98 consensus_transactions:40 events_per_second:0.00 id:1 last_consensus_round:11 num_peers:3 round_events:12 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:35
-consensus_events:98 consensus_transactions:40 events_per_second:0.00 id:0 last_consensus_round:11 num_peers:3 round_events:12 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:34
-consensus_events:98 consensus_transactions:40 events_per_second:0.00 id:2 last_consensus_round:11 num_peers:3 round_events:12 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:35
+consensus_events:180 consensus_transactions:40 events_per_second:0.00 id:1 last_block_index:3 last_consensus_round:17 num_peers:3 round_events:7 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:18
+consensus_events:180 consensus_transactions:40 events_per_second:0.00 id:3 last_block_index:3 last_consensus_round:17 num_peers:3 round_events:7 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:20
+consensus_events:180 consensus_transactions:40 events_per_second:0.00 id:2 last_block_index:3 last_consensus_round:17 num_peers:3 round_events:7 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:21
+consensus_events:180 consensus_transactions:40 events_per_second:0.00 id:0 last_block_index:3 last_consensus_round:17 num_peers:3 round_events:7 rounds_per_second:0.00 state:Babbling sync_rate:1.00 transaction_pool:0 undetermined_events:20
+
 
 ```
 
@@ -230,8 +259,8 @@ d1f4e5008d4d        mosaicnetworks/babble    "babble run --cache_s"   55 seconds
 ```
 Indeed, each node is comprised of an App and a Babble node (cf Architecture section).
 
-Run the **demo** script to play with the **Dummy App** which is a simple chat application
-powered by the Babble consensus platform:
+Run the **demo** script to play with the **Dummy App** which is a simple chat 
+application powered by the Babble consensus platform:
 
 ```
 [...]/babble/demo$ make demo

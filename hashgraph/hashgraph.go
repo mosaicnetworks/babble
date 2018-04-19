@@ -19,6 +19,7 @@ type Hashgraph struct {
 	UndeterminedEvents      []string       //[index] => hash
 	UndecidedRounds         []int          //queue of Rounds which have undecided witnesses
 	LastConsensusRound      *int           //index of last round where the fame of all witnesses has been decided
+	LastBlockIndex          int            //index of last block
 	LastCommitedRoundEvents int            //number of events in round before LastConsensusRound
 	ConsensusTransactions   int            //number of consensus transactions
 	PendingLoadedEvents     int            //number of loaded events that are not yet committed
@@ -48,7 +49,7 @@ func NewHashgraph(participants map[string]int, store Store, commitCh chan Block,
 	}
 
 	cacheSize := store.CacheSize()
-	return &Hashgraph{
+	hashgraph := Hashgraph{
 		Participants:            participants,
 		ReverseParticipants:     reverseParticipants,
 		Store:                   store,
@@ -61,8 +62,11 @@ func NewHashgraph(participants map[string]int, store Store, commitCh chan Block,
 		roundCache:              common.NewLRU(cacheSize, nil),
 		logger:                  logger,
 		superMajority:           2*len(participants)/3 + 1,
-		UndecidedRounds:         []int{0}, //initialize
+		UndecidedRounds:         []int{0}, //initialize,
+		LastBlockIndex:          -1,
 	}
+
+	return &hashgraph
 }
 
 func (h *Hashgraph) SuperMajority() int {
@@ -359,7 +363,7 @@ func (h *Hashgraph) InsertEvent(event Event, setWireInfo bool) error {
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("Invalid signature")
+		return fmt.Errorf("Invalid Event signature")
 	}
 
 	if err := h.CheckSelfParent(event); err != nil {
@@ -397,7 +401,55 @@ func (h *Hashgraph) InsertEvent(event Event, setWireInfo bool) error {
 		h.PendingLoadedEvents++
 	}
 
+	h.recordBlockSignatures(event.BlockSignatures())
+
 	return nil
+}
+
+func (h *Hashgraph) recordBlockSignatures(blockSignatures []BlockSignature) {
+	for _, bs := range blockSignatures {
+		//check if validator belongs to list of participants
+		validatorHex := fmt.Sprintf("0x%X", bs.Validator)
+		if _, ok := h.Participants[validatorHex]; !ok {
+			h.logger.WithFields(logrus.Fields{
+				"index":     bs.Index,
+				"validator": validatorHex,
+			}).Warning("Verifying Block signature. Unknown validator")
+			continue
+		}
+
+		block, err := h.Store.GetBlock(bs.Index)
+		if err != nil {
+			h.logger.WithFields(logrus.Fields{
+				"index": bs.Index,
+				"msg":   err,
+			}).Warning("Verifying Block signature. Could not fetch Block")
+			continue
+		}
+		valid, err := block.Verify(bs)
+		if err != nil {
+			h.logger.WithFields(logrus.Fields{
+				"index": bs.Index,
+				"msg":   err,
+			}).Warning("Verifying Block signature")
+			continue
+		}
+		if !valid {
+			h.logger.WithFields(logrus.Fields{
+				"index": bs.Index,
+			}).Warning("Verifying Block signature. Invalid signature")
+			continue
+		}
+
+		block.SetSignature(bs)
+
+		if err := h.Store.SetBlock(block); err != nil {
+			h.logger.WithFields(logrus.Fields{
+				"index": bs.Index,
+				"msg":   err,
+			}).Warning("Saving Block")
+		}
+	}
 }
 
 //Check the SelfParent is the Creator's last known Event
@@ -405,7 +457,7 @@ func (h *Hashgraph) CheckSelfParent(event Event) error {
 	selfParent := event.SelfParent()
 	creator := event.Creator()
 
-	creatorLastKnown, _, err := h.Store.LastFrom(creator)
+	creatorLastKnown, _, err := h.Store.LastEventFrom(creator)
 	if err != nil {
 		return err
 	}
@@ -449,8 +501,8 @@ func (h *Hashgraph) InitEventCoordinates(event *Event) error {
 	members := len(h.Participants)
 
 	event.firstDescendants = make([]EventCoordinates, members)
-	for fakeID := 0; fakeID < members; fakeID++ {
-		event.firstDescendants[fakeID] = EventCoordinates{
+	for id := 0; id < members; id++ {
+		event.firstDescendants[id] = EventCoordinates{
 			index: math.MaxInt32,
 		}
 	}
@@ -461,8 +513,8 @@ func (h *Hashgraph) InitEventCoordinates(event *Event) error {
 	otherParent, otherParentError := h.Store.GetEvent(event.OtherParent())
 
 	if selfParentError != nil && otherParentError != nil {
-		for fakeID := 0; fakeID < members; fakeID++ {
-			event.lastAncestors[fakeID] = EventCoordinates{
+		for id := 0; id < members; id++ {
+			event.lastAncestors[id] = EventCoordinates{
 				index: -1,
 			}
 		}
@@ -486,23 +538,23 @@ func (h *Hashgraph) InitEventCoordinates(event *Event) error {
 	index := event.Index()
 
 	creator := event.Creator()
-	fakeCreatorID, ok := h.Participants[creator]
+	creatorID, ok := h.Participants[creator]
 	if !ok {
-		return fmt.Errorf("Could not find fake creator id")
+		return fmt.Errorf("Could not find creator id (%s)", creator)
 	}
 	hash := event.Hex()
 
-	event.firstDescendants[fakeCreatorID] = EventCoordinates{index: index, hash: hash}
-	event.lastAncestors[fakeCreatorID] = EventCoordinates{index: index, hash: hash}
+	event.firstDescendants[creatorID] = EventCoordinates{index: index, hash: hash}
+	event.lastAncestors[creatorID] = EventCoordinates{index: index, hash: hash}
 
 	return nil
 }
 
 //update first decendant of each last ancestor to point to event
 func (h *Hashgraph) UpdateAncestorFirstDescendant(event Event) error {
-	fakeCreatorID, ok := h.Participants[event.Creator()]
+	creatorID, ok := h.Participants[event.Creator()]
 	if !ok {
-		return fmt.Errorf("Could not find creator fake id (%s)", event.Creator())
+		return fmt.Errorf("Could not find creator id (%s)", event.Creator())
 	}
 	index := event.Index()
 	hash := event.Hex()
@@ -514,8 +566,8 @@ func (h *Hashgraph) UpdateAncestorFirstDescendant(event Event) error {
 			if err != nil {
 				break
 			}
-			if a.firstDescendants[fakeCreatorID].index == math.MaxInt32 {
-				a.firstDescendants[fakeCreatorID] = EventCoordinates{index: index, hash: hash}
+			if a.firstDescendants[creatorID].index == math.MaxInt32 {
+				a.firstDescendants[creatorID] = EventCoordinates{index: index, hash: hash}
 				if err := h.Store.SetEvent(a); err != nil {
 					return err
 				}
@@ -535,7 +587,7 @@ func (h *Hashgraph) SetWireInfo(event *Event) error {
 	otherParentIndex := -1
 
 	//could be the first Event inserted for this creator. In this case, use Root
-	if lf, isRoot, _ := h.Store.LastFrom(event.Creator()); isRoot && lf == event.SelfParent() {
+	if lf, isRoot, _ := h.Store.LastEventFrom(event.Creator()); isRoot && lf == event.SelfParent() {
 		root, err := h.Store.GetRoot(event.Creator())
 		if err != nil {
 			return err
@@ -592,9 +644,10 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 	}
 
 	body := EventBody{
-		Transactions: wevent.Body.Transactions,
-		Parents:      []string{selfParent, otherParent},
-		Creator:      creatorBytes,
+		Transactions:    wevent.Body.Transactions,
+		BlockSignatures: wevent.BlockSignatures(creatorBytes),
+		Parents:         []string{selfParent, otherParent},
+		Creator:         creatorBytes,
 
 		Timestamp:            wevent.Body.Timestamp,
 		Index:                wevent.Body.Index,
@@ -605,9 +658,8 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 	}
 
 	event := &Event{
-		Body: body,
-		R:    wevent.R,
-		S:    wevent.S,
+		Body:      body,
+		Signature: wevent.Signature,
 	}
 
 	return event, nil
@@ -822,9 +874,17 @@ func (h *Hashgraph) FindOrder() error {
 	sorter := NewConsensusSorter(newConsensusEvents)
 	sort.Sort(sorter)
 
-	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	blockMap := make(map[int]Block) // [RoundReceived] => Block
-	blockOrder := []int{}           // [index] => RoundReceived
+	if err := h.handleNewConsensusEvents(newConsensusEvents); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (h *Hashgraph) handleNewConsensusEvents(newConsensusEvents []Event) error {
+
+	blockMap := make(map[int][][]byte) // [RoundReceived] => []Transactions
+	blockOrder := []int{}              // [index] => RoundReceived
 	for _, e := range newConsensusEvents {
 		err := h.Store.AddConsensusEvent(e.Hex())
 		if err != nil {
@@ -835,26 +895,38 @@ func (h *Hashgraph) FindOrder() error {
 			h.PendingLoadedEvents--
 		}
 
-		b, ok := blockMap[*e.roundReceived]
+		btxs, ok := blockMap[*e.roundReceived]
 		if !ok {
-			b = NewBlock(*e.roundReceived, e.Transactions())
+			btxs = [][]byte{}
 			blockOrder = append(blockOrder, *e.roundReceived)
-		} else {
-			b.Transactions = append(b.Transactions, e.Transactions()...)
 		}
-		blockMap[*e.roundReceived] = b
+		btxs = append(btxs, e.Transactions()...)
+		blockMap[*e.roundReceived] = btxs
 	}
 
 	for _, rr := range blockOrder {
-		block, _ := blockMap[rr]
-		h.Store.SetBlock(block)
-		if h.commitCh != nil && len(block.Transactions) > 0 {
-			h.commitCh <- block
+		blockTxs, _ := blockMap[rr]
+		if len(blockTxs) > 0 {
+			block, err := h.createAndInsertBlock(rr, blockTxs)
+			if err != nil {
+				return err
+			}
+			if h.commitCh != nil {
+				h.commitCh <- block
+			}
 		}
 	}
-	//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 	return nil
+}
+
+func (h *Hashgraph) createAndInsertBlock(roundReceived int, txs [][]byte) (Block, error) {
+	block := NewBlock(h.LastBlockIndex+1, roundReceived, txs)
+	if err := h.Store.SetBlock(block); err != nil {
+		return Block{}, err
+	}
+	h.LastBlockIndex++
+	return block, nil
 }
 
 func (h *Hashgraph) MedianTimestamp(eventHashes []string) time.Time {
@@ -871,9 +943,9 @@ func (h *Hashgraph) ConsensusEvents() []string {
 	return h.Store.ConsensusEvents()
 }
 
-//number of events per participants
-func (h *Hashgraph) Known() map[int]int {
-	return h.Store.Known()
+//last event index per participant
+func (h *Hashgraph) KnownEvents() map[int]int {
+	return h.Store.KnownEvents()
 }
 
 func (h *Hashgraph) Reset(roots map[string]Root) error {
@@ -945,7 +1017,7 @@ func (h *Hashgraph) GetFrame() (Frame, error) {
 	for p := range h.Participants {
 		if _, ok := roots[p]; !ok {
 			var root Root
-			last, isRoot, err := h.Store.LastFrom(p)
+			last, isRoot, err := h.Store.LastEventFrom(p)
 			if err != nil {
 				return Frame{}, err
 			}

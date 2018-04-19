@@ -54,22 +54,23 @@ func TestSocketProxyClient(t *testing.T) {
 	}
 	clientCh := dummyClient.babbleProxy.CommitCh()
 
-	block := hashgraph.NewBlock(1, [][]byte{[]byte("the test transaction")})
+	block := hashgraph.NewBlock(0, 1, [][]byte{[]byte("the test transaction")})
 
 	// Listen for a request
 	go func() {
 		select {
-		case sb := <-clientCh:
-			if !reflect.DeepEqual(sb, block) {
-				t.Fatalf("block mismatch: %#v %#v", block, sb)
+		case commit := <-clientCh:
+			if !reflect.DeepEqual(commit.Block, block) {
+				t.Fatalf("block mismatch: %#v %#v", block, commit.Block)
 			}
 		case <-time.After(200 * time.Millisecond):
 			t.Fatalf("timeout")
 		}
 	}()
 
-	err = proxy.CommitBlock(block)
+	stateHash, err := proxy.CommitBlock(block)
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Logf("stateHash: %v", stateHash)
 }

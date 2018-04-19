@@ -13,7 +13,7 @@ func TestRollingIndex(t *testing.T) {
 	items := []string{}
 	for i := 0; i < testSize; i++ {
 		item := fmt.Sprintf("item%d", i)
-		RollingIndex.Add(item, i)
+		RollingIndex.Set(item, i)
 		items = append(items, item)
 	}
 	cached, lastIndex := RollingIndex.GetLastWindow()
@@ -32,12 +32,7 @@ func TestRollingIndex(t *testing.T) {
 		}
 	}
 
-	err := RollingIndex.Add("PassedIndex", expectedLastIndex-1)
-	if err == nil || !Is(err, PassedIndex) {
-		t.Fatalf("Should return ErrPassedIndex")
-	}
-
-	err = RollingIndex.Add("ErrSkippedIndex", expectedLastIndex+2)
+	err := RollingIndex.Set("ErrSkippedIndex", expectedLastIndex+2)
 	if err == nil || !Is(err, SkippedIndex) {
 		t.Fatalf("Should return ErrSkippedIndex")
 	}
@@ -64,16 +59,39 @@ func TestRollingIndex(t *testing.T) {
 	if err == nil || !Is(err, KeyNotFound) {
 		t.Fatalf("Should return KeyNotFound")
 	}
+
+	//Test updating an item in place
+	updateIndex := 26
+	updateValue := "Updated Item"
+
+	err = RollingIndex.Set(updateValue, updateIndex)
+	if err != nil {
+		t.Fatalf("SetItem(%d) err: %v", updateIndex, err)
+	}
+	item, err = RollingIndex.GetItem(updateIndex)
+	if err != nil {
+		t.Fatalf("GetItem(%d) err: %v", updateIndex, err)
+	}
+	if uv := item.(string); uv != updateValue {
+		t.Fatalf("Updated item %d should be %s, not %s", updateIndex, updateValue, uv)
+	}
+
 }
 
 func TestRollingIndexSkip(t *testing.T) {
 	size := 10
 	testSize := 25
 	RollingIndex := NewRollingIndex(size)
+
+	_, err := RollingIndex.Get(-1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	items := []string{}
 	for i := 0; i < testSize; i++ {
 		item := fmt.Sprintf("item%d", i)
-		RollingIndex.Add(item, i)
+		RollingIndex.Set(item, i)
 		items = append(items, item)
 	}
 

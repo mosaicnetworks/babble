@@ -1,6 +1,10 @@
 package hashgraph
 
-import "math/big"
+import (
+	"math/big"
+
+	"github.com/babbleio/babble/crypto"
+)
 
 type ConsensusSorter struct {
 	a     []Event
@@ -35,10 +39,10 @@ func (b ConsensusSorter) Less(i, j int) bool {
 	}
 
 	w := b.GetPseudoRandomNumber(*b.a[i].roundReceived)
-	wsi := new(big.Int)
-	wsi = wsi.Xor(&b.a[i].S, w)
-	wsj := new(big.Int)
-	wsj = wsj.Xor(&b.a[j].S, w)
+	wsi, _, _ := crypto.DecodeSignature(b.a[i].Signature)
+	wsi = wsi.Xor(wsi, w)
+	wsj, _, _ := crypto.DecodeSignature(b.a[j].Signature)
+	wsj = wsj.Xor(wsj, w)
 	return wsi.Cmp(wsj) < 0
 }
 func (b ConsensusSorter) GetPseudoRandomNumber(round int) *big.Int {

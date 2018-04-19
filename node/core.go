@@ -24,7 +24,8 @@ type Core struct {
 	Head                string
 	Seq                 int
 
-	transactionPool [][]byte
+	transactionPool    [][]byte
+	blockSignaturePool []hg.BlockSignature
 
 	logger *logrus.Logger
 }
@@ -53,6 +54,7 @@ func NewCore(
 		participants:        participants,
 		reverseParticipants: reverseParticipants,
 		transactionPool:     [][]byte{},
+		blockSignaturePool:  []hg.BlockSignature{},
 		logger:              logger,
 	}
 	return core
@@ -78,11 +80,19 @@ func (c *Core) HexID() string {
 }
 
 func (c *Core) Init() error {
-	initialEvent := hg.NewEvent([][]byte(nil),
+	//Create and save the first Event
+	initialEvent := hg.NewEvent([][]byte(nil), nil,
 		[]string{"", ""},
 		c.PubKey(),
 		c.Seq)
-	return c.SignAndInsertSelfEvent(initialEvent)
+	//We want to make the initial Event deterministic so that when a node is
+	//restarted it will initialize the same Event. cf. github issues 19 and 10
+	initialEvent.Body.Timestamp = time.Time{}.UTC()
+	err := c.SignAndInsertSelfEvent(initialEvent)
+	c.logger.WithFields(logrus.Fields{
+		"index": initialEvent.Index(),
+		"hash":  initialEvent.Hex()}).Debug("Initial Event")
+	return err
 }
 
 func (c *Core) Bootstrap() error {
@@ -93,7 +103,7 @@ func (c *Core) Bootstrap() error {
 	var head string
 	var seq int
 
-	last, isRoot, err := c.hg.Store.LastFrom(c.HexID())
+	last, isRoot, err := c.hg.Store.LastEventFrom(c.HexID())
 	if err != nil {
 		return err
 	}
@@ -119,6 +129,8 @@ func (c *Core) Bootstrap() error {
 	return nil
 }
 
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 func (c *Core) SignAndInsertSelfEvent(event hg.Event) error {
 	if err := event.Sign(c.key); err != nil {
 		return err
@@ -140,16 +152,31 @@ func (c *Core) InsertEvent(event hg.Event, setWireInfo bool) error {
 	return nil
 }
 
-func (c *Core) Known() map[int]int {
-	return c.hg.Known()
+func (c *Core) KnownEvents() map[int]int {
+	return c.hg.KnownEvents()
 }
 
-func (c *Core) OverSyncLimit(known map[int]int, syncLimit int) bool {
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+func (c *Core) SignBlock(block hg.Block) (hg.BlockSignature, error) {
+	sig, err := block.Sign(c.key)
+	if err != nil {
+		return hg.BlockSignature{}, err
+	}
+	if err := block.SetSignature(sig); err != nil {
+		return hg.BlockSignature{}, err
+	}
+	return sig, c.hg.Store.SetBlock(block)
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+func (c *Core) OverSyncLimit(knownEvents map[int]int, syncLimit int) bool {
 	totUnknown := 0
-	myKnown := c.Known()
-	for i, li := range myKnown {
-		if li > known[i] {
-			totUnknown += li - known[i]
+	myKnownEvents := c.KnownEvents()
+	for i, li := range myKnownEvents {
+		if li > knownEvents[i] {
+			totUnknown += li - knownEvents[i]
 		}
 	}
 	if totUnknown > syncLimit {
@@ -162,14 +189,15 @@ func (c *Core) GetFrame() (hg.Frame, error) {
 	return c.hg.GetFrame()
 }
 
-//returns events that c knowns about that are not in 'known'
-func (c *Core) Diff(known map[int]int) (events []hg.Event, err error) {
+//returns events that c knowns about and are not in 'known'
+func (c *Core) EventDiff(known map[int]int) (events []hg.Event, err error) {
 	unknown := []hg.Event{}
-	//known represents the number of events known for every participant
+	//known represents the indez of the last event known for every participant
 	//compare this to our view of events and fill unknown with events that we know of
 	// and the other doesnt
 	for id, ct := range known {
 		pk := c.reverseParticipants[id]
+		//get participant Events with index > ct
 		participantEvents, err := c.hg.Store.ParticipantEvents(pk, ct)
 		if err != nil {
 			return []hg.Event{}, err
@@ -187,16 +215,17 @@ func (c *Core) Diff(known map[int]int) (events []hg.Event, err error) {
 	return unknown, nil
 }
 
-func (c *Core) Sync(unknown []hg.WireEvent) error {
+func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 
 	c.logger.WithFields(logrus.Fields{
-		"unknown": len(unknown),
-		"txPool":  len(c.transactionPool),
+		"unknown_events":       len(unknownEvents),
+		"transaction_pool":     len(c.transactionPool),
+		"block_signature_pool": len(c.blockSignaturePool),
 	}).Debug("Sync")
 
 	otherHead := ""
 	//add unknown events
-	for k, we := range unknown {
+	for k, we := range unknownEvents {
 		ev, err := c.hg.ReadWireInfo(we)
 		if err != nil {
 			return err
@@ -205,15 +234,18 @@ func (c *Core) Sync(unknown []hg.WireEvent) error {
 			return err
 		}
 		//assume last event corresponds to other-head
-		if k == len(unknown)-1 {
+		if k == len(unknownEvents)-1 {
 			otherHead = ev.Hex()
 		}
 	}
 
 	//create new event with self head and other head
-	//only if there are pending loaded events or the transaction pool is not empty
-	if len(unknown) > 0 || len(c.transactionPool) > 0 {
-		newHead := hg.NewEvent(c.transactionPool,
+	//only if there are pending loaded events or the pools are not empty
+	if len(unknownEvents) > 0 ||
+		len(c.transactionPool) > 0 ||
+		len(c.blockSignaturePool) > 0 {
+
+		newHead := hg.NewEvent(c.transactionPool, c.blockSignaturePool,
 			[]string{c.Head, otherHead},
 			c.PubKey(),
 			c.Seq+1)
@@ -222,22 +254,24 @@ func (c *Core) Sync(unknown []hg.WireEvent) error {
 			return fmt.Errorf("Error inserting new head: %s", err)
 		}
 
-		//empty the transaction pool
+		//empty the pools
 		c.transactionPool = [][]byte{}
+		c.blockSignaturePool = []hg.BlockSignature{}
 	}
 
 	return nil
 }
 
 func (c *Core) AddSelfEvent() error {
-	if len(c.transactionPool) == 0 {
-		c.logger.Debug("Empty TxPool")
+	if len(c.transactionPool) == 0 && len(c.blockSignaturePool) == 0 {
+		c.logger.Debug("Empty transaction pool and block signature pool")
 		return nil
 	}
 
 	//create new event with self head and empty other parent
 	//empty transaction pool in its payload
 	newHead := hg.NewEvent(c.transactionPool,
+		c.blockSignaturePool,
 		[]string{c.Head, ""},
 		c.PubKey(), c.Seq+1)
 
@@ -246,10 +280,12 @@ func (c *Core) AddSelfEvent() error {
 	}
 
 	c.logger.WithFields(logrus.Fields{
-		"transactions": len(c.transactionPool),
+		"transactions":     len(c.transactionPool),
+		"block_signatures": len(c.blockSignaturePool),
 	}).Debug("Created Self-Event")
 
 	c.transactionPool = [][]byte{}
+	c.blockSignaturePool = []hg.BlockSignature{}
 
 	return nil
 }
@@ -304,6 +340,10 @@ func (c *Core) RunConsensus() error {
 
 func (c *Core) AddTransactions(txs [][]byte) {
 	c.transactionPool = append(c.transactionPool, txs...)
+}
+
+func (c *Core) AddBlockSignature(bs hg.BlockSignature) {
+	c.blockSignaturePool = append(c.blockSignaturePool, bs)
 }
 
 func (c *Core) GetHead() (hg.Event, error) {
@@ -364,6 +404,12 @@ func (c *Core) GetLastCommitedRoundEventsCount() int {
 	return c.hg.LastCommitedRoundEvents
 }
 
+func (c *Core) GetLastBlockIndex() int {
+	return c.hg.LastBlockIndex
+}
+
 func (c *Core) NeedGossip() bool {
-	return c.hg.PendingLoadedEvents > 0 || len(c.transactionPool) > 0
+	return c.hg.PendingLoadedEvents > 0 ||
+		len(c.transactionPool) > 0 ||
+		len(c.blockSignaturePool) > 0
 }

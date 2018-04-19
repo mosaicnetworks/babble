@@ -37,15 +37,15 @@ func (p *mobileAppProxy) SubmitCh() chan []byte {
 	return p.submitCh
 }
 
-// CommitBlock commits a Block's transactions one by one.
+// CommitBlock commits a Block's to the App and expects the resulting state hash
 // gomobile cannot export a Block object because it doesn't support arrays of
-// arrays of bytes
-func (p *mobileAppProxy) CommitBlock(block hashgraph.Block) error {
+// arrays of bytes; so we have to serialize the block.
+func (p *mobileAppProxy) CommitBlock(block hashgraph.Block) ([]byte, error) {
 	blockBytes, err := block.Marshal()
 	if err != nil {
 		p.logger.Debug("mobileAppProxy error marhsalling Block")
-		return err
+		return nil, err
 	}
-	p.commitHandler.OnCommit(blockBytes)
-	return nil
+	stateHash := p.commitHandler.OnCommit(blockBytes)
+	return stateHash, nil
 }

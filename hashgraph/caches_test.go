@@ -27,7 +27,7 @@ func TestParticipantEventsCache(t *testing.T) {
 		for pk := range participants {
 			item := fmt.Sprintf("%s%d", pk, i)
 
-			pec.Add(pk, item, i)
+			pec.Set(pk, item, i)
 
 			pitems := items[pk]
 			pitems = append(pitems, item)
@@ -131,7 +131,7 @@ func TestParticipantEventsCacheEdge(t *testing.T) {
 		for pk := range participants {
 			item := fmt.Sprintf("%s%d", pk, i)
 
-			pec.Add(pk, item, i)
+			pec.Set(pk, item, i)
 
 			pitems := items[pk]
 			pitems = append(pitems, item)

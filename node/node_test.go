@@ -80,27 +80,27 @@ func TestProcessSync(t *testing.T) {
 
 	//Manually prepare SyncRequest and expected SyncResponse
 
-	node0Known := node0.core.Known()
-	node1Known := node1.core.Known()
+	node0KnownEvents := node0.core.KnownEvents()
+	node1KnownEvents := node1.core.KnownEvents()
 
-	unknown, err := node1.core.Diff(node0Known)
+	unknownEvents, err := node1.core.EventDiff(node0KnownEvents)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	unknownWire, err := node1.core.ToWire(unknown)
+	unknownWireEvents, err := node1.core.ToWire(unknownEvents)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	args := net.SyncRequest{
 		FromID: node0.id,
-		Known:  node0Known,
+		Known:  node0KnownEvents,
 	}
 	expectedResp := net.SyncResponse{
 		FromID: node1.id,
-		Events: unknownWire,
-		Known:  node1Known,
+		Events: unknownWireEvents,
+		Known:  node1KnownEvents,
 	}
 
 	//Make actual SyncRequest and check SyncResponse
@@ -112,7 +112,7 @@ func TestProcessSync(t *testing.T) {
 
 	// Verify the response
 	if expectedResp.FromID != out.FromID {
-		t.Fatalf("SyncResponse.FromID should be %s, not %s", expectedResp.FromID, out.FromID)
+		t.Fatalf("SyncResponse.FromID should be %d, not %d", expectedResp.FromID, out.FromID)
 	}
 
 	if l := len(out.Events); l != len(expectedResp.Events) {
@@ -129,7 +129,8 @@ func TestProcessSync(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(expectedResp.Known, out.Known) {
-		t.Fatalf("SyncResponse.Known should be %#v, not %#v", expectedResp.Known, out.Known)
+		t.Fatalf("SyncResponse.KnownEvents should be %#v, not %#v",
+			expectedResp.Known, out.Known)
 	}
 
 	node0.Shutdown()
@@ -173,21 +174,21 @@ func TestProcessEagerSync(t *testing.T) {
 
 	//Manually prepare EagerSyncRequest and expected EagerSyncResponse
 
-	node1Known := node1.core.Known()
+	node1KnownEvents := node1.core.KnownEvents()
 
-	unknown, err := node0.core.Diff(node1Known)
+	unknownEvents, err := node0.core.EventDiff(node1KnownEvents)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	unknownWire, err := node0.core.ToWire(unknown)
+	unknownWireEvents, err := node0.core.ToWire(unknownEvents)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	args := net.EagerSyncRequest{
 		FromID: node0.id,
-		Events: unknownWire,
+		Events: unknownWireEvents,
 	}
 	expectedResp := net.EagerSyncResponse{
 		FromID:  node1.id,
@@ -254,10 +255,10 @@ func TestAddTransaction(t *testing.T) {
 
 	//simulate a SyncRequest from node0 to node1
 
-	node0Known := node0.core.Known()
+	node0KnownEvents := node0.core.KnownEvents()
 	args := net.SyncRequest{
 		FromID: node0.id,
-		Known:  node0Known,
+		Known:  node0KnownEvents,
 	}
 
 	var out net.SyncResponse
@@ -430,14 +431,14 @@ func TestSyncLimit(t *testing.T) {
 	defer shutdownNodes(nodes)
 
 	//create fake node[0] known to artificially reach SyncLimit
-	node0Known := nodes[0].core.Known()
-	for k := range node0Known {
-		node0Known[k] = 0
+	node0KnownEvents := nodes[0].core.KnownEvents()
+	for k := range node0KnownEvents {
+		node0KnownEvents[k] = 0
 	}
 
 	args := net.SyncRequest{
 		FromID: nodes[0].id,
-		Known:  node0Known,
+		Known:  node0KnownEvents,
 	}
 	expectedResp := net.SyncResponse{
 		FromID:    nodes[1].id,
@@ -451,7 +452,7 @@ func TestSyncLimit(t *testing.T) {
 
 	// Verify the response
 	if expectedResp.FromID != out.FromID {
-		t.Fatalf("SyncResponse.FromID should be %s, not %s", expectedResp.FromID, out.FromID)
+		t.Fatalf("SyncResponse.FromID should be %d, not %d", expectedResp.FromID, out.FromID)
 	}
 	if expectedResp.SyncLimit != true {
 		t.Fatal("SyncResponse.SyncLimit should be true")

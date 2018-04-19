@@ -149,7 +149,9 @@ func TestDBEventMethods(t *testing.T) {
 	for _, p := range participants {
 		items := []Event{}
 		for k := 0; k < testSize; k++ {
-			event := NewEvent([][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], k))},
+			event := NewEvent(
+				[][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], k))},
+				[]BlockSignature{BlockSignature{Validator: []byte("validator"), Index: 0, Signature: "r|s"}},
 				[]string{"", ""},
 				p.pubKey,
 				k)
@@ -177,11 +179,8 @@ func TestDBEventMethods(t *testing.T) {
 			if !reflect.DeepEqual(ev.Body, rev.Body) {
 				t.Fatalf("events[%s][%d].Body should be %#v, not %#v", p, k, ev.Body, rev.Body)
 			}
-			if !reflect.DeepEqual(ev.S, rev.S) {
-				t.Fatalf("events[%s][%d].S should be %#v, not %#v", p, k, ev.S, rev.S)
-			}
-			if !reflect.DeepEqual(ev.R, rev.R) {
-				t.Fatalf("events[%s][%d].R should be %#v, not %#v", p, k, ev.R, rev.R)
+			if !reflect.DeepEqual(ev.Signature, rev.Signature) {
+				t.Fatalf("events[%s][%d].Signature should be %#v, not %#v", p, k, ev.Signature, rev.Signature)
 			}
 			if ver, err := rev.Verify(); err != nil && !ver {
 				t.Fatalf("failed to verify signature. err: %s", err)
@@ -211,15 +210,10 @@ func TestDBEventMethods(t *testing.T) {
 				te.Body,
 				dte.Body)
 		}
-		if !reflect.DeepEqual(te.R, dte.R) {
-			t.Fatalf("dbTopologicalEvents[%d].R should be %#v, not %#v", i,
-				te.R,
-				dte.R)
-		}
-		if !reflect.DeepEqual(te.S, dte.S) {
-			t.Fatalf("dbTopologicalEvents[%d].S should be %#v, not %#v", i,
-				te.S,
-				dte.S)
+		if !reflect.DeepEqual(te.Signature, dte.Signature) {
+			t.Fatalf("dbTopologicalEvents[%d].Signature should be %#v, not %#v", i,
+				te.Signature,
+				dte.Signature)
 		}
 
 		if ver, err := dte.Verify(); err != nil && !ver {
@@ -257,6 +251,7 @@ func TestDBRoundMethods(t *testing.T) {
 	events := make(map[string]Event)
 	for _, p := range participants {
 		event := NewEvent([][]byte{},
+			[]BlockSignature{},
 			[]string{"", ""},
 			p.pubKey,
 			0)
@@ -316,10 +311,11 @@ func TestDBParticipantMethods(t *testing.T) {
 
 func TestDBBlockMethods(t *testing.T) {
 	cacheSize := 0
-	store, _ := initBadgerStore(cacheSize, t)
+	store, participants := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
 
-	roundReceived := 1
+	index := 0
+	roundReceived := 5
 	transactions := [][]byte{
 		[]byte("tx1"),
 		[]byte("tx2"),
@@ -327,20 +323,58 @@ func TestDBBlockMethods(t *testing.T) {
 		[]byte("tx4"),
 		[]byte("tx5"),
 	}
-	block := NewBlock(roundReceived, transactions)
+	block := NewBlock(index, roundReceived, transactions)
 
-	if err := store.dbSetBlock(block); err != nil {
-		t.Fatal(err)
-	}
-
-	storedBlock, err := store.dbGetBlock(1)
+	sig1, err := block.Sign(participants[0].privKey)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !reflect.DeepEqual(block, storedBlock) {
-		t.Fatalf("Round and StoredRound do not match")
+	sig2, err := block.Sign(participants[1].privKey)
+	if err != nil {
+		t.Fatal(err)
 	}
+
+	block.SetSignature(sig1)
+	block.SetSignature(sig2)
+
+	t.Run("Store Block", func(t *testing.T) {
+		if err := store.dbSetBlock(block); err != nil {
+			t.Fatal(err)
+		}
+
+		storedBlock, err := store.dbGetBlock(index)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !reflect.DeepEqual(storedBlock, block) {
+			t.Fatalf("Block and StoredBlock do not match")
+		}
+	})
+
+	t.Run("Check signatures in stored Block", func(t *testing.T) {
+		storedBlock, err := store.dbGetBlock(index)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		val1Sig, ok := storedBlock.Signatures[participants[0].hex]
+		if !ok {
+			t.Fatalf("Validator1 signature not stored in block")
+		}
+		if val1Sig != sig1.Signature {
+			t.Fatal("Validator1 block signatures differ")
+		}
+
+		val2Sig, ok := storedBlock.Signatures[participants[1].hex]
+		if !ok {
+			t.Fatalf("Validator2 signature not stored in block")
+		}
+		if val2Sig != sig2.Signature {
+			t.Fatal("Validator2 block signatures differ")
+		}
+	})
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -360,6 +394,7 @@ func TestBadgerEvents(t *testing.T) {
 		items := []Event{}
 		for k := 0; k < testSize; k++ {
 			event := NewEvent([][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], k))},
+				[]BlockSignature{BlockSignature{Validator: []byte("validator"), Index: 0, Signature: "r|s"}},
 				[]string{"", ""},
 				p.pubKey,
 				k)
@@ -382,11 +417,8 @@ func TestBadgerEvents(t *testing.T) {
 			if !reflect.DeepEqual(ev.Body, rev.Body) {
 				t.Fatalf("events[%s][%d].Body should be %#v, not %#v", p, k, ev, rev)
 			}
-			if !reflect.DeepEqual(ev.S, rev.S) {
-				t.Fatalf("events[%s][%d].S should be %#v, not %#v", p, k, ev.S, rev.S)
-			}
-			if !reflect.DeepEqual(ev.R, rev.R) {
-				t.Fatalf("events[%s][%d].R should be %#v, not %#v", p, k, ev.R, rev.R)
+			if !reflect.DeepEqual(ev.Signature, rev.Signature) {
+				t.Fatalf("events[%s][%d].Signature should be %#v, not %#v", p, k, ev.Signature, rev.Signature)
 			}
 		}
 	}
@@ -413,7 +445,7 @@ func TestBadgerEvents(t *testing.T) {
 
 	//check retrieving participant last
 	for _, p := range participants {
-		last, _, err := store.LastFrom(p.hex)
+		last, _, err := store.LastEventFrom(p.hex)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -429,7 +461,7 @@ func TestBadgerEvents(t *testing.T) {
 	for _, p := range participants {
 		expectedKnown[p.id] = testSize - 1
 	}
-	known := store.Known()
+	known := store.KnownEvents()
 	if !reflect.DeepEqual(expectedKnown, known) {
 		t.Fatalf("Incorrect Known. Got %#v, expected %#v", known, expectedKnown)
 	}
@@ -454,6 +486,7 @@ func TestBadgerRounds(t *testing.T) {
 	events := make(map[string]Event)
 	for _, p := range participants {
 		event := NewEvent([][]byte{},
+			[]BlockSignature{},
 			[]string{"", ""},
 			p.pubKey,
 			0)
@@ -488,4 +521,72 @@ func TestBadgerRounds(t *testing.T) {
 			t.Fatalf("Witnesses should contain %s", w)
 		}
 	}
+}
+
+func TestBadgerBlocks(t *testing.T) {
+	cacheSize := 0
+	store, participants := initBadgerStore(cacheSize, t)
+	defer removeBadgerStore(store, t)
+
+	index := 0
+	roundReceived := 5
+	transactions := [][]byte{
+		[]byte("tx1"),
+		[]byte("tx2"),
+		[]byte("tx3"),
+		[]byte("tx4"),
+		[]byte("tx5"),
+	}
+	block := NewBlock(index, roundReceived, transactions)
+
+	sig1, err := block.Sign(participants[0].privKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sig2, err := block.Sign(participants[1].privKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	block.SetSignature(sig1)
+	block.SetSignature(sig2)
+
+	t.Run("Store Block", func(t *testing.T) {
+		if err := store.SetBlock(block); err != nil {
+			t.Fatal(err)
+		}
+
+		storedBlock, err := store.GetBlock(index)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !reflect.DeepEqual(storedBlock, block) {
+			t.Fatalf("Block and StoredBlock do not match")
+		}
+	})
+
+	t.Run("Check signatures in stored Block", func(t *testing.T) {
+		storedBlock, err := store.GetBlock(index)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		val1Sig, ok := storedBlock.Signatures[participants[0].hex]
+		if !ok {
+			t.Fatalf("Validator1 signature not stored in block")
+		}
+		if val1Sig != sig1.Signature {
+			t.Fatal("Validator1 block signatures differ")
+		}
+
+		val2Sig, ok := storedBlock.Signatures[participants[1].hex]
+		if !ok {
+			t.Fatalf("Validator2 signature not stored in block")
+		}
+		if val2Sig != sig2.Signature {
+			t.Fatal("Validator2 block signatures differ")
+		}
+	})
 }

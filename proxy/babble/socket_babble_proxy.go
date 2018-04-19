@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/babbleio/babble/hashgraph"
+	"github.com/sirupsen/logrus"
 )
 
 type SocketBabbleProxy struct {
@@ -15,9 +15,18 @@ type SocketBabbleProxy struct {
 	server *SocketBabbleProxyServer
 }
 
-func NewSocketBabbleProxy(nodeAddr string, bindAddr string, timeout time.Duration) (*SocketBabbleProxy, error) {
+func NewSocketBabbleProxy(nodeAddr string,
+	bindAddr string,
+	timeout time.Duration,
+	logger *logrus.Logger) (*SocketBabbleProxy, error) {
+
+	if logger == nil {
+		logger = logrus.New()
+		logger.Level = logrus.DebugLevel
+	}
+
 	client := NewSocketBabbleProxyClient(nodeAddr, timeout)
-	server, err := NewSocketBabbleProxyServer(bindAddr)
+	server, err := NewSocketBabbleProxyServer(bindAddr, timeout, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +45,7 @@ func NewSocketBabbleProxy(nodeAddr string, bindAddr string, timeout time.Duratio
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //Implement BabbleProxy interface
 
-func (p *SocketBabbleProxy) CommitCh() chan hashgraph.Block {
+func (p *SocketBabbleProxy) CommitCh() chan Commit {
 	return p.server.commitCh
 }
 

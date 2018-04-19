@@ -69,21 +69,21 @@ func initHashgraph(cores []Core, keys []*ecdsa.PrivateKey, index map[string]stri
 		}
 	}
 
-	event01 := hg.NewEvent([][]byte{},
+	event01 := hg.NewEvent([][]byte{}, nil,
 		[]string{index["e0"], index["e1"]}, //e0 and e1
 		cores[0].PubKey(), 1)
 	if err := insertEvent(cores, keys, index, event01, "e01", participant, 0); err != nil {
 		fmt.Printf("error inserting e01: %s\n", err)
 	}
 
-	event20 := hg.NewEvent([][]byte{},
+	event20 := hg.NewEvent([][]byte{}, nil,
 		[]string{index["e2"], index["e01"]}, //e2 and e01
 		cores[2].PubKey(), 1)
 	if err := insertEvent(cores, keys, index, event20, "e20", participant, 2); err != nil {
 		fmt.Printf("error inserting e20: %s\n", err)
 	}
 
-	event12 := hg.NewEvent([][]byte{},
+	event12 := hg.NewEvent([][]byte{}, nil,
 		[]string{index["e1"], index["e20"]}, //e1 and e20
 		cores[1].PubKey(), 1)
 	if err := insertEvent(cores, keys, index, event12, "e12", participant, 1); err != nil {
@@ -110,7 +110,7 @@ func insertEvent(cores []Core, keys []*ecdsa.PrivateKey, index map[string]string
 	return nil
 }
 
-func TestDiff(t *testing.T) {
+func TestEventDiff(t *testing.T) {
 	cores, keys, index := initCores(3, t)
 
 	initHashgraph(cores, keys, index, 0)
@@ -130,8 +130,8 @@ func TestDiff(t *testing.T) {
 	   0   1   2        0   1   2
 	*/
 
-	knownBy1 := cores[1].Known()
-	unknownBy1, err := cores[0].Diff(knownBy1)
+	knownBy1 := cores[1].KnownEvents()
+	unknownBy1, err := cores[0].EventDiff(knownBy1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +173,7 @@ func TestSync(t *testing.T) {
 	   0   1   2        0   1   2       0   1   2
 	*/
 
-	knownBy0 := cores[0].Known()
+	knownBy0 := cores[0].KnownEvents()
 	if k := knownBy0[cores[0].ID()]; k != 1 {
 		t.Fatalf("core 0 should have last-index 1 for core 0, not %d", k)
 	}
@@ -211,7 +211,7 @@ func TestSync(t *testing.T) {
 	   0   1   2        0   1   2       0   1   2
 	*/
 
-	knownBy2 := cores[2].Known()
+	knownBy2 := cores[2].KnownEvents()
 	if k := knownBy2[cores[0].ID()]; k != 1 {
 		t.Fatalf("core 2 should have last-index 1 for core 0, not %d", k)
 	}
@@ -251,7 +251,7 @@ func TestSync(t *testing.T) {
 	   0   1   2        0   1   2       0   1   2
 	*/
 
-	knownBy1 := cores[1].Known()
+	knownBy1 := cores[1].KnownEvents()
 	if k := knownBy1[cores[0].ID()]; k != 1 {
 		t.Fatalf("core 1 should have last-index 1 for core 0, not %d", k)
 	}
@@ -512,8 +512,8 @@ func TestConsensusFF(t *testing.T) {
 }
 
 func synchronizeCores(cores []Core, from int, to int, payload [][]byte) error {
-	knownByTo := cores[to].Known()
-	unknownByTo, err := cores[from].Diff(knownByTo)
+	knownByTo := cores[to].KnownEvents()
+	unknownByTo, err := cores[from].EventDiff(knownByTo)
 	if err != nil {
 		return err
 	}
