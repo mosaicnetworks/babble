@@ -19,12 +19,12 @@ type BlockBody struct {
 
 //json encoding of body only
 func (bb *BlockBody) Marshal() ([]byte, error) {
-	var b bytes.Buffer
-	enc := json.NewEncoder(&b) //will write to b
+	bf := bytes.NewBuffer([]byte{})
+	enc := json.NewEncoder(bf)
 	if err := enc.Encode(bb); err != nil {
 		return nil, err
 	}
-	return b.Bytes(), nil
+	return bf.Bytes(), nil
 }
 
 func (bb *BlockBody) Unmarshal(data []byte) error {
@@ -57,12 +57,12 @@ func (bs *BlockSignature) ValidatorHex() string {
 }
 
 func (bs *BlockSignature) Marshal() ([]byte, error) {
-	var b bytes.Buffer
-	enc := json.NewEncoder(&b) //will write to b
+	bf := bytes.NewBuffer([]byte{})
+	enc := json.NewEncoder(bf)
 	if err := enc.Encode(bs); err != nil {
 		return nil, err
 	}
-	return b.Bytes(), nil
+	return bf.Bytes(), nil
 }
 
 func (bs *BlockSignature) Unmarshal(data []byte) error {
