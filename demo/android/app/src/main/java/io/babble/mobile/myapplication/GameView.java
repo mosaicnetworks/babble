@@ -12,6 +12,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -82,8 +83,6 @@ public class GameView extends SurfaceView implements Runnable {
             this.x = x;
             this.y = y;
             invalidate();
-
-            node.SubmitTx((int) x, (int) y, node.cnfgData.circleRadius, getColorByName(node.cnfgData.circleBackColor), getColorByName(node.cnfgData.circleForeColor));
         }
 
         return super.onTouchEvent(event);
@@ -128,7 +127,7 @@ public class GameView extends SurfaceView implements Runnable {
         return itemBezier;
     }
 
-    int getColorByName(String name) {
+    int getColorByName(String name) { 
 
         int colorId;
 
@@ -136,6 +135,7 @@ public class GameView extends SurfaceView implements Runnable {
             Class color = Class.forName("android.graphics.Color");
             Field field = color.getField(name);
             colorId = field.getInt(null);
+
         } catch (Exception e) {
             e.printStackTrace();
             colorId = Color.RED;
@@ -150,7 +150,7 @@ public class GameView extends SurfaceView implements Runnable {
         try {
 
             int iD = Integer.parseInt(key.replace("N", ""));
-            Pear[] arr= node.cnfgData.peers;
+            Pear[] arr = node.cnfgData.peers;
 
             Arrays.sort (arr, new Comparator<Pear>() {
                 public int compare(Pear p1, Pear p2)
@@ -246,7 +246,7 @@ public class GameView extends SurfaceView implements Runnable {
                         1f, cBackColor, cForeColor, value1.getSize(), iP, optimalFontSize));
             }
         }
-    }
+     }
 
     long timeRefreshNodes = System.currentTimeMillis();
 
@@ -281,6 +281,7 @@ public class GameView extends SurfaceView implements Runnable {
                     paint.setColor(Color.BLACK);               //Black color border
                     canvas.drawCircle(itemBezier.CurrentX, itemBezier.CurrentY, itemBezier.CircleRadius + 2, paint);
 
+                    Log.i("WWWW", ">>>>>>>>>>>>>>>>>>>>>" + itemBezier.CircleBackColor + ", " + itemBezier.CircleForeColor);
                     paint.setColor(itemBezier.CircleBackColor);
                     canvas.drawCircle(itemBezier.CurrentX, itemBezier.CurrentY, itemBezier.CircleRadius, paint);
 
@@ -306,4 +307,72 @@ public class GameView extends SurfaceView implements Runnable {
         }
 
     }
+
+    public String getNodeAddr(){
+        if (node != null){
+            return node.cnfgData.node_addr;
+        }else {
+            return "";
+        }
+    }
+
+    public String getNodePublicKey(){
+        if (node != null){
+            return node.cnfgData.nodePublicKey;
+        }else {
+            return "";
+        }
+    }
+
+    public ConfigData getConfigData123(){
+        if (node != null){
+            return node.cnfgData;
+        }else {
+            return null;
+        }
+    }
+
+    public void addPeer(String nodeAddr, String nodePublicKey){
+       if ((node != null) && (node.cnfgData != null)){
+           try {
+               node.cnfgData.peers = Arrays.copyOf(node.cnfgData.peers, node.cnfgData.peers.length + 1);
+               node.cnfgData.peers[node.cnfgData.peers.length - 1].active = 1;
+               node.cnfgData.peers[node.cnfgData.peers.length - 1].netAddr = nodeAddr;
+               node.cnfgData.peers[node.cnfgData.peers.length - 1].nickName = "";
+               node.cnfgData.peers[node.cnfgData.peers.length - 1].pubKeyHex = nodePublicKey;
+
+               node.saveConfigData(node.cnfgData);
+           } catch(Exception e){
+          }
+       }
+    }
+
+    public  ArrayList<String> loadActivePeerSockets(){
+
+        ArrayList<String> activePeerSockets = new ArrayList();
+
+        ConfigData cnfgD =  node.cnfgData;
+        if (cnfgD != null) {
+            for (int i = 0; i < cnfgD.peers.length; i++)
+                if (cnfgD.peers[i].active == 1) {
+                    activePeerSockets.add(cnfgD.peers[i].netAddr);
+                }
+        }
+
+        return null;
+    }
+
+    public  ArrayList<String> loadPeerData(){ //each string is netAddr*pubKeyHex*active
+
+        ArrayList<String> peerData = new ArrayList<String>();
+
+        if ((node != null) &&( node.cnfgData != null)) {
+            for (int i = 0; i < node.cnfgData.peers.length; i++) {
+                peerData.add(node.cnfgData.peers[i].netAddr + "*" + node.cnfgData.peers[i].nickName + "*" + node.cnfgData.peers[i].active);
+            }
+        }
+
+        return peerData;
+    }
+
 }

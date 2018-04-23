@@ -43,5 +43,4 @@ public class ConfigData {
 
     @SerializedName("CircleRadius")
     public int circleRadius;         //[50, 150]
-
 }

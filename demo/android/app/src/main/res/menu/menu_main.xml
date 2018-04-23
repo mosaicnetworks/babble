@@ -1,0 +1,21 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools" tools:context=".MainActivity">
+    <item android:id="@+id/qrscanner"
+        android:icon="@drawable/settings_icon"
+        android:title="@string/action_qrscanner"
+        app:showAsAction="never" />
+    <item android:id="@+id/qrgenerator"
+        android:icon="@drawable/about_icon"
+        android:title="@string/action_qrgenerator"
+        app:showAsAction="never"/>
+    <item android:id="@+id/nodemanage"
+        android:icon="@drawable/help_icon"
+        android:title="@string/action_nodemanage"
+        app:showAsAction="never"/>
+    <item android:id="@+id/exit"
+        android:icon="@drawable/help_icon"
+        android:title="@string/action_exit"
+        app:showAsAction="never"/>
+
+</menu>

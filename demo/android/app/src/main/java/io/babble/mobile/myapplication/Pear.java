@@ -11,4 +11,10 @@ public class Pear implements Serializable {
 
     @SerializedName("PubKeyHex")
     public String pubKeyHex;
+
+    @SerializedName("Active")
+    public byte active;          //0,1
+
+    @SerializedName("NickName")
+    public String nickName;
 }

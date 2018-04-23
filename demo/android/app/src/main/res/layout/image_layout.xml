@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/image_dialog_root"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@color/dark_blue"
+    android:gravity = "center">
+
+    <ImageView
+        android:id="@+id/your_image"
+        android:layout_width="270dp"
+        android:layout_height="270dp"
+        android:layout_margin="10dip"
+        android:src="@drawable/about_icon"/>
+
+</FrameLayout>

@@ -93,7 +93,7 @@ func getColorByName(name string) int32 {
 func main() {
 
 	arg1 := os.Args[1]
-	//arg1 := "D:\\Projects\\go-work\\src\\github.com\\babbleio\\babble\\config\\ConfigBabbleGo.json"
+	//arg1 := "D:\\Projects\\go-work\\src\\github.com\\babbleio\\babble\\config\\ConfigBabbleGo0.json"
 
 	cnfgData := new(ConfigData)
 	if err := cnfgData.getConfigData(arg1); err != nil {

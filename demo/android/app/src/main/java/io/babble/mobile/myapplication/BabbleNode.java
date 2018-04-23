@@ -1,16 +1,15 @@
 package io.babble.mobile.myapplication;
 
 import android.content.Context;
-import android.os.Environment;
-import android.system.ErrnoException;
 import android.util.Log;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
+import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.Map;
 import java.io.*;
-import java.lang.Exception;
 
 import mobile.Ball;
 import mobile.CommitHandler;
@@ -27,7 +26,6 @@ public class BabbleNode implements CommitHandler, ErrorHandler {
     private MainActivity context;
     public Map<String, Ball> store = new HashMap<>();
     public ConfigData cnfgData = null;
-
 
     public void SubmitTx(int x, int y, int cR, int cB, int  cF){
 
@@ -50,7 +48,7 @@ public class BabbleNode implements CommitHandler, ErrorHandler {
 
         File file = new File(folder + "/ConfigBabbleMobile.json");
         if (!file.exists()) {
-            throw new  ArithmeticException(String.format("ConfigBabbleMobile.json.json file not found in3 '%s'", file));
+            throw new  ArithmeticException(String.format("getConfigData: ConfigBabbleMobile.json.json file not found in3 '%s'", file));
         }
 
         try {
@@ -64,8 +62,33 @@ public class BabbleNode implements CommitHandler, ErrorHandler {
             cnfgData = gson.fromJson(strJson, ConfigData.class);
             return cnfgData;
         }catch(Exception e){
-            throw new ArithmeticException(String.format("Unexpected error occur while loading json file '%s', %s", file, e.toString()));
+            throw new ArithmeticException(String.format("getConfigData: Unexpected error occur while loading json file '%s', %s", file, e.toString()));
         }
+    }
+
+    public void saveConfigData (ConfigData cnfgData) throws IOException {
+
+        File folder = context.getExternalFilesDir(null);    //===/storage/sdcard0/Android/data/io.babble.mobile.myapplication/files==
+        if (!folder.exists()) {
+            throw new IOException(String.format(String.format("ConfigBabble.json file not found in1 '%s'", folder)));
+        }
+
+        File file = new File(folder + "/ConfigBabbleMobile.json");
+        if (!file.exists()) {
+            throw new IOException (String.format("saveConfigData: ConfigBabbleMobile.json.json file not found in3 '%s'", file));
+        }
+
+        try {
+                Gson gson = new Gson();
+                Type type = new TypeToken<ConfigData>() {}.getType();
+                String gsonData = gson.toJson(cnfgData, type);
+
+                Writer output = new BufferedWriter(new FileWriter(file));
+                output.write(gsonData);
+                output.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
     }
 
     String  Gson2Stirng ( Pear[] pears) {

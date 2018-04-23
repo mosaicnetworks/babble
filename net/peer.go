@@ -16,6 +16,8 @@ const (
 type Peer struct {
 	NetAddr   string
 	PubKeyHex string
+	NickName  string
+	Active    byte
 }
 
 func (p *Peer) PubKeyBytes() ([]byte, error) {
