@@ -2,20 +2,22 @@ package io.babble.mobile.myapplication;
 
 public class ListViewItem {
 
-    boolean active;
+    String nodeAddr;
     String nickName;
+    boolean active;
 
-    public ListViewItem(String nickName, boolean active) {
+    public ListViewItem(String nodeAddr, String nickName, boolean active) {
+        this.nodeAddr = nodeAddr;
         this.nickName = nickName;
         this.active  = active;
     }
 
-    public Boolean getActive() {
-        return this.active;
+    public String getNodeAddr() {
+        return this.nodeAddr;
     }
 
-    public void setActive(Boolean active) {
-        this.active = active;
+    public void setNodeAddr(String nodeAddr) {
+        this.nodeAddr = nodeAddr;
     }
 
     public String getNickName() {
@@ -24,5 +26,13 @@ public class ListViewItem {
 
     public void setNickName(String nickName) {
         this.nickName = nickName;
+    }
+
+    public Boolean getActive() {
+        return this.active;
+    }
+
+    public void setActive(Boolean active) {
+        this.active = active;
     }
 }

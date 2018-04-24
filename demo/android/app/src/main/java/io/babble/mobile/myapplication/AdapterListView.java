@@ -37,11 +37,14 @@ public class AdapterListView extends  Activity {  //ArrayAdapter<ListViewItem>,
         setContentView(R.layout.activity_listview);
 
         final ArrayList<String> rawPeerData = getIntent().getStringArrayListExtra("data");
+        ArrayList<ListViewItem> lvPeerData =  new ArrayList<ListViewItem>();
 
-        //ArrayList<> peerData = getIntent().getStringArrayListExtra("data");
+        for (int i = 0; i < rawPeerData.size(); i++){
+            lvPeerData.add(new ListViewItem ("NodeAddr", "NilName", true));
+        }
 
         final ListView listview = (ListView) findViewById(R.id.lvItems);
-        final StableArrayAdapter adapter = new StableArrayAdapter(this, android.R.layout.simple_list_item_1, rawPeerData);
+        final StableArrayAdapter adapter = new StableArrayAdapter(this, R.layout.item_listview, lvPeerData);
         listview.setAdapter(adapter);
     }
 
@@ -52,22 +55,22 @@ public class AdapterListView extends  Activity {  //ArrayAdapter<ListViewItem>,
         return 0;
     }
 
-    private class StableArrayAdapter extends ArrayAdapter<String> {
+    private class StableArrayAdapter extends ArrayAdapter<ListViewItem> {
 
-        HashMap<String, Integer> mIdMap = new HashMap<String, Integer>();
+        HashMap<String, ListViewItem> mIdMap = new HashMap<String, ListViewItem>();
 
         public StableArrayAdapter(Context context, int textViewResourceId,
-                                  List<String> objects) {
+                                  List<ListViewItem> objects) {
             super(context, textViewResourceId, objects);
             for (int i = 0; i < objects.size(); ++i) {
-                mIdMap.put(objects.get(i), i);
+                mIdMap.put(String.valueOf(i), objects.get(i));
             }
         }
 
         @Override
         public long getItemId(int position) {
-            String item = getItem(position);
-            return mIdMap.get(item);
+            ListViewItem item = getItem(position);
+            return Integer.valueOf(mIdMap.get(item).toString());
         }
 
         @Override
@@ -76,11 +79,6 @@ public class AdapterListView extends  Activity {  //ArrayAdapter<ListViewItem>,
         }
 
     }
-
-
-
-
-
 
     // @Override
     public View getView(final int position, View convertView, ViewGroup parent) {

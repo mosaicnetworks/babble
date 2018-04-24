@@ -110,19 +110,17 @@ public class MainActivity extends AppCompatActivity{
                 startActivity(qrgenerator);
                 break;
             case R.id.nodemanage:
+
                 Toast.makeText(getApplicationContext(), "Soon available.", Toast.LENGTH_SHORT).show();
+/*
+                Intent nodemanage = new Intent(this, AdapterListView.class);
 
-                //Intent nodemanage = new Intent(this, AdapterListView.class);
+                ArrayList<String> peerData = gameView.loadPeerData();
 
-                //ArrayList<String> peerData = gameView.loadPeerData();
+                nodemanage.putStringArrayListExtra("data", peerData );
 
-                //nodemanage.putStringArrayListExtra("data", peerData );
-
-                //Bundle bundle = new Bundle();    //ArrayList<io.babble.mobile.myapplication.Pear> loadPeerData
-                //bundle.putParcelableArrayList("data", peerData);
-                //nodemanage.putExtras(bundle);
-
-                //startActivity(nodemanage);
+                startActivity(nodemanage);
+*/
                 break;
             case R.id.exit:
                 finish();

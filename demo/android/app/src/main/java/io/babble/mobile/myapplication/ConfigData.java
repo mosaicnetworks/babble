@@ -6,7 +6,7 @@ import java.io.Serializable;
 public class ConfigData {
 
     @SerializedName("Peers")
-    public Pear [] peers;
+    public Peer [] peers;
 
     @SerializedName("NodeID")
     public int nodeID;     //0 one of array indexes above
