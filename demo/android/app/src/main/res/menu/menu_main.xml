@@ -1,21 +1,26 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools" tools:context=".MainActivity">
-    <item android:id="@+id/qrscanner"
-        android:icon="@drawable/settings_icon"
-        android:title="@string/action_qrscanner"
-        app:showAsAction="never" />
-    <item android:id="@+id/qrgenerator"
-        android:icon="@drawable/about_icon"
-        android:title="@string/action_qrgenerator"
+
+    <item android:id="@+id/qr"
+        android:title="@string/action_qrcode"
+        app:showAsAction="never">
+        <menu>
+                <item android:id="@+id/scan"
+                    android:title="@string/action_scan"/>
+                <item android:id="@+id/generate"
+                    android:title="@string/action_generate"/>
+                <item android:id="@+id/settings"
+                    android:title="@string/action_settings"/>
+        </menu>
+    </item>
+    <item android:id="@+id/start"
+        android:title="@string/action_start"
         app:showAsAction="never"/>
-    <item android:id="@+id/nodemanage"
-        android:icon="@drawable/help_icon"
-        android:title="@string/action_nodemanage"
+    <item android:id="@+id/pause"
+        android:title="@string/action_pause"
         app:showAsAction="never"/>
     <item android:id="@+id/exit"
-        android:icon="@drawable/help_icon"
         android:title="@string/action_exit"
         app:showAsAction="never"/>
-
 </menu>

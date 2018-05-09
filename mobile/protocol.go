@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"os"
+
+	"github.com/babbleio/babble/crypto"
 )
 
 type CommitHandler interface {
@@ -131,4 +134,13 @@ func (s *Subscription) commitTx(nodeID int, transactions [][]byte) {
 			s.error("Received tx of incompatible format")
 		}
 	}
+}
+
+func GetPrivPublKeys() string {
+	pemDump, err := crypto.GeneratePemKey()
+	if err != nil {
+		fmt.Println("Error generating PemDump")
+		os.Exit(2)
+	}
+	return pemDump.PublicKey + "=!@#@!=" + pemDump.PrivateKey
 }

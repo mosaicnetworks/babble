@@ -9,6 +9,8 @@
     <io.babble.mobile.myapplication.GameView
         android:id="@+id/canvas"
         android:layout_width="wrap_content"
+        android:background="@drawable/babble128x128"
         android:layout_height="wrap_content"
+
         android:layout_weight="0.8" />
 </LinearLayout>

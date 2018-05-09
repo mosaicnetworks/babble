@@ -30,6 +30,6 @@
         </activity>
         <activity android:name=".BarcodeCaptureActivity" />
         <activity android:name=".ImageDialog" android:theme="@style/myDialogTheme" />
-        <activity android:name=".AdapterListView" />
+        <activity android:name=".ListViewDialog" />
     </application>
 </manifest>

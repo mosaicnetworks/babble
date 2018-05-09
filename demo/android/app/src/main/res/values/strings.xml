@@ -1,21 +1,14 @@
 <resources>
     <string name="app_name">Babble</string>
-    <string name="sub_title">The babble game</string>
-    <string name="action_qrscanner">QRC scanner</string>
-    <string name="action_qrgenerator">QRC generator</string>
-    <string name="action_nodemanage">Node manage</string>
+    <string name="action_createnode">Create node</string>
     <string name="action_exit">Exit</string>
+    <string name="action_generate">Generate</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_qrcode">QR code</string>
+    <string name="action_scan">Scan</string>
+    <string name="action_settings">Settings</string>
+    <string name="action_start">Start</string>
+    <string name="sub_title">The babble game</string>
 
     <color name="dark_blue">#0000A0</color>
-
-    <string-array name="planets_array">
-        <item>Mercury</item>
-        <item>Venus</item>
-        <item>Earth</item>
-        <item>Mars</item>
-        <item>Jupiter</item>
-        <item>Saturn</item>
-        <item>Uranus</item>
-        <item>Neptune</item>
-    </string-array>
 </resources>

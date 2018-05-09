@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <color name="tab_selected_strip">#00b0ff</color>
+    <color name="primary">#3f51b5</color>
+    <color name="colorPrimary">#3f51b5</color>
+    <color name="colorPrimaryDark">#3f51b5</color>
+    <color name="colorAccent">#e91e63</color>
+ 
+</resources>

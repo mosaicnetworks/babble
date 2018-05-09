@@ -1,144 +1,124 @@
 package io.babble.mobile.myapplication;
 
-import android.app.Activity;
 import android.content.Context;
-import android.os.Bundle;
+import android.graphics.Typeface;
+import android.util.TypedValue;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 
-public class AdapterListView extends  Activity {  //ArrayAdapter<ListViewItem>,
-
+public class AdapterListView extends ArrayAdapter<ListViewItem> {
+    int resource;
     Context mContext;
     LayoutInflater inflater;
     ArrayList<ListViewItem> arrayPeers;
 
-/*    public AdapterListView(Context context, int resource, ArrayList<ListViewItem> arrayPeers) {
-
-        super(context, resource);
-
-        this.mContext = context;
+    public AdapterListView(Context context, int resource, ArrayList<ListViewItem> arrayPeers) {
+        super(context, resource, arrayPeers);
+        this.resource = resource;
         this.arrayPeers = arrayPeers;
-        this.inflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-    }*/
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_listview);
-
-        final ArrayList<String> rawPeerData = getIntent().getStringArrayListExtra("data");
-        ArrayList<ListViewItem> lvPeerData =  new ArrayList<ListViewItem>();
-
-        for (int i = 0; i < rawPeerData.size(); i++){
-            lvPeerData.add(new ListViewItem ("NodeAddr", "NilName", true));
-        }
-
-        final ListView listview = (ListView) findViewById(R.id.lvItems);
-        final StableArrayAdapter adapter = new StableArrayAdapter(this, R.layout.item_listview, lvPeerData);
-        listview.setAdapter(adapter);
     }
 
-    //@Override
-    public long getItemId(int position) {
-        //String item = getItem(position);
-        //return mIdMap.get(item);
+    @Override
+    public int getCount() {
+        if(arrayPeers != null && arrayPeers.size() != 0){
+            return arrayPeers.size();
+        }
         return 0;
     }
 
-    private class StableArrayAdapter extends ArrayAdapter<ListViewItem> {
-
-        HashMap<String, ListViewItem> mIdMap = new HashMap<String, ListViewItem>();
-
-        public StableArrayAdapter(Context context, int textViewResourceId,
-                                  List<ListViewItem> objects) {
-            super(context, textViewResourceId, objects);
-            for (int i = 0; i < objects.size(); ++i) {
-                mIdMap.put(String.valueOf(i), objects.get(i));
-            }
-        }
-
-        @Override
-        public long getItemId(int position) {
-            ListViewItem item = getItem(position);
-            return Integer.valueOf(mIdMap.get(item).toString());
-        }
-
-        @Override
-        public boolean hasStableIds() {
-            return true;
-        }
-
+    @Override
+    public ListViewItem getItem(int position) {
+        return arrayPeers.get(position);
     }
 
-    // @Override
-    public View getView(final int position, View convertView, ViewGroup parent) {
 
-        final ViewHolder holder;
+    @Override
+    public long getItemId(int position) {
+        return position;
+    }
+
+    @Override
+    public View getView(int position, View convertView, ViewGroup parent) {
+        LinearLayout contactsView;
+        ListViewItem peer = getItem(position);
+
         if (convertView == null) {
-            convertView = inflater.inflate(R.layout.item_listview, null);
-            holder = new ViewHolder();
-            holder.tvPosition = (TextView) convertView.findViewById(R.id.nodeAddr);
-            holder.edNickName = (EditText) convertView.findViewById(R.id.edNickName);
-            holder.cbActive = (CheckBox) convertView.findViewById(R.id.cbActive);
-            convertView.setTag(holder);
+            contactsView = new LinearLayout(getContext());
+            String inflater = Context.LAYOUT_INFLATER_SERVICE;
+            LayoutInflater vi;
+            vi = (LayoutInflater) getContext().getSystemService(inflater);
+            vi.inflate(resource, contactsView, true);
         } else {
-            holder = (ViewHolder) convertView.getTag();
+            contactsView = (LinearLayout) convertView;
         }
 
-        ListViewItem listViewItem = arrayPeers.get(position);
-        holder.tvPosition.setText("1234");
-        //holder.cbActive.setB
+        CheckBox cbActive = (CheckBox) contactsView.findViewById(R.id.cbActive);
 
-                //acti.setChecked(listViewItem.getActive());
+        TextView nodeAddr = (TextView) contactsView.findViewById(R.id.nodeAddr);
+        nodeAddr.setTypeface(null, Typeface.BOLD);
+        nodeAddr.setTextSize(TypedValue.COMPLEX_UNIT_PX, 18);
 
-        //Using setOnclickListener not setOnCheckedChangeListener
-        holder.cbActive.setOnClickListener(new View.OnClickListener() {
+        final TextView edNickName = (TextView) contactsView.findViewById(R.id.edNickName);
+        edNickName.setTextSize(TypedValue.COMPLEX_UNIT_PX, 22);
+
+        cbActive.setChecked(peer.getActive());
+        cbActive.setTag(position);
+        nodeAddr.setText(peer.getNodeAddr());
+        nodeAddr.setTag(position);
+        edNickName.setText(peer.getNickName());
+        edNickName.setTag(position);
+
+        edNickName.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View v, boolean hasFocus) {
+                if (!hasFocus) {
+                    int itemIndex = (Integer) v.getTag();
+                    String enteredNickName = ((EditText) v).getText().toString();
+                    arrayPeers.get(itemIndex).setNickName(enteredNickName);
+                }
+            }
+        });
+
+        edNickName.setOnEditorActionListener(new TextView.OnEditorActionListener()
+        {
+            @Override
+            public boolean onEditorAction(TextView v, int actionId, KeyEvent event)
+            {
+                if(actionId == EditorInfo.IME_ACTION_DONE)
+                {
+                    int itemIndex = (Integer) v.getTag();
+                    String enteredNickName = ((EditText) v).getText().toString();
+                    arrayPeers.get(itemIndex).setNickName(enteredNickName);
+                }
+                return false; // pass on to other listeners.
+            }
+        });
+
+        cbActive.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-            }
-        });
-
-//Fill EditText with the value you have in data source
-        holder.edNickName.setText(listViewItem.getNickName());
-        holder.edNickName.setId(position);
-
-//we need to update adapter once we finish with editing
-        holder.edNickName.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-
-            public void onFocusChange(View v, boolean hasFocus) {
-
-                if (!hasFocus) {
-                    final int position = v.getId();
-                    final EditText Caption = (EditText) v;
-                    arrayPeers.get(position).setNickName(Caption.getText().toString());
+                if (v != null){
+                    int itemIndex = (Integer) v.getTag();
+                    Boolean cbActive = ((CheckBox) v).isChecked();
+                    arrayPeers.get(itemIndex).setActive(cbActive) ;
                 }
-
             }
-
         });
 
-        return convertView;
-    }
-
-    //@Override
-    public int getCount() {
-        return arrayPeers.size();
-    }
-
-    static class ViewHolder {
-        TextView tvPosition;
-        EditText edNickName;
-        CheckBox cbActive;
+        return contactsView;
     }
 
 }

@@ -97,10 +97,6 @@ func New(node_addr string, peers string, privKey string, events *EventHandler, c
 	}
 }
 
-func Hello(input string) string {
-	return fmt.Sprintf("Hello, %s!", input)
-}
-
 func (n *Node) Run(async bool) {
 	if async {
 		n.node.RunAsync(true)

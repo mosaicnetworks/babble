@@ -6,33 +6,57 @@
 
     <CheckBox
         android:id="@+id/cbActive"
-        android:layout_width="wrap_content"
-        android:layout_height="fill_parent"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentTop="true"
-        android:layout_marginRight="6dip"/>
+        android:layout_width="70dp"
+        android:layout_height="70dp" />
 
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent"
+        android:orientation="vertical">
+        <TextView
+            android:id="@+id/nodeAddr"
+            android:layout_marginLeft="10dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#0000FF"
+            android:paddingTop="5dp"/>
+        <EditText
+            android:id="@+id/edNickName"
+            android:layout_marginLeft="10dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:paddingTop="5dp"
+            android:inputType="text">
+            <requestFocus />
+        </EditText>
+
+    </LinearLayout>
+</LinearLayout>
+
+<!--
     <TextView
         android:id="@+id/nodeAddr"
         android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="33dp"
         android:layout_above="@id/cbActive"
         android:layout_alignParentRight="true"
         android:layout_alignParentTop="true"
-        android:layout_alignWithParentIfMissing="true"
         android:layout_toRightOf="@id/cbActive"
         android:gravity="center_vertical"
         android:text="123.234.045.056"
-        android:textSize="16sp"/>
+        android:textSize="16sp" />
 
     <EditText
         android:id="@+id/edNickName"
         android:layout_width="fill_parent"
-        android:layout_height="26dip"
+        android:layout_height="50dip"
         android:layout_alignParentBottom="true"
         android:layout_alignParentRight="true"
         android:layout_toRightOf="@id/cbActive"
+        android:layout_bottom="@id/nodeAddr"
         android:text="Gonzo"
         android:textSize="12sp"/>
 
-</LinearLayout>
+</LinearLayout>-->
