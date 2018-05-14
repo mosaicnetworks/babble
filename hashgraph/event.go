@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/babbleio/babble/crypto"
+	"github.com/mosaicnetworks/babble/crypto"
 )
 
 type EventBody struct {

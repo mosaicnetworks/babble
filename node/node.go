@@ -10,9 +10,9 @@ import (
 
 	"strconv"
 
-	hg "github.com/babbleio/babble/hashgraph"
-	"github.com/babbleio/babble/net"
-	"github.com/babbleio/babble/proxy"
+	hg "github.com/mosaicnetworks/babble/hashgraph"
+	"github.com/mosaicnetworks/babble/net"
+	"github.com/mosaicnetworks/babble/proxy"
 )
 
 type Node struct {

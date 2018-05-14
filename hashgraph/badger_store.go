@@ -5,8 +5,8 @@ import (
 	"os"
 	"strconv"
 
-	cm "github.com/babbleio/babble/common"
 	"github.com/dgraph-io/badger"
+	cm "github.com/mosaicnetworks/babble/common"
 )
 
 var (

@@ -1,4 +1,4 @@
-package: github.com/babbleio/babble
+package: github.com/mosaicnetworks/babble
 import:
 - package: github.com/sirupsen/logrus
 - package: gopkg.in/urfave/cli.v1

@@ -3,7 +3,7 @@ package node
 import (
 	"math/rand"
 
-	"github.com/babbleio/babble/net"
+	"github.com/mosaicnetworks/babble/net"
 )
 
 type PeerSelector interface {

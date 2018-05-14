@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/babbleio/babble/crypto"
+	"github.com/mosaicnetworks/babble/crypto"
 )
 
 func initBadgerStore(cacheSize int, t *testing.T) (*BadgerStore, []pub) {

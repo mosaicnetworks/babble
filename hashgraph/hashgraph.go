@@ -9,7 +9,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/babbleio/babble/common"
+	"github.com/mosaicnetworks/babble/common"
 )
 
 type Hashgraph struct {

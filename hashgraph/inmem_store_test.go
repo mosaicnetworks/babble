@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/babbleio/babble/crypto"
+	"github.com/mosaicnetworks/babble/crypto"
 )
 
 type pub struct {

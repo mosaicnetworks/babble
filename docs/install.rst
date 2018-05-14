@@ -6,13 +6,13 @@ Install
 From Source
 ^^^^^^^^^^^
 
-Clone the `repository <https://github.com/babbleio/babble>`__ in the appropriate GOPATH subdirectory:
+Clone the `repository <https://github.com/mosaicnetworks/babble>`__ in the appropriate GOPATH subdirectory:
 
 ::
 
-    $ mkdir -p $GOPATH/src/github.com/babbleio/
-    $ cd $GOPATH/src/github.com/babbleio
-    [...]/babbleio$ git clone https://github.com/babbleio/babble.git
+    $ mkdir -p $GOPATH/src/github.com/mosaicnetworks/
+    $ cd $GOPATH/src/github.com/mosaicnetworks
+    [...]/mosaicnetworks$ git clone https://github.com/mosaicnetworks/babble.git
 
 
 The easiest way to build binaries is to do so in a hermetic Docker container. 
@@ -95,11 +95,11 @@ If everything goes well, it should output something along these lines:
 
 ::
 
-    ok      github.com/babbleio/babble/net      0.052s
-    ok      github.com/babbleio/babble/common   0.011s
-    ?       github.com/babbleio/babble/cmd      [no test files]
-    ?       github.com/babbleio/babble/cmd/dummy_client [no test files]
-    ok      github.com/babbleio/babble/hashgraph        0.174s
-    ok      github.com/babbleio/babble/node     1.699s
-    ok      github.com/babbleio/babble/proxy    0.018s
-    ok      github.com/babbleio/babble/crypto   0.028s
+    ok      github.com/mosaicnetworks/babble/net      0.052s
+    ok      github.com/mosaicnetworks/babble/common   0.011s
+    ?       github.com/mosaicnetworks/babble/cmd      [no test files]
+    ?       github.com/mosaicnetworks/babble/cmd/dummy_client [no test files]
+    ok      github.com/mosaicnetworks/babble/hashgraph        0.174s
+    ok      github.com/mosaicnetworks/babble/node     1.699s
+    ok      github.com/mosaicnetworks/babble/proxy    0.018s
+    ok      github.com/mosaicnetworks/babble/crypto   0.028s
