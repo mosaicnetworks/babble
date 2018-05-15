@@ -45,12 +45,12 @@ First things first
 
 The code for evm-babble lives in its own repo. Let us download it and give a quick overview of what it does.
   
-Clone the `repository <https://github.com/babbleio/evm-babble>`__ in the appropriate GOPATH subdirectory:
+Clone the `repository <https://github.com/mosaicnetworks/evm-babble>`__ in the appropriate GOPATH subdirectory:
 
 ::
 
-    $ cd $GOPATH/src/github.com/babbleio
-    [...]/babbleio$ git clone https://github.com/babbleio/evm-babble.git
+    $ cd $GOPATH/src/github.com/mosaicnetworks
+    [...]/mosaicnetworks$ git clone https://github.com/mosaicnetworks/evm-babble.git
 
 Then, follow the instructions in the README to install dependencies and complete the installation.
 

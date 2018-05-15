@@ -1,7 +1,7 @@
 version: 2
 jobs:
   build:
-    working_directory: /go/src/github.com/babbleio/babble
+    working_directory: /go/src/github.com/mosaicnetworks/babble
     docker:
       - image: mosaicnetworks/glider:0.0.1
     steps:

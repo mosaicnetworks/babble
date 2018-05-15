@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mosaicnetworks/babble/common"
 	"github.com/sirupsen/logrus"
-	"github.com/babbleio/babble/common"
 )
 
 type Config struct {

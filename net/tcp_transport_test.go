@@ -4,7 +4,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/babbleio/babble/common"
+	"github.com/mosaicnetworks/babble/common"
 )
 
 func TestTCPTransport_BadAddr(t *testing.T) {

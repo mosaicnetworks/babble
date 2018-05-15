@@ -1,8 +1,8 @@
 package app
 
 import (
-	bcrypto "github.com/babbleio/babble/crypto"
-	"github.com/babbleio/babble/hashgraph"
+	bcrypto "github.com/mosaicnetworks/babble/crypto"
+	"github.com/mosaicnetworks/babble/hashgraph"
 	"github.com/sirupsen/logrus"
 )
 

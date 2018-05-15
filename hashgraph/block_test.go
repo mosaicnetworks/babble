@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/babbleio/babble/crypto"
+	"github.com/mosaicnetworks/babble/crypto"
 )
 
 func TestSignBlock(t *testing.T) {

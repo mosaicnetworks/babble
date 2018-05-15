@@ -12,7 +12,7 @@ cd "$DIR"
 # Get the git commit
 GIT_COMMIT="$(git rev-parse --short HEAD)"
 GIT_DESCRIBE="$(git describe --tags --always)"
-GIT_IMPORT="github.com/babbleio/babble/version"
+GIT_IMPORT="github.com/mosaicnetworks/babble/version"
 
 # Determine the arch/os combos we're building for
 XC_ARCH=${XC_ARCH:-"386 amd64 arm"}
@@ -33,7 +33,7 @@ echo "==> Building..."
 		-ldflags "-X ${GIT_IMPORT}.GitCommit='${GIT_COMMIT}' -X ${GIT_IMPORT}.GitDescribe='${GIT_DESCRIBE}'" \
 		-output "build/pkg/{{.OS}}_{{.Arch}}/babble" \
 		-tags="${BUILD_TAGS}" \
-		github.com/babbleio/babble/cmd/babble
+		github.com/mosaicnetworks/babble/cmd/babble
 
 # Zip all the files.
 echo "==> Packaging..."

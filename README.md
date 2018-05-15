@@ -1,7 +1,7 @@
 # BABBLE
 ## BFT Consensus platform for distributed applications.
 
-[![CircleCI](https://circleci.com/gh/babbleio/babble.svg?style=svg)](https://circleci.com/gh/babbleio/babble)
+[![CircleCI](https://circleci.com/gh/mosaicnetworks/babble.svg?style=svg)](https://circleci.com/gh/mosaicnetworks/babble)
 
 Babble allows many computers to behave as one. It uses Peer to Peer (P2P) 
 networking and a consensus algorithm to guarantee that multiple connected 
@@ -43,47 +43,47 @@ language.
 
 
 ```
-    ========================================
-    = APP                                  =
-    =                                      =
-    =  ===============     ==============  =
-    =  = Service     = <-- = State      =  =
-    =  =             =     =            =  =
-    =  ===============     ==============  =
-    =          |                |          =
-    =       ========================       =
-    =       = Babble Proxy         =       =
-    =       ========================       =
-    =          |                ^          =
-    ===========|================|===========
+    +--------------------------------------+
+    | APP                                  |
+    |                                      |
+    |  +-------------+     +------------+  | 
+    |  | Service     | <-- | State      |  |
+    |  |             |     |            |  |
+    |  +-------------+     +------------+  |
+    |          |                |          |
+    |       +----------------------+       |
+    |       | Babble Proxy         |       |
+    |       +----------------------+       |
+    |          |                ^          |
+    +----------|----------------|----------+
                |                |
 --------- SubmitTx(tx) ---- CommitBlock(Block) ------- (JSON-RPC/TCP)
                |                |
- ==============|================|===============================
- = BABBLE      |                |                              =
- =             v                |                              =
- =          ========================                           =
- =          = App Proxy            =                           =
- =          =                      =                           =
- =          ========================                           =
- =                     |                                       =
- =   =======================================                   =
- =   = Core                                =                   =
- =   =                                     =                   =
- =   =                                     =    ============   =
- =   =  =============        ===========   =    = Service  =   =
- =   =  = Hashgraph =        = Store   =   = -- =          = <----> HTTP API
- =   =  =============        ===========   =    =          =   =
- =   =                                     =    ============   =
- =   =                                     =                   =
- =   =======================================                   =
- =                     |                                       =
- =   =======================================                   =
- =   = Transport                           =                   =
- =   =                                     =                   =
- =   =======================================                   =
- =                     ^                                       =
- ======================|========================================
+ +-------------|----------------|------------------------------+
+ | BABBLE      |                |                              |
+ |             v                |                              |
+ |          +----------------------+                           |
+ |          | App Proxy            |                           |
+ |          |                      |                           |
+ |          +----------------------+                           |
+ |                     |                                       |
+ |   +-------------------------------------+                   |
+ |   | Core                                |                   |
+ |   |                                     |                   |
+ |   |                                     |    +----------+   |
+ |   |  +-----------+        +---------+   |    | Service  |   |
+ |   |  | Hashgraph |        | Store   |   | -- |          | <----> HTTP API
+ |   |  +-----------+        +----------   |    |          |   |
+ |   |                                     |    +----------+   |
+ |   |                                     |                   |
+ |   +-------------------------------------+                   |
+ |                     |                                       |
+ |   +-------------------------------------+                   |
+ |   | Transport                           |                   |
+ |   |                                     |                   |
+ |   +-------------------------------------+                   |
+ |                     ^                                       |
+ +---------------------|---------------------------------------+
                        |
                        v
 
@@ -168,13 +168,13 @@ CLI tool for managing Go code. Go is very opinionated and will require you to
 go code will reside.
 
 ### Babble and dependencies
-Clone the [repository](https://github.com/babbleio/babble) in the appropriate 
+Clone the [repository](https://github.com/mosaicnetworks/babble) in the appropriate 
 GOPATH subdirectory:
 
 ```bash
-$ mkdir -p $GOPATH/src/github.com/babbleio/
-$ cd $GOPATH/src/github.com/babbleio
-[...]/babbleio$ git clone https://github.com/babbleio/babble.git
+$ mkdir -p $GOPATH/src/github.com/mosaicnetworks/
+$ cd $GOPATH/src/github.com/mosaicnetworks
+[...]/mosaicnetworks$ git clone https://github.com/mosaicnetworks/babble.git
 ```
 Babble uses [Glide](http://github.com/Masterminds/glide) to manage dependencies.
 
@@ -204,14 +204,14 @@ Babble has extensive unit-testing. Use the Go tool to run tests:
 
 If everything goes well, it should output something along these lines:
 ```
-ok      github.com/babbleio/babble/net      0.052s
-ok      github.com/babbleio/babble/common   0.011s
-?       github.com/babbleio/babble/cmd      [no test files]
-?       github.com/babbleio/babble/cmd/dummy_client [no test files]
-ok      github.com/babbleio/babble/hashgraph        0.174s
-ok      github.com/babbleio/babble/node     1.699s
-ok      github.com/babbleio/babble/proxy    0.018s
-ok      github.com/babbleio/babble/crypto   0.028s
+ok      github.com/mosaicnetworks/babble/net      0.052s
+ok      github.com/mosaicnetworks/babble/common   0.011s
+?       github.com/mosaicnetworks/babble/cmd      [no test files]
+?       github.com/mosaicnetworks/babble/cmd/dummy_client [no test files]
+ok      github.com/mosaicnetworks/babble/hashgraph        0.174s
+ok      github.com/mosaicnetworks/babble/node     1.699s
+ok      github.com/mosaicnetworks/babble/proxy    0.018s
+ok      github.com/mosaicnetworks/babble/crypto   0.028s
 ```
 
 ## Demo

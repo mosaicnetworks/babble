@@ -8,8 +8,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/babbleio/babble/crypto"
-	hg "github.com/babbleio/babble/hashgraph"
+	"github.com/mosaicnetworks/babble/crypto"
+	hg "github.com/mosaicnetworks/babble/hashgraph"
 )
 
 type Core struct {

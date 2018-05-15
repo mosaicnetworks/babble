@@ -8,7 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gopkg.in/urfave/cli.v1"
 
-	"github.com/babbleio/babble/proxy"
+	"github.com/mosaicnetworks/babble/proxy"
 )
 
 var (
