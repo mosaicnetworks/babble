@@ -1,7 +1,7 @@
 package mobile
 
 import (
-	"github.com/babbleio/babble/hashgraph"
+	"github.com/mosaicnetworks/babble/hashgraph"
 	"github.com/sirupsen/logrus"
 )
 

@@ -7,11 +7,11 @@ import (
 	"sort"
 	"time"
 
-	"github.com/babbleio/babble/crypto"
-	hg "github.com/babbleio/babble/hashgraph"
-	"github.com/babbleio/babble/net"
-	"github.com/babbleio/babble/node"
-	"github.com/babbleio/babble/proxy"
+	"github.com/mosaicnetworks/babble/crypto"
+	hg "github.com/mosaicnetworks/babble/hashgraph"
+	"github.com/mosaicnetworks/babble/net"
+	"github.com/mosaicnetworks/babble/node"
+	"github.com/mosaicnetworks/babble/proxy"
 	"github.com/sirupsen/logrus"
 )
 
