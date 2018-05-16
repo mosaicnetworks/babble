@@ -74,7 +74,8 @@ public final class BarcodeCaptureActivity extends AppCompatActivity implements B
     public static final String UseFlash = "UseFlash";
     public static final String BarcodeObject = "Barcode";
 
-    private ArrayList<String> activePeerSockets;    //a simple array list of active sockets
+    private ArrayList<String> allPeerSockets;       //a simple array list of supported peers sockets
+    private ArrayList<String> newPeersDetected;     //a simple array list of added peers using qr codes
 
     private CameraSource mCameraSource;
     private CameraSourcePreview mPreview;
@@ -92,14 +93,15 @@ public final class BarcodeCaptureActivity extends AppCompatActivity implements B
         super.onCreate(icicle);
         setContentView(R.layout.barcode_capture);
 
-        activePeerSockets = getIntent().getExtras().getStringArrayList("ActivePeerSockets") ;
+        this.allPeerSockets = getIntent().getExtras().getStringArrayList("allPeerSockets") ;
+        this.newPeersDetected = new ArrayList<String>();
 
-        mPreview = (CameraSourcePreview) findViewById(R.id.preview);
+        this.mPreview = (CameraSourcePreview) findViewById(R.id.preview);
         CameraSourcePreview.LayoutParams params = mPreview.getLayoutParams();
         params.height = Resources.getSystem().getDisplayMetrics().heightPixels;
-        mPreview.setLayoutParams(params);
+        this.mPreview.setLayoutParams(params);
 
-        mGraphicOverlay =  (GraphicOverlay<BarcodeGraphic>) findViewById(R.id.graphicOverlay);
+        this.mGraphicOverlay =  (GraphicOverlay<BarcodeGraphic>) findViewById(R.id.graphicOverlay);
 
         // read parameters from the intent used to launch the activity.
         boolean autoFocus = getIntent().getBooleanExtra(AutoFocus, false);
@@ -181,7 +183,7 @@ public final class BarcodeCaptureActivity extends AppCompatActivity implements B
         // graphics for each barcode on screen.  The factory is used by the multi-processor to
         // create a separate tracker instance for each barcode.
         BarcodeDetector barcodeDetector = new BarcodeDetector.Builder(context).build();
-        BarcodeTrackerFactory barcodeFactory = new BarcodeTrackerFactory(mGraphicOverlay, this, activePeerSockets);
+        BarcodeTrackerFactory barcodeFactory = new BarcodeTrackerFactory(mGraphicOverlay, this, allPeerSockets);
         barcodeDetector.setProcessor(
                 new MultiProcessor.Builder<>(barcodeFactory).build());
 
@@ -404,7 +406,7 @@ public final class BarcodeCaptureActivity extends AppCompatActivity implements B
             index1 = index1 + 7;
             int index2 = qrPeer.indexOf("*", index1);
             if (index2 > index1) {
-                nodeAddr = qrPeer.substring(index1, index2 - 1);
+                nodeAddr = qrPeer.substring(index1, index2);
             }
         }
         return nodeAddr;
@@ -413,26 +415,27 @@ public final class BarcodeCaptureActivity extends AppCompatActivity implements B
     @Override
     public void onBarcodeDetected(Barcode barcode) {
 
-        String socket = getNodeAddr(barcode.displayValue);
+        try {
+            String socket = getNodeAddr(barcode.displayValue);
 
-        if ((barcode.displayValue.contains("Babble")) && (!activePeerSockets.contains(socket))) {
-            Intent data = new Intent();
-            data.putExtra(BarcodeObject, barcode);
-            setResult(CommonStatusCodes.SUCCESS, data);
+            if ((barcode.displayValue.contains("Babble")) && (!allPeerSockets.contains(socket))) {
+                allPeerSockets.add(socket);
+                newPeersDetected.add(barcode.displayValue);       //Babble*socket*PublicKey
+            }
+
+        } catch (Exception e) {
         }
-    }
-
-    public void onBackPressed(){
-
-        super.onBackPressed();
-
     }
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         switch(keyCode){
             case KeyEvent.KEYCODE_BACK:
-                onBackPressed();
+
+                Intent data = new Intent();
+                data.putStringArrayListExtra("newPeersDetected", newPeersDetected);
+                setResult(CommonStatusCodes.SUCCESS, data);
+                finish();
                 return true;
         }
         return super.onKeyDown(keyCode, event);

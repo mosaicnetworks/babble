@@ -309,7 +309,7 @@ public class GameView extends SurfaceView implements Runnable {
 
                 paint.setColor(Color.LTGRAY );
                 paint.setTextSize(20);
-                canvas.drawText("Transactions: " + node.transCount, 5, canvas.getHeight() - 15, paint);
+                canvas.drawText("Nodes: " + node.cnfgData.peers.length + " / Transactions: " + node.transCount, 5, canvas.getHeight() - 15, paint);
 
                 surfaceHolder.unlockCanvasAndPost(canvas);
             }
@@ -337,27 +337,28 @@ public class GameView extends SurfaceView implements Runnable {
        if ( (node != null) && (node.cnfgData != null) ){
            try {
                node.cnfgData.peers = Arrays.copyOf(node.cnfgData.peers, node.cnfgData.peers.length + 1);
+               node.cnfgData.peers[node.cnfgData.peers.length - 1] = new Peer();
                node.cnfgData.peers[node.cnfgData.peers.length - 1].active = 1;
                node.cnfgData.peers[node.cnfgData.peers.length - 1].netAddr = nodeAddr;
-               node.cnfgData.peers[node.cnfgData.peers.length - 1].nickName = "";
+               node.cnfgData.peers[node.cnfgData.peers.length - 1].nickName = "Set NickName";
                node.cnfgData.peers[node.cnfgData.peers.length - 1].pubKeyHex = nodePublicKey;
+
+               //"NodeID": have to be pre-calcualted according peers reordering
+               int nodeID = 0;
+               String pubKey = node.cnfgData.nodePublicKey;
+
+               for(int i=0; i < node.cnfgData.peers.length; i++){
+                   String pubKey1 = node.cnfgData.peers[i].pubKeyHex;
+                   if ( pubKey1.compareToIgnoreCase(pubKey) < 0 ){  //pubKey1 < pubKey
+                       nodeID++;
+                   }
+               }
+               node.cnfgData.nodeID = nodeID;
 
                node.saveConfigData(node.cnfgData);
            } catch(Exception e){
                Toast.makeText(context, "addPeer: An unexpected error '" + e.toString() + "'.", Toast.LENGTH_LONG).show();
           }
-
-          //"NodeID": have to be pre-calcualted according peers reordering
-           int nodeID = 0;
-           String pubKey = node.cnfgData.nodePublicKey;
-
-           for(int i=0; i < node.cnfgData.peers.length; i++){
-               String pubKey1 = node.cnfgData.peers[i].pubKeyHex;
-               if ( pubKey1.compareToIgnoreCase(pubKey) < 0 ){  //pubKey1 < pubKey
-                   nodeID++;
-               }
-           }
-           node.cnfgData.nodeID = nodeID;
        }
     }
 
@@ -371,7 +372,7 @@ public class GameView extends SurfaceView implements Runnable {
                     activePeerSockets.add(cnfgD.peers[i].netAddr);
         }
 
-        return null;
+        return activePeerSockets;
     }
 
     public  ArrayList<String> loadRawPeerData(){ //each string is netAddr*pubKeyHex*active

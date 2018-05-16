@@ -56,20 +56,20 @@ public class MainActivity extends AppCompatActivity{
             index1 = index1 + 7;
             int index2 = qrPeer.indexOf("*", index1);
             if ( index2 > index1 ) {
-                nodeAddr = qrPeer.substring(index1, index2 - 1);
+                nodeAddr = qrPeer.substring(index1, index2);
             }
         }
         return nodeAddr;
     }
 
     private String getNodePublicKey(String qrPeer){
-        String nodePublicKey = "";
+        String nodePublicKey = "";                 //Babble*NodeAddr*NodePublKey
         int index1 = qrPeer.indexOf("Babble*");
         if ( index1 > -1 ){
             index1 = index1 + 7;
-            int index2 = qrPeer.indexOf("*", index1);
+            int index2 = qrPeer.indexOf("*", index1) + 1;
             if ( index2 > index1 ) {
-                nodePublicKey = qrPeer.substring(index1, index2 - 1);
+                nodePublicKey = qrPeer.substring(index2);
             }
         }
         return nodePublicKey;
@@ -81,25 +81,27 @@ public class MainActivity extends AppCompatActivity{
         if ( requestCode == 9001 ) {  //RC_BARCODE_CAPTURE
             if ( resultCode == CommonStatusCodes.SUCCESS ) {
                 if ( data != null ) {
-                    Barcode barcode = data.getParcelableExtra(BarcodeCaptureActivity.BarcodeObject);
-                    String result = barcode.displayValue;    //Babble*NodeAddr*NodePublicKey
-                    gameView.addPeer(getNodeAddr(result), getNodePublicKey(result));   //add + save in configData
 
+                    ArrayList<String> newPeersDetected =  data.getStringArrayListExtra("newPeersDetected");   ////Babble*NodeAddr*NodePublicKey
+
+                    for (int i =0; i < newPeersDetected.size(); i++ ){
+                        gameView.addPeer(getNodeAddr(newPeersDetected.get(i)), getNodePublicKey(newPeersDetected.get(i)));   //add + save in configData
+                    }
                 } else {
                     Toast.makeText(getApplicationContext(), "onActivityResult: No QR code captured, intent data is null.", Toast.LENGTH_SHORT).show();
                 }
             } else {
                 Toast.makeText(getApplicationContext(), "onActivityResult: An unexpected error ocurred while reading QR code.", Toast.LENGTH_SHORT).show();
             }
-        }else if ( requestCode == 9999 ){   //Save peers data into config file
+        }else if ( requestCode == 9999 ){   //Save peers details into config file
 
             if ( data != null ) {
                  ArrayList<String> rawPeerData =  data.getStringArrayListExtra("rawPeerData");
                  if ( gameView != null ){
                      gameView.savePeerData(rawPeerData);
-                     Toast.makeText(getApplicationContext(), "Successfully saved peers data.", Toast.LENGTH_SHORT).show();
+                     Toast.makeText(getApplicationContext(), "Successfully saved peers details.", Toast.LENGTH_SHORT).show();
                  }else{
-                     Toast.makeText(getApplicationContext(), "onActivityResult: The peers data are not saved.", Toast.LENGTH_SHORT).show();
+                     Toast.makeText(getApplicationContext(), "onActivityResult: The peers details are not saved.", Toast.LENGTH_SHORT).show();
                  }
             }
         } else {
@@ -135,7 +137,7 @@ public class MainActivity extends AppCompatActivity{
                     ArrayList<String> allPeerSockets = gameView.loadAllPeerSockets();
 
                     Intent qrscanner = new Intent(this, BarcodeCaptureActivity.class);
-                    qrscanner.putExtra("ActivePeerSockets", allPeerSockets);
+                    qrscanner.putExtra("allPeerSockets", allPeerSockets);
                     startActivityForResult(qrscanner, 9001);  //RC_BARCODE_CAPTURE
                 break;
             case R.id.generate:

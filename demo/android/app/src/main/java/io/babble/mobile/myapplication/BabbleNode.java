@@ -2,6 +2,7 @@ package io.babble.mobile.myapplication;
 
 import android.content.Context;
 import android.media.MediaScannerConnection;
+import android.os.Environment;
 import android.widget.Toast;
 
 import com.google.gson.Gson;
@@ -12,6 +13,11 @@ import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -43,8 +49,6 @@ public class BabbleNode implements CommitHandler, ErrorHandler {
         EventHandler events = Mobile.newEventHandler();
         events.onMessage(this);
         events.onError(this);
-
-        Mobile.getPrivPublKeys();
 
         cnfgData = getConfigData();
 
@@ -96,6 +100,10 @@ public class BabbleNode implements CommitHandler, ErrorHandler {
         });
     }
 
+//    @Override
+//    public void onMms(final MmsContext ctx) {
+//    }
+
     ConfigData getConfigData () {
 
         File folder = context.getExternalFilesDir(null);    //===/storage/sdcard0/Android/data/io.babble.mobile.myapplication/files==
@@ -138,23 +146,37 @@ public class BabbleNode implements CommitHandler, ErrorHandler {
         if ( !file.exists() ) {   //The file will be created
             file.createNewFile();
 
-            BufferedWriter writer = new BufferedWriter(new FileWriter(file, true));
-            writer.write("");
-            writer.close();
-
+            BufferedWriter writer1 = new BufferedWriter(new FileWriter(file, true), 15 );
+            writer1.write("Hello Babble!");
+            writer1.flush();
+            writer1.close();
             MediaScannerConnection.scanFile(context, new String[]{file.toString()}, null,null);  //the file to be seen by us
         }
 
+        //
+        BufferedWriter writer = null;
         try {
             Gson gson = new Gson();
             Type type = new TypeToken<ConfigData>() {}.getType();
             String gsonData = gson.toJson(cnfgData, type);
 
-            Writer output = new BufferedWriter(new FileWriter(file));
-            output.write(gsonData);
-            output.close();
+            writer = new BufferedWriter(new FileWriter(file, false),2 * gsonData.length() + 5 );
+            writer.write(gsonData);
+            writer.flush();
+            writer.close();
+
+            //writer = new FileWriter(file, false);
+            //writer.write(gsonData);
+            //writer.flush();
         } catch (IOException e) {
             Toast.makeText(context, String.format(String.format("saveConfigData:\r\nAn unexpected error occurred while saving config data\r\nFile: '%s'.\r\nError: %s", folder, e.toString())), Toast.LENGTH_LONG).show();
+        }finally {
+            try {
+                if (writer != null)
+                    writer.close();
+                MediaScannerConnection.scanFile(context, new String[]{file.toString()}, null,null);  //the file to be seen by us
+                }
+            catch (Exception ex) { /*ignore*/ }
         }
     }
 
@@ -228,7 +250,7 @@ public class BabbleNode implements CommitHandler, ErrorHandler {
                 i1 = cnfgData.peers.length - 1;
                 cnfgData.peers[i1].netAddr = cnfgData.node_addr;
                 cnfgData.peers[i1].pubKeyHex = cnfgData.nodePublicKey;
-                cnfgData.peers[i1].nickName = "Your NickName";
+                cnfgData.peers[i1].nickName = "Set NickName";
                 cnfgData.peers[i1].active = 1;
             }
 

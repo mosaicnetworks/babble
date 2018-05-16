@@ -18,6 +18,7 @@ package io.babble.mobile.myapplication;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.RectF;
 
 import io.babble.mobile.myapplication.GameView;
@@ -33,7 +34,7 @@ import java.util.ArrayList;
  */
 public class BarcodeGraphic extends GraphicOverlay.Graphic {
 
-    private ArrayList<String> activePeerSockets;    //a simple array list of active sockets
+    private ArrayList<String> allPeerSockets;    //a simple array list of all sockets
 
     private int mId;
 
@@ -46,12 +47,13 @@ public class BarcodeGraphic extends GraphicOverlay.Graphic {
     BarcodeGraphic(GraphicOverlay overlay, ArrayList<String> aps) {
         super(overlay);
 
-        ArrayList<String> activePeerSockets = aps;  // GameView.loadActivePeerSockets();
+        allPeerSockets = aps;  // GameView.loadActivePeerSockets();
         mRectPaint = new Paint();
         mRectPaint.setStyle(Paint.Style.STROKE);
         mRectPaint.setStrokeWidth(4.0f);
 
-        mTextPaint = new Paint();
+        mTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mTextPaint.setStyle(Paint.Style.FILL);
         mTextPaint.setTextSize(24.0f);
     }
 
@@ -83,7 +85,7 @@ public class BarcodeGraphic extends GraphicOverlay.Graphic {
             index1 = index1 + 7;
             int index2 = qrPeer.indexOf("*", index1);
             if (index2 > index1) {
-                nodeAddr = qrPeer.substring(index1, index2 - 1);
+                nodeAddr = qrPeer.substring(index1, index2);
             }
         }
         return nodeAddr;
@@ -94,13 +96,20 @@ public class BarcodeGraphic extends GraphicOverlay.Graphic {
      */
     @Override
     public void draw(Canvas canvas) {
-        Barcode barcode = mBarcode;
-        if (barcode == null) {
+
+        //Barcode barcode = mBarcode;
+        if (mBarcode == null) {
+            return;
+        }
+
+        Rect barCodeRect = mBarcode.getBoundingBox();
+        String displayValue = mBarcode.displayValue;
+        if (displayValue == null) {
             return;
         }
 
         // Draws the bounding box around the barcode.
-        RectF rect = new RectF(barcode.getBoundingBox());
+        RectF rect = new RectF(barCodeRect);
         rect.left = translateX(rect.left);
         rect.top = translateY(rect.top);
         rect.right = translateX(rect.right);
@@ -109,12 +118,19 @@ public class BarcodeGraphic extends GraphicOverlay.Graphic {
         // Draws a label at the bottom of the barcode indicate the barcode value that was detected.
 
         int selectedColor = Color.RED;
-        String socket = getNodeAddr(barcode.displayValue);
-        if ((barcode.displayValue.contains("Babble")) && (!activePeerSockets.contains(socket))){
-            selectedColor = Color.GREEN;
+        String socket = getNodeAddr(displayValue);
+        if (displayValue.contains("Babble")) {
+            selectedColor = Color.YELLOW;
+            if (allPeerSockets.contains(socket)) {
+                selectedColor = Color.GREEN;
+            }
         }
 
         mRectPaint.setColor(selectedColor);
         canvas.drawRect(rect, mRectPaint);
+
+        mTextPaint.setColor(Color.GREEN);
+        mTextPaint.setTextSize(30);
+        canvas.drawText("Scanned " + allPeerSockets.size() + " codes." , 5,  35, mTextPaint);
     }
 }
