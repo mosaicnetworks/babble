@@ -1,6 +1,6 @@
 package main
 
-import (
+import (  
 	"bufio"
 	"fmt"
 	"os"
@@ -13,7 +13,7 @@ import (
 
 var (
 	NameFlag = cli.StringFlag{
-		Name:  "name",
+		Name:  "name", 
 		Usage: "Client Name",
 	}
 	ProxyAddressFlag = cli.StringFlag{
