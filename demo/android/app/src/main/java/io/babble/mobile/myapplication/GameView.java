@@ -55,7 +55,10 @@ public class GameView extends SurfaceView implements Runnable {
 
     public void pause() {
 
+        if (!running) return;
+
         running = false;
+
         try {
             node.shutdown();
             gameThread.join();
@@ -66,6 +69,8 @@ public class GameView extends SurfaceView implements Runnable {
     }
 
     public void resume() {
+
+        if (running) return;
 
         running = true;
 

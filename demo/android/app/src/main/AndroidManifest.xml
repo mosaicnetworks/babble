@@ -10,6 +10,11 @@
     <uses-feature android:name="android.hardware.camera.autofocus" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.VIBRATE" />
+
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <uses-permission android:name="android.permission.WRITE_SMS" />
+
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <!--Babble settings    >-->
 
@@ -20,7 +25,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name=".MainActivity">
+        <activity android:name="MainActivity">
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

@@ -1,15 +1,15 @@
 package io.babble.mobile.myapplication;
 
-import android.app.Activity;
 import android.content.Context;
 import android.util.Log;
 import android.widget.TextView;
 
+import io.babble.mobile.myapplication.MainActivity;
 import mobile.CommitHandler;
 import mobile.TxContext;
 
 public class AppMessageHandler implements CommitHandler {
-    protected MainActivity context;
+    protected io.babble.mobile.myapplication.MainActivity context;
 
     public AppMessageHandler(Context context) {
         this.context = (MainActivity)context;

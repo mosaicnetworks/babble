@@ -2,7 +2,6 @@ package io.babble.mobile.myapplication;
 
 import android.content.Context;
 import android.media.MediaScannerConnection;
-import android.os.Environment;
 import android.widget.Toast;
 
 import com.google.gson.Gson;
@@ -13,11 +12,6 @@ import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -25,6 +19,7 @@ import java.util.Map;
 import java.io.*;
 import java.util.Random;
 
+import io.babble.mobile.myapplication.MainActivity;
 import mobile.Ball;
 import mobile.CommitHandler;
 import mobile.ErrorContext;
@@ -36,7 +31,7 @@ import mobile.TxContext;
 
 public class BabbleNode implements CommitHandler, ErrorHandler {
     private Node node;
-    private MainActivity context;
+    private io.babble.mobile.myapplication.MainActivity context;
 
     public long transCount = 0;               //we'll count transactions here
     public Map<String, Ball> store = new HashMap<>();

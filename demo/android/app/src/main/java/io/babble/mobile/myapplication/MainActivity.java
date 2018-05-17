@@ -3,6 +3,7 @@ package io.babble.mobile.myapplication;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
@@ -14,7 +15,6 @@ import android.view.MenuItem;
 import android.widget.Toast;
 
 import com.google.android.gms.common.api.CommonStatusCodes;
-import com.google.android.gms.vision.barcode.Barcode;
 
 import java.util.ArrayList;
 
@@ -26,7 +26,7 @@ public class MainActivity extends AppCompatActivity{
     int appStatStarted = 1;  //the application is started
     int appStatPaused = 2;   //the application is paused
 
-    int appStat = appStatStopped;  //by default
+    int appStat =  appStatStopped;  //by default
 
     Node node;
     private GameView gameView;
@@ -123,14 +123,16 @@ public class MainActivity extends AppCompatActivity{
                         });
                     dlgAlert.create().show();
                 }else {
-                    gameView.resume();
+                    gameView.setBackgroundResource(0);
+
                     appStat = appStatStarted;
+                    gameView.resume();
                 }
                 break;
             case R.id.pause:
                 if ( gameView.getPeersCount() > 1 ) {
-                    gameView.pause();
                     appStat = appStatPaused;
+                    gameView.pause();
                 }
                 break;
             case R.id.scan:
@@ -164,20 +166,20 @@ public class MainActivity extends AppCompatActivity{
 
     @Override
     protected void onPause() {
-        super.onPause();
         if ( appStat != appStatStopped ) {
             Toast.makeText(getApplicationContext(), "Babble game paused.", Toast.LENGTH_SHORT).show();
             gameView.pause();
         }
+        super.onPause();
     }
 
     @Override
     protected void onResume() {
-        super.onResume();
         if ( appStat != appStatStopped ){
             Toast.makeText(getApplicationContext(), "Babble game started.", Toast.LENGTH_SHORT).show();
             gameView.resume();
         }
+        super.onResume();
     }
 
     @Override
