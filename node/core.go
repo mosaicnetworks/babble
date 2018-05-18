@@ -185,8 +185,8 @@ func (c *Core) OverSyncLimit(knownEvents map[int]int, syncLimit int) bool {
 	return false
 }
 
-func (c *Core) GetFrame() (hg.Frame, error) {
-	return c.hg.GetFrame()
+func (c *Core) GetLatestFrame() (hg.Frame, error) {
+	return c.hg.GetLatestFrame()
 }
 
 //returns events that c knowns about and are not in 'known'

@@ -25,7 +25,7 @@ ex 1:
 - Root 0        - 		 - Root 1        - 		 - Root 2        -
 - X = Y = ""    - 		 - X = Y = ""    -		 - X = Y = ""    -
 - Index= -1     -		 - Index= -1     -       - Index= -1     -
-- Round= 0      -		 - Round= 0      -       - Round= 0      -
+- Round= -1      -		 - Round= -1      -      - Round= -1     -
 - Others= empty - 		 - Others= empty -       - Others= empty -
 -----------------		 -----------------       -----------------
 

@@ -801,7 +801,7 @@ func (h *Hashgraph) setLastConsensusRound(i int) {
 	h.LastCommitedRoundEvents = h.Store.RoundEvents(i - 1)
 }
 
-//assign round received and timestamp to all events
+//assign round received and timestamp to undetermined events
 func (h *Hashgraph) DecideRoundReceived() error {
 	for _, x := range h.UndeterminedEvents {
 		r := h.Round(x)
@@ -839,6 +839,12 @@ func (h *Hashgraph) DecideRoundReceived() error {
 				ex.consensusTimestamp = h.MedianTimestamp(t)
 
 				err = h.Store.SetEvent(ex)
+				if err != nil {
+					return err
+				}
+
+				tr.AddConsensusEvent(x)
+				err = h.Store.SetRound(i, tr)
 				if err != nil {
 					return err
 				}
@@ -929,91 +935,45 @@ func (h *Hashgraph) createAndInsertBlock(roundReceived int, txs [][]byte) (Block
 	return block, nil
 }
 
-func (h *Hashgraph) MedianTimestamp(eventHashes []string) time.Time {
-	events := []Event{}
-	for _, x := range eventHashes {
-		ex, _ := h.Store.GetEvent(x)
-		events = append(events, ex)
-	}
-	sort.Sort(ByTimestamp(events))
-	return events[len(events)/2].Body.Timestamp
-}
-
-func (h *Hashgraph) ConsensusEvents() []string {
-	return h.Store.ConsensusEvents()
-}
-
-//last event index per participant
-func (h *Hashgraph) KnownEvents() map[int]int {
-	return h.Store.KnownEvents()
-}
-
-func (h *Hashgraph) Reset(roots map[string]Root) error {
-	if err := h.Store.Reset(roots); err != nil {
-		return err
-	}
-
-	h.UndeterminedEvents = []string{}
-	h.UndecidedRounds = []int{}
-	h.PendingLoadedEvents = 0
-	h.topologicalIndex = 0
-
-	cacheSize := h.Store.CacheSize()
-	h.ancestorCache = common.NewLRU(cacheSize, nil)
-	h.selfAncestorCache = common.NewLRU(cacheSize, nil)
-	h.oldestSelfAncestorCache = common.NewLRU(cacheSize, nil)
-	h.stronglySeeCache = common.NewLRU(cacheSize, nil)
-	h.parentRoundCache = common.NewLRU(cacheSize, nil)
-	h.roundCache = common.NewLRU(cacheSize, nil)
-
-	return nil
-}
-
-func (h *Hashgraph) GetFrame() (Frame, error) {
-	lastConsensusRoundIndex := 0
-	if lcr := h.LastConsensusRound; lcr != nil {
-		lastConsensusRoundIndex = *lcr
-	}
-
-	lastConsensusRound, err := h.Store.GetRound(lastConsensusRoundIndex)
+func (h *Hashgraph) GetFrame(roundReceived int) (Frame, error) {
+	round, err := h.Store.GetRound(roundReceived)
 	if err != nil {
 		return Frame{}, err
 	}
 
-	witnessHashes := lastConsensusRound.Witnesses()
-
 	events := []Event{}
-	roots := make(map[string]Root)
-	for _, wh := range witnessHashes {
-		w, err := h.Store.GetEvent(wh)
+	for _, eh := range round.ConsensusEvents {
+		e, err := h.Store.GetEvent(eh)
 		if err != nil {
 			return Frame{}, err
 		}
-		events = append(events, w)
-		roots[w.Creator()] = Root{
-			X:      w.SelfParent(),
-			Y:      w.OtherParent(),
-			Index:  w.Index() - 1,
-			Round:  h.Round(w.SelfParent()),
-			Others: map[string]string{},
-		}
-
-		participantEvents, err := h.Store.ParticipantEvents(w.Creator(), w.Index())
-		if err != nil {
-			return Frame{}, err
-		}
-		for _, e := range participantEvents {
-			ev, err := h.Store.GetEvent(e)
-			if err != nil {
-				return Frame{}, err
-			}
-			events = append(events, ev)
-		}
+		events = append(events, e)
 	}
 
-	//Not every participant necessarily has a witness in LastConsensusRound.
-	//Hence, there could be participants with no Root at this point.
-	//For these partcipants, use their last known Event.
+	return h.CreateFrame(roundReceived, events)
+}
+
+//Assume events have roundReceived and are in topological order
+func (h *Hashgraph) CreateFrame(roundReceived int, events []Event) (Frame, error) {
+	// Get/Create Roots
+	roots := make(map[string]Root)
+	//The events are in topological order. Each time we run into the first Event
+	//of a participant, we create a Root for it.
+	for _, ev := range events {
+		p := ev.Creator()
+		if _, ok := roots[p]; !ok {
+			roots[ev.Creator()] = Root{
+				X:      ev.SelfParent(),
+				Y:      ev.OtherParent(),
+				Index:  ev.Index() - 1,
+				Round:  h.Round(ev.SelfParent()),
+				Others: map[string]string{},
+			}
+		}
+	}
+	//Every participant needs a Root in the Frame. For the participants that
+	//have no Events in this Frame, we just create a Root from their last known
+	//Event
 	for p := range h.Participants {
 		if _, ok := roots[p]; !ok {
 			var root Root
@@ -1043,9 +1003,6 @@ func (h *Hashgraph) GetFrame() (Frame, error) {
 			roots[p] = root
 		}
 	}
-
-	sort.Sort(ByTopologicalOrder(events))
-
 	//Some Events in the Frame might have other-parents that are outside of the
 	//Frame (cf root.go ex 2)
 	//When inserting these Events in a newly reset hashgraph, the CheckOtherParent
@@ -1066,11 +1023,69 @@ func (h *Hashgraph) GetFrame() (Frame, error) {
 	}
 
 	frame := Frame{
+		Round:  roundReceived,
 		Roots:  roots,
 		Events: events,
 	}
 
 	return frame, nil
+}
+
+func (h *Hashgraph) MedianTimestamp(eventHashes []string) time.Time {
+	events := []Event{}
+	for _, x := range eventHashes {
+		ex, _ := h.Store.GetEvent(x)
+		events = append(events, ex)
+	}
+	sort.Sort(ByTimestamp(events))
+	return events[len(events)/2].Body.Timestamp
+}
+
+func (h *Hashgraph) ConsensusEvents() []string {
+	return h.Store.ConsensusEvents()
+}
+
+//last event index per participant
+func (h *Hashgraph) KnownEvents() map[int]int {
+	return h.Store.KnownEvents()
+}
+
+func (h *Hashgraph) Reset(frame Frame) error {
+	if err := h.Store.Reset(frame.Roots); err != nil {
+		return err
+	}
+
+	h.UndeterminedEvents = []string{}
+	h.UndecidedRounds = []int{}
+	h.PendingLoadedEvents = 0
+	h.LastConsensusRound = nil
+	h.LastBlockIndex = -1
+	h.topologicalIndex = 0
+
+	cacheSize := h.Store.CacheSize()
+	h.ancestorCache = common.NewLRU(cacheSize, nil)
+	h.selfAncestorCache = common.NewLRU(cacheSize, nil)
+	h.oldestSelfAncestorCache = common.NewLRU(cacheSize, nil)
+	h.stronglySeeCache = common.NewLRU(cacheSize, nil)
+	h.parentRoundCache = common.NewLRU(cacheSize, nil)
+	h.roundCache = common.NewLRU(cacheSize, nil)
+
+	for _, ev := range frame.Events {
+		if err := h.InsertEvent(ev, false); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (h *Hashgraph) GetLatestFrame() (Frame, error) {
+	lastConsensusRoundIndex := 0
+	if lcr := h.LastConsensusRound; lcr != nil {
+		lastConsensusRoundIndex = *lcr
+	}
+
+	return h.GetFrame(lastConsensusRoundIndex)
 }
 
 //Bootstrap loads all Events from the Store's DB (if there is one) and feeds

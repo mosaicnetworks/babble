@@ -27,7 +27,10 @@ type RoundEvent struct {
 
 type RoundInfo struct {
 	Events map[string]RoundEvent
-	queued bool
+	//Events whose 'roundReceived' point here. ConsensusEvents are necessarily
+	//from previous rounds.
+	ConsensusEvents []string
+	queued          bool
 }
 
 func NewRoundInfo() *RoundInfo {
@@ -43,6 +46,10 @@ func (r *RoundInfo) AddEvent(x string, witness bool) {
 			Witness: witness,
 		}
 	}
+}
+
+func (r *RoundInfo) AddConsensusEvent(x string) {
+	r.ConsensusEvents = append(r.ConsensusEvents, x)
 }
 
 func (r *RoundInfo) SetFame(x string, f bool) {
