@@ -17,7 +17,8 @@ type Hashgraph struct {
 	ReverseParticipants     map[int]string //[id] => public key
 	Store                   Store          //store of Events and Rounds
 	UndeterminedEvents      []string       //[index] => hash
-	UndecidedRounds         []int          //queue of Rounds which have undecided witnesses
+	UndecidedRounds         []int          //FIFO queue of Rounds which have undecided witnesses
+	PendingDecidedRounds    []int          //FIFO queue of decided Rounds which haven't been processed yet
 	LastConsensusRound      *int           //index of last round where the fame of all witnesses has been decided
 	LastBlockIndex          int            //index of last block
 	LastCommitedRoundEvents int            //number of events in round before LastConsensusRound
@@ -62,7 +63,7 @@ func NewHashgraph(participants map[string]int, store Store, commitCh chan Block,
 		roundCache:              common.NewLRU(cacheSize, nil),
 		logger:                  logger,
 		superMajority:           2*len(participants)/3 + 1,
-		UndecidedRounds:         []int{0}, //initialize,
+		UndecidedRounds:         []int{}, //initialize,
 		LastBlockIndex:          -1,
 	}
 
@@ -702,7 +703,7 @@ func (h *Hashgraph) DecideFame() error {
 	votes := make(map[string](map[string]bool)) //[x][y]=>vote(x,y)
 
 	decidedRounds := map[int]int{} // [round number] => index in h.UndecidedRounds
-	defer h.updateUndecidedRounds(decidedRounds)
+	defer h.updateRoundQueues(decidedRounds)
 
 	for pos, i := range h.UndecidedRounds {
 		roundInfo, err := h.Store.GetRound(i)
@@ -767,10 +768,6 @@ func (h *Hashgraph) DecideFame() error {
 		//Update decidedRounds and LastConsensusRound if all witnesses have been decided
 		if roundInfo.WitnessesDecided() {
 			decidedRounds[i] = pos
-
-			if h.LastConsensusRound == nil || i > *h.LastConsensusRound {
-				h.setLastConsensusRound(i)
-			}
 		}
 
 		err = h.Store.SetRound(i, roundInfo)
@@ -782,14 +779,21 @@ func (h *Hashgraph) DecideFame() error {
 }
 
 //remove items from UndecidedRounds
-func (h *Hashgraph) updateUndecidedRounds(decidedRounds map[int]int) {
+func (h *Hashgraph) updateRoundQueues(decidedRounds map[int]int) {
 	newUndecidedRounds := []int{}
+	newPendingDecidedRounds := []int{}
 	for _, ur := range h.UndecidedRounds {
 		if _, ok := decidedRounds[ur]; !ok {
 			newUndecidedRounds = append(newUndecidedRounds, ur)
+		} else {
+			newPendingDecidedRounds = append(newPendingDecidedRounds, ur)
+			if h.LastConsensusRound == nil || ur > *h.LastConsensusRound {
+				h.setLastConsensusRound(ur)
+			}
 		}
 	}
 	h.UndecidedRounds = newUndecidedRounds
+	h.PendingDecidedRounds = newPendingDecidedRounds
 }
 
 func (h *Hashgraph) setLastConsensusRound(i int) {
@@ -803,6 +807,7 @@ func (h *Hashgraph) setLastConsensusRound(i int) {
 
 //assign round received and timestamp to undetermined events
 func (h *Hashgraph) DecideRoundReceived() error {
+	newUndeterminedEvents := []string{}
 	for _, x := range h.UndeterminedEvents {
 		r := h.Round(x)
 		for i := r + 1; i <= h.Store.LastRound(); i++ {
@@ -849,90 +854,56 @@ func (h *Hashgraph) DecideRoundReceived() error {
 					return err
 				}
 
+				newUndeterminedEvents = append(newUndeterminedEvents, x)
+
 				break
 			}
 		}
 	}
-	return nil
-}
-
-func (h *Hashgraph) FindOrder() error {
-	err := h.DecideRoundReceived()
-	if err != nil {
-		return err
-	}
-
-	newConsensusEvents := []Event{}
-	newUndeterminedEvents := []string{}
-	for _, x := range h.UndeterminedEvents {
-		ex, err := h.Store.GetEvent(x)
-		if err != nil {
-			return err
-		}
-		if ex.roundReceived != nil {
-			newConsensusEvents = append(newConsensusEvents, ex)
-		} else {
-			newUndeterminedEvents = append(newUndeterminedEvents, x)
-		}
-	}
 	h.UndeterminedEvents = newUndeterminedEvents
-
-	sorter := NewConsensusSorter(newConsensusEvents)
-	sort.Sort(sorter)
-
-	if err := h.handleNewConsensusEvents(newConsensusEvents); err != nil {
-		return err
-	}
-
 	return nil
 }
 
-func (h *Hashgraph) handleNewConsensusEvents(newConsensusEvents []Event) error {
+func (h *Hashgraph) ProcessDecidedRounds() error {
+	for _, r := range h.PendingDecidedRounds {
 
-	blockMap := make(map[int][][]byte) // [RoundReceived] => []Transactions
-	blockOrder := []int{}              // [index] => RoundReceived
-	for _, e := range newConsensusEvents {
-		err := h.Store.AddConsensusEvent(e.Hex())
+		frame, err := h.GetFrame(r)
 		if err != nil {
 			return err
 		}
-		h.ConsensusTransactions += len(e.Transactions())
-		if e.IsLoaded() {
-			h.PendingLoadedEvents--
-		}
 
-		btxs, ok := blockMap[*e.roundReceived]
-		if !ok {
-			btxs = [][]byte{}
-			blockOrder = append(blockOrder, *e.roundReceived)
-		}
-		btxs = append(btxs, e.Transactions()...)
-		blockMap[*e.roundReceived] = btxs
-	}
+		events := frame.Events
 
-	for _, rr := range blockOrder {
-		blockTxs, _ := blockMap[rr]
-		if len(blockTxs) > 0 {
-			block, err := h.createAndInsertBlock(rr, blockTxs)
+		if len(events) > 0 {
+			sorter := NewConsensusSorter(events)
+			sort.Sort(sorter)
+
+			//XXX This is ugly. Should be somewhere else; or nowhere
+			for _, e := range events {
+				err := h.Store.AddConsensusEvent(e.Hex())
+				if err != nil {
+					return err
+				}
+				h.ConsensusTransactions += len(e.Transactions())
+				if e.IsLoaded() {
+					h.PendingLoadedEvents--
+				}
+			}
+
+			block, err := h.createAndInsertBlock(frame)
 			if err != nil {
 				return err
 			}
+
 			if h.commitCh != nil {
 				h.commitCh <- block
 			}
 		}
 	}
 
+	//XXX Reset queue
+	h.PendingDecidedRounds = []int{}
 	return nil
-}
-
-func (h *Hashgraph) createAndInsertBlock(roundReceived int, txs [][]byte) (Block, error) {
-	block := NewBlock(h.LastBlockIndex+1, roundReceived, txs)
-	if err := h.Store.SetBlock(block); err != nil {
-		return Block{}, err
-	}
-	h.LastBlockIndex++
-	return block, nil
 }
 
 func (h *Hashgraph) GetFrame(roundReceived int) (Frame, error) {
@@ -942,7 +913,7 @@ func (h *Hashgraph) GetFrame(roundReceived int) (Frame, error) {
 	}
 
 	events := []Event{}
-	for _, eh := range round.ConsensusEvents {
+	for eh := range round.ConsensusEvents {
 		e, err := h.Store.GetEvent(eh)
 		if err != nil {
 			return Frame{}, err
@@ -950,11 +921,8 @@ func (h *Hashgraph) GetFrame(roundReceived int) (Frame, error) {
 		events = append(events, e)
 	}
 
-	return h.CreateFrame(roundReceived, events)
-}
+	sort.Sort(ByTopologicalOrder(events))
 
-//Assume events have roundReceived and are in topological order
-func (h *Hashgraph) CreateFrame(roundReceived int, events []Event) (Frame, error) {
 	// Get/Create Roots
 	roots := make(map[string]Root)
 	//The events are in topological order. Each time we run into the first Event
@@ -991,7 +959,7 @@ func (h *Hashgraph) CreateFrame(roundReceived int, events []Event) (Frame, error
 				if err != nil {
 					return Frame{}, err
 				}
-				events = append(events, ev)
+				//events = append(events, ev)
 				root = Root{
 					X:      ev.SelfParent(),
 					Y:      ev.OtherParent(),
@@ -1029,6 +997,15 @@ func (h *Hashgraph) CreateFrame(roundReceived int, events []Event) (Frame, error
 	}
 
 	return frame, nil
+}
+
+func (h *Hashgraph) createAndInsertBlock(frame Frame) (Block, error) {
+	block := NewBlockFromFrame(h.LastBlockIndex+1, frame)
+	if err := h.Store.SetBlock(block); err != nil {
+		return Block{}, err
+	}
+	h.LastBlockIndex++
+	return block, nil
 }
 
 func (h *Hashgraph) MedianTimestamp(eventHashes []string) time.Time {
@@ -1090,7 +1067,7 @@ func (h *Hashgraph) GetLatestFrame() (Frame, error) {
 
 //Bootstrap loads all Events from the Store's DB (if there is one) and feeds
 //them to the Hashgraph (in topological order) for consensus ordering. After this
-//method call, the Hashgraph should be in a state coeherent with the 'tip' of the
+//method call, the Hashgraph should be in a state coherent with the 'tip' of the
 //Hashgraph
 func (h *Hashgraph) Bootstrap() error {
 	if badgerStore, ok := h.Store.(*BadgerStore); ok {
@@ -1115,7 +1092,10 @@ func (h *Hashgraph) Bootstrap() error {
 		if err := h.DecideFame(); err != nil {
 			return err
 		}
-		if err := h.FindOrder(); err != nil {
+		if err := h.DecideRoundReceived(); err != nil {
+			return err
+		}
+		if err := h.ProcessDecidedRounds(); err != nil {
 			return err
 		}
 	}

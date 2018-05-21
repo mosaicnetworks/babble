@@ -96,11 +96,20 @@ type Block struct {
 	hex  string
 }
 
-func NewBlock(blockIndex, roundReceived int, transactions [][]byte) Block {
+func NewBlockFromFrame(blockIndex int, frame Frame) Block {
+	//XXX
+	transactions := [][]byte{}
+	for _, e := range frame.Events {
+		transactions = append(transactions, e.Transactions()...)
+	}
+	return NewBlock(blockIndex, frame.Round, transactions)
+}
+
+func NewBlock(blockIndex, roundReceived int, txs [][]byte) Block {
 	body := BlockBody{
 		Index:         blockIndex,
 		RoundReceived: roundReceived,
-		Transactions:  transactions,
+		Transactions:  txs,
 	}
 	return Block{
 		Body:       body,

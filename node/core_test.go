@@ -343,11 +343,22 @@ func initConsensusHashgraph(t *testing.T) []Core {
 		play{from: 1, to: 2, payload: [][]byte{[]byte("h2")}},
 	}
 
+	// for _, play := range playbook {
+	// 	if err := syncAndRunConsensus(cores, play.from, play.to, play.payload); err != nil {
+	// 		t.Fatal(err)
+	// 	}
+	// }
+	// return cores
+
 	for _, play := range playbook {
-		if err := syncAndRunConsensus(cores, play.from, play.to, play.payload); err != nil {
+		if err := synchronizeCores(cores, play.from, play.to, play.payload); err != nil {
 			t.Fatal(err)
 		}
 	}
+	for _, core := range cores {
+		core.RunConsensus()
+	}
+
 	return cores
 }
 
@@ -465,10 +476,19 @@ func initFFHashgraph(cores []Core, t *testing.T) {
 		play{from: 2, to: 1, payload: [][]byte{[]byte("w31")}},
 	}
 
-	for k, play := range playbook {
-		if err := syncAndRunConsensus(cores, play.from, play.to, play.payload); err != nil {
-			t.Fatalf("play %d: %s", k, err)
+	// for k, play := range playbook {
+	// 	if err := syncAndRunConsensus(cores, play.from, play.to, play.payload); err != nil {
+	// 		t.Fatalf("play %d: %s", k, err)
+	// 	}
+	// }
+
+	for _, play := range playbook {
+		if err := synchronizeCores(cores, play.from, play.to, play.payload); err != nil {
+			t.Fatal(err)
 		}
+	}
+	for _, core := range cores {
+		core.RunConsensus()
 	}
 }
 

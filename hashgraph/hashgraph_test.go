@@ -1257,6 +1257,14 @@ func TestDecideRoundReceived(t *testing.T) {
 		}
 	}
 
+	round0, err := h.Store.GetRound(0)
+	if err != nil {
+		t.Fatalf("Could not retrieve Round 0. %s", err)
+	}
+	if ce := len(round0.ConsensusEvents); ce != 0 {
+		t.Fatalf("Round 0 should contain 0 ConsensusEvents, not %d", ce)
+	}
+
 	round1, err := h.Store.GetRound(1)
 	if err != nil {
 		t.Fatalf("Could not retrieve Round 1. %s", err)
@@ -1272,14 +1280,19 @@ func TestDecideRoundReceived(t *testing.T) {
 	if ce := len(round2.ConsensusEvents); ce != 9 {
 		t.Fatalf("Round 1 should contain 9 ConsensusEvents, not %d", ce)
 	}
+
+	//XXX
+
+	//check round queues
 }
 
-func TestFindOrder(t *testing.T) {
+func TestProcessDecidedRounds(t *testing.T) {
 	h, index := initConsensusHashgraph(false, common.NewTestLogger(t))
 
 	h.DivideRounds()
 	h.DecideFame()
-	h.FindOrder()
+	h.DecideRoundReceived()
+	h.ProcessDecidedRounds()
 
 	t.Run("Check Consensus Events", func(t *testing.T) {
 		for i, e := range h.ConsensusEvents() {
@@ -1353,7 +1366,7 @@ func TestFindOrder(t *testing.T) {
 
 }
 
-func BenchmarkFindOrder(b *testing.B) {
+func BenchmarkConsensus(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		//we do not want to benchmark the initialization code
 		b.StopTimer()
@@ -1362,7 +1375,8 @@ func BenchmarkFindOrder(b *testing.B) {
 
 		h.DivideRounds()
 		h.DecideFame()
-		h.FindOrder()
+		h.DecideRoundReceived()
+		h.ProcessDecidedRounds()
 	}
 }
 
@@ -1388,7 +1402,8 @@ func TestGetFrame(t *testing.T) {
 
 	h.DivideRounds()
 	h.DecideFame()
-	h.FindOrder()
+	h.DecideRoundReceived()
+	h.ProcessDecidedRounds()
 
 	t.Run("Round 1", func(t *testing.T) {
 		expectedRoots := map[string]Root{}
@@ -1545,7 +1560,8 @@ func TestResetFromFrame(t *testing.T) {
 
 	h.DivideRounds()
 	h.DecideFame()
-	h.FindOrder()
+	h.DecideRoundReceived()
+	h.ProcessDecidedRounds()
 
 	frame, err := h.GetFrame(2)
 	if err != nil {
@@ -1594,7 +1610,8 @@ func TestResetFromFrame(t *testing.T) {
 
 	h.DivideRounds()
 	h.DecideFame()
-	h.FindOrder()
+	h.DecideRoundReceived()
+	h.ProcessDecidedRounds()
 
 	if r := h.LastConsensusRound; r != nil {
 		t.Fatalf("LastConsensusRound should be nil, not %#v", r)
@@ -1609,7 +1626,9 @@ func TestBootstrap(t *testing.T) {
 	h, _ := initConsensusHashgraph(true, logger)
 	h.DivideRounds()
 	h.DecideFame()
-	h.FindOrder()
+	h.DecideRoundReceived()
+	h.ProcessDecidedRounds()
+
 	h.Store.Close()
 	defer os.RemoveAll(badgerDir)
 
@@ -1819,7 +1838,8 @@ func TestFunkyHashgraphBlocks(t *testing.T) {
 	h, _ := initFunkyHashgraph(common.NewTestLogger(t))
 	h.DivideRounds()
 	h.DecideFame()
-	h.FindOrder()
+	h.DecideRoundReceived()
+	h.ProcessDecidedRounds()
 
 	expectedBlockTxCounts := map[int]int{
 		0: 6,

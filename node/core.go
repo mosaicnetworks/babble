@@ -328,13 +328,20 @@ func (c *Core) RunConsensus() error {
 	}
 
 	start = time.Now()
-	err = c.hg.FindOrder()
-	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("FindOrder()")
+	err = c.hg.DecideRoundReceived()
+	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("DecideRoundReceived()")
 	if err != nil {
-		c.logger.WithField("error", err).Error("FindOrder")
+		c.logger.WithField("error", err).Error("DecideRoundReceived")
 		return err
 	}
 
+	start = time.Now()
+	err = c.hg.ProcessDecidedRounds()
+	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("ProcessDecidedRounds()")
+	if err != nil {
+		c.logger.WithField("error", err).Error("ProcessDecidedRounds")
+		return err
+	}
 	return nil
 }
 
