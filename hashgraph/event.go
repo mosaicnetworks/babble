@@ -130,10 +130,12 @@ func (e *Event) IsLoaded() bool {
 	hasTransactions := e.Body.Transactions != nil &&
 		len(e.Body.Transactions) > 0
 
-	hasBlockSignatures := e.Body.BlockSignatures != nil &&
-		len(e.Body.BlockSignatures) > 0
+	//XXX
+	//hasBlockSignatures := e.Body.BlockSignatures != nil &&
+	//	len(e.Body.BlockSignatures) > 0
+	//return hasTransactions || hasBlockSignatures
 
-	return hasTransactions || hasBlockSignatures
+	return hasTransactions
 }
 
 //ecdsa sig

@@ -10,7 +10,7 @@ import (
 // map them into calls to testing.T.Log, so that you only see
 // the logging for failed tests.
 type testLoggerAdapter struct {
-	t      *testing.T
+	t      testing.TB
 	prefix string
 }
 
@@ -27,35 +27,9 @@ func (a *testLoggerAdapter) Write(d []byte) (int, error) {
 	return len(d), nil
 }
 
-func NewTestLogger(t *testing.T) *logrus.Logger {
+func NewTestLogger(t testing.TB) *logrus.Logger {
 	logger := logrus.New()
 	logger.Out = &testLoggerAdapter{t: t}
-	logger.Level = logrus.DebugLevel
-	return logger
-}
-
-type benchmarkLoggerAdapter struct {
-	b      *testing.B
-	prefix string
-}
-
-func (b *benchmarkLoggerAdapter) Write(d []byte) (int, error) {
-	if d[len(d)-1] == '\n' {
-		d = d[:len(d)-1]
-	}
-	if b.prefix != "" {
-		l := b.prefix + ": " + string(d)
-		b.b.Log(l)
-		return len(l), nil
-	}
-
-	b.b.Log(string(d))
-	return len(d), nil
-}
-
-func NewBenchmarkLogger(b *testing.B) *logrus.Logger {
-	logger := logrus.New()
-	logger.Out = &benchmarkLoggerAdapter{b: b}
 	logger.Level = logrus.DebugLevel
 	return logger
 }

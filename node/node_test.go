@@ -295,6 +295,7 @@ func initNodes(n, cacheSize, syncLimit int, storeType string,
 	keys, peers, pmap := initPeers(n)
 	nodes := []*Node{}
 	proxies := []*aproxy.InmemAppProxy{}
+
 	for i := 0; i < len(peers); i++ {
 		conf := NewConfig(5*time.Millisecond, time.Second, cacheSize, syncLimit,
 			storeType, fmt.Sprintf("test_data/db_%d", i), logger)
@@ -315,7 +316,10 @@ func initNodes(n, cacheSize, syncLimit int, storeType string,
 			store = hg.NewInmemStore(pmap, conf.CacheSize)
 		}
 		prox := aproxy.NewInmemAppProxy(logger)
-		node := NewNode(conf, pmap[peers[i].PubKeyHex], keys[i], peers,
+		node := NewNode(conf,
+			pmap[peers[i].PubKeyHex],
+			keys[i],
+			peers,
 			store,
 			trans,
 			prox)
@@ -399,7 +403,9 @@ func TestGossip(t *testing.T) {
 
 	_, nodes := initNodes(4, 1000, 1000, "inmem", logger, t)
 
-	err := gossip(nodes, 50, true, 3*time.Second)
+	target := 50
+
+	err := gossip(nodes, target, true, 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -597,6 +603,35 @@ func checkGossip(nodes []*Node, t *testing.T) {
 			}
 		}
 	}
+
+	nodeBlocks := map[int][]hg.Block{}
+	for _, n := range nodes {
+		blocks := []hg.Block{}
+		for i := 0; i < n.core.hg.LastBlockIndex; i++ {
+			block, err := n.core.hg.Store.GetBlock(i)
+			if err != nil {
+				t.Fatal(err)
+			}
+			blocks = append(blocks, block)
+		}
+		nodeBlocks[n.id] = blocks
+	}
+
+	minB := len(nodeBlocks[0])
+	for k := 1; k < len(nodes); k++ {
+		if len(nodeBlocks[k]) < minB {
+			minB = len(nodeBlocks[k])
+		}
+	}
+
+	for i, block := range nodeBlocks[0][:minB] {
+		for k := range nodes[1:len(nodes)] {
+			oBlock := nodeBlocks[k][i]
+			if !reflect.DeepEqual(block.Body, oBlock.Body) {
+				t.Fatalf("nodes[%d].Blocks[%d] should be '%v', not '%v'", k, i, block.Body, oBlock.Body)
+			}
+		}
+	}
 }
 
 func makeRandomTransactions(nodes []*Node, quit chan struct{}) {
@@ -627,9 +662,9 @@ func submitTransaction(n *Node, tx []byte) error {
 }
 
 func BenchmarkGossip(b *testing.B) {
-	logger := common.NewBenchmarkLogger(b)
+	logger := common.NewTestLogger(b)
 	for n := 0; n < b.N; n++ {
 		_, nodes := initNodes(3, 1000, 1000, "inmem", logger, b)
-		gossip(nodes, 5, true, 3*time.Second)
+		gossip(nodes, 50, true, 3*time.Second)
 	}
 }

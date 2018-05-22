@@ -12,6 +12,19 @@ docker network create \
   --gateway=172.77.5.254 \
   babblenet
 
+  #XXX 
+  #Start apps before Babble nodes
+  #Remember to change log level back to info
+
+for i in $(seq 1 $N)
+do
+    docker run -d --name=client$i --net=babblenet --ip=172.77.5.$(($N+$i)) -it mosaicnetworks/dummy:0.2.1 \
+    --name="client $i" \
+    --client_addr="172.77.5.$(($N+$i)):1339" \
+    --proxy_addr="172.77.5.$i:1338" \
+    --log_level="debug" 
+done
+
 for i in $(seq 1 $N)
 do
     docker create --name=node$i --net=babblenet --ip=172.77.5.$i mosaicnetworks/babble:0.2.1 run \
@@ -26,10 +39,4 @@ do
     --store="inmem"
     docker cp $MPWD/conf/node$i node$i:/.babble
     docker start node$i
-
-    docker run -d --name=client$i --net=babblenet --ip=172.77.5.$(($N+$i)) -it mosaicnetworks/dummy:0.2.1 \
-    --name="client $i" \
-    --client_addr="172.77.5.$(($N+$i)):1339" \
-    --proxy_addr="172.77.5.$i:1338" \
-    --log_level="info" 
 done

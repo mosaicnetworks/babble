@@ -27,7 +27,7 @@ type Core struct {
 	transactionPool    [][]byte
 	blockSignaturePool []hg.BlockSignature
 
-	logger *logrus.Logger
+	logger *logrus.Entry
 }
 
 func NewCore(
@@ -37,10 +37,12 @@ func NewCore(
 	store hg.Store,
 	commitCh chan hg.Block,
 	logger *logrus.Logger) Core {
+
 	if logger == nil {
 		logger = logrus.New()
 		logger.Level = logrus.DebugLevel
 	}
+	logEntry := logger.WithField("id", id)
 
 	reverseParticipants := make(map[int]string)
 	for pk, id := range participants {
@@ -50,12 +52,12 @@ func NewCore(
 	core := Core{
 		id:                  id,
 		key:                 key,
-		hg:                  hg.NewHashgraph(participants, store, commitCh, logger),
+		hg:                  hg.NewHashgraph(participants, store, commitCh, logEntry),
 		participants:        participants,
 		reverseParticipants: reverseParticipants,
 		transactionPool:     [][]byte{},
 		blockSignaturePool:  []hg.BlockSignature{},
-		logger:              logger,
+		logger:              logEntry,
 	}
 	return core
 }

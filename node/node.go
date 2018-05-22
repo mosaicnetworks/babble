@@ -497,19 +497,25 @@ func (n *Node) commit(block hg.Block) error {
 	stateHash, err := n.proxy.CommitBlock(block)
 	n.logger.WithFields(logrus.Fields{
 		"block":      block.Index(),
-		"state_hash": fmt.Sprintf("0x%X", stateHash),
+		"state_hash": fmt.Sprintf("%X", stateHash),
 		"err":        err,
 	}).Debug("CommitBlock Response")
 
-	block.Body.StateHash = stateHash
+	//XXX what do we do in case of error. Retry? This has to do with the
+	//Babble <-> App interface. Think about it.
 
-	n.coreLock.Lock()
-	defer n.coreLock.Unlock()
-	sig, err := n.core.SignBlock(block)
-	if err != nil {
-		return err
+	//There is no point in using the stateHash if we know it is wrong
+	if err == nil {
+		block.Body.StateHash = stateHash
+
+		n.coreLock.Lock()
+		defer n.coreLock.Unlock()
+		sig, err := n.core.SignBlock(block)
+		if err != nil {
+			return err
+		}
+		n.core.AddBlockSignature(sig)
 	}
-	n.core.AddBlockSignature(sig)
 
 	return err
 }

@@ -12,20 +12,24 @@ import (
 	"github.com/mosaicnetworks/babble/common"
 )
 
+type PendingRound struct {
+	Index   int
+	Decided bool
+}
+
 type Hashgraph struct {
-	Participants            map[string]int //[public key] => id
-	ReverseParticipants     map[int]string //[id] => public key
-	Store                   Store          //store of Events and Rounds
-	UndeterminedEvents      []string       //[index] => hash
-	UndecidedRounds         []int          //FIFO queue of Rounds which have undecided witnesses
-	PendingDecidedRounds    []int          //FIFO queue of decided Rounds which haven't been processed yet
-	LastConsensusRound      *int           //index of last round where the fame of all witnesses has been decided
-	LastBlockIndex          int            //index of last block
-	LastCommitedRoundEvents int            //number of events in round before LastConsensusRound
-	ConsensusTransactions   int            //number of consensus transactions
-	PendingLoadedEvents     int            //number of loaded events that are not yet committed
-	commitCh                chan Block     //channel for committing Blocks
-	topologicalIndex        int            //counter used to order events in topological order
+	Participants            map[string]int  //[public key] => id
+	ReverseParticipants     map[int]string  //[id] => public key
+	Store                   Store           //store of Events and Rounds
+	UndeterminedEvents      []string        //[index] => hash . FIFO queue of Events whose consensus order is not yet determined
+	PendingRounds           []*PendingRound //FIFO queue of Rounds which have not attained consensus yet
+	LastConsensusRound      *int            //index of last consensus round
+	LastBlockIndex          int             //index of last block
+	LastCommitedRoundEvents int             //number of events in round before LastConsensusRound
+	ConsensusTransactions   int             //number of consensus transactions
+	PendingLoadedEvents     int             //number of loaded events that are not yet committed
+	commitCh                chan Block      //channel for committing Blocks
+	topologicalIndex        int             //counter used to order events in topological order
 	superMajority           int
 
 	ancestorCache           *common.LRU
@@ -35,13 +39,14 @@ type Hashgraph struct {
 	parentRoundCache        *common.LRU
 	roundCache              *common.LRU
 
-	logger *logrus.Logger
+	logger *logrus.Entry
 }
 
-func NewHashgraph(participants map[string]int, store Store, commitCh chan Block, logger *logrus.Logger) *Hashgraph {
+func NewHashgraph(participants map[string]int, store Store, commitCh chan Block, logger *logrus.Entry) *Hashgraph {
 	if logger == nil {
-		logger = logrus.New()
-		logger.Level = logrus.DebugLevel
+		log := logrus.New()
+		log.Level = logrus.DebugLevel
+		logger = logrus.NewEntry(log)
 	}
 
 	reverseParticipants := make(map[int]string)
@@ -63,7 +68,7 @@ func NewHashgraph(participants map[string]int, store Store, commitCh chan Block,
 		roundCache:              common.NewLRU(cacheSize, nil),
 		logger:                  logger,
 		superMajority:           2*len(participants)/3 + 1,
-		UndecidedRounds:         []int{}, //initialize,
+		PendingRounds:           []*PendingRound{},
 		LastBlockIndex:          -1,
 	}
 
@@ -437,7 +442,9 @@ func (h *Hashgraph) recordBlockSignatures(blockSignatures []BlockSignature) {
 		}
 		if !valid {
 			h.logger.WithFields(logrus.Fields{
-				"index": bs.Index,
+				"index":     bs.Index,
+				"validator": h.Participants[validatorHex],
+				"block":     block,
 			}).Warning("Verifying Block signature. Invalid signature")
 			continue
 		}
@@ -685,7 +692,7 @@ func (h *Hashgraph) DivideRounds() error {
 		//RoundInfos taken from the DB directly will always have this field set
 		//to false
 		if !roundInfo.queued {
-			h.UndecidedRounds = append(h.UndecidedRounds, roundNumber)
+			h.PendingRounds = append(h.PendingRounds, &PendingRound{roundNumber, false})
 			roundInfo.queued = true
 		}
 
@@ -702,11 +709,11 @@ func (h *Hashgraph) DivideRounds() error {
 func (h *Hashgraph) DecideFame() error {
 	votes := make(map[string](map[string]bool)) //[x][y]=>vote(x,y)
 
-	decidedRounds := map[int]int{} // [round number] => index in h.UndecidedRounds
-	defer h.updateRoundQueues(decidedRounds)
+	decidedRounds := map[int]int{} // [round number] => index in h.PendingRounds
 
-	for pos, i := range h.UndecidedRounds {
-		roundInfo, err := h.Store.GetRound(i)
+	for pos, r := range h.PendingRounds {
+		roundIndex := r.Index
+		roundInfo, err := h.Store.GetRound(roundIndex)
 		if err != nil {
 			return err
 		}
@@ -714,10 +721,10 @@ func (h *Hashgraph) DecideFame() error {
 			if roundInfo.IsDecided(x) {
 				continue
 			}
-		X:
-			for j := i + 1; j <= h.Store.LastRound(); j++ {
+		VOTE_LOOP:
+			for j := roundIndex + 1; j <= h.Store.LastRound(); j++ {
 				for _, y := range h.Store.RoundWitnesses(j) {
-					diff := j - i
+					diff := j - roundIndex
 					if diff == 1 {
 						setVote(votes, y, x, h.See(y, x))
 					} else {
@@ -749,7 +756,7 @@ func (h *Hashgraph) DecideFame() error {
 							if t >= h.SuperMajority() {
 								roundInfo.SetFame(x, v)
 								setVote(votes, y, x, v)
-								break X //break out of j loop
+								break VOTE_LOOP //break out of j loop
 							} else {
 								setVote(votes, y, x, v)
 							}
@@ -765,50 +772,41 @@ func (h *Hashgraph) DecideFame() error {
 			}
 		}
 
-		//Update decidedRounds and LastConsensusRound if all witnesses have been decided
-		if roundInfo.WitnessesDecided() {
-			decidedRounds[i] = pos
-		}
-
-		err = h.Store.SetRound(i, roundInfo)
+		err = h.Store.SetRound(roundIndex, roundInfo)
 		if err != nil {
 			return err
 		}
+
+		if roundInfo.WitnessesDecided() {
+			decidedRounds[roundIndex] = pos
+		}
+
 	}
+
+	defer h.updatePendingRounds(decidedRounds)
 	return nil
 }
 
-//remove items from UndecidedRounds
-func (h *Hashgraph) updateRoundQueues(decidedRounds map[int]int) {
-	newUndecidedRounds := []int{}
-	newPendingDecidedRounds := []int{}
-	for _, ur := range h.UndecidedRounds {
-		if _, ok := decidedRounds[ur]; !ok {
-			newUndecidedRounds = append(newUndecidedRounds, ur)
-		} else {
-			newPendingDecidedRounds = append(newPendingDecidedRounds, ur)
-			if h.LastConsensusRound == nil || ur > *h.LastConsensusRound {
-				h.setLastConsensusRound(ur)
-			}
+func (h *Hashgraph) updatePendingRounds(decidedRounds map[int]int) {
+	for _, ur := range h.PendingRounds {
+		if _, ok := decidedRounds[ur.Index]; ok {
+			ur.Decided = true
 		}
 	}
-	h.UndecidedRounds = newUndecidedRounds
-	h.PendingDecidedRounds = newPendingDecidedRounds
-}
-
-func (h *Hashgraph) setLastConsensusRound(i int) {
-	if h.LastConsensusRound == nil {
-		h.LastConsensusRound = new(int)
-	}
-	*h.LastConsensusRound = i
-
-	h.LastCommitedRoundEvents = h.Store.RoundEvents(i - 1)
 }
 
 //assign round received and timestamp to undetermined events
 func (h *Hashgraph) DecideRoundReceived() error {
+
 	newUndeterminedEvents := []string{}
+
+	/* From whitepaper - 18/03/18
+	   "[...] An event is said to be “received” in the first round where all the
+	   unique famous witnesses have received it, if all earlier rounds have the
+	   fame of all witnesses decided"
+	*/
 	for _, x := range h.UndeterminedEvents {
+		received := false
 		r := h.Round(x)
 		for i := r + 1; i <= h.Store.LastRound(); i++ {
 			tr, err := h.Store.GetRound(i)
@@ -816,9 +814,11 @@ func (h *Hashgraph) DecideRoundReceived() error {
 				return err
 			}
 
-			//skip if some witnesses are left undecided
-			if !(tr.WitnessesDecided() && h.UndecidedRounds[0] > i) {
-				continue
+			//We are looping from earlier to later rounds; so if we encounter
+			//one round with undecided witnesses, we are sure that this event
+			//is not "received". Break out of i loop
+			if !(tr.WitnessesDecided()) {
+				break
 			}
 
 			fws := tr.FamousWitnesses()
@@ -829,7 +829,11 @@ func (h *Hashgraph) DecideRoundReceived() error {
 					s = append(s, w)
 				}
 			}
-			if len(s) > len(fws)/2 {
+
+			if len(s) == len(fws) && len(s) > 0 {
+
+				received = true
+
 				ex, err := h.Store.GetEvent(x)
 				if err != nil {
 					return err
@@ -854,20 +858,39 @@ func (h *Hashgraph) DecideRoundReceived() error {
 					return err
 				}
 
-				newUndeterminedEvents = append(newUndeterminedEvents, x)
-
+				//break out of i loop
 				break
 			}
+
+		}
+		if !received {
+			newUndeterminedEvents = append(newUndeterminedEvents, x)
 		}
 	}
+
 	h.UndeterminedEvents = newUndeterminedEvents
 	return nil
 }
 
 func (h *Hashgraph) ProcessDecidedRounds() error {
-	for _, r := range h.PendingDecidedRounds {
 
-		frame, err := h.GetFrame(r)
+	processedRounds := map[int]int{} // [round number] => index in h.PendingRounds
+	//We don't want rounds to be processed multiple times if an error occurs in
+	//the middle of the function. Unlike the DecideRoundReceived and DecideFame
+	//methods, the effect on the queue matters a lot here. A recovery procedure
+	//should be implemented in the application layer API
+	defer h.removeProcessedRounds(processedRounds)
+
+	for pos, r := range h.PendingRounds {
+
+		//Although it is possible for a Round to be 'decided' before a previous
+		//round, we should NEVER process a decided round before all the previous
+		//rounds are processed.
+		if !r.Decided {
+			break
+		}
+
+		frame, err := h.GetFrame(r.Index)
 		if err != nil {
 			return err
 		}
@@ -898,12 +921,39 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 			if h.commitCh != nil {
 				h.commitCh <- block
 			}
+		} else {
+			h.logger.Debugf("No Events to commit for ConsensusRound %d", r.Index)
 		}
+
+		processedRounds[r.Index] = pos
+
+		if h.LastConsensusRound == nil || r.Index > *h.LastConsensusRound {
+			h.setLastConsensusRound(r.Index)
+		}
+
 	}
 
-	//XXX Reset queue
-	h.PendingDecidedRounds = []int{}
 	return nil
+}
+
+//Remove processed Rounds from PendingRounds queue
+func (h *Hashgraph) removeProcessedRounds(processedRounds map[int]int) {
+	newPendingRounds := []*PendingRound{}
+	for _, ur := range h.PendingRounds {
+		if _, ok := processedRounds[ur.Index]; !ok {
+			newPendingRounds = append(newPendingRounds, ur)
+		}
+	}
+	h.PendingRounds = newPendingRounds
+}
+
+func (h *Hashgraph) setLastConsensusRound(i int) {
+	if h.LastConsensusRound == nil {
+		h.LastConsensusRound = new(int)
+	}
+	*h.LastConsensusRound = i
+
+	h.LastCommitedRoundEvents = h.Store.RoundEvents(i - 1)
 }
 
 func (h *Hashgraph) GetFrame(roundReceived int) (Frame, error) {
@@ -1033,7 +1083,7 @@ func (h *Hashgraph) Reset(frame Frame) error {
 	}
 
 	h.UndeterminedEvents = []string{}
-	h.UndecidedRounds = []int{}
+	h.PendingRounds = []*PendingRound{}
 	h.PendingLoadedEvents = 0
 	h.LastConsensusRound = nil
 	h.LastBlockIndex = -1

@@ -37,8 +37,12 @@ func initCores(n int, t *testing.T) ([]Core, []*ecdsa.PrivateKey, map[string]str
 	}
 
 	for i := 0; i < n; i++ {
-		core := NewCore(i, participantKeys[i], participants,
-			hg.NewInmemStore(participants, cacheSize), nil, common.NewTestLogger(t))
+		core := NewCore(i,
+			participantKeys[i],
+			participants,
+			hg.NewInmemStore(participants, cacheSize),
+			nil,
+			common.NewTestLogger(t))
 		core.Init()
 		cores = append(cores, core)
 		index[fmt.Sprintf("e%d", i)] = core.Head
@@ -343,22 +347,11 @@ func initConsensusHashgraph(t *testing.T) []Core {
 		play{from: 1, to: 2, payload: [][]byte{[]byte("h2")}},
 	}
 
-	// for _, play := range playbook {
-	// 	if err := syncAndRunConsensus(cores, play.from, play.to, play.payload); err != nil {
-	// 		t.Fatal(err)
-	// 	}
-	// }
-	// return cores
-
 	for _, play := range playbook {
-		if err := synchronizeCores(cores, play.from, play.to, play.payload); err != nil {
+		if err := syncAndRunConsensus(cores, play.from, play.to, play.payload); err != nil {
 			t.Fatal(err)
 		}
 	}
-	for _, core := range cores {
-		core.RunConsensus()
-	}
-
 	return cores
 }
 
@@ -476,19 +469,10 @@ func initFFHashgraph(cores []Core, t *testing.T) {
 		play{from: 2, to: 1, payload: [][]byte{[]byte("w31")}},
 	}
 
-	// for k, play := range playbook {
-	// 	if err := syncAndRunConsensus(cores, play.from, play.to, play.payload); err != nil {
-	// 		t.Fatalf("play %d: %s", k, err)
-	// 	}
-	// }
-
-	for _, play := range playbook {
-		if err := synchronizeCores(cores, play.from, play.to, play.payload); err != nil {
-			t.Fatal(err)
+	for k, play := range playbook {
+		if err := syncAndRunConsensus(cores, play.from, play.to, play.payload); err != nil {
+			t.Fatalf("play %d: %s", k, err)
 		}
-	}
-	for _, core := range cores {
-		core.RunConsensus()
 	}
 }
 
