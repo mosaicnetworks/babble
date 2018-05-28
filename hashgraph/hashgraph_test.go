@@ -990,10 +990,23 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 			}
 		}
 
-		//check that the block contains 3 signatures
+		//Check SigPool
+		if l := len(h.SigPool); l != 3 {
+			t.Fatalf("SigPool should contain 3 signatures, not %d", l)
+		}
+
+		//Process SigPool
+		h.ProcessSigPool()
+
+		//Check that the block contains 3 signatures
 		block, _ := h.Store.GetBlock(0)
 		if l := len(block.Signatures); l != 3 {
 			t.Fatalf("Block 0 should contain 3 signatures, not %d", l)
+		}
+
+		//Check that SigPool was cleared
+		if l := len(h.SigPool); l != 0 {
+			t.Fatalf("SigPool should contain 0 signatures, not %d", l)
 		}
 	})
 

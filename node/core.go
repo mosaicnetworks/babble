@@ -344,6 +344,15 @@ func (c *Core) RunConsensus() error {
 		c.logger.WithField("error", err).Error("ProcessDecidedRounds")
 		return err
 	}
+
+	start = time.Now()
+	err = c.hg.ProcessSigPool()
+	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("ProcessSigPool()")
+	if err != nil {
+		c.logger.WithField("error", err).Error("ProcessSigPool()")
+		return err
+	}
+
 	return nil
 }
 

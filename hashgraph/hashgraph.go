@@ -18,18 +18,19 @@ type PendingRound struct {
 }
 
 type Hashgraph struct {
-	Participants            map[string]int  //[public key] => id
-	ReverseParticipants     map[int]string  //[id] => public key
-	Store                   Store           //store of Events and Rounds
-	UndeterminedEvents      []string        //[index] => hash . FIFO queue of Events whose consensus order is not yet determined
-	PendingRounds           []*PendingRound //FIFO queue of Rounds which have not attained consensus yet
-	LastConsensusRound      *int            //index of last consensus round
-	LastBlockIndex          int             //index of last block
-	LastCommitedRoundEvents int             //number of events in round before LastConsensusRound
-	ConsensusTransactions   int             //number of consensus transactions
-	PendingLoadedEvents     int             //number of loaded events that are not yet committed
-	commitCh                chan Block      //channel for committing Blocks
-	topologicalIndex        int             //counter used to order events in topological order
+	Participants            map[string]int   //[public key] => id
+	ReverseParticipants     map[int]string   //[id] => public key
+	Store                   Store            //store of Events and Rounds
+	UndeterminedEvents      []string         //[index] => hash . FIFO queue of Events whose consensus order is not yet determined
+	PendingRounds           []*PendingRound  //FIFO queue of Rounds which have not attained consensus yet
+	LastConsensusRound      *int             //index of last consensus round
+	LastBlockIndex          int              //index of last block
+	LastCommitedRoundEvents int              //number of events in round before LastConsensusRound
+	SigPool                 []BlockSignature //Pool of Block signatures that need to be processed
+	ConsensusTransactions   int              //number of consensus transactions
+	PendingLoadedEvents     int              //number of loaded events that are not yet committed
+	commitCh                chan Block       //channel for committing Blocks
+	topologicalIndex        int              //counter used to order events in topological order
 	superMajority           int
 
 	ancestorCache           *common.LRU
@@ -68,7 +69,6 @@ func NewHashgraph(participants map[string]int, store Store, commitCh chan Block,
 		roundCache:              common.NewLRU(cacheSize, nil),
 		logger:                  logger,
 		superMajority:           2*len(participants)/3 + 1,
-		PendingRounds:           []*PendingRound{},
 		LastBlockIndex:          -1,
 	}
 
@@ -407,57 +407,9 @@ func (h *Hashgraph) InsertEvent(event Event, setWireInfo bool) error {
 		h.PendingLoadedEvents++
 	}
 
-	h.recordBlockSignatures(event.BlockSignatures())
+	h.SigPool = append(h.SigPool, event.BlockSignatures()...)
 
 	return nil
-}
-
-func (h *Hashgraph) recordBlockSignatures(blockSignatures []BlockSignature) {
-	for _, bs := range blockSignatures {
-		//check if validator belongs to list of participants
-		validatorHex := fmt.Sprintf("0x%X", bs.Validator)
-		if _, ok := h.Participants[validatorHex]; !ok {
-			h.logger.WithFields(logrus.Fields{
-				"index":     bs.Index,
-				"validator": validatorHex,
-			}).Warning("Verifying Block signature. Unknown validator")
-			continue
-		}
-
-		block, err := h.Store.GetBlock(bs.Index)
-		if err != nil {
-			h.logger.WithFields(logrus.Fields{
-				"index": bs.Index,
-				"msg":   err,
-			}).Warning("Verifying Block signature. Could not fetch Block")
-			continue
-		}
-		valid, err := block.Verify(bs)
-		if err != nil {
-			h.logger.WithFields(logrus.Fields{
-				"index": bs.Index,
-				"msg":   err,
-			}).Warning("Verifying Block signature")
-			continue
-		}
-		if !valid {
-			h.logger.WithFields(logrus.Fields{
-				"index":     bs.Index,
-				"validator": h.Participants[validatorHex],
-				"block":     block,
-			}).Warning("Verifying Block signature. Invalid signature")
-			continue
-		}
-
-		block.SetSignature(bs)
-
-		if err := h.Store.SetBlock(block); err != nil {
-			h.logger.WithFields(logrus.Fields{
-				"index": bs.Index,
-				"msg":   err,
-			}).Warning("Saving Block")
-		}
-	}
 }
 
 //Check the SelfParent is the Creator's last known Event
@@ -1056,6 +1008,72 @@ func (h *Hashgraph) createAndInsertBlock(frame Frame) (Block, error) {
 	}
 	h.LastBlockIndex++
 	return block, nil
+}
+
+func (h *Hashgraph) ProcessSigPool() error {
+	processedSignatures := map[int]bool{} //index in SigPool => Processed?
+	defer h.removeProcessedSignatures(processedSignatures)
+
+	for i, bs := range h.SigPool {
+		//check if validator belongs to list of participants
+		validatorHex := fmt.Sprintf("0x%X", bs.Validator)
+		if _, ok := h.Participants[validatorHex]; !ok {
+			h.logger.WithFields(logrus.Fields{
+				"index":     bs.Index,
+				"validator": validatorHex,
+			}).Warning("Verifying Block signature. Unknown validator")
+			continue
+		}
+
+		block, err := h.Store.GetBlock(bs.Index)
+		if err != nil {
+			h.logger.WithFields(logrus.Fields{
+				"index": bs.Index,
+				"msg":   err,
+			}).Warning("Verifying Block signature. Could not fetch Block")
+			continue
+		}
+		valid, err := block.Verify(bs)
+		if err != nil {
+			h.logger.WithFields(logrus.Fields{
+				"index": bs.Index,
+				"msg":   err,
+			}).Error("Verifying Block signature")
+			return err
+		}
+		if !valid {
+			h.logger.WithFields(logrus.Fields{
+				"index":     bs.Index,
+				"validator": h.Participants[validatorHex],
+				"block":     block,
+			}).Warning("Verifying Block signature. Invalid signature")
+			continue
+		}
+
+		block.SetSignature(bs)
+
+		if err := h.Store.SetBlock(block); err != nil {
+			h.logger.WithFields(logrus.Fields{
+				"index": bs.Index,
+				"msg":   err,
+			}).Warning("Saving Block")
+		}
+
+		processedSignatures[i] = true
+	}
+
+	return nil
+}
+
+//Remove processed Signatures from SigPool
+func (h *Hashgraph) removeProcessedSignatures(processedSignatures map[int]bool) {
+	newSigPool := []BlockSignature{}
+	for _, bs := range h.SigPool {
+		if _, ok := processedSignatures[bs.Index]; !ok {
+			newSigPool = append(newSigPool, bs)
+		}
+	}
+	h.SigPool = newSigPool
 }
 
 func (h *Hashgraph) MedianTimestamp(eventHashes []string) time.Time {
