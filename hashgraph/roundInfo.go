@@ -21,22 +21,19 @@ func (t Trilean) String() string {
 }
 
 type RoundEvent struct {
-	Witness bool
-	Famous  Trilean
+	Consensus bool
+	Witness   bool
+	Famous    Trilean
 }
 
 type RoundInfo struct {
 	Events map[string]RoundEvent
-	//Events whose 'roundReceived' point here. ConsensusEvents are necessarily
-	//from previous rounds.
-	ConsensusEvents map[string]bool
-	queued          bool
+	queued bool
 }
 
 func NewRoundInfo() *RoundInfo {
 	return &RoundInfo{
-		Events:          make(map[string]RoundEvent),
-		ConsensusEvents: make(map[string]bool),
+		Events: make(map[string]RoundEvent),
 	}
 }
 
@@ -49,8 +46,13 @@ func (r *RoundInfo) AddEvent(x string, witness bool) {
 	}
 }
 
-func (r *RoundInfo) AddConsensusEvent(x string) {
-	r.ConsensusEvents[x] = true
+func (r *RoundInfo) SetConsensusEvent(x string) {
+	e, ok := r.Events[x]
+	if !ok {
+		e = RoundEvent{}
+	}
+	e.Consensus = true
+	r.Events[x] = e
 }
 
 func (r *RoundInfo) SetFame(x string, f bool) {
@@ -83,6 +85,17 @@ func (r *RoundInfo) Witnesses() []string {
 	res := []string{}
 	for x, e := range r.Events {
 		if e.Witness {
+			res = append(res, x)
+		}
+	}
+	return res
+}
+
+//return consensus events
+func (r *RoundInfo) ConsensusEvents() []string {
+	res := []string{}
+	for x, e := range r.Events {
+		if e.Consensus {
 			res = append(res, x)
 		}
 	}

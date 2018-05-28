@@ -54,7 +54,7 @@ func TestSocketProxyClient(t *testing.T) {
 	}
 	clientCh := dummyClient.babbleProxy.CommitCh()
 
-	block := hashgraph.NewBlock(0, 1, [][]byte{[]byte("the test transaction")})
+	block := hashgraph.NewBlock(0, 1, []byte("framehash"), [][]byte{[]byte("the test transaction")})
 
 	// Listen for a request
 	go func() {

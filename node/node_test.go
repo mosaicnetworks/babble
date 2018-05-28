@@ -628,6 +628,8 @@ func checkGossip(nodes []*Node, t *testing.T) {
 		for k := range nodes[1:len(nodes)] {
 			oBlock := nodeBlocks[k][i]
 			if !reflect.DeepEqual(block.Body, oBlock.Body) {
+				//XXX
+				t.Logf("nodes[%d].Blocks[%d].FrameHash() should be '%v', not '%v'", k, i, block.Body.FrameHash, oBlock.Body.FrameHash)
 				t.Fatalf("nodes[%d].Blocks[%d] should be '%v', not '%v'", k, i, block.Body, oBlock.Body)
 			}
 		}

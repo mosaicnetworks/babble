@@ -17,6 +17,7 @@ type InmemStore struct {
 	participantEventsCache *ParticipantEventsCache
 	roots                  map[string]Root
 	lastRound              int
+	lastConsensusEvents    map[string]string //[participant] => hex() of last consensus event
 }
 
 func NewInmemStore(participants map[string]int, cacheSize int) *InmemStore {
@@ -32,8 +33,9 @@ func NewInmemStore(participants map[string]int, cacheSize int) *InmemStore {
 		blockCache:             cm.NewLRU(cacheSize, nil),
 		consensusCache:         cm.NewRollingIndex(cacheSize),
 		participantEventsCache: NewParticipantEventsCache(cacheSize, participants),
-		roots:     roots,
-		lastRound: -1,
+		roots:               roots,
+		lastRound:           -1,
+		lastConsensusEvents: map[string]string{},
 	}
 }
 
@@ -101,6 +103,22 @@ func (s *InmemStore) LastEventFrom(participant string) (last string, isRoot bool
 	return
 }
 
+func (s *InmemStore) LastConsensusEventFrom(participant string) (last string, isRoot bool, err error) {
+	//try to get the last consensus event from this participant
+	last, ok := s.lastConsensusEvents[participant]
+	//if there is none, grab the root
+	if !ok {
+		root, ok := s.roots[participant]
+		if ok {
+			last = root.X
+			isRoot = true
+		} else {
+			err = cm.NewStoreErr(cm.NoRoot, participant)
+		}
+	}
+	return
+}
+
 func (s *InmemStore) KnownEvents() map[int]int {
 	return s.participantEventsCache.Known()
 }
@@ -118,9 +136,10 @@ func (s *InmemStore) ConsensusEventsCount() int {
 	return s.totConsensusEvents
 }
 
-func (s *InmemStore) AddConsensusEvent(key string) error {
-	s.consensusCache.Set(key, s.totConsensusEvents)
+func (s *InmemStore) AddConsensusEvent(event Event) error {
+	s.consensusCache.Set(event.Hex(), s.totConsensusEvents)
 	s.totConsensusEvents++
+	s.lastConsensusEvents[event.Creator()] = event.Hex()
 	return nil
 }
 

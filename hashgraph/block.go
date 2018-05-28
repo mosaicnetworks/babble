@@ -14,6 +14,7 @@ type BlockBody struct {
 	Index         int
 	RoundReceived int
 	StateHash     []byte
+	FrameHash     []byte
 	Transactions  [][]byte
 }
 
@@ -96,19 +97,23 @@ type Block struct {
 	hex  string
 }
 
-func NewBlockFromFrame(blockIndex int, frame Frame) Block {
-	//XXX
+func NewBlockFromFrame(blockIndex int, frame Frame) (Block, error) {
+	frameHash, err := frame.Hash()
+	if err != nil {
+		return Block{}, err
+	}
 	transactions := [][]byte{}
 	for _, e := range frame.Events {
 		transactions = append(transactions, e.Transactions()...)
 	}
-	return NewBlock(blockIndex, frame.Round, transactions)
+	return NewBlock(blockIndex, frame.Round, frameHash, transactions), nil
 }
 
-func NewBlock(blockIndex, roundReceived int, txs [][]byte) Block {
+func NewBlock(blockIndex, roundReceived int, frameHash []byte, txs [][]byte) Block {
 	body := BlockBody{
 		Index:         blockIndex,
 		RoundReceived: roundReceived,
+		FrameHash:     frameHash,
 		Transactions:  txs,
 	}
 	return Block{
@@ -131,6 +136,10 @@ func (b *Block) RoundReceived() int {
 
 func (b *Block) StateHash() []byte {
 	return b.Body.StateHash
+}
+
+func (b *Block) FrameHash() []byte {
+	return b.Body.FrameHash
 }
 
 func (b *Block) GetSignature(validator string) (res BlockSignature, err error) {

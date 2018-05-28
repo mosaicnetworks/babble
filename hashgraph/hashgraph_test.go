@@ -931,7 +931,7 @@ func initBlockHashgraph(t *testing.T) (*Hashgraph, []Node, map[string]string) {
 	hashgraph := NewHashgraph(participants, NewInmemStore(participants, cacheSize), nil, testLogger(t))
 
 	//create a block and signatures manually
-	block := NewBlock(0, 1, [][]byte{[]byte("block tx")})
+	block := NewBlock(0, 1, []byte("framehash"), [][]byte{[]byte("block tx")})
 	err := hashgraph.Store.SetBlock(block)
 	if err != nil {
 		t.Fatalf("Error setting block. Err: %s", err)
@@ -1014,7 +1014,7 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 		//The Event should be inserted
 		//The block signature is simply ignored
 
-		block1 := NewBlock(1, 2, [][]byte{})
+		block1 := NewBlock(1, 2, []byte("framehash"), [][]byte{})
 		sig, _ := block1.Sign(nodes[2].Key)
 
 		//unknown block
@@ -1340,7 +1340,7 @@ func TestDecideRoundReceived(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Could not retrieve Round 0. %s", err)
 	}
-	if ce := len(round0.ConsensusEvents); ce != 0 {
+	if ce := len(round0.ConsensusEvents()); ce != 0 {
 		t.Fatalf("Round 0 should contain 0 ConsensusEvents, not %d", ce)
 	}
 
@@ -1348,7 +1348,7 @@ func TestDecideRoundReceived(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Could not retrieve Round 1. %s", err)
 	}
-	if ce := len(round1.ConsensusEvents); ce != 7 {
+	if ce := len(round1.ConsensusEvents()); ce != 7 {
 		t.Fatalf("Round 1 should contain 7 ConsensusEvents, not %d", ce)
 	}
 
@@ -1356,7 +1356,7 @@ func TestDecideRoundReceived(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Could not retrieve Round 2. %s", err)
 	}
-	if ce := len(round2.ConsensusEvents); ce != 9 {
+	if ce := len(round2.ConsensusEvents()); ce != 9 {
 		t.Fatalf("Round 1 should contain 9 ConsensusEvents, not %d", ce)
 	}
 
@@ -1391,7 +1391,9 @@ func TestProcessDecidedRounds(t *testing.T) {
 	h.DivideRounds()
 	h.DecideFame()
 	h.DecideRoundReceived()
-	h.ProcessDecidedRounds()
+	if err := h.ProcessDecidedRounds(); err != nil {
+		t.Fatal(err)
+	}
 
 	//--------------------------------------------------------------------------
 	for i, e := range h.ConsensusEvents() {
@@ -1439,6 +1441,12 @@ func TestProcessDecidedRounds(t *testing.T) {
 		t.Fatalf("Block0.Transactions[0] should be 'e21', not %s", tx)
 	}
 
+	frame1, err := h.GetFrame(block0.RoundReceived())
+	frame1Hash, err := frame1.Hash()
+	if !reflect.DeepEqual(block0.FrameHash(), frame1Hash) {
+		t.Fatalf("Block0.FrameHash should be %v, not %v", frame1Hash, block0.FrameHash())
+	}
+
 	//Block 1 ------------------------------------------------------------------
 	block1, err := h.Store.GetBlock(1)
 	if err != nil {
@@ -1458,6 +1466,12 @@ func TestProcessDecidedRounds(t *testing.T) {
 	}
 	if tx := block1.Transactions()[1]; !reflect.DeepEqual(tx, []byte("f02b")) {
 		t.Fatalf("Block1.Transactions[1] should be 'f02b', not %s", tx)
+	}
+
+	frame2, err := h.GetFrame(block1.RoundReceived())
+	frame2Hash, err := frame2.Hash()
+	if !reflect.DeepEqual(block1.FrameHash(), frame2Hash) {
+		t.Fatalf("Block1.FrameHash should be %v, not %v", frame2Hash, block1.FrameHash())
 	}
 
 	// PendingRounds -----------------------------------------------------------
@@ -1518,22 +1532,22 @@ func TestGetFrame(t *testing.T) {
 	h.ProcessDecidedRounds()
 
 	t.Run("Round 1", func(t *testing.T) {
-		expectedRoots := map[string]Root{}
-		expectedRoots[h.ReverseParticipants[0]] = Root{
+		expectedRoots := make([]Root, n)
+		expectedRoots[0] = Root{
 			X:      "",
 			Y:      "",
 			Index:  -1,
 			Round:  -1,
 			Others: map[string]string{},
 		}
-		expectedRoots[h.ReverseParticipants[1]] = Root{
+		expectedRoots[1] = Root{
 			X:      "",
 			Y:      "",
 			Index:  -1,
 			Round:  -1,
 			Others: map[string]string{},
 		}
-		expectedRoots[h.ReverseParticipants[2]] = Root{
+		expectedRoots[2] = Root{
 			X:      "",
 			Y:      "",
 			Index:  -1,
@@ -1547,27 +1561,25 @@ func TestGetFrame(t *testing.T) {
 		}
 
 		for p, r := range frame.Roots {
-			er, ok := expectedRoots[p]
-			if !ok {
-				t.Fatalf("No Root returned for %s", p)
-			}
+			er := expectedRoots[p]
 			if x := r.X; x != er.X {
-				t.Fatalf("Roots[%s].X should be %s, not %s", p, er.X, x)
+				t.Fatalf("Roots[%d].X should be %s, not %s", p, er.X, x)
 			}
 			if y := r.Y; y != er.Y {
-				t.Fatalf("Roots[%s].Y should be %s, not %s", p, er.Y, y)
+				t.Fatalf("Roots[%d].Y should be %s, not %s", p, er.Y, y)
 			}
 			if ind := r.Index; ind != er.Index {
-				t.Fatalf("Roots[%s].Index should be %d, not %d", p, er.Index, ind)
+				t.Fatalf("Roots[%d].Index should be %d, not %d", p, er.Index, ind)
 			}
 			if ro := r.Round; ro != er.Round {
-				t.Fatalf("Roots[%s].Round should be %d, not %d", p, er.Round, ro)
+				t.Fatalf("Roots[%d].Round should be %d, not %d", p, er.Round, ro)
 			}
 			if others := r.Others; !reflect.DeepEqual(others, er.Others) {
-				t.Fatalf("Roots[%s].Others should be %#v, not %#v", p, er.Others, others)
+				t.Fatalf("Roots[%d].Others should be %#v, not %#v", p, er.Others, others)
 			}
 		}
 
+		//expected to be in topological order
 		expectedEventsHashes := []string{
 			index["e0"],
 			index["e1"],
@@ -1587,11 +1599,23 @@ func TestGetFrame(t *testing.T) {
 		if !reflect.DeepEqual(expectedEvents, frame.Events) {
 			t.Fatal("Frame.Events is not good")
 		}
+
+		block0, err := h.Store.GetBlock(0)
+		if err != nil {
+			t.Fatalf("Store should contain a block with Index 1: %v", err)
+		}
+		frame1Hash, err := frame.Hash()
+		if err != nil {
+			t.Fatalf("Error computing Frame hash, %v", err)
+		}
+		if !reflect.DeepEqual(block0.FrameHash(), frame1Hash) {
+			t.Fatalf("Block0.FramHash (%v) and Frame1.Hash (%v) differ", block0.FrameHash(), frame1Hash)
+		}
 	})
 
 	t.Run("Round 2", func(t *testing.T) {
-		expectedRoots := map[string]Root{}
-		expectedRoots[h.ReverseParticipants[0]] = Root{
+		expectedRoots := make([]Root, n)
+		expectedRoots[0] = Root{
 			X:     index["e02"],
 			Y:     index["f1b"],
 			Index: 1,
@@ -1600,14 +1624,14 @@ func TestGetFrame(t *testing.T) {
 				index["f0x"]: index["e21b"],
 			},
 		}
-		expectedRoots[h.ReverseParticipants[1]] = Root{
+		expectedRoots[1] = Root{
 			X:      index["e10"],
 			Y:      index["e02"],
 			Index:  1,
 			Round:  0,
 			Others: map[string]string{},
 		}
-		expectedRoots[h.ReverseParticipants[2]] = Root{
+		expectedRoots[2] = Root{
 			X:      index["e21b"],
 			Y:      index["f1b"],
 			Index:  2,
@@ -1621,24 +1645,21 @@ func TestGetFrame(t *testing.T) {
 		}
 
 		for p, r := range frame.Roots {
-			er, ok := expectedRoots[p]
-			if !ok {
-				t.Fatalf("No Root returned for %s", p)
-			}
+			er := expectedRoots[p]
 			if x := r.X; x != er.X {
-				t.Fatalf("Roots[%s].X should be %s, not %s", p, er.X, x)
+				t.Fatalf("Roots[%d].X should be %s, not %s", p, er.X, x)
 			}
 			if y := r.Y; y != er.Y {
-				t.Fatalf("Roots[%s].Y should be %s, not %s", p, er.Y, y)
+				t.Fatalf("Roots[%d].Y should be %s, not %s", p, er.Y, y)
 			}
 			if ind := r.Index; ind != er.Index {
-				t.Fatalf("Roots[%s].Index should be %d, not %d", p, er.Index, ind)
+				t.Fatalf("Roots[%d].Index should be %d, not %d", p, er.Index, ind)
 			}
 			if ro := r.Round; ro != er.Round {
-				t.Fatalf("Roots[%s].Round should be %d, not %d", p, er.Round, ro)
+				t.Fatalf("Roots[%d].Round should be %d, not %d", p, er.Round, ro)
 			}
 			if others := r.Others; !reflect.DeepEqual(others, er.Others) {
-				t.Fatalf("Roots[%s].Others should be %#v, not %#v", p, er.Others, others)
+				t.Fatalf("Roots[%d].Others should be %#v, not %#v", p, er.Others, others)
 			}
 		}
 

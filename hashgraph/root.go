@@ -2,7 +2,8 @@ package hashgraph
 
 import (
 	"bytes"
-	"encoding/json"
+
+	"github.com/ugorji/go/codec"
 )
 
 /*
@@ -76,17 +77,32 @@ func NewBaseRoot() Root {
 	}
 }
 
+//The JSON encoding of a Root must be DETERMINISTIC because it is itself
+//included in the JSON encoding of a Frame. The difficulty is that Roots contain
+//go maps for which one should not expect a de facto order of entries; we cannot
+//use the builtin JSON codec within overriding something. Instead, we are using
+//a third party library (ugorji/codec) that enables deterministic encoding of
+//golang maps.
 func (root *Root) Marshal() ([]byte, error) {
-	var b bytes.Buffer
-	enc := json.NewEncoder(&b) //will write to b
+
+	b := new(bytes.Buffer)
+	jh := new(codec.JsonHandle)
+	jh.Canonical = true
+	enc := codec.NewEncoder(b, jh)
+
 	if err := enc.Encode(root); err != nil {
 		return nil, err
 	}
+
 	return b.Bytes(), nil
 }
 
 func (root *Root) Unmarshal(data []byte) error {
+
 	b := bytes.NewBuffer(data)
-	dec := json.NewDecoder(b) //will read from b
+	jh := new(codec.JsonHandle)
+	jh.Canonical = true
+	dec := codec.NewDecoder(b, jh)
+
 	return dec.Decode(root)
 }

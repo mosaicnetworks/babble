@@ -174,6 +174,10 @@ func (s *BadgerStore) LastEventFrom(participant string) (last string, isRoot boo
 	return s.inmemStore.LastEventFrom(participant)
 }
 
+func (s *BadgerStore) LastConsensusEventFrom(participant string) (last string, isRoot bool, err error) {
+	return s.inmemStore.LastConsensusEventFrom(participant)
+}
+
 func (s *BadgerStore) KnownEvents() map[int]int {
 	known := make(map[int]int)
 	for p, pid := range s.participants {
@@ -207,8 +211,8 @@ func (s *BadgerStore) ConsensusEventsCount() int {
 	return s.inmemStore.ConsensusEventsCount()
 }
 
-func (s *BadgerStore) AddConsensusEvent(key string) error {
-	return s.inmemStore.AddConsensusEvent(key)
+func (s *BadgerStore) AddConsensusEvent(event Event) error {
+	return s.inmemStore.AddConsensusEvent(event)
 }
 
 func (s *BadgerStore) GetRound(r int) (RoundInfo, error) {

@@ -30,7 +30,7 @@ type Hashgraph struct {
 	ConsensusTransactions   int              //number of consensus transactions
 	PendingLoadedEvents     int              //number of loaded events that are not yet committed
 	commitCh                chan Block       //channel for committing Blocks
-	topologicalIndex        int              //counter used to order events in topological order
+	topologicalIndex        int              //counter used to order events in topological order (only local)
 	superMajority           int
 
 	ancestorCache           *common.LRU
@@ -659,9 +659,10 @@ func (h *Hashgraph) DivideRounds() error {
 
 //decide if witnesses are famous
 func (h *Hashgraph) DecideFame() error {
-	votes := make(map[string](map[string]bool)) //[x][y]=>vote(x,y)
 
 	decidedRounds := map[int]int{} // [round number] => index in h.PendingRounds
+
+	votes := make(map[string](map[string]bool)) //[x][y]=>vote(x,y)
 
 	for pos, r := range h.PendingRounds {
 		roundIndex := r.Index
@@ -735,7 +736,7 @@ func (h *Hashgraph) DecideFame() error {
 
 	}
 
-	defer h.updatePendingRounds(decidedRounds)
+	h.updatePendingRounds(decidedRounds)
 	return nil
 }
 
@@ -804,7 +805,7 @@ func (h *Hashgraph) DecideRoundReceived() error {
 					return err
 				}
 
-				tr.AddConsensusEvent(x)
+				tr.SetConsensusEvent(x)
 				err = h.Store.SetRound(i, tr)
 				if err != nil {
 					return err
@@ -826,14 +827,13 @@ func (h *Hashgraph) DecideRoundReceived() error {
 
 func (h *Hashgraph) ProcessDecidedRounds() error {
 
-	processedRounds := map[int]int{} // [round number] => index in h.PendingRounds
-	//We don't want rounds to be processed multiple times if an error occurs in
-	//the middle of the function. Unlike the DecideRoundReceived and DecideFame
-	//methods, the effect on the queue matters a lot here. A recovery procedure
-	//should be implemented in the application layer API
-	defer h.removeProcessedRounds(processedRounds)
+	//Defer removing processed Rounds from the PendingRounds Queue
+	processedIndex := 0
+	defer func() {
+		h.PendingRounds = h.PendingRounds[processedIndex:]
+	}()
 
-	for pos, r := range h.PendingRounds {
+	for _, r := range h.PendingRounds {
 
 		//Although it is possible for a Round to be 'decided' before a previous
 		//round, we should NEVER process a decided round before all the previous
@@ -848,14 +848,13 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 		}
 
 		events := frame.Events
-
 		if len(events) > 0 {
 			sorter := NewConsensusSorter(events)
 			sort.Sort(sorter)
 
 			//XXX This is ugly. Should be somewhere else; or nowhere
 			for _, e := range events {
-				err := h.Store.AddConsensusEvent(e.Hex())
+				err := h.Store.AddConsensusEvent(e)
 				if err != nil {
 					return err
 				}
@@ -877,7 +876,7 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 			h.logger.Debugf("No Events to commit for ConsensusRound %d", r.Index)
 		}
 
-		processedRounds[r.Index] = pos
+		processedIndex++
 
 		if h.LastConsensusRound == nil || r.Index > *h.LastConsensusRound {
 			h.setLastConsensusRound(r.Index)
@@ -886,17 +885,6 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 	}
 
 	return nil
-}
-
-//Remove processed Rounds from PendingRounds queue
-func (h *Hashgraph) removeProcessedRounds(processedRounds map[int]int) {
-	newPendingRounds := []*PendingRound{}
-	for _, ur := range h.PendingRounds {
-		if _, ok := processedRounds[ur.Index]; !ok {
-			newPendingRounds = append(newPendingRounds, ur)
-		}
-	}
-	h.PendingRounds = newPendingRounds
 }
 
 func (h *Hashgraph) setLastConsensusRound(i int) {
@@ -909,13 +897,14 @@ func (h *Hashgraph) setLastConsensusRound(i int) {
 }
 
 func (h *Hashgraph) GetFrame(roundReceived int) (Frame, error) {
+
 	round, err := h.Store.GetRound(roundReceived)
 	if err != nil {
 		return Frame{}, err
 	}
 
 	events := []Event{}
-	for eh := range round.ConsensusEvents {
+	for _, eh := range round.ConsensusEvents() {
 		e, err := h.Store.GetEvent(eh)
 		if err != nil {
 			return Frame{}, err
@@ -943,11 +932,11 @@ func (h *Hashgraph) GetFrame(roundReceived int) (Frame, error) {
 	}
 	//Every participant needs a Root in the Frame. For the participants that
 	//have no Events in this Frame, we just create a Root from their last known
-	//Event
+	//Event that has a ConsensusRound (so everyone knows about it).
 	for p := range h.Participants {
 		if _, ok := roots[p]; !ok {
 			var root Root
-			last, isRoot, err := h.Store.LastEventFrom(p)
+			last, isRoot, err := h.Store.LastConsensusEventFrom(p)
 			if err != nil {
 				return Frame{}, err
 			}
@@ -973,6 +962,12 @@ func (h *Hashgraph) GetFrame(roundReceived int) (Frame, error) {
 			roots[p] = root
 		}
 	}
+	//order roots
+	orderedRoots := make([]Root, len(h.Participants))
+	for i := 0; i < len(h.Participants); i++ {
+		orderedRoots[i] = roots[h.ReverseParticipants[i]]
+	}
+
 	//Some Events in the Frame might have other-parents that are outside of the
 	//Frame (cf root.go ex 2)
 	//When inserting these Events in a newly reset hashgraph, the CheckOtherParent
@@ -994,7 +989,7 @@ func (h *Hashgraph) GetFrame(roundReceived int) (Frame, error) {
 
 	frame := Frame{
 		Round:  roundReceived,
-		Roots:  roots,
+		Roots:  orderedRoots,
 		Events: events,
 	}
 
@@ -1002,11 +997,18 @@ func (h *Hashgraph) GetFrame(roundReceived int) (Frame, error) {
 }
 
 func (h *Hashgraph) createAndInsertBlock(frame Frame) (Block, error) {
-	block := NewBlockFromFrame(h.LastBlockIndex+1, frame)
+
+	block, err := NewBlockFromFrame(h.LastBlockIndex+1, frame)
+	if err != nil {
+		return block, err
+	}
+
 	if err := h.Store.SetBlock(block); err != nil {
 		return Block{}, err
 	}
+
 	h.LastBlockIndex++
+
 	return block, nil
 }
 
@@ -1096,7 +1098,16 @@ func (h *Hashgraph) KnownEvents() map[int]int {
 }
 
 func (h *Hashgraph) Reset(frame Frame) error {
-	if err := h.Store.Reset(frame.Roots); err != nil {
+
+	rootMap := map[string]Root{}
+	for id, root := range frame.Roots {
+		p, ok := h.ReverseParticipants[id]
+		if !ok {
+			return fmt.Errorf("Could not find participant with id %d", id)
+		}
+		rootMap[p] = root
+	}
+	if err := h.Store.Reset(rootMap); err != nil {
 		return err
 	}
 
@@ -1164,6 +1175,9 @@ func (h *Hashgraph) Bootstrap() error {
 			return err
 		}
 		if err := h.ProcessDecidedRounds(); err != nil {
+			return err
+		}
+		if err := h.ProcessSigPool(); err != nil {
 			return err
 		}
 	}

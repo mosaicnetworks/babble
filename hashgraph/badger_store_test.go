@@ -323,7 +323,9 @@ func TestDBBlockMethods(t *testing.T) {
 		[]byte("tx4"),
 		[]byte("tx5"),
 	}
-	block := NewBlock(index, roundReceived, transactions)
+	frameHash := []byte("this is the frame hash")
+
+	block := NewBlock(index, roundReceived, frameHash, transactions)
 
 	sig1, err := block.Sign(participants[0].privKey)
 	if err != nil {
@@ -469,7 +471,7 @@ func TestBadgerEvents(t *testing.T) {
 	for _, p := range participants {
 		evs := events[p.hex]
 		for _, ev := range evs {
-			if err := store.AddConsensusEvent(ev.Hex()); err != nil {
+			if err := store.AddConsensusEvent(ev); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -537,7 +539,8 @@ func TestBadgerBlocks(t *testing.T) {
 		[]byte("tx4"),
 		[]byte("tx5"),
 	}
-	block := NewBlock(index, roundReceived, transactions)
+	frameHash := []byte("this is the frame hash")
+	block := NewBlock(index, roundReceived, frameHash, transactions)
 
 	sig1, err := block.Sign(participants[0].privKey)
 	if err != nil {

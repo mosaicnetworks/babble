@@ -8,10 +8,11 @@ type Store interface {
 	ParticipantEvents(string, int) ([]string, error)
 	ParticipantEvent(string, int) (string, error)
 	LastEventFrom(string) (string, bool, error)
+	LastConsensusEventFrom(string) (string, bool, error)
 	KnownEvents() map[int]int
 	ConsensusEvents() []string
 	ConsensusEventsCount() int
-	AddConsensusEvent(string) error
+	AddConsensusEvent(Event) error
 	GetRound(int) (RoundInfo, error)
 	SetRound(int, RoundInfo) error
 	LastRound() int
