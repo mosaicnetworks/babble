@@ -1696,12 +1696,17 @@ func TestResetFromFrame(t *testing.T) {
 	h.DecideRoundReceived()
 	h.ProcessDecidedRounds()
 
-	frame, err := h.GetFrame(2)
+	block, err := h.Store.GetBlock(1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = h.Reset(frame)
+	frame, err := h.GetFrame(block.RoundReceived())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = h.Reset(block, frame)
 	if err != nil {
 		t.Fatal(err)
 	}

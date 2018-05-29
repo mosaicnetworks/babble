@@ -86,7 +86,7 @@ func (c *Core) Init() error {
 	initialEvent := hg.NewEvent([][]byte(nil), nil,
 		[]string{"", ""},
 		c.PubKey(),
-		c.Seq)
+		0)
 	//We want to make the initial Event deterministic so that when a node is
 	//restarted it will initialize the same Event. cf. github issues 19 and 10
 	initialEvent.Body.Timestamp = time.Time{}.UTC()
@@ -191,6 +191,10 @@ func (c *Core) GetLatestFrame() (hg.Frame, error) {
 	return c.hg.GetLatestFrame()
 }
 
+func (c *Core) GetLatestBlockWithFrame() (hg.Block, hg.Frame, error) {
+	return c.hg.GetLatestBlockWithFrame()
+}
+
 //returns events that c knowns about and are not in 'known'
 func (c *Core) EventDiff(known map[int]int) (events []hg.Event, err error) {
 	unknown := []hg.Event{}
@@ -241,7 +245,7 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 		}
 	}
 
-	//create new event with self head and other head
+	//If not in passive mode, create new event with self head and other head
 	//only if there are pending loaded events or the pools are not empty
 	if len(unknownEvents) > 0 ||
 		len(c.transactionPool) > 0 ||
@@ -264,7 +268,41 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 	return nil
 }
 
+func (c *Core) FastForward(block hg.Block, frame hg.Frame) error {
+
+	//XXX TODO Check Block and Frame
+
+	err := c.hg.Reset(block, frame)
+	if err != nil {
+		return err
+	}
+
+	err = c.RunConsensus()
+	if err != nil {
+		return err
+	}
+
+	myLastKnown := c.KnownEvents()[c.id]
+	if myLastKnown < 0 {
+		err := c.Init()
+		if err != nil {
+			return err
+		}
+	} else {
+		c.Head, _, _ = c.hg.Store.LastEventFrom(c.HexID())
+		c.Seq = c.KnownEvents()[c.id]
+	}
+
+	c.logger.WithFields(logrus.Fields{
+		"head": c.Head,
+		"seq":  c.Seq,
+	}).Debug("FastForward HEAD and SEQ")
+
+	return nil
+}
+
 func (c *Core) AddSelfEvent() error {
+
 	if len(c.transactionPool) == 0 && len(c.blockSignaturePool) == 0 {
 		c.logger.Debug("Empty transaction pool and block signature pool")
 		return nil

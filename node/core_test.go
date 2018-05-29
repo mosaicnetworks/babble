@@ -3,6 +3,7 @@ package node
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"reflect"
 	"strconv"
 	"testing"
 
@@ -512,6 +513,63 @@ func TestConsensusFF(t *testing.T) {
 		if core3Consensus[i] != e {
 			t.Fatalf("Node 3 consensus[%d] does not match Node 1's", i)
 		}
+	}
+}
+
+func TestCoreFastForward(t *testing.T) {
+	cores, _, index := initCores(4, t)
+	initFFHashgraph(cores, t)
+
+	block, frame, err := cores[1].GetLatestBlockWithFrame()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	//XXX TODO serialize and deserialize to simulate transfer over wire
+
+	err = cores[0].FastForward(block, frame)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	knownBy0 := cores[0].KnownEvents()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedKnown := map[int]int{
+		0: 0,
+		1: 1,
+		2: 1,
+		3: 1,
+	}
+
+	if !reflect.DeepEqual(knownBy0, expectedKnown) {
+		t.Fatalf("Cores[0].Known should be %v, not %v", expectedKnown, knownBy0)
+	}
+
+	if r := cores[0].GetLastConsensusRoundIndex(); r != nil {
+		t.Fatalf("Cores[0] last consensus Round should be nil, not %v", r)
+	}
+
+	if lbi := cores[0].hg.LastBlockIndex; lbi != block.Index() {
+		t.Fatalf("Cores[0].hg.LastBlockIndex should be %d, not %d", block.Index(), lbi)
+	}
+
+	sBlock, err := cores[0].hg.Store.GetBlock(block.Index())
+	if err != nil {
+		t.Fatalf("Error retrieving latest Block from reset hashgraph: %v", err)
+	}
+	if !reflect.DeepEqual(sBlock.Body, block.Body) {
+		t.Fatalf("Blocks defer")
+	}
+
+	if c0h := cores[0].Head; c0h != index["e0"] {
+		t.Fatalf("Head should be %s, not %s", index["e0"], c0h)
+	}
+
+	if c0s := cores[0].Seq; c0s != 0 {
+		t.Fatalf("Seq should be %d, not %d", 0, c0s)
 	}
 }
 

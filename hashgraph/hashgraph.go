@@ -1097,7 +1097,7 @@ func (h *Hashgraph) KnownEvents() map[int]int {
 	return h.Store.KnownEvents()
 }
 
-func (h *Hashgraph) Reset(frame Frame) error {
+func (h *Hashgraph) Reset(block Block, frame Frame) error {
 
 	rootMap := map[string]Root{}
 	for id, root := range frame.Roots {
@@ -1111,11 +1111,15 @@ func (h *Hashgraph) Reset(frame Frame) error {
 		return err
 	}
 
+	if err := h.Store.SetBlock(block); err != nil {
+		return err
+	}
+	h.LastBlockIndex = block.Index()
+
 	h.UndeterminedEvents = []string{}
 	h.PendingRounds = []*PendingRound{}
 	h.PendingLoadedEvents = 0
 	h.LastConsensusRound = nil
-	h.LastBlockIndex = -1
 	h.topologicalIndex = 0
 
 	cacheSize := h.Store.CacheSize()
@@ -1142,6 +1146,21 @@ func (h *Hashgraph) GetLatestFrame() (Frame, error) {
 	}
 
 	return h.GetFrame(lastConsensusRoundIndex)
+}
+
+func (h *Hashgraph) GetLatestBlockWithFrame() (Block, Frame, error) {
+
+	block, err := h.Store.GetBlock(h.LastBlockIndex)
+	if err != nil {
+		return Block{}, Frame{}, err
+	}
+
+	frame, err := h.GetFrame(block.RoundReceived())
+	if err != nil {
+		return Block{}, Frame{}, err
+	}
+
+	return block, frame, nil
 }
 
 //Bootstrap loads all Events from the Store's DB (if there is one) and feeds

@@ -39,7 +39,9 @@ func (iap *InmemAppProxy) commit(block hashgraph.Block) ([]byte, error) {
 
 	iap.stateHash = hash
 
-	return iap.stateHash, nil
+	//XXX - To test fast-forward before snapshot feature
+	//return iap.stateHash, nil
+	return []byte{}, nil
 
 }
 

@@ -12,17 +12,13 @@ docker network create \
   --gateway=172.77.5.254 \
   babblenet
 
-  #XXX 
-  #Start apps before Babble nodes
-  #Remember to change log level back to info
-
 for i in $(seq 1 $N)
 do
     docker run -d --name=client$i --net=babblenet --ip=172.77.5.$(($N+$i)) -it mosaicnetworks/dummy:0.2.1 \
     --name="client $i" \
     --client_addr="172.77.5.$(($N+$i)):1339" \
     --proxy_addr="172.77.5.$i:1338" \
-    --log_level="debug" 
+    --log_level="info" 
 done
 
 for i in $(seq 1 $N)
