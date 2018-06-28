@@ -548,11 +548,11 @@ func TestCoreFastForward(t *testing.T) {
 		t.Fatalf("Cores[0].Known should be %v, not %v", expectedKnown, knownBy0)
 	}
 
-	if r := cores[0].GetLastConsensusRoundIndex(); r != nil {
+	if r := cores[0].GetLastConsensusRoundIndex(); r == nil || *r != block.RoundReceived() {
 		t.Fatalf("Cores[0] last consensus Round should be nil, not %v", r)
 	}
 
-	if lbi := cores[0].hg.LastBlockIndex; lbi != block.Index() {
+	if lbi := cores[0].hg.Store.LastBlockIndex(); lbi != block.Index() {
 		t.Fatalf("Cores[0].hg.LastBlockIndex should be %d, not %d", block.Index(), lbi)
 	}
 

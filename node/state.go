@@ -47,7 +47,9 @@ func (b *nodeState) setState(s NodeState) {
 }
 
 func (b *nodeState) isStarting() bool {
-	return b.starting > 0
+	//XXX
+	//return b.starting > 0
+	return false
 }
 
 func (b *nodeState) setStarting(starting bool) {

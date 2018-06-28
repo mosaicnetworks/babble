@@ -99,7 +99,9 @@ func (n *Node) Init(bootstrap bool) error {
 		return n.core.Bootstrap()
 	}
 
-	return n.core.Init()
+	//XXX
+	//return n.core.Init()
+	return nil
 }
 
 func (n *Node) RunAsync(gossip bool) {
@@ -426,7 +428,7 @@ func (n *Node) push(peerAddr string, knownEvents map[int]int) error {
 	//If the transaction pool is not empty, create a new self-event and empty the
 	//transaction pool in its payload
 	n.coreLock.Lock()
-	err := n.core.AddSelfEvent()
+	err := n.core.AddSelfEvent("")
 	n.coreLock.Unlock()
 	if err != nil {
 		n.logger.WithField("error", err).Error("Adding SelfEvent")

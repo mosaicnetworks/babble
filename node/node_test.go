@@ -523,7 +523,7 @@ func TestCatchUp(t *testing.T) {
 	//Create  config for 4 nodes
 	keys, peers, pmap := initPeers(4)
 
-	//initialize the first 3 nodes only
+	//Initialize the first 3 nodes only
 	normalNodes := initNodes(keys[0:3], peers, pmap, 1000, 400, "inmem", logger, t)
 	defer shutdownNodes(normalNodes)
 
@@ -636,8 +636,8 @@ func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
 		time.Sleep(10 * time.Millisecond)
 		done := true
 		for _, n := range nodes {
-			ce := n.core.GetLastConsensusRoundIndex()
-			if ce == nil || *ce < target {
+			ce := n.core.GetLastBlockIndex()
+			if ce < target {
 				done = false
 				break
 			}
@@ -650,66 +650,15 @@ func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
 	return nil
 }
 
-func checkGossip(nodes []*Node, t *testing.T) {
-
-	consEvents := map[int][]string{}
-	consTransactions := map[int][][]byte{}
-	for _, n := range nodes {
-		consEvents[n.id] = n.core.GetConsensusEvents()
-		nodeTxs, err := getCommittedTransactions(n)
-		if err != nil {
-			t.Fatal(err)
-		}
-		consTransactions[n.id] = nodeTxs
-	}
-
-	minE := len(consEvents[0])
-	minT := len(consTransactions[0])
-	for k := 1; k < len(nodes); k++ {
-		if len(consEvents[k]) < minE {
-			minE = len(consEvents[k])
-		}
-		if len(consTransactions[k]) < minT {
-			minT = len(consTransactions[k])
-		}
-	}
-
-	problem := false
-	t.Logf("min consensus events: %d", minE)
-	for i, e := range consEvents[0][0:minE] {
-		for j := range nodes[1:len(nodes)] {
-			if f := consEvents[j][i]; f != e {
-				er := nodes[0].core.hg.Round(e)
-				err := nodes[0].core.hg.RoundReceived(e)
-				fr := nodes[j].core.hg.Round(f)
-				frr := nodes[j].core.hg.RoundReceived(f)
-				t.Logf(
-					"nodes[%d].Consensus[%d] (%s, Round %d, Received %d) and nodes[0].Consensus[%d] (%s, Round %d, Received %d) are not equal",
-					j, i, e[:6], er, err, i, f[:6], fr, frr)
-				problem = true
-			}
-		}
-	}
-	if problem {
-		t.Fatal()
-	}
-
-	t.Logf("min consensus transactions: %d", minT)
-	for i, tx := range consTransactions[0][:minT] {
-		for k := range nodes[1:len(nodes)] {
-			if ot := string(consTransactions[k][i]); ot != string(tx) {
-				t.Fatalf("nodes[%d].ConsensusTransactions[%d] should be '%s' not '%s'", k, i, string(tx), ot)
-			}
-		}
-	}
+func checkGossip(nodes []*Node, fromBlock int, t *testing.T) {
 
 	nodeBlocks := map[int][]hg.Block{}
 	for _, n := range nodes {
 		blocks := []hg.Block{}
-		for i := 0; i < n.core.hg.LastBlockIndex; i++ {
+		for i := fromBlock; i < n.core.hg.Store.LastBlockIndex(); i++ {
 			block, err := n.core.hg.Store.GetBlock(i)
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("checkGossip: %v ", err)
 			}
 			blocks = append(blocks, block)
 		}
@@ -724,10 +673,10 @@ func checkGossip(nodes []*Node, t *testing.T) {
 	}
 
 	for i, block := range nodeBlocks[0][:minB] {
-		for k := range nodes[1:len(nodes)] {
+		for k := 1; k < len(nodes); k++ {
 			oBlock := nodeBlocks[k][i]
 			if !reflect.DeepEqual(block.Body, oBlock.Body) {
-				t.Fatalf("nodes[%d].Blocks[%d] should be '%v', not '%v'", k, i, block.Body, oBlock.Body)
+				t.Fatalf("checkGossip: Difference in Block %d. ###### nodes[0]: %v ###### nodes[%d]: %v", block.Index(), block.Body, k, oBlock.Body)
 			}
 		}
 	}
