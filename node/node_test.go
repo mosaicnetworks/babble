@@ -418,7 +418,7 @@ func TestGossip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkGossip(nodes, t)
+	checkGossip(nodes, 0, t)
 }
 
 func TestMissingNodeGossip(t *testing.T) {
@@ -434,7 +434,7 @@ func TestMissingNodeGossip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkGossip(nodes[1:], t)
+	checkGossip(nodes[1:], 0, t)
 }
 
 func TestSyncLimit(t *testing.T) {
@@ -533,31 +533,38 @@ func TestCatchUp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	checkGossip(normalNodes, t)
+	checkGossip(normalNodes, 0, t)
 
 	node4 := initNodes(keys[3:], peers, pmap, 1000, 400, "inmem", logger, t)[0]
+
+	//Run parallel routine to check node4 eventually reaches CatchingUp state.
+	timeout := time.After(6 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-timeout:
+				t.Fatalf("Timeout waiting for node4 to enter CatchingUp state")
+			default:
+			}
+			if node4.getState() == CatchingUp {
+				break
+			}
+		}
+	}()
+
 	node4.RunAsync(true)
 	defer node4.Shutdown()
 
-	timeout := time.After(3 * time.Second)
-	for {
-		select {
-		case <-timeout:
-			t.Fatalf("Timeout waiting for node4 to enter CatchingUp state")
-		default:
-		}
-		time.Sleep(10 * time.Millisecond)
-		if node4.getState() == CatchingUp {
-			break
-		}
-	}
-
-	//wait until node 0 has caught up
+	//Gossip some more
 	nodes := append(normalNodes, node4)
-	err = bombardAndWait(nodes, target+20, 6*time.Second)
+	newTarget := target + 20
+	err = bombardAndWait(nodes, newTarget, 6*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	//XXX target +3 because because we are not sure that anchorRound was 50
+	checkGossip(nodes, target+3, t)
 }
 
 func TestShutdown(t *testing.T) {
@@ -591,7 +598,7 @@ func TestBootstrapAllNodes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	checkGossip(nodes, t)
+	checkGossip(nodes, 0, t)
 	shutdownNodes(nodes)
 
 	//Now try to recreate a network from the databases created in the first step
@@ -601,11 +608,11 @@ func TestBootstrapAllNodes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	checkGossip(newNodes, t)
+	checkGossip(newNodes, 0, t)
 	shutdownNodes(newNodes)
 
 	//Check that both networks did not have completely different consensus events
-	checkGossip([]*Node{nodes[0], newNodes[0]}, t)
+	checkGossip([]*Node{nodes[0], newNodes[0]}, 0, t)
 }
 
 func gossip(nodes []*Node, target int, shutdown bool, timeout time.Duration) error {
@@ -625,7 +632,7 @@ func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
 	quit := make(chan struct{})
 	makeRandomTransactions(nodes, quit)
 
-	//wait until all nodes have at least 'target' rounds
+	//wait until all nodes have at least 'target' blcoks
 	stopper := time.After(timeout)
 	for {
 		select {

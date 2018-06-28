@@ -15,6 +15,7 @@ var (
 	roundPrefix       = "round"
 	topoPrefix        = "topo"
 	blockPrefix       = "block"
+	framePrefix       = "frame"
 )
 
 type BadgerStore struct {
@@ -122,6 +123,10 @@ func roundKey(index int) []byte {
 
 func blockKey(index int) []byte {
 	return []byte(fmt.Sprintf("%s_%09d", blockPrefix, index))
+}
+
+func frameKey(index int) []byte {
+	return []byte(fmt.Sprintf("%s_%09d", framePrefix, index))
 }
 
 //==============================================================================
@@ -271,6 +276,21 @@ func (s *BadgerStore) SetBlock(block Block) error {
 		return err
 	}
 	return s.dbSetBlock(block)
+}
+
+func (s *BadgerStore) LastBlockIndex() int {
+	return s.inmemStore.LastBlockIndex()
+}
+
+//XXX
+func (s *BadgerStore) GetFrame(rr int) (Frame, error) {
+	res, err := s.inmemStore.GetFrame(rr)
+	return res, mapError(err, string(frameKey(rr)))
+}
+
+//XXX
+func (s *BadgerStore) SetFrame(frame Frame) error {
+	return s.inmemStore.SetFrame(frame)
 }
 
 func (s *BadgerStore) Reset(roots map[string]Root) error {

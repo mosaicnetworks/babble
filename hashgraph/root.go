@@ -62,18 +62,20 @@ ex 2:
 */
 
 type Root struct {
-	X, Y   string
-	Index  int
-	Round  int
-	Others map[string]string
+	X, Y                  string
+	Index                 int
+	Round                 int
+	StronglySeenWitnesses int
+	Others                map[string]string
 }
 
 func NewBaseRoot() Root {
 	return Root{
-		X:     "",
-		Y:     "",
-		Index: -1,
-		Round: -1,
+		X:      "",
+		Y:      "",
+		Index:  -1,
+		Round:  -1,
+		Others: map[string]string{},
 	}
 }
 

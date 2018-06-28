@@ -3,6 +3,7 @@ package node
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"reflect"
 	"sort"
 	"time"
 
@@ -208,8 +209,8 @@ func (c *Core) GetLatestFrame() (hg.Frame, error) {
 	return c.hg.GetLatestFrame()
 }
 
-func (c *Core) GetLatestBlockWithFrame() (hg.Block, hg.Frame, error) {
-	return c.hg.GetLatestBlockWithFrame()
+func (c *Core) GetAnchorBlockWithFrame() (hg.Block, hg.Frame, error) {
+	return c.hg.GetAnchorBlockWithFrame()
 }
 
 //returns events that c knowns about and are not in 'known'

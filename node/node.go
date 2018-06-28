@@ -314,7 +314,9 @@ func (n *Node) processFastForwardRequest(rpc net.RPC, cmd *net.FastForwardReques
 	var respErr error
 
 	//Get latest Frame
-	block, frame, err := n.core.GetLatestBlockWithFrame()
+	n.coreLock.Lock()
+	block, frame, err := n.core.GetAnchorBlockWithFrame()
+	n.coreLock.Unlock()
 	if err != nil {
 		n.logger.WithField("error", err).Error("Getting Frame")
 		respErr = err

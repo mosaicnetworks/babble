@@ -3,15 +3,14 @@ package hashgraph
 import (
 	"bytes"
 	"encoding/json"
-	"sort"
 
 	"github.com/mosaicnetworks/babble/crypto"
 )
 
 type Frame struct {
-	Round  int
-	Roots  []Root // [participant ID] => Root
-	Events []Event
+	Round  int     //RoundReceived
+	Roots  []Root  // [participant ID] => Root
+	Events []Event //Event with RoundReceived = Round
 }
 
 //json encoding of Frame
@@ -35,18 +34,21 @@ func (f *Frame) Unmarshal(data []byte) error {
 
 func (f *Frame) Hash() ([]byte, error) {
 
-	eventsCopy := make([]Event, len(f.Events))
-	copy(eventsCopy, f.Events)
-	sorter := NewConsensusSorter(eventsCopy)
-	sort.Sort(sorter)
+	//XXX Do we really need to re-sort
+	// eventsCopy := make([]Event, len(f.Events))
+	// copy(eventsCopy, f.Events)
+	// sorter := NewConsensusSorter(eventsCopy)
+	// sort.Sort(sorter)
 
-	frame := Frame{
-		Round:  f.Round,
-		Roots:  f.Roots,
-		Events: eventsCopy,
-	}
+	// frame := Frame{
+	// 	Round:  f.Round,
+	// 	Roots:  f.Roots,
+	// 	Events: eventsCopy,
+	// }
 
-	hashBytes, err := frame.Marshal()
+	//XXX Events are assumed to be in ConsensusOrder
+
+	hashBytes, err := f.Marshal()
 	if err != nil {
 		return nil, err
 	}

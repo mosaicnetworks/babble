@@ -142,6 +142,21 @@ func (b *Block) FrameHash() []byte {
 	return b.Body.FrameHash
 }
 
+func (b *Block) GetSignatures() []BlockSignature {
+	res := make([]BlockSignature, len(b.Signatures))
+	i := 0
+	for val, sig := range b.Signatures {
+		validatorBytes, _ := hex.DecodeString(val[2:])
+		res[i] = BlockSignature{
+			Validator: validatorBytes,
+			Index:     b.Index(),
+			Signature: sig,
+		}
+		i++
+	}
+	return res
+}
+
 func (b *Block) GetSignature(validator string) (res BlockSignature, err error) {
 	sig, ok := b.Signatures[validator]
 	if !ok {

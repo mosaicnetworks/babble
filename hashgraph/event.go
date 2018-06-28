@@ -10,6 +10,10 @@ import (
 	"github.com/mosaicnetworks/babble/crypto"
 )
 
+/*******************************************************************************
+EventBody
+*******************************************************************************/
+
 type EventBody struct {
 	Transactions    [][]byte         //the payload
 	Parents         []string         //hashes of the event's parents, self-parent first
@@ -52,6 +56,10 @@ func (e *EventBody) Hash() ([]byte, error) {
 	}
 	return crypto.SHA256(hashBytes), nil
 }
+
+/*******************************************************************************
+Event
+*******************************************************************************/
 
 type EventCoordinates struct {
 	hash  string
@@ -246,7 +254,9 @@ func (e *Event) ToWire() WireEvent {
 	}
 }
 
-//Sorting
+/*******************************************************************************
+Sorting
+*******************************************************************************/
 
 // ByTimestamp implements sort.Interface for []Event based on
 // the timestamp field.
@@ -264,6 +274,7 @@ func (a ByTimestamp) Less(i, j int) bool {
 
 // ByTopologicalOrder implements sort.Interface for []Event based on
 // the topologicalIndex field.
+// THIS IS A PARTIAL ORDER
 type ByTopologicalOrder []Event
 
 func (a ByTopologicalOrder) Len() int      { return len(a) }
@@ -272,8 +283,43 @@ func (a ByTopologicalOrder) Less(i, j int) bool {
 	return a[i].topologicalIndex < a[j].topologicalIndex
 }
 
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// WireEvent
+// ByConsensusTimestamp implements sort.Interface for []Event based on
+// RoundReceived, ConsensusTimestamp, and Signatures. This is the 'Fair' order
+// described in the whitepaper.
+// TOTAL ORDER
+type ByConsensusTimestamp []Event
+
+func (a ByConsensusTimestamp) Len() int      { return len(a) }
+func (a ByConsensusTimestamp) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByConsensusTimestamp) Less(i, j int) bool {
+	irr, jrr := -1, -1
+	if a[i].roundReceived != nil {
+		irr = *a[i].roundReceived
+	}
+	if a[j].roundReceived != nil {
+		jrr = *a[j].roundReceived
+	}
+	if irr != jrr {
+		return irr < jrr
+	}
+
+	if !a[i].consensusTimestamp.Equal(a[j].consensusTimestamp) {
+		return a[i].consensusTimestamp.Before(a[j].consensusTimestamp)
+	}
+
+	//No need to compute 'whitened' signature as described in the whitepaper.
+	//elliptic curve cryptography is non deterministic; it is impossible for a
+	//malicious participant to predict what the other signatures will be and
+	//manipulate the consensus order at this level.
+	wsi, _, _ := crypto.DecodeSignature(a[i].Signature)
+	wsj, _, _ := crypto.DecodeSignature(a[j].Signature)
+
+	return wsi.Cmp(wsj) < 0
+}
+
+/*******************************************************************************
+ WireEvent
+*******************************************************************************/
 
 type WireBody struct {
 	Transactions    [][]byte

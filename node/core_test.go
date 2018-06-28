@@ -520,7 +520,7 @@ func TestCoreFastForward(t *testing.T) {
 	cores, _, index := initCores(4, t)
 	initFFHashgraph(cores, t)
 
-	block, frame, err := cores[1].GetLatestBlockWithFrame()
+	block, frame, err := cores[1].GetAnchorBlockWithFrame()
 	if err != nil {
 		t.Fatal(err)
 	}

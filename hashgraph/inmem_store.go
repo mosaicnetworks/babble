@@ -12,12 +12,14 @@ type InmemStore struct {
 	eventCache             *cm.LRU
 	roundCache             *cm.LRU
 	blockCache             *cm.LRU
+	frameCache             *cm.LRU
 	consensusCache         *cm.RollingIndex
 	totConsensusEvents     int
 	participantEventsCache *ParticipantEventsCache
 	roots                  map[string]Root
 	lastRound              int
 	lastConsensusEvents    map[string]string //[participant] => hex() of last consensus event
+	lastBlock              int
 }
 
 func NewInmemStore(participants map[string]int, cacheSize int) *InmemStore {
@@ -31,10 +33,12 @@ func NewInmemStore(participants map[string]int, cacheSize int) *InmemStore {
 		eventCache:             cm.NewLRU(cacheSize, nil),
 		roundCache:             cm.NewLRU(cacheSize, nil),
 		blockCache:             cm.NewLRU(cacheSize, nil),
+		frameCache:             cm.NewLRU(cacheSize, nil),
 		consensusCache:         cm.NewRollingIndex(cacheSize),
 		participantEventsCache: NewParticipantEventsCache(cacheSize, participants),
 		roots:               roots,
 		lastRound:           -1,
+		lastBlock:           -1,
 		lastConsensusEvents: map[string]string{},
 	}
 }
@@ -196,11 +200,37 @@ func (s *InmemStore) GetBlock(index int) (Block, error) {
 }
 
 func (s *InmemStore) SetBlock(block Block) error {
-	_, err := s.GetBlock(block.Index())
+	index := block.Index()
+	_, err := s.GetBlock(index)
 	if err != nil && !cm.Is(err, cm.KeyNotFound) {
 		return err
 	}
-	s.blockCache.Add(block.Index(), block)
+	s.blockCache.Add(index, block)
+	if index > s.lastBlock {
+		s.lastBlock = index
+	}
+	return nil
+}
+
+func (s *InmemStore) LastBlockIndex() int {
+	return s.lastBlock
+}
+
+func (s *InmemStore) GetFrame(index int) (Frame, error) {
+	res, ok := s.frameCache.Get(index)
+	if !ok {
+		return Frame{}, cm.NewStoreErr(cm.KeyNotFound, strconv.Itoa(index))
+	}
+	return res.(Frame), nil
+}
+
+func (s *InmemStore) SetFrame(frame Frame) error {
+	index := frame.Round
+	_, err := s.GetFrame(index)
+	if err != nil && !cm.Is(err, cm.KeyNotFound) {
+		return err
+	}
+	s.frameCache.Add(index, frame)
 	return nil
 }
 
@@ -211,6 +241,7 @@ func (s *InmemStore) Reset(roots map[string]Root) error {
 	s.consensusCache = cm.NewRollingIndex(s.cacheSize)
 	err := s.participantEventsCache.Reset()
 	s.lastRound = -1
+	s.lastBlock = -1
 	return err
 }
 

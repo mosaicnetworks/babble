@@ -3,7 +3,6 @@ package hashgraph
 import (
 	"bytes"
 	"encoding/json"
-	"math/big"
 )
 
 type Trilean int
@@ -116,17 +115,6 @@ func (r *RoundInfo) FamousWitnesses() []string {
 func (r *RoundInfo) IsDecided(witness string) bool {
 	w, ok := r.Events[witness]
 	return ok && w.Witness && w.Famous != Undefined
-}
-
-func (r *RoundInfo) PseudoRandomNumber() *big.Int {
-	res := new(big.Int)
-	for x, e := range r.Events {
-		if e.Witness && e.Famous == True {
-			s, _ := new(big.Int).SetString(x, 16)
-			res = res.Xor(res, s)
-		}
-	}
-	return res
 }
 
 func (r *RoundInfo) Marshal() ([]byte, error) {

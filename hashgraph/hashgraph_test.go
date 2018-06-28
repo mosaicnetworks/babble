@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"os"
+	"sort"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -118,7 +119,7 @@ func initHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
 	store := NewInmemStore(participants, cacheSize)
 	h := NewHashgraph(participants, store, nil, testLogger(t))
 	for i, ev := range *orderedEvents {
-		if err := h.InitEventCoordinates(&ev); err != nil {
+		if err := h.initEventCoordinates(&ev); err != nil {
 			t.Fatalf("%d: %s", i, err)
 		}
 
@@ -126,7 +127,7 @@ func initHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
 			t.Fatalf("%d: %s", i, err)
 		}
 
-		if err := h.UpdateAncestorFirstDescendant(ev); err != nil {
+		if err := h.updateAncestorFirstDescendant(ev); err != nil {
 			t.Fatalf("%d: %s", i, err)
 		}
 
@@ -139,89 +140,89 @@ func TestAncestor(t *testing.T) {
 	h, index := initHashgraph(t)
 
 	//1 generation
-	if !h.Ancestor(index["e01"], index["e0"]) {
+	if !h.ancestor(index["e01"], index["e0"]) {
 		t.Fatal("e0 should be ancestor of e01")
 	}
-	if !h.Ancestor(index["e01"], index["e1"]) {
+	if !h.ancestor(index["e01"], index["e1"]) {
 		t.Fatal("e1 should be ancestor of e01")
 	}
-	if !h.Ancestor(index["s00"], index["e01"]) {
+	if !h.ancestor(index["s00"], index["e01"]) {
 		t.Fatal("e01 should be ancestor of s00")
 	}
-	if !h.Ancestor(index["s20"], index["e2"]) {
+	if !h.ancestor(index["s20"], index["e2"]) {
 		t.Fatal("e2 should be ancestor of s20")
 	}
-	if !h.Ancestor(index["e20"], index["s00"]) {
+	if !h.ancestor(index["e20"], index["s00"]) {
 		t.Fatal("s00 should be ancestor of e20")
 	}
-	if !h.Ancestor(index["e20"], index["s20"]) {
+	if !h.ancestor(index["e20"], index["s20"]) {
 		t.Fatal("s20 should be ancestor of e20")
 	}
-	if !h.Ancestor(index["e12"], index["e20"]) {
+	if !h.ancestor(index["e12"], index["e20"]) {
 		t.Fatal("e20 should be ancestor of e12")
 	}
-	if !h.Ancestor(index["e12"], index["s10"]) {
+	if !h.ancestor(index["e12"], index["s10"]) {
 		t.Fatal("s10 should be ancestor of e12")
 	}
 
 	//2 generations
-	if !h.Ancestor(index["s00"], index["e0"]) {
+	if !h.ancestor(index["s00"], index["e0"]) {
 		t.Fatalf("e0 should be ancestor of s00")
 	}
-	if !h.Ancestor(index["s00"], index["e1"]) {
+	if !h.ancestor(index["s00"], index["e1"]) {
 		t.Fatalf("e1 should be ancestor of s00")
 	}
-	if !h.Ancestor(index["e20"], index["e01"]) {
+	if !h.ancestor(index["e20"], index["e01"]) {
 		t.Fatalf("e01 should be ancestor of e20")
 	}
-	if !h.Ancestor(index["e20"], index["e2"]) {
+	if !h.ancestor(index["e20"], index["e2"]) {
 		t.Fatalf("e2 should be ancestor of e20")
 	}
-	if !h.Ancestor(index["e12"], index["e1"]) {
+	if !h.ancestor(index["e12"], index["e1"]) {
 		t.Fatalf("e1 should be ancestor of e12")
 	}
-	if !h.Ancestor(index["e12"], index["s20"]) {
+	if !h.ancestor(index["e12"], index["s20"]) {
 		t.Fatalf("s20 should be ancestor of e12")
 	}
 
 	//3 generations
-	if !h.Ancestor(index["e20"], index["e0"]) {
+	if !h.ancestor(index["e20"], index["e0"]) {
 		t.Fatal("e0 should be ancestor of e20")
 	}
-	if !h.Ancestor(index["e20"], index["e1"]) {
+	if !h.ancestor(index["e20"], index["e1"]) {
 		t.Fatal("e1 should be ancestor of e20")
 	}
-	if !h.Ancestor(index["e20"], index["e2"]) {
+	if !h.ancestor(index["e20"], index["e2"]) {
 		t.Fatal("e2 should be ancestor of e20")
 	}
-	if !h.Ancestor(index["e12"], index["e01"]) {
+	if !h.ancestor(index["e12"], index["e01"]) {
 		t.Fatal("e01 should be ancestor of e12")
 	}
-	if !h.Ancestor(index["e12"], index["e0"]) {
+	if !h.ancestor(index["e12"], index["e0"]) {
 		t.Fatal("e0 should be ancestor of e12")
 	}
-	if !h.Ancestor(index["e12"], index["e1"]) {
+	if !h.ancestor(index["e12"], index["e1"]) {
 		t.Fatal("e1 should be ancestor of e12")
 	}
-	if !h.Ancestor(index["e12"], index["e2"]) {
+	if !h.ancestor(index["e12"], index["e2"]) {
 		t.Fatal("e2 should be ancestor of e12")
 	}
 
 	//false positive
-	if h.Ancestor(index["e01"], index["e2"]) {
+	if h.ancestor(index["e01"], index["e2"]) {
 		t.Fatal("e2 should not be ancestor of e01")
 	}
-	if h.Ancestor(index["s00"], index["e2"]) {
+	if h.ancestor(index["s00"], index["e2"]) {
 		t.Fatal("e2 should not be ancestor of s00")
 	}
 
-	if h.Ancestor(index["e0"], "") {
+	if h.ancestor(index["e0"], "") {
 		t.Fatal("\"\" should not be ancestor of e0")
 	}
-	if h.Ancestor(index["s00"], "") {
+	if h.ancestor(index["s00"], "") {
 		t.Fatal("\"\" should not be ancestor of s00")
 	}
-	if h.Ancestor(index["e12"], "") {
+	if h.ancestor(index["e12"], "") {
 		t.Fatal("\"\" should not be ancestor of e12")
 	}
 
@@ -231,40 +232,40 @@ func TestSelfAncestor(t *testing.T) {
 	h, index := initHashgraph(t)
 
 	//1 generation
-	if !h.SelfAncestor(index["e01"], index["e0"]) {
+	if !h.selfAncestor(index["e01"], index["e0"]) {
 		t.Fatal("e0 should be self ancestor of e01")
 	}
-	if !h.SelfAncestor(index["s00"], index["e01"]) {
+	if !h.selfAncestor(index["s00"], index["e01"]) {
 		t.Fatal("e01 should be self ancestor of s00")
 	}
 
 	//1 generation false negatives
-	if h.SelfAncestor(index["e01"], index["e1"]) {
+	if h.selfAncestor(index["e01"], index["e1"]) {
 		t.Fatal("e1 should not be self ancestor of e01")
 	}
-	if h.SelfAncestor(index["e12"], index["e20"]) {
+	if h.selfAncestor(index["e12"], index["e20"]) {
 		t.Fatal("e20 should not be self ancestor of e12")
 	}
-	if h.SelfAncestor(index["s20"], "") {
+	if h.selfAncestor(index["s20"], "") {
 		t.Fatal("\"\" should not be self ancestor of s20")
 	}
 
 	//2 generation
-	if !h.SelfAncestor(index["e20"], index["e2"]) {
+	if !h.selfAncestor(index["e20"], index["e2"]) {
 		t.Fatal("e2 should be self ancestor of e20")
 	}
-	if !h.SelfAncestor(index["e12"], index["e1"]) {
+	if !h.selfAncestor(index["e12"], index["e1"]) {
 		t.Fatal("e1 should be self ancestor of e12")
 	}
 
 	//2 generation false negative
-	if h.SelfAncestor(index["e20"], index["e0"]) {
+	if h.selfAncestor(index["e20"], index["e0"]) {
 		t.Fatal("e0 should not be self ancestor of e20")
 	}
-	if h.SelfAncestor(index["e12"], index["e2"]) {
+	if h.selfAncestor(index["e12"], index["e2"]) {
 		t.Fatal("e2 should not be self ancestor of e12")
 	}
-	if h.SelfAncestor(index["e20"], index["e01"]) {
+	if h.selfAncestor(index["e20"], index["e01"]) {
 		t.Fatal("e01 should not be self ancestor of e20")
 	}
 
@@ -273,28 +274,28 @@ func TestSelfAncestor(t *testing.T) {
 func TestSee(t *testing.T) {
 	h, index := initHashgraph(t)
 
-	if !h.See(index["e01"], index["e0"]) {
+	if !h.see(index["e01"], index["e0"]) {
 		t.Fatal("e01 should see e0")
 	}
-	if !h.See(index["e01"], index["e1"]) {
+	if !h.see(index["e01"], index["e1"]) {
 		t.Fatal("e01 should see e1")
 	}
-	if !h.See(index["e20"], index["e0"]) {
+	if !h.see(index["e20"], index["e0"]) {
 		t.Fatal("e20 should see e0")
 	}
-	if !h.See(index["e20"], index["e01"]) {
+	if !h.see(index["e20"], index["e01"]) {
 		t.Fatal("e20 should see e01")
 	}
-	if !h.See(index["e12"], index["e01"]) {
+	if !h.see(index["e12"], index["e01"]) {
 		t.Fatal("e12 should see e01")
 	}
-	if !h.See(index["e12"], index["e0"]) {
+	if !h.see(index["e12"], index["e0"]) {
 		t.Fatal("e12 should see e0")
 	}
-	if !h.See(index["e12"], index["e1"]) {
+	if !h.see(index["e12"], index["e1"]) {
 		t.Fatal("e12 should see e1")
 	}
-	if !h.See(index["e12"], index["s20"]) {
+	if !h.see(index["e12"], index["s20"]) {
 		t.Fatal("e12 should see s20")
 	}
 }
@@ -642,53 +643,53 @@ func TestReadWireInfo(t *testing.T) {
 func TestStronglySee(t *testing.T) {
 	h, index := initRoundHashgraph(t)
 
-	if !h.StronglySee(index["e21"], index["e0"]) {
+	if !h.stronglySee(index["e21"], index["e0"]) {
 		t.Fatal("e21 should strongly see e0")
 	}
 
-	if !h.StronglySee(index["e02"], index["e10"]) {
+	if !h.stronglySee(index["e02"], index["e10"]) {
 		t.Fatal("e02 should strongly see e10")
 	}
-	if !h.StronglySee(index["e02"], index["e0"]) {
+	if !h.stronglySee(index["e02"], index["e0"]) {
 		t.Fatal("e02 should strongly see e0")
 	}
-	if !h.StronglySee(index["e02"], index["e1"]) {
+	if !h.stronglySee(index["e02"], index["e1"]) {
 		t.Fatal("e02 should strongly see e1")
 	}
 
-	if !h.StronglySee(index["f1"], index["e21"]) {
+	if !h.stronglySee(index["f1"], index["e21"]) {
 		t.Fatal("f1 should strongly see e21")
 	}
-	if !h.StronglySee(index["f1"], index["e10"]) {
+	if !h.stronglySee(index["f1"], index["e10"]) {
 		t.Fatal("f1 should strongly see e10")
 	}
-	if !h.StronglySee(index["f1"], index["e0"]) {
+	if !h.stronglySee(index["f1"], index["e0"]) {
 		t.Fatal("f1 should strongly see e0")
 	}
-	if !h.StronglySee(index["f1"], index["e1"]) {
+	if !h.stronglySee(index["f1"], index["e1"]) {
 		t.Fatal("f1 should strongly see e1")
 	}
-	if !h.StronglySee(index["f1"], index["e2"]) {
+	if !h.stronglySee(index["f1"], index["e2"]) {
 		t.Fatal("f1 should strongly see e2")
 	}
-	if !h.StronglySee(index["s11"], index["e2"]) {
+	if !h.stronglySee(index["s11"], index["e2"]) {
 		t.Fatal("s11 should strongly see e2")
 	}
 
 	//false negatives
-	if h.StronglySee(index["e10"], index["e0"]) {
+	if h.stronglySee(index["e10"], index["e0"]) {
 		t.Fatal("e12 should not strongly see e2")
 	}
-	if h.StronglySee(index["e21"], index["e1"]) {
+	if h.stronglySee(index["e21"], index["e1"]) {
 		t.Fatal("e21 should not strongly see e1")
 	}
-	if h.StronglySee(index["e21"], index["e2"]) {
+	if h.stronglySee(index["e21"], index["e2"]) {
 		t.Fatal("e21 should not strongly see e2")
 	}
-	if h.StronglySee(index["e02"], index["e2"]) {
+	if h.stronglySee(index["e02"], index["e2"]) {
 		t.Fatal("e02 should not strongly see e2")
 	}
-	if h.StronglySee(index["s11"], index["e02"]) {
+	if h.stronglySee(index["s11"], index["e02"]) {
 		t.Fatal("s11 should not strongly see e02")
 	}
 }
@@ -706,31 +707,31 @@ func TestParentRound(t *testing.T) {
 	round1Witnesses[index["f1"]] = RoundEvent{Witness: true, Famous: Undefined}
 	h.Store.SetRound(1, RoundInfo{Events: round1Witnesses})
 
-	if r := h.ParentRound(index["e0"]).round; r != -1 {
+	if r := h.parentRound(index["e0"]).round; r != -1 {
 		t.Fatalf("e0.ParentRound().round should be -1, not %d", r)
 	}
-	if r := h.ParentRound(index["e0"]).isRoot; !r {
+	if r := h.parentRound(index["e0"]).isRoot; !r {
 		t.Fatal("e0.ParentRound().isRoot should be true")
 	}
 
-	if r := h.ParentRound(index["e1"]).round; r != -1 {
+	if r := h.parentRound(index["e1"]).round; r != -1 {
 		t.Fatalf("e1.ParentRound().round should be -1, not %d", r)
 	}
-	if r := h.ParentRound(index["e1"]).isRoot; !r {
+	if r := h.parentRound(index["e1"]).isRoot; !r {
 		t.Fatal("e1.ParentRound().isRoot should be true")
 	}
 
-	if r := h.ParentRound(index["f1"]).round; r != 0 {
+	if r := h.parentRound(index["f1"]).round; r != 0 {
 		t.Fatalf("f1.ParentRound().round should be 0, not %d", r)
 	}
-	if r := h.ParentRound(index["f1"]).isRoot; r {
+	if r := h.parentRound(index["f1"]).isRoot; r {
 		t.Fatalf("f1.ParentRound().isRoot should be false")
 	}
 
-	if r := h.ParentRound(index["s11"]).round; r != 1 {
+	if r := h.parentRound(index["s11"]).round; r != 1 {
 		t.Fatalf("s11.ParentRound().round should be 1, not %d", r)
 	}
-	if r := h.ParentRound(index["s11"]).isRoot; r {
+	if r := h.parentRound(index["s11"]).isRoot; r {
 		t.Fatalf("s11.ParentRound().isRoot should be false")
 	}
 }
@@ -748,26 +749,26 @@ func TestWitness(t *testing.T) {
 	round1Witnesses[index["f1"]] = RoundEvent{Witness: true, Famous: Undefined}
 	h.Store.SetRound(1, RoundInfo{Events: round1Witnesses})
 
-	if !h.Witness(index["e0"]) {
+	if !h.witness(index["e0"]) {
 		t.Fatalf("e0 should be witness")
 	}
-	if !h.Witness(index["e1"]) {
+	if !h.witness(index["e1"]) {
 		t.Fatalf("e1 should be witness")
 	}
-	if !h.Witness(index["e2"]) {
+	if !h.witness(index["e2"]) {
 		t.Fatalf("e2 should be witness")
 	}
-	if !h.Witness(index["f1"]) {
+	if !h.witness(index["f1"]) {
 		t.Fatalf("f1 should be witness")
 	}
 
-	if h.Witness(index["e10"]) {
+	if h.witness(index["e10"]) {
 		t.Fatalf("e10 should not be witness")
 	}
-	if h.Witness(index["e21"]) {
+	if h.witness(index["e21"]) {
 		t.Fatalf("e21 should not be witness")
 	}
-	if h.Witness(index["e02"]) {
+	if h.witness(index["e02"]) {
 		t.Fatalf("e02 should not be witness")
 	}
 }
@@ -781,11 +782,11 @@ func TestRoundInc(t *testing.T) {
 	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
 	h.Store.SetRound(0, RoundInfo{Events: round0Witnesses})
 
-	if !h.RoundInc(index["f1"]) {
+	if !h.roundInc(index["f1"]) {
 		t.Fatal("RoundInc f1 should be true")
 	}
 
-	if h.RoundInc(index["e02"]) {
+	if h.roundInc(index["e02"]) {
 		t.Fatal("RoundInc e02 should be false because it doesnt strongly see e2")
 	}
 }
@@ -799,10 +800,10 @@ func TestRound(t *testing.T) {
 	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
 	h.Store.SetRound(0, RoundInfo{Events: round0Witnesses})
 
-	if r := h.Round(index["f1"]); r != 1 {
+	if r := h.round(index["f1"]); r != 1 {
 		t.Fatalf("round of f1 should be 1 not %d", r)
 	}
-	if r := h.Round(index["e02"]); r != 0 {
+	if r := h.round(index["e02"]); r != 0 {
 		t.Fatalf("round of e02 should be 0 not %d", r)
 	}
 
@@ -817,20 +818,20 @@ func TestRoundDiff(t *testing.T) {
 	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
 	h.Store.SetRound(0, RoundInfo{Events: round0Witnesses})
 
-	if d, err := h.RoundDiff(index["f1"], index["e02"]); d != 1 {
+	if d, err := h.roundDiff(index["f1"], index["e02"]); d != 1 {
 		if err != nil {
 			t.Fatalf("RoundDiff(f1, e02) returned an error: %s", err)
 		}
 		t.Fatalf("RoundDiff(f1, e02) should be 1 not %d", d)
 	}
 
-	if d, err := h.RoundDiff(index["e02"], index["f1"]); d != -1 {
+	if d, err := h.roundDiff(index["e02"], index["f1"]); d != -1 {
 		if err != nil {
 			t.Fatalf("RoundDiff(e02, f1) returned an error: %s", err)
 		}
 		t.Fatalf("RoundDiff(e02, f1) should be -1 not %d", d)
 	}
-	if d, err := h.RoundDiff(index["e02"], index["e21"]); d != 0 {
+	if d, err := h.roundDiff(index["e02"], index["e21"]); d != 0 {
 		if err != nil {
 			t.Fatalf("RoundDiff(e20, e21) returned an error: %s", err)
 		}
@@ -841,8 +842,7 @@ func TestRoundDiff(t *testing.T) {
 func TestDivideRounds(t *testing.T) {
 	h, index := initRoundHashgraph(t)
 
-	err := h.DivideRounds()
-	if err != nil {
+	if err := h.DivideRounds(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -878,19 +878,19 @@ func TestDivideRounds(t *testing.T) {
 		t.Fatalf("round 1 witnesses should contain f1")
 	}
 
-	expectedPendingRounds := []PendingRound{
-		PendingRound{
+	expectedpendingRounds := []pendingRound{
+		pendingRound{
 			Index:   0,
 			Decided: false,
 		},
-		PendingRound{
+		pendingRound{
 			Index:   1,
 			Decided: false,
 		},
 	}
 	for i, pd := range h.PendingRounds {
-		if !reflect.DeepEqual(*pd, expectedPendingRounds[i]) {
-			t.Fatalf("PendingRounds[%d] should be %v, not %v", i, expectedPendingRounds[i], *pd)
+		if !reflect.DeepEqual(*pd, expectedpendingRounds[i]) {
+			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedpendingRounds[i], *pd)
 		}
 	}
 }
@@ -1077,11 +1077,12 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 }
 
 /*
+                  Round 4
 		i0  |   i2
 		| \ | / |
 		|   i1  |
-		|  /|   |
-		h02 |   |
+------- |  /|   | --------------------------------
+		h02 |   | Round 3
 		| \ |   |
 		|   \   |
 		|   | \ |
@@ -1092,8 +1093,8 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 		h0  |   h2
 		| \ | / |
 		|   h1  |
-		|  /|   |
-		g02 |   |
+------- |  /|   | --------------------------------
+		g02 |   | Round 2
 		| \ |   |
 		|   \   |
 		|   | \ |
@@ -1104,12 +1105,12 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 		g0  |   g2
 		| \ | / |
 		|   g1  |
-		|  /|   |
-		f02b|   |
-		|   |   |
-		f02 |   |
-		| \ |   |
-		|   \   |
+------- |  /|   | -------------------------------
+		f02b|   |  Round 1           +---------+
+		|   |   |                    | Block 1 |
+		f02 |   |                    | RR    2 |
+		| \ |   |                    | Evs   9 |
+		|   \   |                    +---------+
 		|   | \ |
 	---f0x  |   f21 //f0x's other-parent is e21b. This situation can happen with concurrency
 	|	|   | / |
@@ -1120,17 +1121,17 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 	|	|  f1b  |
 	|	|   |   |
 	|	|   f1  |
-	|	|  /|   |
-	|	e02 |   |
-	|	| \ |   |
-	|	|   \   |
-	|	|   | \ |
-	----------- e21b
+---	| -	|  /|   | ------------------------------
+	|	e02 |   |  Round 0          +---------+
+	|	| \ |   |                   | Block 0 |
+	|	|   \   |                   | RR    1 |
+	|	|   | \ |                   | Evs   7 |
+	----------- e21b                +---------+
 		|   |   |
 		|   |  e21
 		|   | / |
 		|  e10  |
-		| / |   |
+	    | / |   |
 		e0  e1  e2
 		0   1    2
 */
@@ -1218,7 +1219,9 @@ func TestDecideFame(t *testing.T) {
 	h, index := initConsensusHashgraph(false, t)
 
 	h.DivideRounds()
-	h.DecideFame()
+	if err := h.DecideFame(); err != nil {
+		t.Fatal(err)
+	}
 
 	round0, err := h.Store.GetRound(0)
 	if err != nil {
@@ -1262,31 +1265,31 @@ func TestDecideFame(t *testing.T) {
 		t.Fatalf("g2 should be famous; got %v", f)
 	}
 
-	expectedPendingRounds := []PendingRound{
-		PendingRound{
+	expectedpendingRounds := []pendingRound{
+		pendingRound{
 			Index:   0,
 			Decided: true,
 		},
-		PendingRound{
+		pendingRound{
 			Index:   1,
 			Decided: true,
 		},
-		PendingRound{
+		pendingRound{
 			Index:   2,
 			Decided: true,
 		},
-		PendingRound{
+		pendingRound{
 			Index:   3,
 			Decided: false,
 		},
-		PendingRound{
+		pendingRound{
 			Index:   4,
 			Decided: false,
 		},
 	}
 	for i, pd := range h.PendingRounds {
-		if !reflect.DeepEqual(*pd, expectedPendingRounds[i]) {
-			t.Fatalf("PendingRounds[%d] should be %v, not %v", i, expectedPendingRounds[i], *pd)
+		if !reflect.DeepEqual(*pd, expectedpendingRounds[i]) {
+			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedpendingRounds[i], *pd)
 		}
 	}
 }
@@ -1294,22 +1297,22 @@ func TestDecideFame(t *testing.T) {
 func TestOldestSelfAncestorToSee(t *testing.T) {
 	h, index := initConsensusHashgraph(false, t)
 
-	if a := h.OldestSelfAncestorToSee(index["f0"], index["e1"]); a != index["e02"] {
+	if a := h.oldestSelfAncestorToSee(index["f0"], index["e1"]); a != index["e02"] {
 		t.Fatalf("oldest self ancestor of f0 to see e1 should be e02 not %s", getName(index, a))
 	}
-	if a := h.OldestSelfAncestorToSee(index["f1"], index["e0"]); a != index["e10"] {
+	if a := h.oldestSelfAncestorToSee(index["f1"], index["e0"]); a != index["e10"] {
 		t.Fatalf("oldest self ancestor of f1 to see e0 should be e10 not %s", getName(index, a))
 	}
-	if a := h.OldestSelfAncestorToSee(index["f1b"], index["e0"]); a != index["e10"] {
+	if a := h.oldestSelfAncestorToSee(index["f1b"], index["e0"]); a != index["e10"] {
 		t.Fatalf("oldest self ancestor of f1b to see e0 should be e10 not %s", getName(index, a))
 	}
-	if a := h.OldestSelfAncestorToSee(index["g2"], index["f1"]); a != index["f2"] {
+	if a := h.oldestSelfAncestorToSee(index["g2"], index["f1"]); a != index["f2"] {
 		t.Fatalf("oldest self ancestor of g2 to see f1 should be f2 not %s", getName(index, a))
 	}
-	if a := h.OldestSelfAncestorToSee(index["e21"], index["e1"]); a != index["e21"] {
+	if a := h.oldestSelfAncestorToSee(index["e21"], index["e1"]); a != index["e21"] {
 		t.Fatalf("oldest self ancestor of e20 to see e1 should be e21 not %s", getName(index, a))
 	}
-	if a := h.OldestSelfAncestorToSee(index["e2"], index["e1"]); a != "" {
+	if a := h.oldestSelfAncestorToSee(index["e2"], index["e1"]); a != "" {
 		t.Fatalf("oldest self ancestor of e2 to see e1 should be '' not %s", getName(index, a))
 	}
 }
@@ -1319,7 +1322,9 @@ func TestDecideRoundReceived(t *testing.T) {
 
 	h.DivideRounds()
 	h.DecideFame()
-	h.DecideRoundReceived()
+	if err := h.DecideRoundReceived(); err != nil {
+		t.Fatal(err)
+	}
 
 	for name, hash := range index {
 		e, _ := h.Store.GetEvent(hash)
@@ -1383,6 +1388,10 @@ func TestDecideRoundReceived(t *testing.T) {
 			t.Fatalf("UndeterminedEvents[%d] should be %s, not %s", i, eue, ue)
 		}
 	}
+
+	if v := h.LowestRoundWithUndeterminedEvents; v == nil || *v != 2 {
+		t.Fatalf("LowestRoundWithUndeterminedEvents should be 2, not %d", v)
+	}
 }
 
 func TestProcessDecidedRounds(t *testing.T) {
@@ -1396,28 +1405,27 @@ func TestProcessDecidedRounds(t *testing.T) {
 	}
 
 	//--------------------------------------------------------------------------
-	for i, e := range h.ConsensusEvents() {
+	consensusEvents := h.Store.ConsensusEvents()
+
+	for i, e := range consensusEvents {
 		t.Logf("consensus[%d]: %s\n", i, getName(index, e))
 	}
 
-	if l := len(h.ConsensusEvents()); l != 16 {
+	if l := len(consensusEvents); l != 16 {
 		t.Fatalf("length of consensus should be 16 not %d", l)
+	}
+
+	//Events which have the same consensus timestamp are ordered by whitened
+	//signature which is not deterministic; It is hard to test the ordering.
+	if n := getName(index, consensusEvents[0]); n != "e0" {
+		t.Fatalf("consensus[0] should be e0, not %s", n)
+	}
+	if n := getName(index, consensusEvents[6]); n != "e02" {
+		t.Fatalf("consensus[6] should be e02, not %s", n)
 	}
 
 	if ple := h.PendingLoadedEvents; ple != 2 {
 		t.Fatalf("PendingLoadedEvents should be 2, not %d", ple)
-	}
-
-	consensusEvents := h.ConsensusEvents()
-
-	if n := getName(index, consensusEvents[0]); n != "e0" {
-		t.Fatalf("consensus[0] should be e0, not %s", n)
-	}
-
-	//events which have the same consensus timestamp are ordered by whitened
-	//signature which is not deterministic.
-	if n := getName(index, consensusEvents[6]); n != "e02" {
-		t.Fatalf("consensus[6] should be e02, not %s", n)
 	}
 
 	//Block 0 ------------------------------------------------------------------
@@ -1474,22 +1482,31 @@ func TestProcessDecidedRounds(t *testing.T) {
 		t.Fatalf("Block1.FrameHash should be %v, not %v", frame2Hash, block1.FrameHash())
 	}
 
-	// PendingRounds -----------------------------------------------------------
-	expectedPendingRounds := []PendingRound{
-		PendingRound{
+	// pendingRounds -----------------------------------------------------------
+	expectedpendingRounds := []pendingRound{
+		pendingRound{
 			Index:   3,
 			Decided: false,
 		},
-		PendingRound{
+		pendingRound{
 			Index:   4,
 			Decided: false,
 		},
 	}
 	for i, pd := range h.PendingRounds {
-		if !reflect.DeepEqual(*pd, expectedPendingRounds[i]) {
-			t.Fatalf("PendingRounds[%d] should be %v, not %v", i, expectedPendingRounds[i], *pd)
+		if !reflect.DeepEqual(*pd, expectedpendingRounds[i]) {
+			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedpendingRounds[i], *pd)
 		}
 	}
+
+	//Anchor -------------------------------------------------------------------
+	if v := h.LowestRoundWithUndeterminedEvents; v == nil || *v != 2 {
+		t.Fatalf("LowestRoundWithUndecidedEvents should be 2, not %d", v)
+	}
+	if v := h.AnchorBlock; v != nil {
+		t.Fatalf("AnchorBlock should be nil, not %v", v)
+	}
+
 }
 
 func BenchmarkConsensus(b *testing.B) {
@@ -1515,7 +1532,7 @@ func TestKnown(t *testing.T) {
 		2: 9,
 	}
 
-	known := h.KnownEvents()
+	known := h.Store.KnownEvents()
 	for _, id := range h.Participants {
 		if l := known[id]; l != expectedKnown[id] {
 			t.Fatalf("Known[%d] should be %d, not %d", id, expectedKnown[id], l)
@@ -1579,7 +1596,6 @@ func TestGetFrame(t *testing.T) {
 			}
 		}
 
-		//expected to be in topological order
 		expectedEventsHashes := []string{
 			index["e0"],
 			index["e1"],
@@ -1596,6 +1612,7 @@ func TestGetFrame(t *testing.T) {
 			}
 			expectedEvents = append(expectedEvents, e)
 		}
+		sort.Sort(ByConsensusTimestamp(expectedEvents))
 		if !reflect.DeepEqual(expectedEvents, frame.Events) {
 			t.Fatal("Frame.Events is not good")
 		}
@@ -1609,7 +1626,7 @@ func TestGetFrame(t *testing.T) {
 			t.Fatalf("Error computing Frame hash, %v", err)
 		}
 		if !reflect.DeepEqual(block0.FrameHash(), frame1Hash) {
-			t.Fatalf("Block0.FramHash (%v) and Frame1.Hash (%v) differ", block0.FrameHash(), frame1Hash)
+			t.Fatalf("Block0.FrameHash (%v) and Frame1.Hash (%v) differ", block0.FrameHash(), frame1Hash)
 		}
 	})
 
@@ -1619,24 +1636,27 @@ func TestGetFrame(t *testing.T) {
 			X:     index["e02"],
 			Y:     index["f1b"],
 			Index: 1,
-			Round: 0,
+			Round: 1,
+			StronglySeenWitnesses: 0,
 			Others: map[string]string{
 				index["f0x"]: index["e21b"],
 			},
 		}
 		expectedRoots[1] = Root{
-			X:      index["e10"],
-			Y:      index["e02"],
-			Index:  1,
-			Round:  0,
-			Others: map[string]string{},
+			X:     index["e10"],
+			Y:     index["e02"],
+			Index: 1,
+			Round: 0,
+			StronglySeenWitnesses: 3,
+			Others:                map[string]string{},
 		}
 		expectedRoots[2] = Root{
-			X:      index["e21b"],
-			Y:      index["f1b"],
-			Index:  2,
-			Round:  0,
-			Others: map[string]string{},
+			X:     index["e21b"],
+			Y:     index["f1b"],
+			Index: 2,
+			Round: 1,
+			StronglySeenWitnesses: 0,
+			Others:                map[string]string{},
 		}
 
 		frame, err := h.GetFrame(2)
@@ -1681,6 +1701,7 @@ func TestGetFrame(t *testing.T) {
 			}
 			expectedEvents = append(expectedEvents, e)
 		}
+		sort.Sort(ByConsensusTimestamp(expectedEvents))
 		if !reflect.DeepEqual(expectedEvents, frame.Events) {
 			t.Fatal("Frame.Events is not good")
 		}
@@ -1689,7 +1710,7 @@ func TestGetFrame(t *testing.T) {
 }
 
 func TestResetFromFrame(t *testing.T) {
-	h, _ := initConsensusHashgraph(false, t)
+	h, index := initConsensusHashgraph(false, t)
 
 	h.DivideRounds()
 	h.DecideFame()
@@ -1706,7 +1727,11 @@ func TestResetFromFrame(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = h.Reset(block, frame)
+	h2 := NewHashgraph(h.Participants,
+		NewInmemStore(h.Participants, cacheSize),
+		nil,
+		testLogger(t))
+	err = h2.Reset(block, frame)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1739,20 +1764,39 @@ func TestResetFromFrame(t *testing.T) {
 		2: 4,
 	}
 
-	known := h.KnownEvents()
-	for _, id := range h.Participants {
+	known := h2.Store.KnownEvents()
+	for _, id := range h2.Participants {
 		if l := known[id]; l != expectedKnown[id] {
 			t.Fatalf("Known[%d] should be %d, not %d", id, expectedKnown[id], l)
 		}
 	}
 
-	h.DivideRounds()
-	h.DecideFame()
-	h.DecideRoundReceived()
-	h.ProcessDecidedRounds()
+	h2.DivideRounds()
+	h2.DecideFame()
+	h2.DecideRoundReceived()
+	h2.ProcessDecidedRounds()
 
-	if r := h.LastConsensusRound; r != nil {
-		t.Fatalf("LastConsensusRound should be nil, not %#v", r)
+	//check Event Rounds
+	for _, ev := range frame.Events {
+		if h2r := h2.round(ev.Hex()); h2r != h.round(ev.Hex()) {
+			t.Fatalf("h2[%v].Round should be %d, not %d", getName(index, ev.Hex()), h.round(ev.Hex()), h2r)
+		}
+	}
+
+	if lbi := h2.Store.LastBlockIndex(); lbi != block.Index() {
+		t.Fatalf("LastBlockIndex should be %d, not %d", block.Index(), lbi)
+	}
+
+	if r := h2.LastConsensusRound; r == nil || *r != block.RoundReceived() {
+		t.Fatalf("LastConsensusRound should be %d, not %d", block.RoundReceived(), *r)
+	}
+
+	if v := h2.LowestRoundWithUndeterminedEvents; v == nil || *v != 1 {
+		t.Fatalf("LowestRoundWithUndeterminedEvents should be 1, not %v", *v)
+	}
+
+	if v := h2.AnchorBlock; v != nil {
+		t.Fatalf("AnchorBlock should be nil, not %v", v)
 	}
 }
 
@@ -1781,15 +1825,15 @@ func TestBootstrap(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	hConsensusEvents := h.ConsensusEvents()
-	nhConsensusEvents := nh.ConsensusEvents()
+	hConsensusEvents := h.Store.ConsensusEvents()
+	nhConsensusEvents := nh.Store.ConsensusEvents()
 	if len(hConsensusEvents) != len(nhConsensusEvents) {
 		t.Fatalf("Bootstrapped hashgraph should contain %d consensus events,not %d",
 			len(hConsensusEvents), len(nhConsensusEvents))
 	}
 
-	hKnown := h.KnownEvents()
-	nhKnown := nh.KnownEvents()
+	hKnown := h.Store.KnownEvents()
+	nhKnown := nh.Store.KnownEvents()
 	if !reflect.DeepEqual(hKnown, nhKnown) {
 		t.Fatalf("Bootstrapped hashgraph's Known should be %#v, not %#v",
 			hKnown, nhKnown)
@@ -1957,8 +2001,12 @@ func initFunkyHashgraph(logger *logrus.Logger, full bool) (*Hashgraph, map[strin
 func TestFunkyHashgraphFame(t *testing.T) {
 	h, index := initFunkyHashgraph(common.NewTestLogger(t), false)
 
-	h.DivideRounds()
-	h.DecideFame()
+	if err := h.DivideRounds(); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.DecideFame(); err != nil {
+		t.Fatal(err)
+	}
 
 	if l := h.Store.LastRound(); l != 4 {
 		t.Fatalf("last round should be 4 not %d", l)
@@ -1977,56 +2025,72 @@ func TestFunkyHashgraphFame(t *testing.T) {
 	}
 
 	//Rounds 1 and 2 should get decided BEFORE round 0
-	expectedPendingRounds := []PendingRound{
-		PendingRound{
+	expectedpendingRounds := []pendingRound{
+		pendingRound{
 			Index:   0,
 			Decided: false,
 		},
-		PendingRound{
+		pendingRound{
 			Index:   1,
 			Decided: true,
 		},
-		PendingRound{
+		pendingRound{
 			Index:   2,
 			Decided: true,
 		},
-		PendingRound{
+		pendingRound{
 			Index:   3,
 			Decided: false,
 		},
-		PendingRound{
+		pendingRound{
 			Index:   4,
 			Decided: false,
 		},
 	}
 
 	for i, pd := range h.PendingRounds {
-		if !reflect.DeepEqual(*pd, expectedPendingRounds[i]) {
-			t.Fatalf("PendingRounds[%d] should be %v, not %v", i, expectedPendingRounds[i], *pd)
+		if !reflect.DeepEqual(*pd, expectedpendingRounds[i]) {
+			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedpendingRounds[i], *pd)
 		}
 	}
 
-	h.DecideRoundReceived()
-	h.ProcessDecidedRounds()
+	if err := h.DecideRoundReceived(); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.ProcessDecidedRounds(); err != nil {
+		t.Fatal(err)
+	}
 
 	//But a dicided round should never be processed until all previous rounds
 	//are decided. So the PendingQueue should remain the same after calling
 	//ProcessDecidedRounds()
 
 	for i, pd := range h.PendingRounds {
-		if !reflect.DeepEqual(*pd, expectedPendingRounds[i]) {
-			t.Fatalf("PendingRounds[%d] should be %v, not %v", i, expectedPendingRounds[i], *pd)
+		if !reflect.DeepEqual(*pd, expectedpendingRounds[i]) {
+			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedpendingRounds[i], *pd)
 		}
+	}
+
+	if v := h.LowestRoundWithUndeterminedEvents; v == nil || *v != 1 {
+		t.Fatalf("LowestRoundWithUndecidedEvents should be 1, not %d", v)
 	}
 }
 
 func TestFunkyHashgraphBlocks(t *testing.T) {
 	h, index := initFunkyHashgraph(common.NewTestLogger(t), true)
 
-	h.DivideRounds()
-	h.DecideFame()
-	h.DecideRoundReceived()
-	h.ProcessDecidedRounds()
+	if err := h.DivideRounds(); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.DecideFame(); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.DecideRoundReceived(); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.ProcessDecidedRounds(); err != nil {
+		t.Fatal(err)
+	}
 
 	if l := h.Store.LastRound(); l != 5 {
 		t.Fatalf("last round should be 5 not %d", l)
@@ -2045,19 +2109,19 @@ func TestFunkyHashgraphBlocks(t *testing.T) {
 	}
 
 	//rounds 0,1, 2 and 3 should be decided
-	expectedPendingRounds := []PendingRound{
-		PendingRound{
+	expectedpendingRounds := []pendingRound{
+		pendingRound{
 			Index:   4,
 			Decided: false,
 		},
-		PendingRound{
+		pendingRound{
 			Index:   5,
 			Decided: false,
 		},
 	}
 	for i, pd := range h.PendingRounds {
-		if !reflect.DeepEqual(*pd, expectedPendingRounds[i]) {
-			t.Fatalf("PendingRounds[%d] should be %v, not %v", i, expectedPendingRounds[i], *pd)
+		if !reflect.DeepEqual(*pd, expectedpendingRounds[i]) {
+			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedpendingRounds[i], *pd)
 		}
 	}
 
@@ -2078,6 +2142,105 @@ func TestFunkyHashgraphBlocks(t *testing.T) {
 		if txs := len(b.Transactions()); txs != expectedBlockTxCounts[bi] {
 			t.Fatalf("Blocks[%d] should contain %d transactions, not %d", bi,
 				expectedBlockTxCounts[bi], txs)
+		}
+	}
+}
+
+func TestFunkyHashgraphFrames(t *testing.T) {
+	h, index := initFunkyHashgraph(common.NewTestLogger(t), true)
+
+	if err := h.DivideRounds(); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.DecideFame(); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.DecideRoundReceived(); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.ProcessDecidedRounds(); err != nil {
+		t.Fatal(err)
+	}
+
+	for bi := 0; bi < 3; bi++ {
+		block, err := h.Store.GetBlock(bi)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		frame, err := h.GetFrame(block.RoundReceived())
+		for k, ev := range frame.Events {
+			t.Logf("frame[%d].Events[%d]: %s, round %d", frame.Round, k, getName(index, ev.Hex()), h.round(ev.Hex()))
+		}
+		for k, r := range frame.Roots {
+			t.Logf("frame[%d].Roots[%d]: X: %s, Y: %s, Index: %d, Round: %d, StronglySeenWitnesses: %d", frame.Round, k, getName(index, r.X), getName(index, r.Y), r.Index, r.Round, r.StronglySeenWitnesses)
+		}
+	}
+
+	// expectedFrameEvents := map[int][]string{
+	// 	1: []string{"w01", "w02", "w03", "a23", "a12", "a21"},        //frame1
+	// 	2: []string{"w00", "a00", "a10", "w13", "w12", "w11", "b21"}, //frame2
+	// 	3: []string{"w10", "w23", "w21", "b00", "c10", "w22", "w20"}, //frame3
+	// }
+	expectedFrameRoots := map[int][]Root{
+		1: []Root{
+			Root{X: "", Y: "", Index: -1, Round: -1, StronglySeenWitnesses: 0, Others: map[string]string{}},
+			Root{X: "", Y: "", Index: -1, Round: -1, StronglySeenWitnesses: 0, Others: map[string]string{}},
+			Root{X: "", Y: "", Index: -1, Round: -1, StronglySeenWitnesses: 0, Others: map[string]string{}},
+			Root{X: "", Y: "", Index: -1, Round: -1, StronglySeenWitnesses: 0, Others: map[string]string{}},
+		},
+		2: []Root{
+			Root{X: "", Y: "", Index: -1, Round: -1, StronglySeenWitnesses: 0, Others: map[string]string{}},
+			Root{X: index["a12"], Y: index["a00"], Index: 1, Round: 0, StronglySeenWitnesses: 1, Others: map[string]string{}},
+			Root{X: index["a21"], Y: index["w13"], Index: 2, Round: 1, StronglySeenWitnesses: 0, Others: map[string]string{}},
+			Root{X: index["w03"], Y: index["a21"], Index: 0, Round: 0, StronglySeenWitnesses: 3, Others: map[string]string{}},
+		},
+		3: []Root{
+			Root{X: index["a00"], Y: index["w11"], Index: 1, Round: 1, StronglySeenWitnesses: 2, Others: map[string]string{}},
+			Root{X: index["w11"], Y: index["w23"], Index: 3, Round: 2, StronglySeenWitnesses: 0, Others: map[string]string{}},
+			Root{X: index["b21"], Y: index["c10"], Index: 4, Round: 2, StronglySeenWitnesses: 1, Others: map[string]string{}},
+			Root{X: index["w13"], Y: index["b21"], Index: 1, Round: 1, StronglySeenWitnesses: 3, Others: map[string]string{}},
+		},
+	}
+
+	for bi := 0; bi < 3; bi++ {
+		block, err := h.Store.GetBlock(bi)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		frame, err := h.GetFrame(block.RoundReceived())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		//XXX
+		// for k, ev := range frame.Events {
+		// 	if fe := getName(index, ev.Hex()); fe != expectedFrameEvents[frame.Round][k] {
+		// 		t.Fatalf("frame[%d].Events[%d] should be %s, not %s", frame.Round, k, expectedFrameEvents[frame.Round][k], fe)
+		// 	}
+		// }
+
+		for k, r := range frame.Roots {
+			if !reflect.DeepEqual(expectedFrameRoots[frame.Round][k], r) {
+				t.Fatalf("frame[%d].Roots[%d] should be %#v, not %#v", frame.Round, k, expectedFrameRoots[frame.Round][k], r)
+			}
+		}
+
+		h2 := NewHashgraph(h.Participants,
+			NewInmemStore(h.Participants, cacheSize),
+			nil,
+			testLogger(t))
+		err = h2.Reset(block, frame)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		//check Event Rounds
+		for _, ev := range frame.Events {
+			if h2r := h2.round(ev.Hex()); h2r != h.round(ev.Hex()) {
+				t.Fatalf("RESET from block %d. h2[%v].Round should be %d, not %d", bi, getName(index, ev.Hex()), h.round(ev.Hex()), h2r)
+			}
 		}
 	}
 }

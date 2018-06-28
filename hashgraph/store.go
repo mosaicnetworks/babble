@@ -21,6 +21,9 @@ type Store interface {
 	GetRoot(string) (Root, error)
 	GetBlock(int) (Block, error)
 	SetBlock(Block) error
+	LastBlockIndex() int
+	GetFrame(int) (Frame, error)
+	SetFrame(Frame) error
 	Reset(map[string]Root) error
 	Close() error
 }
