@@ -14,6 +14,7 @@ import (
 
 type State struct {
 	stateHash []byte
+	snapshots map[int][]byte
 	logger    *logrus.Logger
 }
 
@@ -21,8 +22,25 @@ func (a *State) CommitBlock(block hashgraph.Block) ([]byte, error) {
 	a.logger.WithField("block", block).Debug("CommitBlock")
 	err := a.writeBlock(block)
 	if err != nil {
-		return a.stateHash, err
+		return nil, err
 	}
+	return a.stateHash, nil
+}
+
+func (a *State) GetSnapshot(blockIndex int) ([]byte, error) {
+	a.logger.WithField("block", blockIndex).Debug("GetSnapshot")
+
+	snapshot, ok := a.snapshots[blockIndex]
+	if !ok {
+		return nil, fmt.Errorf("Snapshot %d not found", blockIndex)
+	}
+
+	return snapshot, nil
+}
+
+func (a *State) Restore(snapshot []byte) ([]byte, error) {
+	//XXX do something smart her
+	a.stateHash = snapshot
 	return a.stateHash, nil
 }
 
@@ -53,6 +71,9 @@ func (a *State) writeBlock(block hashgraph.Block) error {
 	}
 
 	a.stateHash = hash
+
+	//XXX do something smart here
+	a.snapshots[block.Index()] = hash
 
 	return nil
 }
@@ -98,6 +119,7 @@ func NewDummySocketClient(clientAddr string, nodeAddr string, logger *logrus.Log
 
 	state := State{
 		stateHash: []byte{},
+		snapshots: make(map[int][]byte),
 		logger:    logger,
 	}
 	state.writeMessage([]byte(clientAddr))
@@ -120,6 +142,14 @@ func (c *DummySocketClient) Run() {
 			c.logger.Debug("CommitBlock")
 			stateHash, err := c.state.CommitBlock(commit.Block)
 			commit.Respond(stateHash, err)
+		case snapshotRequest := <-c.babbleProxy.SnapshotRequestCh():
+			c.logger.Debug("GetSnapshot")
+			snapshot, err := c.state.GetSnapshot(snapshotRequest.BlockIndex)
+			snapshotRequest.Respond(snapshot, err)
+		case restoreRequest := <-c.babbleProxy.RestoreCh():
+			c.logger.Debug("Restore")
+			stateHash, err := c.state.Restore(restoreRequest.Snapshot)
+			restoreRequest.Respond(stateHash, err)
 		}
 	}
 }

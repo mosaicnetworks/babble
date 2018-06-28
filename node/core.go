@@ -89,6 +89,8 @@ func (c *Core) Init() error {
 		0)
 	//We want to make the initial Event deterministic so that when a node is
 	//restarted it will initialize the same Event. cf. github issues 19 and 10
+	//XXX This does not work. The Event might be the same, but the signature
+	//will be different -> ECDSA is not deterministic
 	initialEvent.Body.Timestamp = time.Time{}.UTC()
 	err := c.SignAndInsertSelfEvent(initialEvent)
 	c.logger.WithFields(logrus.Fields{
@@ -97,10 +99,7 @@ func (c *Core) Init() error {
 	return err
 }
 
-func (c *Core) Bootstrap() error {
-	if err := c.hg.Bootstrap(); err != nil {
-		return err
-	}
+func (c *Core) SetHeadAndSeq() error {
 
 	var head string
 	var seq int
@@ -113,9 +112,10 @@ func (c *Core) Bootstrap() error {
 	if isRoot {
 		root, err := c.hg.Store.GetRoot(c.HexID())
 		if err != nil {
-			head = root.X
-			seq = root.Index
+			return err
 		}
+		head = root.X
+		seq = root.Index
 	} else {
 		lastEvent, err := c.GetEvent(last)
 		if err != nil {
@@ -128,7 +128,22 @@ func (c *Core) Bootstrap() error {
 	c.Head = head
 	c.Seq = seq
 
+	c.logger.WithFields(logrus.Fields{
+		"core.Head": c.Head,
+		"core.Seq":  c.Seq,
+		"is_root":   isRoot,
+	}).Debugf("SetHeadAndSeq")
+
 	return nil
+}
+
+func (c *Core) Bootstrap() error {
+
+	if err := c.hg.Bootstrap(); err != nil {
+		return err
+	}
+
+	return c.SetHeadAndSeq()
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

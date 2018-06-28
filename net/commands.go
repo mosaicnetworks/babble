@@ -33,7 +33,8 @@ type FastForwardRequest struct {
 }
 
 type FastForwardResponse struct {
-	FromID int
-	Block  hashgraph.Block
-	Frame  hashgraph.Frame
+	FromID   int
+	Block    hashgraph.Block
+	Frame    hashgraph.Frame
+	Snapshot []byte
 }

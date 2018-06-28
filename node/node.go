@@ -246,7 +246,6 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 		n.coreLock.Lock()
 		eventDiff, err := n.core.EventDiff(cmd.Known)
 		n.coreLock.Unlock()
-
 		elapsed := time.Since(start)
 		n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Diff()")
 		if err != nil {
@@ -320,6 +319,14 @@ func (n *Node) processFastForwardRequest(rpc net.RPC, cmd *net.FastForwardReques
 	}
 	resp.Block = block
 	resp.Frame = frame
+
+	//Get snapshot
+	snapshot, err := n.proxy.GetSnapshot(block.Index())
+	if err != nil {
+		n.logger.WithField("error", err).Error("Getting Snapshot")
+		respErr = err
+	}
+	resp.Snapshot = snapshot
 
 	n.logger.WithFields(logrus.Fields{
 		"Events": len(resp.Frame.Events),
@@ -488,23 +495,27 @@ func (n *Node) fastForward() error {
 		return err
 	}
 	n.logger.WithFields(logrus.Fields{
-		"from_id":       resp.FromID,
-		"block":         resp.Block.Index(),
-		"RoundReceived": resp.Block.RoundReceived(),
-		"events":        len(resp.Frame.Events),
+		"from_id":              resp.FromID,
+		"block_index":          resp.Block.Index(),
+		"block_round_received": resp.Block.RoundReceived(),
+		"frame_events":         len(resp.Frame.Events),
+		"frame_roots":          resp.Frame.Roots,
+		"snapshot":             resp.Snapshot,
 	}).Debug("FastForwardResponse")
 
 	//prepare core. ie: fresh hashgraph
 	n.coreLock.Lock()
 	err = n.core.FastForward(resp.Block, resp.Frame)
-	if n.core.Seq == -1 {
-		n.core.Seq = 0
-		n.core.Init()
-	}
 	n.coreLock.Unlock()
-
 	if err != nil {
 		n.logger.WithField("error", err).Error("Fast Forwarding Hashgraph")
+		return err
+	}
+
+	//update app from snapshot
+	err = n.proxy.Restore(resp.Snapshot)
+	if err != nil {
+		n.logger.WithField("error", err).Error("Restoring App from Snapshot")
 		return err
 	}
 
@@ -592,7 +603,6 @@ func (n *Node) commit(block hg.Block) error {
 	//There is no point in using the stateHash if we know it is wrong
 	if err == nil {
 		block.Body.StateHash = stateHash
-
 		n.coreLock.Lock()
 		defer n.coreLock.Unlock()
 		sig, err := n.core.SignBlock(block)
