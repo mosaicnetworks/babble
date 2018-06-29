@@ -9,7 +9,6 @@ type AppProxy interface {
 	Restore(snapshot []byte) error
 }
 
-//XXX This interface is never used... maybe in SocketBabbleProxy
 type BabbleProxy interface {
 	CommitCh() chan hashgraph.Block
 	SnapshotRequestCh() chan int

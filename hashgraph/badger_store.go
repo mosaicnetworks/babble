@@ -282,15 +282,19 @@ func (s *BadgerStore) LastBlockIndex() int {
 	return s.inmemStore.LastBlockIndex()
 }
 
-//XXX
 func (s *BadgerStore) GetFrame(rr int) (Frame, error) {
 	res, err := s.inmemStore.GetFrame(rr)
+	if err != nil {
+		res, err = s.dbGetFrame(rr)
+	}
 	return res, mapError(err, string(frameKey(rr)))
 }
 
-//XXX
 func (s *BadgerStore) SetFrame(frame Frame) error {
-	return s.inmemStore.SetFrame(frame)
+	if err := s.inmemStore.SetFrame(frame); err != nil {
+		return err
+	}
+	return s.dbSetFrame(frame)
 }
 
 func (s *BadgerStore) Reset(roots map[string]Root) error {
@@ -605,6 +609,48 @@ func (s *BadgerStore) dbSetBlock(block Block) error {
 
 	key := blockKey(block.Index())
 	val, err := block.Marshal()
+	if err != nil {
+		return err
+	}
+
+	//insert [index] => [block bytes]
+	if err := tx.Set(key, val); err != nil {
+		return err
+	}
+
+	return tx.Commit(nil)
+}
+
+func (s *BadgerStore) dbGetFrame(index int) (Frame, error) {
+	var frameBytes []byte
+	key := frameKey(index)
+	err := s.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(key)
+		if err != nil {
+			return err
+		}
+		frameBytes, err = item.Value()
+		return err
+	})
+
+	if err != nil {
+		return Frame{}, err
+	}
+
+	frame := new(Frame)
+	if err := frame.Unmarshal(frameBytes); err != nil {
+		return Frame{}, err
+	}
+
+	return *frame, nil
+}
+
+func (s *BadgerStore) dbSetFrame(frame Frame) error {
+	tx := s.db.NewTransaction(true)
+	defer tx.Discard()
+
+	key := frameKey(frame.Round)
+	val, err := frame.Marshal()
 	if err != nil {
 		return err
 	}

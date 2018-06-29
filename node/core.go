@@ -84,24 +84,6 @@ func (c *Core) HexID() string {
 	return c.hexID
 }
 
-func (c *Core) Init() error {
-	//Create and save the first Event
-	initialEvent := hg.NewEvent([][]byte(nil), nil,
-		[]string{"", ""},
-		c.PubKey(),
-		0)
-	//We want to make the initial Event deterministic so that when a node is
-	//restarted it will initialize the same Event. cf. github issues 19 and 10
-	//XXX This does not work. The Event might be the same, but the signature
-	//will be different -> ECDSA is not deterministic
-	initialEvent.Body.Timestamp = time.Time{}.UTC()
-	err := c.SignAndInsertSelfEvent(initialEvent)
-	c.logger.WithFields(logrus.Fields{
-		"index": initialEvent.Index(),
-		"hash":  initialEvent.Hex()}).Debug("Initial Event")
-	return err
-}
-
 func (c *Core) SetHeadAndSeq() error {
 
 	var head string
@@ -268,21 +250,13 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 	return c.AddSelfEvent(otherHead)
 }
 
-func (c *Core) FastForward(block hg.Block, frame hg.Frame) error {
+func (c *Core) FastForward(peer string, block hg.Block, frame hg.Frame) error {
 
 	//Check Block Signatures
-	validSignatures := 0
-	limit := len(c.participants) / 3
-	for _, s := range block.GetSignatures() {
-		ok, _ := block.Verify(s)
-		if ok {
-			validSignatures++
-		}
+	err := c.hg.CheckBlock(block)
+	if err != nil {
+		return err
 	}
-	if validSignatures <= limit {
-		return fmt.Errorf("Not enough valid signatures: %d/%d", validSignatures, len(c.participants))
-	}
-	c.logger.WithField("valid_signatures", validSignatures).Debug("FastForward. Good Block.")
 
 	//Check Frame Hash
 	frameHash, err := frame.Hash()
@@ -299,6 +273,16 @@ func (c *Core) FastForward(block hg.Block, frame hg.Frame) error {
 	}
 
 	err = c.SetHeadAndSeq()
+	if err != nil {
+		return err
+	}
+
+	lastEventFromPeer, _, err := c.hg.Store.LastEventFrom(peer)
+	if err != nil {
+		return err
+	}
+
+	err = c.AddSelfEvent(lastEventFromPeer)
 	if err != nil {
 		return err
 	}

@@ -50,7 +50,7 @@ func (iap *InmemAppProxy) commit(block hashgraph.Block) ([]byte, error) {
 }
 
 func (iap *InmemAppProxy) restore(snapshot []byte) error {
-	//XXX do something smart her
+	//XXX do something smart here
 	iap.stateHash = snapshot
 	return nil
 }

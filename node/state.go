@@ -46,12 +46,6 @@ func (b *nodeState) setState(s NodeState) {
 	atomic.StoreUint32(stateAddr, uint32(s))
 }
 
-func (b *nodeState) isStarting() bool {
-	//XXX
-	//return b.starting > 0
-	return false
-}
-
 func (b *nodeState) setStarting(starting bool) {
 	if starting {
 		atomic.CompareAndSwapInt32(&b.starting, 0, 1)

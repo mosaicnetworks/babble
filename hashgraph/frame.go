@@ -33,25 +33,9 @@ func (f *Frame) Unmarshal(data []byte) error {
 }
 
 func (f *Frame) Hash() ([]byte, error) {
-
-	//XXX Do we really need to re-sort
-	// eventsCopy := make([]Event, len(f.Events))
-	// copy(eventsCopy, f.Events)
-	// sorter := NewConsensusSorter(eventsCopy)
-	// sort.Sort(sorter)
-
-	// frame := Frame{
-	// 	Round:  f.Round,
-	// 	Roots:  f.Roots,
-	// 	Events: eventsCopy,
-	// }
-
-	//XXX Events are assumed to be in ConsensusOrder
-
 	hashBytes, err := f.Marshal()
 	if err != nil {
 		return nil, err
 	}
-
 	return crypto.SHA256(hashBytes), nil
 }

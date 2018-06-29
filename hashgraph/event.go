@@ -303,6 +303,9 @@ func (a ByConsensusTimestamp) Less(i, j int) bool {
 		return irr < jrr
 	}
 
+	//XXX. This order, described in the whitepaper, is not topological; ie, it
+	//is possible for an Event to be placed before one of its ancestors.
+
 	if !a[i].consensusTimestamp.Equal(a[j].consensusTimestamp) {
 		return a[i].consensusTimestamp.Before(a[j].consensusTimestamp)
 	}

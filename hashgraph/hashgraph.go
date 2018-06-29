@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"sort"
-	"strconv"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -628,6 +627,24 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 	return event, nil
 }
 
+//CheckBlock returns an error if the Block does not contain valid signatures
+//from MORE than 1/3 of participants
+func (h *Hashgraph) CheckBlock(block Block) error {
+	validSignatures := 0
+	for _, s := range block.GetSignatures() {
+		ok, _ := block.Verify(s)
+		if ok {
+			validSignatures++
+		}
+	}
+	if validSignatures <= h.trustCount {
+		return fmt.Errorf("Not enough valid signatures: got %d, need %d", validSignatures, h.trustCount+1)
+	}
+
+	h.logger.WithField("valid_signatures", validSignatures).Debug("CheckBlock")
+	return nil
+}
+
 //InsertEvent attempts to insert an Event in the DAG. It verifies the signature,
 //checks the ancestors are known, and prevents the introduction of forks.
 func (h *Hashgraph) InsertEvent(event Event, setWireInfo bool) error {
@@ -942,7 +959,6 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 
 		if len(frame.Events) > 0 {
 
-			//XXX This is ugly. Should be somewhere else; or nowhere
 			for _, e := range frame.Events {
 				err := h.Store.AddConsensusEvent(e)
 				if err != nil {
@@ -1018,7 +1034,7 @@ func (h *Hashgraph) GetFrame(roundReceived int) (Frame, error) {
 	for _, ev := range events {
 		p := ev.Creator()
 		if _, ok := roots[p]; !ok {
-			//XXX
+
 			parentRound := h.parentRound(ev.Hex())
 			c := 0
 			for _, w := range h.Store.RoundWitnesses(parentRound.round) {
@@ -1051,15 +1067,6 @@ func (h *Hashgraph) GetFrame(roundReceived int) (Frame, error) {
 				}
 				root = prevFrame.Roots[id]
 			} else {
-				//XXX
-				disp := "nil"
-				if h.FirstConsensusRound != nil {
-					disp = strconv.Itoa(*h.FirstConsensusRound)
-				}
-				h.logger.WithFields(logrus.Fields{
-					"round_received":        roundReceived,
-					"first_consensus_round": disp,
-				}).Debug("GetFrame recursion")
 				lowestRoot, err := h.Store.GetRoot(p)
 				if err != nil {
 					return Frame{}, err
@@ -1260,8 +1267,10 @@ func (h *Hashgraph) Reset(block Block, frame Frame) error {
 
 	h.setLastConsensusRound(block.RoundReceived())
 
-	//XXX
-	sort.Sort(ByTopologicalOrder(frame.Events))
+	//ConsensusOrder is not Topological; it is possible for an Event to appear
+	//before one of its ancestors.
+	//sort.Sort(ByTopologicalOrder(frame.Events))
+
 	//Insert Frame Events
 	for _, ev := range frame.Events {
 		if err := h.InsertEvent(ev, false); err != nil {

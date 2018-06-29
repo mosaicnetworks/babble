@@ -513,8 +513,6 @@ func TestFastForward(t *testing.T) {
 	if !reflect.DeepEqual(sBlock.Body, expectedBlock.Body) {
 		t.Fatalf("Blocks defer")
 	}
-
-	//XXX check head and seq
 }
 
 func TestCatchUp(t *testing.T) {
@@ -563,8 +561,8 @@ func TestCatchUp(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	//XXX target +3 because because we are not sure that anchorRound was 50
-	checkGossip(nodes, target+3, t)
+	start := node4.core.hg.FirstConsensusRound
+	checkGossip(nodes, *start, t)
 }
 
 func TestShutdown(t *testing.T) {
@@ -647,6 +645,14 @@ func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
 			if ce < target {
 				done = false
 				break
+			} else {
+				//wait until the target block has retrieved a state hash from
+				//the app
+				targetBlock, _ := n.core.hg.Store.GetBlock(target)
+				if len(targetBlock.StateHash()) == 0 {
+					done = false
+					break
+				}
 			}
 		}
 		if done {

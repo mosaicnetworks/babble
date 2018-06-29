@@ -99,8 +99,6 @@ func (n *Node) Init(bootstrap bool) error {
 		return n.core.Bootstrap()
 	}
 
-	//XXX
-	//return n.core.Init()
 	return nil
 }
 
@@ -344,8 +342,7 @@ func (n *Node) preGossip() (bool, error) {
 	defer n.coreLock.Unlock()
 
 	//Check if it is necessary to gossip
-	needGossip := n.core.NeedGossip() || n.isStarting()
-	if !needGossip {
+	if !n.core.NeedGossip() {
 		n.logger.Debug("Nothing to gossip")
 		return false, nil
 	}
@@ -509,7 +506,7 @@ func (n *Node) fastForward() error {
 
 	//prepare core. ie: fresh hashgraph
 	n.coreLock.Lock()
-	err = n.core.FastForward(resp.Block, resp.Frame)
+	err = n.core.FastForward(peer.PubKeyHex, resp.Block, resp.Frame)
 	n.coreLock.Unlock()
 	if err != nil {
 		n.logger.WithField("error", err).Error("Fast Forwarding Hashgraph")

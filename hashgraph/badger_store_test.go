@@ -379,6 +379,53 @@ func TestDBBlockMethods(t *testing.T) {
 	})
 }
 
+func TestDBFrameMethods(t *testing.T) {
+	cacheSize := 0
+	store, participants := initBadgerStore(cacheSize, t)
+	defer removeBadgerStore(store, t)
+
+	events := []Event{}
+	roots := []Root{}
+	for _, p := range participants {
+		event := NewEvent(
+			[][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], 0))},
+			[]BlockSignature{BlockSignature{Validator: []byte("validator"), Index: 0, Signature: "r|s"}},
+			[]string{"", ""},
+			p.pubKey,
+			0)
+		event.Sign(p.privKey)
+		events = append(events, event)
+
+		root := Root{
+			X:     "",
+			Y:     "",
+			Index: -1,
+			Round: -1,
+			StronglySeenWitnesses: 0}
+		roots = append(roots, root)
+	}
+	frame := Frame{
+		Round:  1,
+		Events: events,
+		Roots:  roots,
+	}
+
+	t.Run("Store Frame", func(t *testing.T) {
+		if err := store.dbSetFrame(frame); err != nil {
+			t.Fatal(err)
+		}
+
+		storedFrame, err := store.dbGetFrame(frame.Round)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !reflect.DeepEqual(storedFrame, frame) {
+			t.Fatalf("Frame and StoredFrame do not match")
+		}
+	})
+}
+
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //Check that the wrapper methods work
 //These methods use the inmemStore as a cache on top of the DB
@@ -590,6 +637,53 @@ func TestBadgerBlocks(t *testing.T) {
 		}
 		if val2Sig != sig2.Signature {
 			t.Fatal("Validator2 block signatures differ")
+		}
+	})
+}
+
+func TestBadgerFrames(t *testing.T) {
+	cacheSize := 0
+	store, participants := initBadgerStore(cacheSize, t)
+	defer removeBadgerStore(store, t)
+
+	events := []Event{}
+	roots := []Root{}
+	for _, p := range participants {
+		event := NewEvent(
+			[][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], 0))},
+			[]BlockSignature{BlockSignature{Validator: []byte("validator"), Index: 0, Signature: "r|s"}},
+			[]string{"", ""},
+			p.pubKey,
+			0)
+		event.Sign(p.privKey)
+		events = append(events, event)
+
+		root := Root{
+			X:     "",
+			Y:     "",
+			Index: -1,
+			Round: -1,
+			StronglySeenWitnesses: 0}
+		roots = append(roots, root)
+	}
+	frame := Frame{
+		Round:  1,
+		Events: events,
+		Roots:  roots,
+	}
+
+	t.Run("Store Frame", func(t *testing.T) {
+		if err := store.SetFrame(frame); err != nil {
+			t.Fatal(err)
+		}
+
+		storedFrame, err := store.GetFrame(frame.Round)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !reflect.DeepEqual(storedFrame, frame) {
+			t.Fatalf("Frame and StoredFrame do not match")
 		}
 	})
 }

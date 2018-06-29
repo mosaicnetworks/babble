@@ -2177,11 +2177,6 @@ func TestFunkyHashgraphFrames(t *testing.T) {
 		}
 	}
 
-	// expectedFrameEvents := map[int][]string{
-	// 	1: []string{"w01", "w02", "w03", "a23", "a12", "a21"},        //frame1
-	// 	2: []string{"w00", "a00", "a10", "w13", "w12", "w11", "b21"}, //frame2
-	// 	3: []string{"w10", "w23", "w21", "b00", "c10", "w22", "w20"}, //frame3
-	// }
 	expectedFrameRoots := map[int][]Root{
 		1: []Root{
 			Root{X: "", Y: "", Index: -1, Round: -1, StronglySeenWitnesses: 0, Others: map[string]string{}},
@@ -2213,13 +2208,6 @@ func TestFunkyHashgraphFrames(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		//XXX
-		// for k, ev := range frame.Events {
-		// 	if fe := getName(index, ev.Hex()); fe != expectedFrameEvents[frame.Round][k] {
-		// 		t.Fatalf("frame[%d].Events[%d] should be %s, not %s", frame.Round, k, expectedFrameEvents[frame.Round][k], fe)
-		// 	}
-		// }
 
 		for k, r := range frame.Roots {
 			if !reflect.DeepEqual(expectedFrameRoots[frame.Round][k], r) {
