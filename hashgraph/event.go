@@ -72,8 +72,9 @@ type Event struct {
 
 	topologicalIndex int
 
-	roundReceived      *int
-	consensusTimestamp time.Time
+	round            *int
+	lamportTimestamp *int
+	roundReceived    *int
 
 	lastAncestors    []EventCoordinates //[participant fake id] => last ancestor
 	firstDescendants []EventCoordinates //[participant fake id] => first descendant
@@ -123,6 +124,10 @@ func (e *Event) Transactions() [][]byte {
 
 func (e *Event) Index() int {
 	return e.Body.Index
+}
+
+func (e *Event) LamportTimestamp() *int {
+	return e.lamportTimestamp
 }
 
 func (e *Event) BlockSignatures() []BlockSignature {
@@ -283,40 +288,24 @@ func (a ByTopologicalOrder) Less(i, j int) bool {
 	return a[i].topologicalIndex < a[j].topologicalIndex
 }
 
-// ByConsensusTimestamp implements sort.Interface for []Event based on
-// RoundReceived, ConsensusTimestamp, and Signatures. This is the 'Fair' order
-// described in the whitepaper.
-// TOTAL ORDER
-type ByConsensusTimestamp []Event
+type ByLamportTimestamp []Event
 
-func (a ByConsensusTimestamp) Len() int      { return len(a) }
-func (a ByConsensusTimestamp) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a ByConsensusTimestamp) Less(i, j int) bool {
-	irr, jrr := -1, -1
-	if a[i].roundReceived != nil {
-		irr = *a[i].roundReceived
+func (a ByLamportTimestamp) Len() int      { return len(a) }
+func (a ByLamportTimestamp) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByLamportTimestamp) Less(i, j int) bool {
+	it, jt := -1, -1
+	if a[i].lamportTimestamp != nil {
+		it = *a[i].lamportTimestamp
 	}
-	if a[j].roundReceived != nil {
-		jrr = *a[j].roundReceived
+	if a[j].lamportTimestamp != nil {
+		jt = *a[j].lamportTimestamp
 	}
-	if irr != jrr {
-		return irr < jrr
+	if it != jt {
+		return it < jt
 	}
 
-	//XXX. This order, described in the whitepaper, is not topological; ie, it
-	//is possible for an Event to be placed before one of its ancestors.
-
-	if !a[i].consensusTimestamp.Equal(a[j].consensusTimestamp) {
-		return a[i].consensusTimestamp.Before(a[j].consensusTimestamp)
-	}
-
-	//No need to compute 'whitened' signature as described in the whitepaper.
-	//elliptic curve cryptography is non deterministic; it is impossible for a
-	//malicious participant to predict what the other signatures will be and
-	//manipulate the consensus order at this level.
 	wsi, _, _ := crypto.DecodeSignature(a[i].Signature)
 	wsj, _, _ := crypto.DecodeSignature(a[j].Signature)
-
 	return wsi.Cmp(wsj) < 0
 }
 

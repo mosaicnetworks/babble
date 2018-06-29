@@ -44,6 +44,8 @@ type Hashgraph struct {
 	stronglySeeCache        *common.LRU
 	parentRoundCache        *common.LRU
 	roundCache              *common.LRU
+	parentTimestampCache    *common.LRU
+	timestampCache          *common.LRU
 
 	logger *logrus.Entry
 }
@@ -74,6 +76,8 @@ func NewHashgraph(participants map[string]int, store Store, commitCh chan Block,
 		stronglySeeCache:        common.NewLRU(cacheSize, nil),
 		parentRoundCache:        common.NewLRU(cacheSize, nil),
 		roundCache:              common.NewLRU(cacheSize, nil),
+		parentTimestampCache:    common.NewLRU(cacheSize, nil),
+		timestampCache:          common.NewLRU(cacheSize, nil),
 		logger:                  logger,
 		superMajority:           2*len(participants)/3 + 1,
 		trustCount:              len(participants) / 3,
@@ -359,6 +363,48 @@ func (h *Hashgraph) _round(x string) int {
 		round++
 	}
 	return round
+}
+
+func (h *Hashgraph) lamportTimestamp(x string) int {
+	if c, ok := h.timestampCache.Get(x); ok {
+		return c.(int)
+	}
+	r := h._lamportTimestamp(x)
+	h.timestampCache.Add(x, r)
+	return r
+}
+
+func (h *Hashgraph) _lamportTimestamp(x string) int {
+	if x == "" {
+		return -1
+	}
+	parentTimestamp := h.parentLamportTimestamp(x)
+	return parentTimestamp + 1
+}
+
+func (h *Hashgraph) parentLamportTimestamp(x string) int {
+	if c, ok := h.parentTimestampCache.Get(x); ok {
+		return c.(int)
+	}
+	r := h._parentLamportTimestamp(x)
+	h.parentTimestampCache.Add(x, r)
+	return r
+}
+
+func (h *Hashgraph) _parentLamportTimestamp(x string) int {
+
+	ex, err := h.Store.GetEvent(x)
+	if err != nil {
+		return -1
+	}
+
+	selfParentTimestamp := h.lamportTimestamp(ex.SelfParent())
+	otherParentTimestamp := h.lamportTimestamp(ex.OtherParent())
+
+	if selfParentTimestamp > otherParentTimestamp {
+		return selfParentTimestamp
+	}
+	return otherParentTimestamp
 }
 
 //round(x) - round(y)
@@ -704,39 +750,62 @@ func (h *Hashgraph) DivideRounds() error {
 
 	for _, hash := range h.UndeterminedEvents {
 
-		roundNumber := h.round(hash)
-
-		roundInfo, err := h.Store.GetRound(roundNumber)
-		if err != nil && !common.Is(err, common.KeyNotFound) {
-			return err
-		}
-
-		/*
-			Why the lower bound?
-			Normally, once a Round has attained consensus, it is impossible for
-			new Events from a previous Round to be inserted; the lower bound
-			appears redundant. This is the case when the hashgraph grows
-			linearly, without jumps, which is what we intend by 'Normally'.
-			But the Reset function introduces a dicontinuity  by jumping
-			straight to a specific place in the hashgraph. This technique relies
-			on a base layer of Events (the corresponding Frame's Events) for
-			other Events to be added on top, but the base layer must not be
-			reprocessed.
-		*/
-		if !roundInfo.queued &&
-			(h.LastConsensusRound == nil ||
-				roundNumber >= *h.LastConsensusRound) {
-
-			h.PendingRounds = append(h.PendingRounds, &pendingRound{roundNumber, false})
-			roundInfo.queued = true
-		}
-
-		witness := h.witness(hash)
-		roundInfo.AddEvent(hash, witness)
-
-		err = h.Store.SetRound(roundNumber, roundInfo)
+		ev, err := h.Store.GetEvent(hash)
 		if err != nil {
 			return err
+		}
+
+		updateEvent := false
+
+		if ev.round == nil {
+
+			roundNumber := h.round(hash)
+			ev.round = new(int)
+			*ev.round = roundNumber
+			updateEvent = true
+
+			roundInfo, err := h.Store.GetRound(roundNumber)
+			if err != nil && !common.Is(err, common.KeyNotFound) {
+				return err
+			}
+
+			/*
+				Why the lower bound?
+				Normally, once a Round has attained consensus, it is impossible for
+				new Events from a previous Round to be inserted; the lower bound
+				appears redundant. This is the case when the hashgraph grows
+				linearly, without jumps, which is what we intend by 'Normally'.
+				But the Reset function introduces a dicontinuity  by jumping
+				straight to a specific place in the hashgraph. This technique relies
+				on a base layer of Events (the corresponding Frame's Events) for
+				other Events to be added on top, but the base layer must not be
+				reprocessed.
+			*/
+			if !roundInfo.queued &&
+				(h.LastConsensusRound == nil ||
+					roundNumber >= *h.LastConsensusRound) {
+
+				h.PendingRounds = append(h.PendingRounds, &pendingRound{roundNumber, false})
+				roundInfo.queued = true
+			}
+
+			witness := h.witness(hash)
+			roundInfo.AddEvent(hash, witness)
+
+			err = h.Store.SetRound(roundNumber, roundInfo)
+			if err != nil {
+				return err
+			}
+		}
+
+		if ev.lamportTimestamp == nil {
+			ev.lamportTimestamp = new(int)
+			*ev.lamportTimestamp = h.lamportTimestamp(hash)
+			updateEvent = true
+		}
+
+		if updateEvent {
+			h.Store.SetEvent(ev)
 		}
 	}
 
@@ -886,13 +955,6 @@ func (h *Hashgraph) DecideRoundReceived() error {
 				}
 				ex.SetRoundReceived(i)
 
-				t := []string{}
-				for _, a := range s {
-					t = append(t, h.oldestSelfAncestorToSee(a, x))
-				}
-
-				ex.consensusTimestamp = h.medianTimestamp(t)
-
 				err = h.Store.SetEvent(ex)
 				if err != nil {
 					return err
@@ -1014,7 +1076,6 @@ func (h *Hashgraph) GetFrame(roundReceived int) (Frame, error) {
 	}
 
 	events := []Event{}
-	roots := make(map[string]Root)
 	for _, eh := range round.ConsensusEvents() {
 		e, err := h.Store.GetEvent(eh)
 		if err != nil {
@@ -1022,13 +1083,10 @@ func (h *Hashgraph) GetFrame(roundReceived int) (Frame, error) {
 		}
 		events = append(events, e)
 	}
-
-	//Compute the partial topological order. This is necessary for knowing which
-	//events need a Root
-	sort.Sort(ByTopologicalOrder(events))
+	sort.Sort(ByLamportTimestamp(events))
 
 	// Get/Create Roots
-
+	roots := make(map[string]Root)
 	//The events are in topological order. Each time we run into the first Event
 	//of a participant, we create a Root for it.
 	for _, ev := range events {
@@ -1102,10 +1160,6 @@ func (h *Hashgraph) GetFrame(roundReceived int) (Frame, error) {
 			}
 		}
 	}
-
-	//Compute the 'fair' order of Events; all the nodes should compute the same
-	//order
-	sort.Sort(ByConsensusTimestamp(events))
 
 	res := Frame{
 		Round:  roundReceived,

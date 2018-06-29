@@ -69,7 +69,7 @@ func testLogger(t testing.TB) *logrus.Entry {
 /*
 |  e12  |
 |   | \ |
-|  s10   e20
+|  s10 e20
 |   | / |
 |   /   |
 | / |   |
@@ -300,6 +300,29 @@ func TestSee(t *testing.T) {
 	}
 }
 
+func TestLamportTimestamp(t *testing.T) {
+	h, index := initHashgraph(t)
+
+	expectedTimestamps := map[string]int{
+		"e0":  0,
+		"e1":  0,
+		"e2":  0,
+		"e01": 1,
+		"s10": 1,
+		"s20": 1,
+		"s00": 2,
+		"e20": 3,
+		"e12": 4,
+	}
+
+	for e, et := range expectedTimestamps {
+		t.Logf("%s: %d", e, h.lamportTimestamp(index[e]))
+		if ts := h.lamportTimestamp(index[e]); ts != et {
+			t.Fatalf("%s LamportTimestamp should be %d, not %d", e, et, ts)
+		}
+	}
+}
+
 /*
 |    |    e20
 |    |   / |
@@ -434,177 +457,182 @@ func initRoundHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
 func TestInsertEvent(t *testing.T) {
 	h, index := initRoundHashgraph(t)
 
-	expectedFirstDescendants := make([]EventCoordinates, n)
-	expectedLastAncestors := make([]EventCoordinates, n)
+	t.Run("Check Event Coordinates", func(t *testing.T) {
 
-	//e0
-	e0, err := h.Store.GetEvent(index["e0"])
-	if err != nil {
-		t.Fatal(err)
-	}
+		expectedFirstDescendants := make([]EventCoordinates, n)
+		expectedLastAncestors := make([]EventCoordinates, n)
 
-	if !(e0.Body.selfParentIndex == -1 &&
-		e0.Body.otherParentCreatorID == -1 &&
-		e0.Body.otherParentIndex == -1 &&
-		e0.Body.creatorID == h.Participants[e0.Creator()]) {
-		t.Fatalf("Invalid wire info on e0")
-	}
-
-	expectedFirstDescendants[0] = EventCoordinates{
-		index: 0,
-		hash:  index["e0"],
-	}
-	expectedFirstDescendants[1] = EventCoordinates{
-		index: 1,
-		hash:  index["e10"],
-	}
-	expectedFirstDescendants[2] = EventCoordinates{
-		index: 2,
-		hash:  index["e21"],
-	}
-
-	expectedLastAncestors[0] = EventCoordinates{
-		index: 0,
-		hash:  index["e0"],
-	}
-	expectedLastAncestors[1] = EventCoordinates{
-		index: -1,
-	}
-	expectedLastAncestors[2] = EventCoordinates{
-		index: -1,
-	}
-
-	if !reflect.DeepEqual(e0.firstDescendants, expectedFirstDescendants) {
-		t.Fatal("e0 firstDescendants not good")
-	}
-	if !reflect.DeepEqual(e0.lastAncestors, expectedLastAncestors) {
-		t.Fatal("e0 lastAncestors not good")
-	}
-
-	//e21
-	e21, err := h.Store.GetEvent(index["e21"])
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	e10, err := h.Store.GetEvent(index["e10"])
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !(e21.Body.selfParentIndex == 1 &&
-		e21.Body.otherParentCreatorID == h.Participants[e10.Creator()] &&
-		e21.Body.otherParentIndex == 1 &&
-		e21.Body.creatorID == h.Participants[e21.Creator()]) {
-		t.Fatalf("Invalid wire info on e21")
-	}
-
-	expectedFirstDescendants[0] = EventCoordinates{
-		index: 2,
-		hash:  index["e02"],
-	}
-	expectedFirstDescendants[1] = EventCoordinates{
-		index: 3,
-		hash:  index["f1"],
-	}
-	expectedFirstDescendants[2] = EventCoordinates{
-		index: 2,
-		hash:  index["e21"],
-	}
-
-	expectedLastAncestors[0] = EventCoordinates{
-		index: 0,
-		hash:  index["e0"],
-	}
-	expectedLastAncestors[1] = EventCoordinates{
-		index: 1,
-		hash:  index["e10"],
-	}
-	expectedLastAncestors[2] = EventCoordinates{
-		index: 2,
-		hash:  index["e21"],
-	}
-
-	if !reflect.DeepEqual(e21.firstDescendants, expectedFirstDescendants) {
-		t.Fatal("e21 firstDescendants not good")
-	}
-	if !reflect.DeepEqual(e21.lastAncestors, expectedLastAncestors) {
-		t.Fatal("e21 lastAncestors not good")
-	}
-
-	//f1
-	f1, err := h.Store.GetEvent(index["f1"])
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !(f1.Body.selfParentIndex == 2 &&
-		f1.Body.otherParentCreatorID == h.Participants[e0.Creator()] &&
-		f1.Body.otherParentIndex == 2 &&
-		f1.Body.creatorID == h.Participants[f1.Creator()]) {
-		t.Fatalf("Invalid wire info on f1")
-	}
-
-	expectedFirstDescendants[0] = EventCoordinates{
-		index: math.MaxInt32,
-	}
-	expectedFirstDescendants[1] = EventCoordinates{
-		index: 3,
-		hash:  index["f1"],
-	}
-	expectedFirstDescendants[2] = EventCoordinates{
-		index: math.MaxInt32,
-	}
-
-	expectedLastAncestors[0] = EventCoordinates{
-		index: 2,
-		hash:  index["e02"],
-	}
-	expectedLastAncestors[1] = EventCoordinates{
-		index: 3,
-		hash:  index["f1"],
-	}
-	expectedLastAncestors[2] = EventCoordinates{
-		index: 2,
-		hash:  index["e21"],
-	}
-
-	if !reflect.DeepEqual(f1.firstDescendants, expectedFirstDescendants) {
-		t.Fatal("f1 firstDescendants not good")
-	}
-	if !reflect.DeepEqual(f1.lastAncestors, expectedLastAncestors) {
-		t.Fatal("f1 lastAncestors not good")
-	}
-
-	//Check UndeterminedEvents queue
-	expectedUndeterminedEvents := []string{
-		index["e0"],
-		index["e1"],
-		index["e2"],
-		index["e10"],
-		index["s20"],
-		index["s00"],
-		index["e21"],
-		index["e02"],
-		index["s10"],
-		index["f1"],
-		index["s11"]}
-
-	for i, eue := range expectedUndeterminedEvents {
-		if ue := h.UndeterminedEvents[i]; ue != eue {
-			t.Fatalf("UndeterminedEvents[%d] should be %s, not %s", i, eue, ue)
+		//e0
+		e0, err := h.Store.GetEvent(index["e0"])
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
 
-	//Pending loaded Events
-	// 3 Events with index 0,
-	// 1 Event with non-empty Transactions
-	//= 4 Loaded Events
-	if ple := h.PendingLoadedEvents; ple != 4 {
-		t.Fatalf("PendingLoadedEvents should be 4, not %d", ple)
-	}
+		if !(e0.Body.selfParentIndex == -1 &&
+			e0.Body.otherParentCreatorID == -1 &&
+			e0.Body.otherParentIndex == -1 &&
+			e0.Body.creatorID == h.Participants[e0.Creator()]) {
+			t.Fatalf("Invalid wire info on e0")
+		}
 
+		expectedFirstDescendants[0] = EventCoordinates{
+			index: 0,
+			hash:  index["e0"],
+		}
+		expectedFirstDescendants[1] = EventCoordinates{
+			index: 1,
+			hash:  index["e10"],
+		}
+		expectedFirstDescendants[2] = EventCoordinates{
+			index: 2,
+			hash:  index["e21"],
+		}
+
+		expectedLastAncestors[0] = EventCoordinates{
+			index: 0,
+			hash:  index["e0"],
+		}
+		expectedLastAncestors[1] = EventCoordinates{
+			index: -1,
+		}
+		expectedLastAncestors[2] = EventCoordinates{
+			index: -1,
+		}
+
+		if !reflect.DeepEqual(e0.firstDescendants, expectedFirstDescendants) {
+			t.Fatal("e0 firstDescendants not good")
+		}
+		if !reflect.DeepEqual(e0.lastAncestors, expectedLastAncestors) {
+			t.Fatal("e0 lastAncestors not good")
+		}
+
+		//e21
+		e21, err := h.Store.GetEvent(index["e21"])
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		e10, err := h.Store.GetEvent(index["e10"])
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !(e21.Body.selfParentIndex == 1 &&
+			e21.Body.otherParentCreatorID == h.Participants[e10.Creator()] &&
+			e21.Body.otherParentIndex == 1 &&
+			e21.Body.creatorID == h.Participants[e21.Creator()]) {
+			t.Fatalf("Invalid wire info on e21")
+		}
+
+		expectedFirstDescendants[0] = EventCoordinates{
+			index: 2,
+			hash:  index["e02"],
+		}
+		expectedFirstDescendants[1] = EventCoordinates{
+			index: 3,
+			hash:  index["f1"],
+		}
+		expectedFirstDescendants[2] = EventCoordinates{
+			index: 2,
+			hash:  index["e21"],
+		}
+
+		expectedLastAncestors[0] = EventCoordinates{
+			index: 0,
+			hash:  index["e0"],
+		}
+		expectedLastAncestors[1] = EventCoordinates{
+			index: 1,
+			hash:  index["e10"],
+		}
+		expectedLastAncestors[2] = EventCoordinates{
+			index: 2,
+			hash:  index["e21"],
+		}
+
+		if !reflect.DeepEqual(e21.firstDescendants, expectedFirstDescendants) {
+			t.Fatal("e21 firstDescendants not good")
+		}
+		if !reflect.DeepEqual(e21.lastAncestors, expectedLastAncestors) {
+			t.Fatal("e21 lastAncestors not good")
+		}
+
+		//f1
+		f1, err := h.Store.GetEvent(index["f1"])
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !(f1.Body.selfParentIndex == 2 &&
+			f1.Body.otherParentCreatorID == h.Participants[e0.Creator()] &&
+			f1.Body.otherParentIndex == 2 &&
+			f1.Body.creatorID == h.Participants[f1.Creator()]) {
+			t.Fatalf("Invalid wire info on f1")
+		}
+
+		expectedFirstDescendants[0] = EventCoordinates{
+			index: math.MaxInt32,
+		}
+		expectedFirstDescendants[1] = EventCoordinates{
+			index: 3,
+			hash:  index["f1"],
+		}
+		expectedFirstDescendants[2] = EventCoordinates{
+			index: math.MaxInt32,
+		}
+
+		expectedLastAncestors[0] = EventCoordinates{
+			index: 2,
+			hash:  index["e02"],
+		}
+		expectedLastAncestors[1] = EventCoordinates{
+			index: 3,
+			hash:  index["f1"],
+		}
+		expectedLastAncestors[2] = EventCoordinates{
+			index: 2,
+			hash:  index["e21"],
+		}
+
+		if !reflect.DeepEqual(f1.firstDescendants, expectedFirstDescendants) {
+			t.Fatal("f1 firstDescendants not good")
+		}
+		if !reflect.DeepEqual(f1.lastAncestors, expectedLastAncestors) {
+			t.Fatal("f1 lastAncestors not good")
+		}
+	})
+
+	t.Run("Check UndeterminedEvents", func(t *testing.T) {
+
+		expectedUndeterminedEvents := []string{
+			index["e0"],
+			index["e1"],
+			index["e2"],
+			index["e10"],
+			index["s20"],
+			index["s00"],
+			index["e21"],
+			index["e02"],
+			index["s10"],
+			index["f1"],
+			index["s11"]}
+
+		for i, eue := range expectedUndeterminedEvents {
+			if ue := h.UndeterminedEvents[i]; ue != eue {
+				t.Fatalf("UndeterminedEvents[%d] should be %s, not %s", i, eue, ue)
+			}
+		}
+
+		//Pending loaded Events
+		// 3 Events with index 0,
+		// 1 Event with non-empty Transactions
+		//= 4 Loaded Events
+		if ple := h.PendingLoadedEvents; ple != 4 {
+			t.Fatalf("PendingLoadedEvents should be 4, not %d", ple)
+		}
+	})
 }
+
 func TestReadWireInfo(t *testing.T) {
 	h, index := initRoundHashgraph(t)
 
@@ -878,7 +906,7 @@ func TestDivideRounds(t *testing.T) {
 		t.Fatalf("round 1 witnesses should contain f1")
 	}
 
-	expectedpendingRounds := []pendingRound{
+	expectedPendingRounds := []pendingRound{
 		pendingRound{
 			Index:   0,
 			Decided: false,
@@ -889,10 +917,42 @@ func TestDivideRounds(t *testing.T) {
 		},
 	}
 	for i, pd := range h.PendingRounds {
-		if !reflect.DeepEqual(*pd, expectedpendingRounds[i]) {
-			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedpendingRounds[i], *pd)
+		if !reflect.DeepEqual(*pd, expectedPendingRounds[i]) {
+			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedPendingRounds[i], *pd)
 		}
 	}
+
+	//[event] => {lamportTimestamp, round}
+	type tr struct {
+		t, r int
+	}
+	expectedTimestamps := map[string]tr{
+		"e0":  tr{0, 0},
+		"e1":  tr{0, 0},
+		"e2":  tr{0, 0},
+		"s00": tr{1, 0},
+		"e10": tr{1, 0},
+		"s20": tr{1, 0},
+		"e21": tr{2, 0},
+		"e02": tr{3, 0},
+		"s10": tr{2, 0},
+		"f1":  tr{4, 1},
+		"s11": tr{5, 1},
+	}
+
+	for e, et := range expectedTimestamps {
+		ev, err := h.Store.GetEvent(index[e])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r := ev.round; r == nil || *r != et.r {
+			t.Fatalf("%s round should be %d, not %d", e, et.r, *r)
+		}
+		if ts := ev.lamportTimestamp; ts == nil || *ts != et.t {
+			t.Fatalf("%s lamportTimestamp should be %d, not %d", e, et.t, *ts)
+		}
+	}
+
 }
 
 func contains(s []string, x string) bool {
@@ -1612,7 +1672,7 @@ func TestGetFrame(t *testing.T) {
 			}
 			expectedEvents = append(expectedEvents, e)
 		}
-		sort.Sort(ByConsensusTimestamp(expectedEvents))
+		sort.Sort(ByLamportTimestamp(expectedEvents))
 		if !reflect.DeepEqual(expectedEvents, frame.Events) {
 			t.Fatal("Frame.Events is not good")
 		}
@@ -1701,7 +1761,7 @@ func TestGetFrame(t *testing.T) {
 			}
 			expectedEvents = append(expectedEvents, e)
 		}
-		sort.Sort(ByConsensusTimestamp(expectedEvents))
+		sort.Sort(ByLamportTimestamp(expectedEvents))
 		if !reflect.DeepEqual(expectedEvents, frame.Events) {
 			t.Fatal("Frame.Events is not good")
 		}
@@ -1780,6 +1840,9 @@ func TestResetFromFrame(t *testing.T) {
 	for _, ev := range frame.Events {
 		if h2r := h2.round(ev.Hex()); h2r != h.round(ev.Hex()) {
 			t.Fatalf("h2[%v].Round should be %d, not %d", getName(index, ev.Hex()), h.round(ev.Hex()), h2r)
+		}
+		if h2s := h2.lamportTimestamp(ev.Hex()); h2s != h.lamportTimestamp(ev.Hex()) {
+			t.Fatalf("h2[%v].LamportTimestamp should be %d, not %d", getName(index, ev.Hex()), h.lamportTimestamp(ev.Hex()), h2s)
 		}
 	}
 
