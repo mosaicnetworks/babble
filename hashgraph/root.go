@@ -26,7 +26,8 @@ ex 1:
 - Root 0        - 		 - Root 1        - 		 - Root 2        -
 - X = Y = ""    - 		 - X = Y = ""    -		 - X = Y = ""    -
 - Index= -1     -		 - Index= -1     -       - Index= -1     -
-- Round= -1      -		 - Round= -1      -      - Round= -1     -
+- Round= -1     -		 - Round= -1     -       - Round= -1     -
+- LT= -1        -        - LT= -1        -       - LT= -1        -
 - Others= empty - 		 - Others= empty -       - Others= empty -
 -----------------		 -----------------       -----------------
 
@@ -55,6 +56,7 @@ ex 2:
 - X: x0, Y: y0  - 		 - X: x1, Y: y1  - 		 - X: x2, Y: y2  -
 - Index= i0     -		 - Index= i1     -       - Index= i2     -
 - Round= r0     -		 - Round= r1     -       - Round= r2     -
+- LT   = lt0    -        - LT   = lt1    -       - LT   = lt2    -
 - Others= {     - 		 - Others= empty -       - Others= empty -
 -  E02: E_OLD   -        -----------------       -----------------
 - }             -
@@ -65,17 +67,19 @@ type Root struct {
 	X, Y                  string
 	Index                 int
 	Round                 int
+	LamportTimestamp      int
 	StronglySeenWitnesses int
 	Others                map[string]string
 }
 
 func NewBaseRoot() Root {
 	return Root{
-		X:      "",
-		Y:      "",
-		Index:  -1,
-		Round:  -1,
-		Others: map[string]string{},
+		X:                "",
+		Y:                "",
+		Index:            -1,
+		Round:            -1,
+		LamportTimestamp: -1,
+		Others:           map[string]string{},
 	}
 }
 

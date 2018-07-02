@@ -1275,6 +1275,66 @@ func initConsensusHashgraph(db bool, t testing.TB) (*Hashgraph, map[string]strin
 	return hashgraph, index
 }
 
+func TestDivideRoundsBis(t *testing.T) {
+	h, index := initConsensusHashgraph(false, t)
+
+	if err := h.DivideRounds(); err != nil {
+		t.Fatal(err)
+	}
+
+	//[event] => {lamportTimestamp, round}
+	type tr struct {
+		t, r int
+	}
+	expectedTimestamps := map[string]tr{
+		"e0":   tr{0, 0},
+		"e1":   tr{0, 0},
+		"e2":   tr{0, 0},
+		"e10":  tr{1, 0},
+		"e21":  tr{2, 0},
+		"e21b": tr{3, 0},
+		"e02":  tr{4, 0},
+		"f1":   tr{5, 1},
+		"f1b":  tr{6, 1},
+		"f0":   tr{7, 1},
+		"f2":   tr{7, 1},
+		"f10":  tr{8, 1},
+		"f0x":  tr{8, 1},
+		"f21":  tr{9, 1},
+		"f02":  tr{10, 1},
+		"f02b": tr{11, 1},
+		"g1":   tr{12, 2},
+		"g0":   tr{13, 2},
+		"g2":   tr{13, 2},
+		"g10":  tr{14, 2},
+		"g21":  tr{15, 2},
+		"g02":  tr{16, 2},
+		"h1":   tr{17, 3},
+		"h0":   tr{18, 3},
+		"h2":   tr{18, 3},
+		"h10":  tr{19, 3},
+		"h21":  tr{20, 3},
+		"h02":  tr{21, 3},
+		"i1":   tr{22, 4},
+		"i0":   tr{23, 4},
+		"i2":   tr{23, 4},
+	}
+
+	for e, et := range expectedTimestamps {
+		ev, err := h.Store.GetEvent(index[e])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r := ev.round; r == nil || *r != et.r {
+			t.Fatalf("%s round should be %d, not %d", e, et.r, *r)
+		}
+		if ts := ev.lamportTimestamp; ts == nil || *ts != et.t {
+			t.Fatalf("%s lamportTimestamp should be %d, not %d", e, et.t, *ts)
+		}
+	}
+
+}
+
 func TestDecideFame(t *testing.T) {
 	h, index := initConsensusHashgraph(false, t)
 
@@ -1351,29 +1411,6 @@ func TestDecideFame(t *testing.T) {
 		if !reflect.DeepEqual(*pd, expectedpendingRounds[i]) {
 			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedpendingRounds[i], *pd)
 		}
-	}
-}
-
-func TestOldestSelfAncestorToSee(t *testing.T) {
-	h, index := initConsensusHashgraph(false, t)
-
-	if a := h.oldestSelfAncestorToSee(index["f0"], index["e1"]); a != index["e02"] {
-		t.Fatalf("oldest self ancestor of f0 to see e1 should be e02 not %s", getName(index, a))
-	}
-	if a := h.oldestSelfAncestorToSee(index["f1"], index["e0"]); a != index["e10"] {
-		t.Fatalf("oldest self ancestor of f1 to see e0 should be e10 not %s", getName(index, a))
-	}
-	if a := h.oldestSelfAncestorToSee(index["f1b"], index["e0"]); a != index["e10"] {
-		t.Fatalf("oldest self ancestor of f1b to see e0 should be e10 not %s", getName(index, a))
-	}
-	if a := h.oldestSelfAncestorToSee(index["g2"], index["f1"]); a != index["f2"] {
-		t.Fatalf("oldest self ancestor of g2 to see f1 should be f2 not %s", getName(index, a))
-	}
-	if a := h.oldestSelfAncestorToSee(index["e21"], index["e1"]); a != index["e21"] {
-		t.Fatalf("oldest self ancestor of e20 to see e1 should be e21 not %s", getName(index, a))
-	}
-	if a := h.oldestSelfAncestorToSee(index["e2"], index["e1"]); a != "" {
-		t.Fatalf("oldest self ancestor of e2 to see e1 should be '' not %s", getName(index, a))
 	}
 }
 
@@ -1473,15 +1510,6 @@ func TestProcessDecidedRounds(t *testing.T) {
 
 	if l := len(consensusEvents); l != 16 {
 		t.Fatalf("length of consensus should be 16 not %d", l)
-	}
-
-	//Events which have the same consensus timestamp are ordered by whitened
-	//signature which is not deterministic; It is hard to test the ordering.
-	if n := getName(index, consensusEvents[0]); n != "e0" {
-		t.Fatalf("consensus[0] should be e0, not %s", n)
-	}
-	if n := getName(index, consensusEvents[6]); n != "e02" {
-		t.Fatalf("consensus[6] should be e02, not %s", n)
 	}
 
 	if ple := h.PendingLoadedEvents; ple != 2 {
@@ -1805,7 +1833,7 @@ func TestResetFromFrame(t *testing.T) {
 		   	   | \ |   |
 		   	   |   \   |
 		   	   |   | \ |
-		   ---f0x  |   f21 //f0x's other-parent is e21b; contained in R0
+		   +--f0x  |   f21 //f0x's other-parent is e21b; contained in R0
 		   |   |   | / |
 		   |   |  f10  |
 		   |   | / |   |
@@ -1815,7 +1843,7 @@ func TestResetFromFrame(t *testing.T) {
 		   |   |   |   |
 		   |   |   f1  |
 		   |   |   |   |
-		   --- R0  R1  R2
+		   +-- R0  R1  R2
 	*/
 
 	expectedKnown := map[int]int{
@@ -2236,28 +2264,35 @@ func TestFunkyHashgraphFrames(t *testing.T) {
 			t.Logf("frame[%d].Events[%d]: %s, round %d", frame.Round, k, getName(index, ev.Hex()), h.round(ev.Hex()))
 		}
 		for k, r := range frame.Roots {
-			t.Logf("frame[%d].Roots[%d]: X: %s, Y: %s, Index: %d, Round: %d, StronglySeenWitnesses: %d", frame.Round, k, getName(index, r.X), getName(index, r.Y), r.Index, r.Round, r.StronglySeenWitnesses)
+			t.Logf("frame[%d].Roots[%d]: X: %s, Y: %s, Index: %d, Round: %d, LamportTimestamp: %d, StronglySeenWitnesses: %d",
+				frame.Round, k,
+				getName(index, r.X),
+				getName(index, r.Y),
+				r.Index,
+				r.Round,
+				r.LamportTimestamp,
+				r.StronglySeenWitnesses)
 		}
 	}
 
 	expectedFrameRoots := map[int][]Root{
 		1: []Root{
-			Root{X: "", Y: "", Index: -1, Round: -1, StronglySeenWitnesses: 0, Others: map[string]string{}},
-			Root{X: "", Y: "", Index: -1, Round: -1, StronglySeenWitnesses: 0, Others: map[string]string{}},
-			Root{X: "", Y: "", Index: -1, Round: -1, StronglySeenWitnesses: 0, Others: map[string]string{}},
-			Root{X: "", Y: "", Index: -1, Round: -1, StronglySeenWitnesses: 0, Others: map[string]string{}},
+			Root{X: "", Y: "", Index: -1, Round: -1, LamportTimestamp: -1, StronglySeenWitnesses: 0, Others: map[string]string{}},
+			Root{X: "", Y: "", Index: -1, Round: -1, LamportTimestamp: -1, StronglySeenWitnesses: 0, Others: map[string]string{}},
+			Root{X: "", Y: "", Index: -1, Round: -1, LamportTimestamp: -1, StronglySeenWitnesses: 0, Others: map[string]string{}},
+			Root{X: "", Y: "", Index: -1, Round: -1, LamportTimestamp: -1, StronglySeenWitnesses: 0, Others: map[string]string{}},
 		},
 		2: []Root{
-			Root{X: "", Y: "", Index: -1, Round: -1, StronglySeenWitnesses: 0, Others: map[string]string{}},
-			Root{X: index["a12"], Y: index["a00"], Index: 1, Round: 0, StronglySeenWitnesses: 1, Others: map[string]string{}},
-			Root{X: index["a21"], Y: index["w13"], Index: 2, Round: 1, StronglySeenWitnesses: 0, Others: map[string]string{}},
-			Root{X: index["w03"], Y: index["a21"], Index: 0, Round: 0, StronglySeenWitnesses: 3, Others: map[string]string{}},
+			Root{X: "", Y: "", Index: -1, Round: -1, LamportTimestamp: -1, StronglySeenWitnesses: 0, Others: map[string]string{}},
+			Root{X: index["a12"], Y: index["a00"], Index: 1, Round: 0, LamportTimestamp: 2, StronglySeenWitnesses: 1, Others: map[string]string{}},
+			Root{X: index["a21"], Y: index["w13"], Index: 2, Round: 1, LamportTimestamp: 4, StronglySeenWitnesses: 0, Others: map[string]string{}},
+			Root{X: index["w03"], Y: index["a21"], Index: 0, Round: 0, LamportTimestamp: 3, StronglySeenWitnesses: 3, Others: map[string]string{}},
 		},
 		3: []Root{
-			Root{X: index["a00"], Y: index["w11"], Index: 1, Round: 1, StronglySeenWitnesses: 2, Others: map[string]string{}},
-			Root{X: index["w11"], Y: index["w23"], Index: 3, Round: 2, StronglySeenWitnesses: 0, Others: map[string]string{}},
-			Root{X: index["b21"], Y: index["c10"], Index: 4, Round: 2, StronglySeenWitnesses: 1, Others: map[string]string{}},
-			Root{X: index["w13"], Y: index["b21"], Index: 1, Round: 1, StronglySeenWitnesses: 3, Others: map[string]string{}},
+			Root{X: index["a00"], Y: index["w11"], Index: 1, Round: 1, LamportTimestamp: 6, StronglySeenWitnesses: 2, Others: map[string]string{}},
+			Root{X: index["w11"], Y: index["w23"], Index: 3, Round: 2, LamportTimestamp: 8, StronglySeenWitnesses: 0, Others: map[string]string{}},
+			Root{X: index["b21"], Y: index["c10"], Index: 4, Round: 2, LamportTimestamp: 10, StronglySeenWitnesses: 1, Others: map[string]string{}},
+			Root{X: index["w13"], Y: index["b21"], Index: 1, Round: 1, LamportTimestamp: 7, StronglySeenWitnesses: 3, Others: map[string]string{}},
 		},
 	}
 

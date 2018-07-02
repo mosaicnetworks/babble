@@ -152,7 +152,6 @@ func TestEventDiff(t *testing.T) {
 	}
 
 }
-
 func TestSync(t *testing.T) {
 	cores, _, index := initCores(3, t)
 
