@@ -192,7 +192,7 @@ func (s *BadgerStore) KnownEvents() map[int]int {
 			if isRoot {
 				root, err := s.GetRoot(p)
 				if err != nil {
-					last = root.X
+					last = root.X.Hash
 					index = root.Index
 				}
 			} else {

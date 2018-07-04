@@ -99,7 +99,7 @@ func (c *Core) SetHeadAndSeq() error {
 		if err != nil {
 			return err
 		}
-		head = root.X
+		head = root.X.Hash
 		seq = root.Index
 	} else {
 		lastEvent, err := c.GetEvent(last)

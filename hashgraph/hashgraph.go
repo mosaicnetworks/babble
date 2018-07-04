@@ -233,46 +233,44 @@ func (h *Hashgraph) _parentRound(x string) ParentRoundInfo {
 	}
 
 	spRound := -1
-	spRoot := false
 	spSSWitnesses := 0
+	spRoot := false
 	//If it is the creator's first Event, use the corresponding Root
-	if ex.SelfParent() == root.X {
-		spRound = root.Round
+	if ex.SelfParent() == root.X.Hash {
+		spRound = root.X.Round
+		spSSWitnesses = root.X.DescendantStronglySeenWitnesses
 		spRoot = true
-		spSSWitnesses = root.StronglySeenWitnesses
+
 	} else {
 		spRound = h.round(ex.SelfParent())
 		spRoot = false
 	}
 
 	opRound := -1
-	opRoot := false
 	opSSWitnesses := 0
+	opRoot := false
 	if _, err := h.Store.GetEvent(ex.OtherParent()); err == nil {
 		//if we known the other-parent, fetch its Round directly
 		opRound = h.round(ex.OtherParent())
-	} else if ex.OtherParent() == root.Y {
+	} else if ex.OtherParent() == root.Y.Hash {
 		//we do not know the other-parent but it is referenced in Root.Y
-		opRound = root.Round
+		opRound = root.Y.Round
+		opSSWitnesses = root.Y.DescendantStronglySeenWitnesses
 		opRoot = true
-		opSSWitnesses = root.StronglySeenWitnesses
-	} else if other, ok := root.Others[x]; ok && other == ex.OtherParent() {
+	} else if other, ok := root.Others[x]; ok && other.Hash == ex.OtherParent() {
 		//we do not know the other-parent but it is referenced  in Root.Others
-		//we use the Root's Round
-		//in reality the OtherParent Round is not necessarily the same as the
-		//Root's but it is necessarily smaller. Since We are intererest in the
-		//max between self-parent and other-parent rounds, this shortcut is
-		//acceptable.
-		opRound = root.Round
+		opRound = other.Round
+		opSSWitnesses = other.DescendantStronglySeenWitnesses
+		opRoot = true
 	}
 
 	res.round = spRound
-	res.isRoot = spRoot
 	res.rootStronglySeenWitnesses = spSSWitnesses
+	res.isRoot = spRoot
 	if spRound < opRound {
 		res.round = opRound
-		res.isRoot = opRoot
 		res.rootStronglySeenWitnesses = opSSWitnesses
+		res.isRoot = opRoot
 	}
 	return res
 }
@@ -289,9 +287,8 @@ func (h *Hashgraph) witness(x string) bool {
 		return false
 	}
 
-	//If it is the creator's first Event, return true
-	if ex.SelfParent() == root.X && ex.OtherParent() == root.Y {
-		return true
+	if ex.SelfParent() == root.X.Hash {
+		return root.X.DescendantWitness
 	}
 
 	return h.round(x) > h.round(ex.SelfParent())
@@ -374,8 +371,8 @@ func (h *Hashgraph) _parentLamportTimestamp(x string) int {
 
 	spLT := -1
 	//If it is the creator's first Event, use the corresponding Root
-	if ex.SelfParent() == root.X {
-		spLT = root.LamportTimestamp
+	if ex.SelfParent() == root.X.Hash {
+		spLT = root.X.LamportTimestamp
 	} else {
 		spLT = h.lamportTimestamp(ex.SelfParent())
 	}
@@ -384,17 +381,13 @@ func (h *Hashgraph) _parentLamportTimestamp(x string) int {
 	if _, err := h.Store.GetEvent(ex.OtherParent()); err == nil {
 		//if we known the other-parent, fetch its Round directly
 		opLT = h.lamportTimestamp(ex.OtherParent())
-	} else if ex.OtherParent() == root.Y {
+	} else if ex.OtherParent() == root.Y.Hash {
 		//we do not know the other-parent but it is referenced in Root.Y
-		opLT = root.LamportTimestamp
-	} else if other, ok := root.Others[x]; ok && other == ex.OtherParent() {
+		opLT = root.Y.LamportTimestamp
+	} else if other, ok := root.Others[x]; ok && other.Hash == ex.OtherParent() {
 		//we do not know the other-parent but it is referenced  in Root.Others
 		//we use the Root's LamportTimestamp
-		//in reality the OtherParent LamportTimestamp is not necessarily the
-		//equal to the Root's but it is necessarily smaller. Since We are
-		//intererest in the max between self-parent and other-parent rounds,
-		//this shortcut is acceptable.
-		opLT = root.LamportTimestamp
+		opLT = other.LamportTimestamp
 	}
 
 	if spLT < opLT {
@@ -449,11 +442,11 @@ func (h *Hashgraph) checkOtherParent(event Event) error {
 			if err != nil {
 				return err
 			}
-			if root.X == event.SelfParent() && root.Y == otherParent {
+			if root.X.Hash == event.SelfParent() && root.Y.Hash == otherParent {
 				return nil
 			}
 			other, ok := root.Others[event.Hex()]
-			if ok && other == event.OtherParent() {
+			if ok && other.Hash == event.OtherParent() {
 				return nil
 			}
 			return fmt.Errorf("Other-parent not known")
@@ -547,6 +540,49 @@ func (h *Hashgraph) updateAncestorFirstDescendant(event Event) error {
 	return nil
 }
 
+func (h *Hashgraph) createRoot(ev Event) (Root, error) {
+	//SelfParent
+	selfParentRound := h.round(ev.SelfParent())
+	spsw := 0
+	for _, w := range h.Store.RoundWitnesses(selfParentRound) {
+		if h.stronglySee(ev.Hex(), w) {
+			spsw++
+		}
+	}
+	x := RootEvent{
+		Hash:                            ev.SelfParent(),
+		Round:                           h.round(ev.SelfParent()),
+		LamportTimestamp:                h.lamportTimestamp(ev.SelfParent()),
+		DescendantStronglySeenWitnesses: spsw,
+		DescendantWitness:               h.witness(ev.Hex()),
+	}
+	//OtherParent
+	otherParentRound := h.round(ev.OtherParent())
+	opsw := 0
+	for _, w := range h.Store.RoundWitnesses(otherParentRound) {
+		if h.stronglySee(ev.Hex(), w) {
+			opsw++
+		}
+	}
+
+	y := RootEvent{
+		Hash:                            ev.OtherParent(),
+		Round:                           otherParentRound,
+		LamportTimestamp:                h.lamportTimestamp(ev.OtherParent()),
+		DescendantStronglySeenWitnesses: opsw,
+		DescendantWitness:               h.witness(ev.Hex()),
+	}
+
+	root := Root{
+		X:      x,
+		Y:      y,
+		Index:  ev.Index() - 1,
+		Others: map[string]RootEvent{},
+	}
+
+	return root, nil
+}
+
 func (h *Hashgraph) setWireInfo(event *Event) error {
 	selfParentIndex := -1
 	otherParentCreatorID := -1
@@ -606,72 +642,6 @@ func (h *Hashgraph) removeProcessedSignatures(processedSignatures map[int]bool) 
 /*******************************************************************************
 Public Methods
 *******************************************************************************/
-
-//ReadWireInfo converts a WireEvent to an Event by replacing int IDs with the
-//corresponding public keys.
-func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
-	selfParent := ""
-	otherParent := ""
-	var err error
-
-	creator := h.ReverseParticipants[wevent.Body.CreatorID]
-	creatorBytes, err := hex.DecodeString(creator[2:])
-	if err != nil {
-		return nil, err
-	}
-
-	if wevent.Body.SelfParentIndex >= 0 {
-		selfParent, err = h.Store.ParticipantEvent(creator, wevent.Body.SelfParentIndex)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if wevent.Body.OtherParentIndex >= 0 {
-		otherParentCreator := h.ReverseParticipants[wevent.Body.OtherParentCreatorID]
-		otherParent, err = h.Store.ParticipantEvent(otherParentCreator, wevent.Body.OtherParentIndex)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	body := EventBody{
-		Transactions:    wevent.Body.Transactions,
-		BlockSignatures: wevent.BlockSignatures(creatorBytes),
-		Parents:         []string{selfParent, otherParent},
-		Creator:         creatorBytes,
-
-		Index:                wevent.Body.Index,
-		selfParentIndex:      wevent.Body.SelfParentIndex,
-		otherParentCreatorID: wevent.Body.OtherParentCreatorID,
-		otherParentIndex:     wevent.Body.OtherParentIndex,
-		creatorID:            wevent.Body.CreatorID,
-	}
-
-	event := &Event{
-		Body:      body,
-		Signature: wevent.Signature,
-	}
-
-	return event, nil
-}
-
-//CheckBlock returns an error if the Block does not contain valid signatures
-//from MORE than 1/3 of participants
-func (h *Hashgraph) CheckBlock(block Block) error {
-	validSignatures := 0
-	for _, s := range block.GetSignatures() {
-		ok, _ := block.Verify(s)
-		if ok {
-			validSignatures++
-		}
-	}
-	if validSignatures <= h.trustCount {
-		return fmt.Errorf("Not enough valid signatures: got %d, need %d", validSignatures, h.trustCount+1)
-	}
-
-	h.logger.WithField("valid_signatures", validSignatures).Debug("CheckBlock")
-	return nil
-}
 
 //InsertEvent attempts to insert an Event in the DAG. It verifies the signature,
 //checks the ancestors are known, and prevents the introduction of forks.
@@ -999,8 +969,14 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 		}
 
 		//XXX
+		round, err := h.Store.GetRound(r.Index)
+		if err != nil {
+			return err
+		}
 		h.logger.WithFields(logrus.Fields{
 			"round_received": r.Index,
+			"witnesses":      round.FamousWitnesses(),
+			"events":         len(frame.Events),
 			"roots":          frame.Roots,
 		}).Debugf("Processing Decided Round")
 
@@ -1077,23 +1053,11 @@ func (h *Hashgraph) GetFrame(roundReceived int) (Frame, error) {
 	for _, ev := range events {
 		p := ev.Creator()
 		if _, ok := roots[p]; !ok {
-
-			parentRound := h.parentRound(ev.Hex())
-			c := 0
-			for _, w := range h.Store.RoundWitnesses(parentRound.round) {
-				if h.stronglySee(ev.Hex(), w) {
-					c++
-				}
+			root, err := h.createRoot(ev)
+			if err != nil {
+				return Frame{}, err
 			}
-			roots[ev.Creator()] = Root{
-				X:                     ev.SelfParent(),
-				Y:                     ev.OtherParent(),
-				Index:                 ev.Index() - 1,
-				Round:                 parentRound.round,
-				LamportTimestamp:      h.parentLamportTimestamp(ev.Hex()),
-				StronglySeenWitnesses: c,
-				Others:                map[string]string{},
-			}
+			roots[ev.Creator()] = root
 		}
 	}
 
@@ -1140,8 +1104,22 @@ func (h *Hashgraph) GetFrame(roundReceived int) (Frame, error) {
 		if otherParent != "" {
 			opt, ok := treated[otherParent]
 			if !opt || !ok {
-				if ev.SelfParent() != roots[ev.Creator()].X {
-					roots[ev.Creator()].Others[ev.Hex()] = otherParent
+				if ev.SelfParent() != roots[ev.Creator()].X.Hash {
+					otherRound := h.round(otherParent)
+					opsw := 0
+					for _, w := range h.Store.RoundWitnesses(otherRound) {
+						if h.stronglySee(ev.Hex(), w) {
+							opsw++
+						}
+					}
+					other := RootEvent{
+						Hash:                            otherParent,
+						Round:                           h.round(otherParent),
+						LamportTimestamp:                h.lamportTimestamp(otherParent),
+						DescendantStronglySeenWitnesses: opsw,
+						DescendantWitness:               h.witness(ev.Hex()),
+					}
+					roots[ev.Creator()].Others[ev.Hex()] = other
 				}
 			}
 		}
@@ -1354,6 +1332,72 @@ func (h *Hashgraph) Bootstrap() error {
 		}
 	}
 
+	return nil
+}
+
+//ReadWireInfo converts a WireEvent to an Event by replacing int IDs with the
+//corresponding public keys.
+func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
+	selfParent := ""
+	otherParent := ""
+	var err error
+
+	creator := h.ReverseParticipants[wevent.Body.CreatorID]
+	creatorBytes, err := hex.DecodeString(creator[2:])
+	if err != nil {
+		return nil, err
+	}
+
+	if wevent.Body.SelfParentIndex >= 0 {
+		selfParent, err = h.Store.ParticipantEvent(creator, wevent.Body.SelfParentIndex)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if wevent.Body.OtherParentIndex >= 0 {
+		otherParentCreator := h.ReverseParticipants[wevent.Body.OtherParentCreatorID]
+		otherParent, err = h.Store.ParticipantEvent(otherParentCreator, wevent.Body.OtherParentIndex)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	body := EventBody{
+		Transactions:    wevent.Body.Transactions,
+		BlockSignatures: wevent.BlockSignatures(creatorBytes),
+		Parents:         []string{selfParent, otherParent},
+		Creator:         creatorBytes,
+
+		Index:                wevent.Body.Index,
+		selfParentIndex:      wevent.Body.SelfParentIndex,
+		otherParentCreatorID: wevent.Body.OtherParentCreatorID,
+		otherParentIndex:     wevent.Body.OtherParentIndex,
+		creatorID:            wevent.Body.CreatorID,
+	}
+
+	event := &Event{
+		Body:      body,
+		Signature: wevent.Signature,
+	}
+
+	return event, nil
+}
+
+//CheckBlock returns an error if the Block does not contain valid signatures
+//from MORE than 1/3 of participants
+func (h *Hashgraph) CheckBlock(block Block) error {
+	validSignatures := 0
+	for _, s := range block.GetSignatures() {
+		ok, _ := block.Verify(s)
+		if ok {
+			validSignatures++
+		}
+	}
+	if validSignatures <= h.trustCount {
+		return fmt.Errorf("Not enough valid signatures: got %d, need %d", validSignatures, h.trustCount+1)
+	}
+
+	h.logger.WithField("valid_signatures", validSignatures).Debug("CheckBlock")
 	return nil
 }
 

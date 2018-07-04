@@ -25,7 +25,8 @@ type InmemStore struct {
 func NewInmemStore(participants map[string]int, cacheSize int) *InmemStore {
 	roots := make(map[string]Root)
 	for pk := range participants {
-		roots[pk] = NewBaseRoot()
+		root := NewBaseRoot()
+		roots[pk] = root
 	}
 	return &InmemStore{
 		cacheSize:              cacheSize,
@@ -98,7 +99,7 @@ func (s *InmemStore) LastEventFrom(participant string) (last string, isRoot bool
 	if last == "" {
 		root, ok := s.roots[participant]
 		if ok {
-			last = root.X
+			last = root.X.Hash
 			isRoot = true
 		} else {
 			err = cm.NewStoreErr(cm.NoRoot, participant)
@@ -114,7 +115,7 @@ func (s *InmemStore) LastConsensusEventFrom(participant string) (last string, is
 	if !ok {
 		root, ok := s.roots[participant]
 		if ok {
-			last = root.X
+			last = root.X.Hash
 			isRoot = true
 		} else {
 			err = cm.NewStoreErr(cm.NoRoot, participant)

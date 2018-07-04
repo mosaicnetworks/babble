@@ -90,6 +90,16 @@ func (r *RoundInfo) Witnesses() []string {
 	return res
 }
 
+func (r *RoundInfo) RoundEvents() []string {
+	res := []string{}
+	for x, e := range r.Events {
+		if !e.Consensus {
+			res = append(res, x)
+		}
+	}
+	return res
+}
+
 //return consensus events
 func (r *RoundInfo) ConsensusEvents() []string {
 	res := []string{}

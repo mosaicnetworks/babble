@@ -396,12 +396,7 @@ func TestDBFrameMethods(t *testing.T) {
 		event.Sign(p.privKey)
 		events = append(events, event)
 
-		root := Root{
-			X:     "",
-			Y:     "",
-			Index: -1,
-			Round: -1,
-			StronglySeenWitnesses: 0}
+		root := NewBaseRoot()
 		roots = append(roots, root)
 	}
 	frame := Frame{
@@ -658,12 +653,7 @@ func TestBadgerFrames(t *testing.T) {
 		event.Sign(p.privKey)
 		events = append(events, event)
 
-		root := Root{
-			X:     "",
-			Y:     "",
-			Index: -1,
-			Round: -1,
-			StronglySeenWitnesses: 0}
+		root := NewBaseRoot()
 		roots = append(roots, root)
 	}
 	frame := Frame{

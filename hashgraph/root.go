@@ -26,8 +26,6 @@ ex 1:
 - Root 0        - 		 - Root 1        - 		 - Root 2        -
 - X = Y = ""    - 		 - X = Y = ""    -		 - X = Y = ""    -
 - Index= -1     -		 - Index= -1     -       - Index= -1     -
-- Round= -1     -		 - Round= -1     -       - Round= -1     -
-- LT= -1        -        - LT= -1        -       - LT= -1        -
 - Others= empty - 		 - Others= empty -       - Others= empty -
 -----------------		 -----------------       -----------------
 
@@ -55,31 +53,49 @@ ex 2:
 - Root 0        - 		 - Root 1        - 		 - Root 2        -
 - X: x0, Y: y0  - 		 - X: x1, Y: y1  - 		 - X: x2, Y: y2  -
 - Index= i0     -		 - Index= i1     -       - Index= i2     -
-- Round= r0     -		 - Round= r1     -       - Round= r2     -
-- LT   = lt0    -        - LT   = lt1    -       - LT   = lt2    -
 - Others= {     - 		 - Others= empty -       - Others= empty -
 -  E02: E_OLD   -        -----------------       -----------------
 - }             -
 -----------------
 */
 
-type Root struct {
-	X, Y                  string
-	Index                 int
-	Round                 int
-	LamportTimestamp      int
-	StronglySeenWitnesses int
-	Others                map[string]string
+//RootEvent contains enough information about an Event and its direct descendant
+//to allow inserting Events on top of it.
+type RootEvent struct {
+	Hash                            string
+	LamportTimestamp                int
+	Round                           int
+	DescendantStronglySeenWitnesses int  //How many witnesses of Round the direct descendant of this Event can StronglySee
+	DescendantWitness               bool //Is the direct descendant a witness?
 }
 
+//NewBaseRootEvent creates a RootEvent corresponding to the the very beginning
+//of a Hashgraph.
+func NewBaseRootEvent() RootEvent {
+	return RootEvent{
+		LamportTimestamp:  -1,
+		Round:             -1,
+		DescendantWitness: true,
+	}
+}
+
+//Root forms a base on top of which a participant's Events can be inserted. In
+//contains the parents of the first descendant of the Root (X and Y), as well as
+//other Events, belonging to a past before the Root, which might be referenced
+//in future Events.
+type Root struct {
+	X, Y   RootEvent //SelfParent and OtherParent
+	Index  int       //Index of SelfParent
+	Others map[string]RootEvent
+}
+
+//NewBaseRoot initializes a Root object for a fresh Hashgraph.
 func NewBaseRoot() Root {
 	return Root{
-		X:                "",
-		Y:                "",
-		Index:            -1,
-		Round:            -1,
-		LamportTimestamp: -1,
-		Others:           map[string]string{},
+		X:      NewBaseRootEvent(),
+		Y:      NewBaseRootEvent(),
+		Index:  -1,
+		Others: map[string]RootEvent{},
 	}
 }
 
