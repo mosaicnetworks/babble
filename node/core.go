@@ -3,6 +3,7 @@ package node
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"reflect"
 	"sort"
 	"time"
 
@@ -27,7 +28,7 @@ type Core struct {
 	transactionPool    [][]byte
 	blockSignaturePool []hg.BlockSignature
 
-	logger *logrus.Logger
+	logger *logrus.Entry
 }
 
 func NewCore(
@@ -37,10 +38,12 @@ func NewCore(
 	store hg.Store,
 	commitCh chan hg.Block,
 	logger *logrus.Logger) Core {
+
 	if logger == nil {
 		logger = logrus.New()
 		logger.Level = logrus.DebugLevel
 	}
+	logEntry := logger.WithField("id", id)
 
 	reverseParticipants := make(map[int]string)
 	for pk, id := range participants {
@@ -50,12 +53,14 @@ func NewCore(
 	core := Core{
 		id:                  id,
 		key:                 key,
-		hg:                  hg.NewHashgraph(participants, store, commitCh, logger),
+		hg:                  hg.NewHashgraph(participants, store, commitCh, logEntry),
 		participants:        participants,
 		reverseParticipants: reverseParticipants,
 		transactionPool:     [][]byte{},
 		blockSignaturePool:  []hg.BlockSignature{},
-		logger:              logger,
+		logger:              logEntry,
+		Head:                "",
+		Seq:                 -1,
 	}
 	return core
 }
@@ -79,26 +84,7 @@ func (c *Core) HexID() string {
 	return c.hexID
 }
 
-func (c *Core) Init() error {
-	//Create and save the first Event
-	initialEvent := hg.NewEvent([][]byte(nil), nil,
-		[]string{"", ""},
-		c.PubKey(),
-		c.Seq)
-	//We want to make the initial Event deterministic so that when a node is
-	//restarted it will initialize the same Event. cf. github issues 19 and 10
-	initialEvent.Body.Timestamp = time.Time{}.UTC()
-	err := c.SignAndInsertSelfEvent(initialEvent)
-	c.logger.WithFields(logrus.Fields{
-		"index": initialEvent.Index(),
-		"hash":  initialEvent.Hex()}).Debug("Initial Event")
-	return err
-}
-
-func (c *Core) Bootstrap() error {
-	if err := c.hg.Bootstrap(); err != nil {
-		return err
-	}
+func (c *Core) SetHeadAndSeq() error {
 
 	var head string
 	var seq int
@@ -111,9 +97,10 @@ func (c *Core) Bootstrap() error {
 	if isRoot {
 		root, err := c.hg.Store.GetRoot(c.HexID())
 		if err != nil {
-			head = root.X
-			seq = root.Index
+			return err
 		}
+		head = root.X.Hash
+		seq = root.Index
 	} else {
 		lastEvent, err := c.GetEvent(last)
 		if err != nil {
@@ -126,7 +113,22 @@ func (c *Core) Bootstrap() error {
 	c.Head = head
 	c.Seq = seq
 
+	c.logger.WithFields(logrus.Fields{
+		"core.Head": c.Head,
+		"core.Seq":  c.Seq,
+		"is_root":   isRoot,
+	}).Debugf("SetHeadAndSeq")
+
 	return nil
+}
+
+func (c *Core) Bootstrap() error {
+
+	if err := c.hg.Bootstrap(); err != nil {
+		return err
+	}
+
+	return c.SetHeadAndSeq()
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -153,7 +155,7 @@ func (c *Core) InsertEvent(event hg.Event, setWireInfo bool) error {
 }
 
 func (c *Core) KnownEvents() map[int]int {
-	return c.hg.KnownEvents()
+	return c.hg.Store.KnownEvents()
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -185,8 +187,12 @@ func (c *Core) OverSyncLimit(knownEvents map[int]int, syncLimit int) bool {
 	return false
 }
 
-func (c *Core) GetFrame() (hg.Frame, error) {
-	return c.hg.GetFrame()
+func (c *Core) GetLatestFrame() (hg.Frame, error) {
+	return c.hg.GetLatestFrame()
+}
+
+func (c *Core) GetAnchorBlockWithFrame() (hg.Block, hg.Frame, error) {
+	return c.hg.GetAnchorBlockWithFrame()
 }
 
 //returns events that c knowns about and are not in 'known'
@@ -239,31 +245,60 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 		}
 	}
 
-	//create new event with self head and other head
-	//only if there are pending loaded events or the pools are not empty
-	if len(unknownEvents) > 0 ||
-		len(c.transactionPool) > 0 ||
-		len(c.blockSignaturePool) > 0 {
+	//create new event with self head and other head only if there are pending
+	//loaded events or the pools are not empty
+	return c.AddSelfEvent(otherHead)
+}
 
-		newHead := hg.NewEvent(c.transactionPool, c.blockSignaturePool,
-			[]string{c.Head, otherHead},
-			c.PubKey(),
-			c.Seq+1)
+func (c *Core) FastForward(peer string, block hg.Block, frame hg.Frame) error {
 
-		if err := c.SignAndInsertSelfEvent(newHead); err != nil {
-			return fmt.Errorf("Error inserting new head: %s", err)
-		}
+	//Check Block Signatures
+	err := c.hg.CheckBlock(block)
+	if err != nil {
+		return err
+	}
 
-		//empty the pools
-		c.transactionPool = [][]byte{}
-		c.blockSignaturePool = []hg.BlockSignature{}
+	//Check Frame Hash
+	frameHash, err := frame.Hash()
+	if err != nil {
+		return err
+	}
+	if !reflect.DeepEqual(block.FrameHash(), frameHash) {
+		return fmt.Errorf("Invalid Frame Hash")
+	}
+
+	err = c.hg.Reset(block, frame)
+	if err != nil {
+		return err
+	}
+
+	err = c.SetHeadAndSeq()
+	if err != nil {
+		return err
+	}
+
+	lastEventFromPeer, _, err := c.hg.Store.LastEventFrom(peer)
+	if err != nil {
+		return err
+	}
+
+	err = c.AddSelfEvent(lastEventFromPeer)
+	if err != nil {
+		return err
+	}
+
+	err = c.RunConsensus()
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func (c *Core) AddSelfEvent() error {
-	if len(c.transactionPool) == 0 && len(c.blockSignaturePool) == 0 {
+func (c *Core) AddSelfEvent(otherHead string) error {
+
+	//exit if there is nothing to record
+	if otherHead == "" && len(c.transactionPool) == 0 && len(c.blockSignaturePool) == 0 {
 		c.logger.Debug("Empty transaction pool and block signature pool")
 		return nil
 	}
@@ -272,7 +307,7 @@ func (c *Core) AddSelfEvent() error {
 	//empty transaction pool in its payload
 	newHead := hg.NewEvent(c.transactionPool,
 		c.blockSignaturePool,
-		[]string{c.Head, ""},
+		[]string{c.Head, otherHead},
 		c.PubKey(), c.Seq+1)
 
 	if err := c.SignAndInsertSelfEvent(newHead); err != nil {
@@ -328,10 +363,26 @@ func (c *Core) RunConsensus() error {
 	}
 
 	start = time.Now()
-	err = c.hg.FindOrder()
-	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("FindOrder()")
+	err = c.hg.DecideRoundReceived()
+	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("DecideRoundReceived()")
 	if err != nil {
-		c.logger.WithField("error", err).Error("FindOrder")
+		c.logger.WithField("error", err).Error("DecideRoundReceived")
+		return err
+	}
+
+	start = time.Now()
+	err = c.hg.ProcessDecidedRounds()
+	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("ProcessDecidedRounds()")
+	if err != nil {
+		c.logger.WithField("error", err).Error("ProcessDecidedRounds")
+		return err
+	}
+
+	start = time.Now()
+	err = c.hg.ProcessSigPool()
+	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("ProcessSigPool()")
+	if err != nil {
+		c.logger.WithField("error", err).Error("ProcessSigPool()")
 		return err
 	}
 
@@ -365,7 +416,7 @@ func (c *Core) GetEventTransactions(hash string) ([][]byte, error) {
 }
 
 func (c *Core) GetConsensusEvents() []string {
-	return c.hg.ConsensusEvents()
+	return c.hg.Store.ConsensusEvents()
 }
 
 func (c *Core) GetConsensusEventsCount() int {
@@ -405,7 +456,7 @@ func (c *Core) GetLastCommitedRoundEventsCount() int {
 }
 
 func (c *Core) GetLastBlockIndex() int {
-	return c.hg.LastBlockIndex
+	return c.hg.Store.LastBlockIndex()
 }
 
 func (c *Core) NeedGossip() bool {

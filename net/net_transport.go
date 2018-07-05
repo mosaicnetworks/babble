@@ -16,6 +16,7 @@ import (
 const (
 	rpcSync uint8 = iota
 	rpcEagerSync
+	rpcFastForward
 
 	// DefaultTimeoutScale is the default TimeoutScale in a NetworkTransport.
 	DefaultTimeoutScale = 256 * 1024 // 256KB
@@ -213,6 +214,11 @@ func (n *NetworkTransport) EagerSync(target string, args *EagerSyncRequest, resp
 	return n.genericRPC(target, rpcEagerSync, args, resp)
 }
 
+// FastForward implements the Transport interface.
+func (n *NetworkTransport) FastForward(target string, args *FastForwardRequest, resp *FastForwardResponse) error {
+	return n.genericRPC(target, rpcFastForward, args, resp)
+}
+
 // genericRPC handles a simple request/response RPC.
 func (n *NetworkTransport) genericRPC(target string, rpcType uint8, args interface{}, resp interface{}) error {
 	// Get a conn
@@ -352,6 +358,12 @@ func (n *NetworkTransport) handleCommand(r *bufio.Reader, dec *json.Decoder, enc
 		rpc.Command = &req
 	case rpcEagerSync:
 		var req EagerSyncRequest
+		if err := dec.Decode(&req); err != nil {
+			return err
+		}
+		rpc.Command = &req
+	case rpcFastForward:
+		var req FastForwardRequest
 		if err := dec.Decode(&req); err != nil {
 			return err
 		}

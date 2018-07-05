@@ -15,6 +15,7 @@ var (
 	roundPrefix       = "round"
 	topoPrefix        = "topo"
 	blockPrefix       = "block"
+	framePrefix       = "frame"
 )
 
 type BadgerStore struct {
@@ -124,6 +125,10 @@ func blockKey(index int) []byte {
 	return []byte(fmt.Sprintf("%s_%09d", blockPrefix, index))
 }
 
+func frameKey(index int) []byte {
+	return []byte(fmt.Sprintf("%s_%09d", framePrefix, index))
+}
+
 //==============================================================================
 //Implement the Store interface
 
@@ -174,6 +179,10 @@ func (s *BadgerStore) LastEventFrom(participant string) (last string, isRoot boo
 	return s.inmemStore.LastEventFrom(participant)
 }
 
+func (s *BadgerStore) LastConsensusEventFrom(participant string) (last string, isRoot bool, err error) {
+	return s.inmemStore.LastConsensusEventFrom(participant)
+}
+
 func (s *BadgerStore) KnownEvents() map[int]int {
 	known := make(map[int]int)
 	for p, pid := range s.participants {
@@ -183,7 +192,7 @@ func (s *BadgerStore) KnownEvents() map[int]int {
 			if isRoot {
 				root, err := s.GetRoot(p)
 				if err != nil {
-					last = root.X
+					last = root.X.Hash
 					index = root.Index
 				}
 			} else {
@@ -207,8 +216,8 @@ func (s *BadgerStore) ConsensusEventsCount() int {
 	return s.inmemStore.ConsensusEventsCount()
 }
 
-func (s *BadgerStore) AddConsensusEvent(key string) error {
-	return s.inmemStore.AddConsensusEvent(key)
+func (s *BadgerStore) AddConsensusEvent(event Event) error {
+	return s.inmemStore.AddConsensusEvent(event)
 }
 
 func (s *BadgerStore) GetRound(r int) (RoundInfo, error) {
@@ -267,6 +276,25 @@ func (s *BadgerStore) SetBlock(block Block) error {
 		return err
 	}
 	return s.dbSetBlock(block)
+}
+
+func (s *BadgerStore) LastBlockIndex() int {
+	return s.inmemStore.LastBlockIndex()
+}
+
+func (s *BadgerStore) GetFrame(rr int) (Frame, error) {
+	res, err := s.inmemStore.GetFrame(rr)
+	if err != nil {
+		res, err = s.dbGetFrame(rr)
+	}
+	return res, mapError(err, string(frameKey(rr)))
+}
+
+func (s *BadgerStore) SetFrame(frame Frame) error {
+	if err := s.inmemStore.SetFrame(frame); err != nil {
+		return err
+	}
+	return s.dbSetFrame(frame)
 }
 
 func (s *BadgerStore) Reset(roots map[string]Root) error {
@@ -581,6 +609,48 @@ func (s *BadgerStore) dbSetBlock(block Block) error {
 
 	key := blockKey(block.Index())
 	val, err := block.Marshal()
+	if err != nil {
+		return err
+	}
+
+	//insert [index] => [block bytes]
+	if err := tx.Set(key, val); err != nil {
+		return err
+	}
+
+	return tx.Commit(nil)
+}
+
+func (s *BadgerStore) dbGetFrame(index int) (Frame, error) {
+	var frameBytes []byte
+	key := frameKey(index)
+	err := s.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(key)
+		if err != nil {
+			return err
+		}
+		frameBytes, err = item.Value()
+		return err
+	})
+
+	if err != nil {
+		return Frame{}, err
+	}
+
+	frame := new(Frame)
+	if err := frame.Unmarshal(frameBytes); err != nil {
+		return Frame{}, err
+	}
+
+	return *frame, nil
+}
+
+func (s *BadgerStore) dbSetFrame(frame Frame) error {
+	tx := s.db.NewTransaction(true)
+	defer tx.Discard()
+
+	key := frameKey(frame.Round)
+	val, err := frame.Marshal()
 	if err != nil {
 		return err
 	}

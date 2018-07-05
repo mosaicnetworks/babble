@@ -5,42 +5,56 @@ import (
 	"fmt"
 	"math"
 	"sort"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/mosaicnetworks/babble/common"
 )
 
-type Hashgraph struct {
-	Participants            map[string]int //[public key] => id
-	ReverseParticipants     map[int]string //[id] => public key
-	Store                   Store          //store of Events and Rounds
-	UndeterminedEvents      []string       //[index] => hash
-	UndecidedRounds         []int          //queue of Rounds which have undecided witnesses
-	LastConsensusRound      *int           //index of last round where the fame of all witnesses has been decided
-	LastBlockIndex          int            //index of last block
-	LastCommitedRoundEvents int            //number of events in round before LastConsensusRound
-	ConsensusTransactions   int            //number of consensus transactions
-	PendingLoadedEvents     int            //number of loaded events that are not yet committed
-	commitCh                chan Block     //channel for committing Blocks
-	topologicalIndex        int            //counter used to order events in topological order
-	superMajority           int
-
-	ancestorCache           *common.LRU
-	selfAncestorCache       *common.LRU
-	oldestSelfAncestorCache *common.LRU
-	stronglySeeCache        *common.LRU
-	parentRoundCache        *common.LRU
-	roundCache              *common.LRU
-
-	logger *logrus.Logger
+type pendingRound struct {
+	Index   int
+	Decided bool
 }
 
-func NewHashgraph(participants map[string]int, store Store, commitCh chan Block, logger *logrus.Logger) *Hashgraph {
+//Hashgraph is a DAG of Events. It also contains methods to extract a consensus
+//order of Events and map them onto a blockchain.
+type Hashgraph struct {
+	Participants                      map[string]int   //[public key] => id
+	ReverseParticipants               map[int]string   //[id] => public key
+	Store                             Store            //store of Events, Rounds, and Blocks
+	UndeterminedEvents                []string         //[index] => hash . FIFO queue of Events whose consensus order is not yet determined
+	PendingRounds                     []*pendingRound  //FIFO queue of Rounds which have not attained consensus yet
+	LastConsensusRound                *int             //index of last consensus round
+	FirstConsensusRound               *int             //index of first consensus round
+	LowestRoundWithUndeterminedEvents *int             //index of lowest round that contains undetermined Events
+	AnchorBlock                       *int             //index of last block below LowestRoundWithUndeterminedEvents
+	LastCommitedRoundEvents           int              //number of events in round before LastConsensusRound
+	SigPool                           []BlockSignature //Pool of Block signatures that need to be processed
+	ConsensusTransactions             int              //number of consensus transactions
+	PendingLoadedEvents               int              //number of loaded events that are not yet committed
+	commitCh                          chan Block       //channel for committing Blocks
+	topologicalIndex                  int              //counter used to order events in topological order (only local)
+	superMajority                     int
+	trustCount                        int
+
+	ancestorCache        *common.LRU
+	selfAncestorCache    *common.LRU
+	stronglySeeCache     *common.LRU
+	parentRoundCache     *common.LRU
+	roundCache           *common.LRU
+	parentTimestampCache *common.LRU
+	timestampCache       *common.LRU
+
+	logger *logrus.Entry
+}
+
+//NewHashgraph instantiates a Hashgraph from a list of participants, underlying
+//data store and commit channel
+func NewHashgraph(participants map[string]int, store Store, commitCh chan Block, logger *logrus.Entry) *Hashgraph {
 	if logger == nil {
-		logger = logrus.New()
-		logger.Level = logrus.DebugLevel
+		log := logrus.New()
+		log.Level = logrus.DebugLevel
+		logger = logrus.NewEntry(log)
 	}
 
 	reverseParticipants := make(map[int]string)
@@ -50,40 +64,40 @@ func NewHashgraph(participants map[string]int, store Store, commitCh chan Block,
 
 	cacheSize := store.CacheSize()
 	hashgraph := Hashgraph{
-		Participants:            participants,
-		ReverseParticipants:     reverseParticipants,
-		Store:                   store,
-		commitCh:                commitCh,
-		ancestorCache:           common.NewLRU(cacheSize, nil),
-		selfAncestorCache:       common.NewLRU(cacheSize, nil),
-		oldestSelfAncestorCache: common.NewLRU(cacheSize, nil),
-		stronglySeeCache:        common.NewLRU(cacheSize, nil),
-		parentRoundCache:        common.NewLRU(cacheSize, nil),
-		roundCache:              common.NewLRU(cacheSize, nil),
-		logger:                  logger,
-		superMajority:           2*len(participants)/3 + 1,
-		UndecidedRounds:         []int{0}, //initialize,
-		LastBlockIndex:          -1,
+		Participants:         participants,
+		ReverseParticipants:  reverseParticipants,
+		Store:                store,
+		commitCh:             commitCh,
+		ancestorCache:        common.NewLRU(cacheSize, nil),
+		selfAncestorCache:    common.NewLRU(cacheSize, nil),
+		stronglySeeCache:     common.NewLRU(cacheSize, nil),
+		parentRoundCache:     common.NewLRU(cacheSize, nil),
+		roundCache:           common.NewLRU(cacheSize, nil),
+		parentTimestampCache: common.NewLRU(cacheSize, nil),
+		timestampCache:       common.NewLRU(cacheSize, nil),
+		logger:               logger,
+		superMajority:        2*len(participants)/3 + 1,
+		trustCount:           len(participants) / 3,
 	}
 
 	return &hashgraph
 }
 
-func (h *Hashgraph) SuperMajority() int {
-	return h.superMajority
-}
+/*******************************************************************************
+Private Methods
+*******************************************************************************/
 
 //true if y is an ancestor of x
-func (h *Hashgraph) Ancestor(x, y string) bool {
+func (h *Hashgraph) ancestor(x, y string) bool {
 	if c, ok := h.ancestorCache.Get(Key{x, y}); ok {
 		return c.(bool)
 	}
-	a := h.ancestor(x, y)
+	a := h._ancestor(x, y)
 	h.ancestorCache.Add(Key{x, y}, a)
 	return a
 }
 
-func (h *Hashgraph) ancestor(x, y string) bool {
+func (h *Hashgraph) _ancestor(x, y string) bool {
 	if x == y {
 		return true
 	}
@@ -105,16 +119,16 @@ func (h *Hashgraph) ancestor(x, y string) bool {
 }
 
 //true if y is a self-ancestor of x
-func (h *Hashgraph) SelfAncestor(x, y string) bool {
+func (h *Hashgraph) selfAncestor(x, y string) bool {
 	if c, ok := h.selfAncestorCache.Get(Key{x, y}); ok {
 		return c.(bool)
 	}
-	a := h.selfAncestor(x, y)
+	a := h._selfAncestor(x, y)
 	h.selfAncestorCache.Add(Key{x, y}, a)
 	return a
 }
 
-func (h *Hashgraph) selfAncestor(x, y string) bool {
+func (h *Hashgraph) _selfAncestor(x, y string) bool {
 	if x == y {
 		return true
 	}
@@ -134,53 +148,24 @@ func (h *Hashgraph) selfAncestor(x, y string) bool {
 }
 
 //true if x sees y
-func (h *Hashgraph) See(x, y string) bool {
-	return h.Ancestor(x, y)
-	//it is not necessary to detect forks because we assume that with our
-	//implementations, no two events can be added by the same creator at the
-	//same height (cf InsertEvent)
-}
-
-//oldest self-ancestor of x to see y
-func (h *Hashgraph) OldestSelfAncestorToSee(x, y string) string {
-	if c, ok := h.oldestSelfAncestorCache.Get(Key{x, y}); ok {
-		return c.(string)
-	}
-	res := h.oldestSelfAncestorToSee(x, y)
-	h.oldestSelfAncestorCache.Add(Key{x, y}, res)
-	return res
-}
-
-func (h *Hashgraph) oldestSelfAncestorToSee(x, y string) string {
-	ex, err := h.Store.GetEvent(x)
-	if err != nil {
-		return ""
-	}
-	ey, err := h.Store.GetEvent(y)
-	if err != nil {
-		return ""
-	}
-
-	a := ey.firstDescendants[h.Participants[ex.Creator()]]
-
-	if a.index <= ex.Index() {
-		return a.hash
-	}
-
-	return ""
+func (h *Hashgraph) see(x, y string) bool {
+	return h.ancestor(x, y)
+	//it is not necessary to detect forks because we assume that the InsertEvent
+	//function makes it impossible to insert two Events at the same height for
+	//the same participant.
 }
 
 //true if x strongly sees y
-func (h *Hashgraph) StronglySee(x, y string) bool {
+func (h *Hashgraph) stronglySee(x, y string) bool {
 	if c, ok := h.stronglySeeCache.Get(Key{x, y}); ok {
 		return c.(bool)
 	}
-	ss := h.stronglySee(x, y)
+	ss := h._stronglySee(x, y)
 	h.stronglySeeCache.Add(Key{x, y}, ss)
 	return ss
 }
 
-func (h *Hashgraph) stronglySee(x, y string) bool {
+func (h *Hashgraph) _stronglySee(x, y string) bool {
 
 	ex, err := h.Store.GetEvent(x)
 	if err != nil {
@@ -198,21 +183,42 @@ func (h *Hashgraph) stronglySee(x, y string) bool {
 			c++
 		}
 	}
-	return c >= h.SuperMajority()
+	return c >= h.superMajority
+}
+
+func (h *Hashgraph) round(x string) int {
+	if c, ok := h.roundCache.Get(x); ok {
+		return c.(int)
+	}
+	r := h._round(x)
+	h.roundCache.Add(x, r)
+	return r
+}
+
+func (h *Hashgraph) _round(x string) int {
+
+	round := h.parentRound(x).round
+
+	inc := h.roundInc(x)
+
+	if inc {
+		round++
+	}
+	return round
 }
 
 //PRI.round: max of parent rounds
 //PRI.isRoot: true if round is taken from a Root
-func (h *Hashgraph) ParentRound(x string) ParentRoundInfo {
+func (h *Hashgraph) parentRound(x string) ParentRoundInfo {
 	if c, ok := h.parentRoundCache.Get(x); ok {
 		return c.(ParentRoundInfo)
 	}
-	pr := h.parentRound(x)
+	pr := h._parentRound(x)
 	h.parentRoundCache.Add(x, pr)
 	return pr
 }
 
-func (h *Hashgraph) parentRound(x string) ParentRoundInfo {
+func (h *Hashgraph) _parentRound(x string) ParentRoundInfo {
 	res := NewBaseParentRoundInfo()
 
 	ex, err := h.Store.GetEvent(x)
@@ -227,46 +233,50 @@ func (h *Hashgraph) parentRound(x string) ParentRoundInfo {
 	}
 
 	spRound := -1
+	spSSWitnesses := 0
 	spRoot := false
 	//If it is the creator's first Event, use the corresponding Root
-	if ex.SelfParent() == root.X {
-		spRound = root.Round
+	if ex.SelfParent() == root.X.Hash {
+		spRound = root.X.Round
+		spSSWitnesses = root.X.DescendantStronglySeenWitnesses
 		spRoot = true
+
 	} else {
-		spRound = h.Round(ex.SelfParent())
+		spRound = h.round(ex.SelfParent())
 		spRoot = false
 	}
 
 	opRound := -1
+	opSSWitnesses := 0
 	opRoot := false
 	if _, err := h.Store.GetEvent(ex.OtherParent()); err == nil {
 		//if we known the other-parent, fetch its Round directly
-		opRound = h.Round(ex.OtherParent())
-	} else if ex.OtherParent() == root.Y {
+		opRound = h.round(ex.OtherParent())
+	} else if ex.OtherParent() == root.Y.Hash {
 		//we do not know the other-parent but it is referenced in Root.Y
-		opRound = root.Round
+		opRound = root.Y.Round
+		opSSWitnesses = root.Y.DescendantStronglySeenWitnesses
 		opRoot = true
-	} else if other, ok := root.Others[x]; ok && other == ex.OtherParent() {
+	} else if other, ok := root.Others[x]; ok && other.Hash == ex.OtherParent() {
 		//we do not know the other-parent but it is referenced  in Root.Others
-		//we use the Root's Round
-		//in reality the OtherParent Round is not necessarily the same as the
-		//Root's but it is necessarily smaller. Since We are intererest in the
-		//max between self-parent and other-parent rounds, this shortcut is
-		//acceptable.
-		opRound = root.Round
+		opRound = other.Round
+		opSSWitnesses = other.DescendantStronglySeenWitnesses
+		opRoot = true
 	}
 
 	res.round = spRound
+	res.rootStronglySeenWitnesses = spSSWitnesses
 	res.isRoot = spRoot
 	if spRound < opRound {
 		res.round = opRound
+		res.rootStronglySeenWitnesses = opSSWitnesses
 		res.isRoot = opRoot
 	}
 	return res
 }
 
 //true if x is a witness (first event of a round for the owner)
-func (h *Hashgraph) Witness(x string) bool {
+func (h *Hashgraph) witness(x string) bool {
 	ex, err := h.Store.GetEvent(x)
 	if err != nil {
 		return false
@@ -277,38 +287,37 @@ func (h *Hashgraph) Witness(x string) bool {
 		return false
 	}
 
-	//If it is the creator's first Event, return true
-	if ex.SelfParent() == root.X && ex.OtherParent() == root.Y {
-		return true
+	if ex.SelfParent() == root.X.Hash {
+		return root.X.DescendantWitness
 	}
 
-	return h.Round(x) > h.Round(ex.SelfParent())
+	return h.round(x) > h.round(ex.SelfParent())
 }
 
 //true if round of x should be incremented
-func (h *Hashgraph) RoundInc(x string) bool {
+func (h *Hashgraph) roundInc(x string) bool {
 
-	parentRound := h.ParentRound(x)
-
-	//If parent-round was obtained from a Root, then x is the Event that sits
-	//right on top of the Root. RoundInc is true.
-	if parentRound.isRoot {
-		return true
-	}
-
-	//If parent-round was obtained from a regulare Event, then we need to check
-	//if x strongly-sees a strong majority of withnesses from parent-round.
 	c := 0
-	for _, w := range h.Store.RoundWitnesses(parentRound.round) {
-		if h.StronglySee(x, w) {
-			c++
+
+	parentRound := h.parentRound(x)
+
+	if parentRound.isRoot {
+		if parentRound.round == -1 {
+			return true
+		}
+		c = parentRound.rootStronglySeenWitnesses
+	} else {
+		for _, w := range h.Store.RoundWitnesses(parentRound.round) {
+			if h.stronglySee(x, w) {
+				c++
+			}
 		}
 	}
 
-	return c >= h.SuperMajority()
+	return c >= h.superMajority
 }
 
-func (h *Hashgraph) RoundReceived(x string) int {
+func (h *Hashgraph) roundReceived(x string) int {
 
 	ex, err := h.Store.GetEvent(x)
 	if err != nil {
@@ -321,35 +330,80 @@ func (h *Hashgraph) RoundReceived(x string) int {
 	return *ex.roundReceived
 }
 
-func (h *Hashgraph) Round(x string) int {
-	if c, ok := h.roundCache.Get(x); ok {
+func (h *Hashgraph) lamportTimestamp(x string) int {
+	if c, ok := h.timestampCache.Get(x); ok {
 		return c.(int)
 	}
-	r := h.round(x)
-	h.roundCache.Add(x, r)
+	r := h._lamportTimestamp(x)
+	h.timestampCache.Add(x, r)
 	return r
 }
 
-func (h *Hashgraph) round(x string) int {
-
-	round := h.ParentRound(x).round
-
-	inc := h.RoundInc(x)
-
-	if inc {
-		round++
+func (h *Hashgraph) _lamportTimestamp(x string) int {
+	if x == "" {
+		return -1
 	}
-	return round
+	parentTimestamp := h.parentLamportTimestamp(x)
+	return parentTimestamp + 1
+}
+
+func (h *Hashgraph) parentLamportTimestamp(x string) int {
+	if c, ok := h.parentTimestampCache.Get(x); ok {
+		return c.(int)
+	}
+	r := h._parentLamportTimestamp(x)
+	h.parentTimestampCache.Add(x, r)
+	return r
+}
+
+func (h *Hashgraph) _parentLamportTimestamp(x string) int {
+
+	ex, err := h.Store.GetEvent(x)
+	if err != nil {
+		return -1
+	}
+
+	//We are going to need the Root later
+	root, err := h.Store.GetRoot(ex.Creator())
+	if err != nil {
+		return -1
+	}
+
+	spLT := -1
+	//If it is the creator's first Event, use the corresponding Root
+	if ex.SelfParent() == root.X.Hash {
+		spLT = root.X.LamportTimestamp
+	} else {
+		spLT = h.lamportTimestamp(ex.SelfParent())
+	}
+
+	opLT := -1
+	if _, err := h.Store.GetEvent(ex.OtherParent()); err == nil {
+		//if we known the other-parent, fetch its Round directly
+		opLT = h.lamportTimestamp(ex.OtherParent())
+	} else if ex.OtherParent() == root.Y.Hash {
+		//we do not know the other-parent but it is referenced in Root.Y
+		opLT = root.Y.LamportTimestamp
+	} else if other, ok := root.Others[x]; ok && other.Hash == ex.OtherParent() {
+		//we do not know the other-parent but it is referenced  in Root.Others
+		//we use the Root's LamportTimestamp
+		opLT = other.LamportTimestamp
+	}
+
+	if spLT < opLT {
+		return opLT
+	}
+	return spLT
 }
 
 //round(x) - round(y)
-func (h *Hashgraph) RoundDiff(x, y string) (int, error) {
+func (h *Hashgraph) roundDiff(x, y string) (int, error) {
 
-	xRound := h.Round(x)
+	xRound := h.round(x)
 	if xRound < 0 {
 		return math.MinInt32, fmt.Errorf("event %s has negative round", x)
 	}
-	yRound := h.Round(y)
+	yRound := h.round(y)
 	if yRound < 0 {
 		return math.MinInt32, fmt.Errorf("event %s has negative round", y)
 	}
@@ -357,103 +411,8 @@ func (h *Hashgraph) RoundDiff(x, y string) (int, error) {
 	return xRound - yRound, nil
 }
 
-func (h *Hashgraph) InsertEvent(event Event, setWireInfo bool) error {
-	//verify signature
-	if ok, err := event.Verify(); !ok {
-		if err != nil {
-			return err
-		}
-		return fmt.Errorf("Invalid Event signature")
-	}
-
-	if err := h.CheckSelfParent(event); err != nil {
-		return fmt.Errorf("CheckSelfParent: %s", err)
-	}
-
-	if err := h.CheckOtherParent(event); err != nil {
-		return fmt.Errorf("CheckOtherParent: %s", err)
-	}
-
-	event.topologicalIndex = h.topologicalIndex
-	h.topologicalIndex++
-
-	if setWireInfo {
-		if err := h.SetWireInfo(&event); err != nil {
-			return fmt.Errorf("SetWireInfo: %s", err)
-		}
-	}
-
-	if err := h.InitEventCoordinates(&event); err != nil {
-		return fmt.Errorf("InitEventCoordinates: %s", err)
-	}
-
-	if err := h.Store.SetEvent(event); err != nil {
-		return fmt.Errorf("SetEvent: %s", err)
-	}
-
-	if err := h.UpdateAncestorFirstDescendant(event); err != nil {
-		return fmt.Errorf("UpdateAncestorFirstDescendant: %s", err)
-	}
-
-	h.UndeterminedEvents = append(h.UndeterminedEvents, event.Hex())
-
-	if event.IsLoaded() {
-		h.PendingLoadedEvents++
-	}
-
-	h.recordBlockSignatures(event.BlockSignatures())
-
-	return nil
-}
-
-func (h *Hashgraph) recordBlockSignatures(blockSignatures []BlockSignature) {
-	for _, bs := range blockSignatures {
-		//check if validator belongs to list of participants
-		validatorHex := fmt.Sprintf("0x%X", bs.Validator)
-		if _, ok := h.Participants[validatorHex]; !ok {
-			h.logger.WithFields(logrus.Fields{
-				"index":     bs.Index,
-				"validator": validatorHex,
-			}).Warning("Verifying Block signature. Unknown validator")
-			continue
-		}
-
-		block, err := h.Store.GetBlock(bs.Index)
-		if err != nil {
-			h.logger.WithFields(logrus.Fields{
-				"index": bs.Index,
-				"msg":   err,
-			}).Warning("Verifying Block signature. Could not fetch Block")
-			continue
-		}
-		valid, err := block.Verify(bs)
-		if err != nil {
-			h.logger.WithFields(logrus.Fields{
-				"index": bs.Index,
-				"msg":   err,
-			}).Warning("Verifying Block signature")
-			continue
-		}
-		if !valid {
-			h.logger.WithFields(logrus.Fields{
-				"index": bs.Index,
-			}).Warning("Verifying Block signature. Invalid signature")
-			continue
-		}
-
-		block.SetSignature(bs)
-
-		if err := h.Store.SetBlock(block); err != nil {
-			h.logger.WithFields(logrus.Fields{
-				"index": bs.Index,
-				"msg":   err,
-			}).Warning("Saving Block")
-		}
-	}
-}
-
 //Check the SelfParent is the Creator's last known Event
-func (h *Hashgraph) CheckSelfParent(event Event) error {
+func (h *Hashgraph) checkSelfParent(event Event) error {
 	selfParent := event.SelfParent()
 	creator := event.Creator()
 
@@ -472,7 +431,7 @@ func (h *Hashgraph) CheckSelfParent(event Event) error {
 }
 
 //Check if we know the OtherParent
-func (h *Hashgraph) CheckOtherParent(event Event) error {
+func (h *Hashgraph) checkOtherParent(event Event) error {
 	otherParent := event.OtherParent()
 	if otherParent != "" {
 		//Check if we have it
@@ -483,11 +442,11 @@ func (h *Hashgraph) CheckOtherParent(event Event) error {
 			if err != nil {
 				return err
 			}
-			if root.X == event.SelfParent() && root.Y == otherParent {
+			if root.X.Hash == event.SelfParent() && root.Y.Hash == otherParent {
 				return nil
 			}
 			other, ok := root.Others[event.Hex()]
-			if ok && other == event.OtherParent() {
+			if ok && other.Hash == event.OtherParent() {
 				return nil
 			}
 			return fmt.Errorf("Other-parent not known")
@@ -497,7 +456,7 @@ func (h *Hashgraph) CheckOtherParent(event Event) error {
 }
 
 //initialize arrays of last ancestors and first descendants
-func (h *Hashgraph) InitEventCoordinates(event *Event) error {
+func (h *Hashgraph) initEventCoordinates(event *Event) error {
 	members := len(h.Participants)
 
 	event.firstDescendants = make([]EventCoordinates, members)
@@ -551,7 +510,7 @@ func (h *Hashgraph) InitEventCoordinates(event *Event) error {
 }
 
 //update first decendant of each last ancestor to point to event
-func (h *Hashgraph) UpdateAncestorFirstDescendant(event Event) error {
+func (h *Hashgraph) updateAncestorFirstDescendant(event Event) error {
 	creatorID, ok := h.Participants[event.Creator()]
 	if !ok {
 		return fmt.Errorf("Could not find creator id (%s)", event.Creator())
@@ -581,7 +540,50 @@ func (h *Hashgraph) UpdateAncestorFirstDescendant(event Event) error {
 	return nil
 }
 
-func (h *Hashgraph) SetWireInfo(event *Event) error {
+func (h *Hashgraph) createRoot(ev Event) (Root, error) {
+	//SelfParent
+	selfParentRound := h.round(ev.SelfParent())
+	spsw := 0
+	for _, w := range h.Store.RoundWitnesses(selfParentRound) {
+		if h.stronglySee(ev.Hex(), w) {
+			spsw++
+		}
+	}
+	x := RootEvent{
+		Hash:                            ev.SelfParent(),
+		Round:                           h.round(ev.SelfParent()),
+		LamportTimestamp:                h.lamportTimestamp(ev.SelfParent()),
+		DescendantStronglySeenWitnesses: spsw,
+		DescendantWitness:               h.witness(ev.Hex()),
+	}
+	//OtherParent
+	otherParentRound := h.round(ev.OtherParent())
+	opsw := 0
+	for _, w := range h.Store.RoundWitnesses(otherParentRound) {
+		if h.stronglySee(ev.Hex(), w) {
+			opsw++
+		}
+	}
+
+	y := RootEvent{
+		Hash:                            ev.OtherParent(),
+		Round:                           otherParentRound,
+		LamportTimestamp:                h.lamportTimestamp(ev.OtherParent()),
+		DescendantStronglySeenWitnesses: opsw,
+		DescendantWitness:               h.witness(ev.Hex()),
+	}
+
+	root := Root{
+		X:      x,
+		Y:      y,
+		Index:  ev.Index() - 1,
+		Others: map[string]RootEvent{},
+	}
+
+	return root, nil
+}
+
+func (h *Hashgraph) setWireInfo(event *Event) error {
 	selfParentIndex := -1
 	otherParentCreatorID := -1
 	otherParentIndex := -1
@@ -618,6 +620,723 @@ func (h *Hashgraph) SetWireInfo(event *Event) error {
 	return nil
 }
 
+func (h *Hashgraph) updatePendingRounds(decidedRounds map[int]int) {
+	for _, ur := range h.PendingRounds {
+		if _, ok := decidedRounds[ur.Index]; ok {
+			ur.Decided = true
+		}
+	}
+}
+
+//Remove processed Signatures from SigPool
+func (h *Hashgraph) removeProcessedSignatures(processedSignatures map[int]bool) {
+	newSigPool := []BlockSignature{}
+	for _, bs := range h.SigPool {
+		if _, ok := processedSignatures[bs.Index]; !ok {
+			newSigPool = append(newSigPool, bs)
+		}
+	}
+	h.SigPool = newSigPool
+}
+
+/*******************************************************************************
+Public Methods
+*******************************************************************************/
+
+//InsertEvent attempts to insert an Event in the DAG. It verifies the signature,
+//checks the ancestors are known, and prevents the introduction of forks.
+func (h *Hashgraph) InsertEvent(event Event, setWireInfo bool) error {
+	//verify signature
+	if ok, err := event.Verify(); !ok {
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("Invalid Event signature")
+	}
+
+	if err := h.checkSelfParent(event); err != nil {
+		return fmt.Errorf("CheckSelfParent: %s", err)
+	}
+
+	if err := h.checkOtherParent(event); err != nil {
+		return fmt.Errorf("CheckOtherParent: %s", err)
+	}
+
+	event.topologicalIndex = h.topologicalIndex
+	h.topologicalIndex++
+
+	if setWireInfo {
+		if err := h.setWireInfo(&event); err != nil {
+			return fmt.Errorf("SetWireInfo: %s", err)
+		}
+	}
+
+	if err := h.initEventCoordinates(&event); err != nil {
+		return fmt.Errorf("InitEventCoordinates: %s", err)
+	}
+
+	if err := h.Store.SetEvent(event); err != nil {
+		return fmt.Errorf("SetEvent: %s", err)
+	}
+
+	if err := h.updateAncestorFirstDescendant(event); err != nil {
+		return fmt.Errorf("UpdateAncestorFirstDescendant: %s", err)
+	}
+
+	h.UndeterminedEvents = append(h.UndeterminedEvents, event.Hex())
+
+	if event.IsLoaded() {
+		h.PendingLoadedEvents++
+	}
+
+	h.SigPool = append(h.SigPool, event.BlockSignatures()...)
+
+	return nil
+}
+
+//DivideRounds assigns a Round to Events and flags them as witnesses if
+//necessary.
+func (h *Hashgraph) DivideRounds() error {
+
+	for _, hash := range h.UndeterminedEvents {
+
+		ev, err := h.Store.GetEvent(hash)
+		if err != nil {
+			return err
+		}
+
+		updateEvent := false
+
+		if ev.round == nil {
+
+			roundNumber := h.round(hash)
+
+			ev.SetRound(roundNumber)
+			updateEvent = true
+
+			roundInfo, err := h.Store.GetRound(roundNumber)
+			if err != nil && !common.Is(err, common.KeyNotFound) {
+				return err
+			}
+
+			/*
+				Why the lower bound?
+				Normally, once a Round has attained consensus, it is impossible for
+				new Events from a previous Round to be inserted; the lower bound
+				appears redundant. This is the case when the hashgraph grows
+				linearly, without jumps, which is what we intend by 'Normally'.
+				But the Reset function introduces a dicontinuity  by jumping
+				straight to a specific place in the hashgraph. This technique relies
+				on a base layer of Events (the corresponding Frame's Events) for
+				other Events to be added on top, but the base layer must not be
+				reprocessed.
+			*/
+			if !roundInfo.queued &&
+				(h.LastConsensusRound == nil ||
+					roundNumber >= *h.LastConsensusRound) {
+
+				h.PendingRounds = append(h.PendingRounds, &pendingRound{roundNumber, false})
+				roundInfo.queued = true
+			}
+
+			witness := h.witness(hash)
+			roundInfo.AddEvent(hash, witness)
+
+			err = h.Store.SetRound(roundNumber, roundInfo)
+			if err != nil {
+				return err
+			}
+		}
+
+		if ev.lamportTimestamp == nil {
+			ev.SetLamportTimestamp(h.lamportTimestamp(hash))
+			updateEvent = true
+		}
+
+		if updateEvent {
+			h.Store.SetEvent(ev)
+		}
+	}
+
+	if l := len(h.PendingRounds); l > 0 {
+		h.setLowestRoundWithUndeterminedEvents(h.PendingRounds[l-1].Index)
+	}
+
+	return nil
+}
+
+//DecideFame decides if witnesses are famous
+func (h *Hashgraph) DecideFame() error {
+
+	//XXX is the compiler Smart?
+	votes := make(map[string](map[string]bool)) //[x][y]=>vote(x,y)
+	setVote := func(votes map[string]map[string]bool, x, y string, vote bool) {
+		if votes[x] == nil {
+			votes[x] = make(map[string]bool)
+		}
+		votes[x][y] = vote
+	}
+
+	decidedRounds := map[int]int{} // [round number] => index in h.PendingRounds
+
+	for pos, r := range h.PendingRounds {
+		roundIndex := r.Index
+		roundInfo, err := h.Store.GetRound(roundIndex)
+		if err != nil {
+			return err
+		}
+		for _, x := range roundInfo.Witnesses() {
+			if roundInfo.IsDecided(x) {
+				continue
+			}
+		VOTE_LOOP:
+			for j := roundIndex + 1; j <= h.Store.LastRound(); j++ {
+				for _, y := range h.Store.RoundWitnesses(j) {
+					diff := j - roundIndex
+					if diff == 1 {
+						setVote(votes, y, x, h.see(y, x))
+					} else {
+						//count votes
+						ssWitnesses := []string{}
+						for _, w := range h.Store.RoundWitnesses(j - 1) {
+							if h.stronglySee(y, w) {
+								ssWitnesses = append(ssWitnesses, w)
+							}
+						}
+						yays := 0
+						nays := 0
+						for _, w := range ssWitnesses {
+							if votes[w][x] {
+								yays++
+							} else {
+								nays++
+							}
+						}
+						v := false
+						t := nays
+						if yays >= nays {
+							v = true
+							t = yays
+						}
+
+						//normal round
+						if math.Mod(float64(diff), float64(len(h.Participants))) > 0 {
+							if t >= h.superMajority {
+								roundInfo.SetFame(x, v)
+								setVote(votes, y, x, v)
+								break VOTE_LOOP //break out of j loop
+							} else {
+								setVote(votes, y, x, v)
+							}
+						} else { //coin round
+							if t >= h.superMajority {
+								setVote(votes, y, x, v)
+							} else {
+								setVote(votes, y, x, middleBit(y)) //middle bit of y's hash
+							}
+						}
+					}
+				}
+			}
+		}
+
+		err = h.Store.SetRound(roundIndex, roundInfo)
+		if err != nil {
+			return err
+		}
+
+		if roundInfo.WitnessesDecided() {
+			decidedRounds[roundIndex] = pos
+		}
+
+	}
+
+	h.updatePendingRounds(decidedRounds)
+	return nil
+}
+
+//DecideRoundReceived assigns a RoundReceived and timestamp to undetermined
+//events when they reach consensus
+func (h *Hashgraph) DecideRoundReceived() error {
+
+	newUndeterminedEvents := []string{}
+
+	/* From whitepaper - 18/03/18
+	   "[...] An event is said to be “received” in the first round where all the
+	   unique famous witnesses have received it, if all earlier rounds have the
+	   fame of all witnesses decided"
+	*/
+	for _, x := range h.UndeterminedEvents {
+
+		received := false
+		r := h.round(x)
+
+		for i := r + 1; i <= h.Store.LastRound(); i++ {
+
+			tr, err := h.Store.GetRound(i)
+			if err != nil {
+				return err
+			}
+
+			//We are looping from earlier to later rounds; so if we encounter
+			//one round with undecided witnesses, we are sure that this event
+			//is not "received". Break out of i loop
+			if !(tr.WitnessesDecided()) {
+				break
+			}
+
+			fws := tr.FamousWitnesses()
+			//set of famous witnesses that see x
+			s := []string{}
+			for _, w := range fws {
+				if h.see(w, x) {
+					s = append(s, w)
+				}
+			}
+
+			if len(s) == len(fws) && len(s) > 0 {
+
+				received = true
+
+				ex, err := h.Store.GetEvent(x)
+				if err != nil {
+					return err
+				}
+				ex.SetRoundReceived(i)
+
+				err = h.Store.SetEvent(ex)
+				if err != nil {
+					return err
+				}
+
+				tr.SetConsensusEvent(x)
+				err = h.Store.SetRound(i, tr)
+				if err != nil {
+					return err
+				}
+
+				//break out of i loop
+				break
+			}
+
+		}
+		if !received {
+			newUndeterminedEvents = append(newUndeterminedEvents, x)
+			if r := h.round(x); h.LowestRoundWithUndeterminedEvents == nil ||
+				r < *h.LowestRoundWithUndeterminedEvents {
+				h.setLowestRoundWithUndeterminedEvents(r)
+			}
+		}
+	}
+
+	h.UndeterminedEvents = newUndeterminedEvents
+
+	return nil
+}
+
+//ProcessDecidedRounds takes Rounds whose witnesses are decided, computes the
+//corresponding Frames, maps them into Blocks, and commits the Blocks via the
+//commit channel
+func (h *Hashgraph) ProcessDecidedRounds() error {
+
+	//Defer removing processed Rounds from the PendingRounds Queue
+	processedIndex := 0
+	defer func() {
+		h.PendingRounds = h.PendingRounds[processedIndex:]
+	}()
+
+	for _, r := range h.PendingRounds {
+
+		//Although it is possible for a Round to be 'decided' before a previous
+		//round, we should NEVER process a decided round before all the previous
+		//rounds are processed.
+		if !r.Decided {
+			break
+		}
+
+		//This is similar to the lower bound introduced in DivideRounds; it is
+		//redundant in normal operations, but becomes necessary after a Reset.
+		//Indeed, after a Reset, LastConsensusRound is added to PendingRounds,
+		//but its ConsensusEvents (which are necessarily 'under' this Round) are
+		//already deemed committed. Hence, skip this Round after a Reset.
+		if h.LastConsensusRound != nil && r.Index == *h.LastConsensusRound {
+			continue
+		}
+
+		frame, err := h.GetFrame(r.Index)
+		if err != nil {
+			return fmt.Errorf("Getting Frame %d: %v", r.Index, err)
+		}
+
+		//XXX
+		round, err := h.Store.GetRound(r.Index)
+		if err != nil {
+			return err
+		}
+		h.logger.WithFields(logrus.Fields{
+			"round_received": r.Index,
+			"witnesses":      round.FamousWitnesses(),
+			"events":         len(frame.Events),
+			"roots":          frame.Roots,
+		}).Debugf("Processing Decided Round")
+
+		if len(frame.Events) > 0 {
+
+			for _, e := range frame.Events {
+				err := h.Store.AddConsensusEvent(e)
+				if err != nil {
+					return err
+				}
+				h.ConsensusTransactions += len(e.Transactions())
+				if e.IsLoaded() {
+					h.PendingLoadedEvents--
+				}
+			}
+
+			lastBlockIndex := h.Store.LastBlockIndex()
+			block, err := NewBlockFromFrame(lastBlockIndex+1, frame)
+			if err != nil {
+				return err
+			}
+			if err := h.Store.SetBlock(block); err != nil {
+				return err
+			}
+
+			if h.commitCh != nil {
+				h.commitCh <- block
+			}
+
+		} else {
+			h.logger.Debugf("No Events to commit for ConsensusRound %d", r.Index)
+		}
+
+		processedIndex++
+
+		if h.LastConsensusRound == nil || r.Index > *h.LastConsensusRound {
+			h.setLastConsensusRound(r.Index)
+		}
+
+	}
+
+	return nil
+}
+
+//GetFrame computes the Frame corresponding to a RoundReceived.
+func (h *Hashgraph) GetFrame(roundReceived int) (Frame, error) {
+
+	//Try to get it from the Store first
+	frame, err := h.Store.GetFrame(roundReceived)
+	if err == nil || !common.Is(err, common.KeyNotFound) {
+		return frame, err
+	}
+
+	//Get the Round and corresponding consensus Events
+	round, err := h.Store.GetRound(roundReceived)
+	if err != nil {
+		return Frame{}, err
+	}
+
+	events := []Event{}
+	for _, eh := range round.ConsensusEvents() {
+		e, err := h.Store.GetEvent(eh)
+		if err != nil {
+			return Frame{}, err
+		}
+		events = append(events, e)
+	}
+	sort.Sort(ByLamportTimestamp(events))
+
+	// Get/Create Roots
+	roots := make(map[string]Root)
+	//The events are in topological order. Each time we run into the first Event
+	//of a participant, we create a Root for it.
+	for _, ev := range events {
+		p := ev.Creator()
+		if _, ok := roots[p]; !ok {
+			root, err := h.createRoot(ev)
+			if err != nil {
+				return Frame{}, err
+			}
+			roots[ev.Creator()] = root
+		}
+	}
+
+	//Every participant needs a Root in the Frame. For the participants that
+	//have no Events in this Frame, we just get their latest known Root.
+	for p, id := range h.Participants {
+		if _, ok := roots[p]; !ok {
+			var root Root
+
+			//Get latest known root before roundReceived by recursion
+			if h.FirstConsensusRound != nil && roundReceived > *h.FirstConsensusRound {
+				prevFrame, err := h.GetFrame(roundReceived - 1)
+				if err != nil {
+					return Frame{}, fmt.Errorf("GetFrame recursion: %v", err)
+				}
+				root = prevFrame.Roots[id]
+			} else {
+				lowestRoot, err := h.Store.GetRoot(p)
+				if err != nil {
+					return Frame{}, err
+				}
+				root = lowestRoot
+			}
+
+			roots[p] = root
+		}
+	}
+
+	//order roots
+	orderedRoots := make([]Root, len(h.Participants))
+	for i := 0; i < len(h.Participants); i++ {
+		orderedRoots[i] = roots[h.ReverseParticipants[i]]
+	}
+
+	//Some Events in the Frame might have other-parents that are outside of the
+	//Frame (cf root.go ex 2)
+	//When inserting these Events in a newly reset hashgraph, the CheckOtherParent
+	//method would return an error because the other-parent would not be found.
+	//So we make it possible to also look for other-parents in the creator's Root.
+	treated := map[string]bool{}
+	for _, ev := range events {
+		treated[ev.Hex()] = true
+		otherParent := ev.OtherParent()
+		if otherParent != "" {
+			opt, ok := treated[otherParent]
+			if !opt || !ok {
+				if ev.SelfParent() != roots[ev.Creator()].X.Hash {
+					otherRound := h.round(otherParent)
+					opsw := 0
+					for _, w := range h.Store.RoundWitnesses(otherRound) {
+						if h.stronglySee(ev.Hex(), w) {
+							opsw++
+						}
+					}
+					other := RootEvent{
+						Hash:                            otherParent,
+						Round:                           h.round(otherParent),
+						LamportTimestamp:                h.lamportTimestamp(otherParent),
+						DescendantStronglySeenWitnesses: opsw,
+						DescendantWitness:               h.witness(ev.Hex()),
+					}
+					roots[ev.Creator()].Others[ev.Hex()] = other
+				}
+			}
+		}
+	}
+
+	res := Frame{
+		Round:  roundReceived,
+		Roots:  orderedRoots,
+		Events: events,
+	}
+
+	if err := h.Store.SetFrame(res); err != nil {
+		return Frame{}, err
+	}
+
+	return res, nil
+}
+
+//ProcessSigPool runs through the SignaturePool and tries to map a Signature to
+//a known Block. If a Signature is found to be valid for a known Block, it is
+//appended to the block and removed from the SignaturePool
+func (h *Hashgraph) ProcessSigPool() error {
+	processedSignatures := map[int]bool{} //index in SigPool => Processed?
+	defer h.removeProcessedSignatures(processedSignatures)
+
+	for i, bs := range h.SigPool {
+		//check if validator belongs to list of participants
+		validatorHex := fmt.Sprintf("0x%X", bs.Validator)
+		if _, ok := h.Participants[validatorHex]; !ok {
+			h.logger.WithFields(logrus.Fields{
+				"index":     bs.Index,
+				"validator": validatorHex,
+			}).Warning("Verifying Block signature. Unknown validator")
+			continue
+		}
+
+		block, err := h.Store.GetBlock(bs.Index)
+		if err != nil {
+			h.logger.WithFields(logrus.Fields{
+				"index": bs.Index,
+				"msg":   err,
+			}).Warning("Verifying Block signature. Could not fetch Block")
+			continue
+		}
+		valid, err := block.Verify(bs)
+		if err != nil {
+			h.logger.WithFields(logrus.Fields{
+				"index": bs.Index,
+				"msg":   err,
+			}).Error("Verifying Block signature")
+			return err
+		}
+		if !valid {
+			h.logger.WithFields(logrus.Fields{
+				"index":     bs.Index,
+				"validator": h.Participants[validatorHex],
+				"block":     block,
+			}).Warning("Verifying Block signature. Invalid signature")
+			continue
+		}
+
+		block.SetSignature(bs)
+
+		if err := h.Store.SetBlock(block); err != nil {
+			h.logger.WithFields(logrus.Fields{
+				"index": bs.Index,
+				"msg":   err,
+			}).Warning("Saving Block")
+		}
+
+		if len(block.Signatures) > h.trustCount &&
+			(h.AnchorBlock == nil ||
+				block.Index() > *h.AnchorBlock) &&
+			(h.LowestRoundWithUndeterminedEvents == nil ||
+				block.RoundReceived() < *h.LowestRoundWithUndeterminedEvents) {
+			h.setAnchorBlock(block.Index())
+			h.logger.WithFields(logrus.Fields{
+				"block_index": block.Index(),
+				"signatures":  len(block.Signatures),
+				"trustCount":  h.trustCount,
+			}).Debug("Setting AnchorBlock")
+		}
+
+		processedSignatures[i] = true
+	}
+
+	return nil
+}
+
+//GetLatestFrame returns the Frame corresponding to the last consensus round.
+//It is not safe to Reset a hashgraph from this Frame because it does not
+//necessarily correspond to an Anchor Block (there could be undetermined Events
+//below the Frame.
+func (h *Hashgraph) GetLatestFrame() (Frame, error) {
+	lastConsensusRoundIndex := 0
+	if lcr := h.LastConsensusRound; lcr != nil {
+		lastConsensusRoundIndex = *lcr
+	}
+
+	return h.GetFrame(lastConsensusRoundIndex)
+}
+
+//GetAnchorBlockWithFrame returns the AnchorBlock and the corresponding Frame.
+//This can be used as a base to Reset a Hashgraph
+func (h *Hashgraph) GetAnchorBlockWithFrame() (Block, Frame, error) {
+
+	if h.AnchorBlock == nil {
+		return Block{}, Frame{}, fmt.Errorf("No Anchor Block")
+	}
+
+	block, err := h.Store.GetBlock(*h.AnchorBlock)
+	if err != nil {
+		return Block{}, Frame{}, err
+	}
+
+	frame, err := h.GetFrame(block.RoundReceived())
+	if err != nil {
+		return Block{}, Frame{}, err
+	}
+
+	return block, frame, nil
+}
+
+//Reset clears the Hashgraph and resets it from a new base.
+func (h *Hashgraph) Reset(block Block, frame Frame) error {
+
+	//Clear all state
+	h.LastConsensusRound = nil
+	h.FirstConsensusRound = nil
+	h.AnchorBlock = nil
+	h.LowestRoundWithUndeterminedEvents = nil
+
+	h.UndeterminedEvents = []string{}
+	h.PendingRounds = []*pendingRound{}
+	h.PendingLoadedEvents = 0
+	h.topologicalIndex = 0
+
+	cacheSize := h.Store.CacheSize()
+	h.ancestorCache = common.NewLRU(cacheSize, nil)
+	h.selfAncestorCache = common.NewLRU(cacheSize, nil)
+	h.stronglySeeCache = common.NewLRU(cacheSize, nil)
+	h.parentRoundCache = common.NewLRU(cacheSize, nil)
+	h.roundCache = common.NewLRU(cacheSize, nil)
+
+	//Initialize new Roots
+	rootMap := map[string]Root{}
+	for id, root := range frame.Roots {
+		p, ok := h.ReverseParticipants[id]
+		if !ok {
+			return fmt.Errorf("Could not find participant with id %d", id)
+		}
+		rootMap[p] = root
+	}
+	if err := h.Store.Reset(rootMap); err != nil {
+		return err
+	}
+
+	//Insert Block
+	if err := h.Store.SetBlock(block); err != nil {
+		return err
+	}
+
+	h.setLastConsensusRound(block.RoundReceived())
+
+	//Insert Frame Events
+	for _, ev := range frame.Events {
+		if err := h.InsertEvent(ev, false); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+//Bootstrap loads all Events from the Store's DB (if there is one) and feeds
+//them to the Hashgraph (in topological order) for consensus ordering. After this
+//method call, the Hashgraph should be in a state coherent with the 'tip' of the
+//Hashgraph
+func (h *Hashgraph) Bootstrap() error {
+	if badgerStore, ok := h.Store.(*BadgerStore); ok {
+		//Retreive the Events from the underlying DB. They come out in topological
+		//order
+		topologicalEvents, err := badgerStore.dbTopologicalEvents()
+		if err != nil {
+			return err
+		}
+
+		//Insert the Events in the Hashgraph
+		for _, e := range topologicalEvents {
+			if err := h.InsertEvent(e, true); err != nil {
+				return err
+			}
+		}
+
+		//Compute the consensus order of Events
+		if err := h.DivideRounds(); err != nil {
+			return err
+		}
+		if err := h.DecideFame(); err != nil {
+			return err
+		}
+		if err := h.DecideRoundReceived(); err != nil {
+			return err
+		}
+		if err := h.ProcessDecidedRounds(); err != nil {
+			return err
+		}
+		if err := h.ProcessSigPool(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+//ReadWireInfo converts a WireEvent to an Event by replacing int IDs with the
+//corresponding public keys.
 func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 	selfParent := ""
 	otherParent := ""
@@ -649,7 +1368,6 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 		Parents:         []string{selfParent, otherParent},
 		Creator:         creatorBytes,
 
-		Timestamp:            wevent.Body.Timestamp,
 		Index:                wevent.Body.Index,
 		selfParentIndex:      wevent.Body.SelfParentIndex,
 		otherParentCreatorID: wevent.Body.OtherParentCreatorID,
@@ -665,132 +1383,27 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 	return event, nil
 }
 
-func (h *Hashgraph) DivideRounds() error {
-	for _, hash := range h.UndeterminedEvents {
-		roundNumber := h.Round(hash)
-		witness := h.Witness(hash)
-		roundInfo, err := h.Store.GetRound(roundNumber)
-
-		//If the RoundInfo is not found in the Store's Cache, then the Hashgraph
-		//is not aware of it yet. We need to add the roundNumber to the queue of
-		//undecided rounds so that it will be processed in the other consensus
-		//methods
-		if err != nil && !common.Is(err, common.KeyNotFound) {
-			return err
-		}
-		//If the RoundInfo is actually taken from the Store's DB, then it still
-		//has not been processed by the Hashgraph consensus methods (The 'queued'
-		//field is not exported and therefore not persisted in the DB).
-		//RoundInfos taken from the DB directly will always have this field set
-		//to false
-		if !roundInfo.queued {
-			h.UndecidedRounds = append(h.UndecidedRounds, roundNumber)
-			roundInfo.queued = true
-		}
-
-		roundInfo.AddEvent(hash, witness)
-		err = h.Store.SetRound(roundNumber, roundInfo)
-		if err != nil {
-			return err
+//CheckBlock returns an error if the Block does not contain valid signatures
+//from MORE than 1/3 of participants
+func (h *Hashgraph) CheckBlock(block Block) error {
+	validSignatures := 0
+	for _, s := range block.GetSignatures() {
+		ok, _ := block.Verify(s)
+		if ok {
+			validSignatures++
 		}
 	}
+	if validSignatures <= h.trustCount {
+		return fmt.Errorf("Not enough valid signatures: got %d, need %d", validSignatures, h.trustCount+1)
+	}
+
+	h.logger.WithField("valid_signatures", validSignatures).Debug("CheckBlock")
 	return nil
 }
 
-//decide if witnesses are famous
-func (h *Hashgraph) DecideFame() error {
-	votes := make(map[string](map[string]bool)) //[x][y]=>vote(x,y)
-
-	decidedRounds := map[int]int{} // [round number] => index in h.UndecidedRounds
-	defer h.updateUndecidedRounds(decidedRounds)
-
-	for pos, i := range h.UndecidedRounds {
-		roundInfo, err := h.Store.GetRound(i)
-		if err != nil {
-			return err
-		}
-		for _, x := range roundInfo.Witnesses() {
-			if roundInfo.IsDecided(x) {
-				continue
-			}
-		X:
-			for j := i + 1; j <= h.Store.LastRound(); j++ {
-				for _, y := range h.Store.RoundWitnesses(j) {
-					diff := j - i
-					if diff == 1 {
-						setVote(votes, y, x, h.See(y, x))
-					} else {
-						//count votes
-						ssWitnesses := []string{}
-						for _, w := range h.Store.RoundWitnesses(j - 1) {
-							if h.StronglySee(y, w) {
-								ssWitnesses = append(ssWitnesses, w)
-							}
-						}
-						yays := 0
-						nays := 0
-						for _, w := range ssWitnesses {
-							if votes[w][x] {
-								yays++
-							} else {
-								nays++
-							}
-						}
-						v := false
-						t := nays
-						if yays >= nays {
-							v = true
-							t = yays
-						}
-
-						//normal round
-						if math.Mod(float64(diff), float64(len(h.Participants))) > 0 {
-							if t >= h.SuperMajority() {
-								roundInfo.SetFame(x, v)
-								setVote(votes, y, x, v)
-								break X //break out of j loop
-							} else {
-								setVote(votes, y, x, v)
-							}
-						} else { //coin round
-							if t >= h.SuperMajority() {
-								setVote(votes, y, x, v)
-							} else {
-								setVote(votes, y, x, middleBit(y)) //middle bit of y's hash
-							}
-						}
-					}
-				}
-			}
-		}
-
-		//Update decidedRounds and LastConsensusRound if all witnesses have been decided
-		if roundInfo.WitnessesDecided() {
-			decidedRounds[i] = pos
-
-			if h.LastConsensusRound == nil || i > *h.LastConsensusRound {
-				h.setLastConsensusRound(i)
-			}
-		}
-
-		err = h.Store.SetRound(i, roundInfo)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-//remove items from UndecidedRounds
-func (h *Hashgraph) updateUndecidedRounds(decidedRounds map[int]int) {
-	newUndecidedRounds := []int{}
-	for _, ur := range h.UndecidedRounds {
-		if _, ok := decidedRounds[ur]; !ok {
-			newUndecidedRounds = append(newUndecidedRounds, ur)
-		}
-	}
-	h.UndecidedRounds = newUndecidedRounds
-}
+/*******************************************************************************
+Setters
+*******************************************************************************/
 
 func (h *Hashgraph) setLastConsensusRound(i int) {
 	if h.LastConsensusRound == nil {
@@ -798,315 +1411,29 @@ func (h *Hashgraph) setLastConsensusRound(i int) {
 	}
 	*h.LastConsensusRound = i
 
-	h.LastCommitedRoundEvents = h.Store.RoundEvents(i - 1)
+	if h.FirstConsensusRound == nil {
+		h.FirstConsensusRound = new(int)
+		*h.FirstConsensusRound = i
+	}
 }
 
-//assign round received and timestamp to all events
-func (h *Hashgraph) DecideRoundReceived() error {
-	for _, x := range h.UndeterminedEvents {
-		r := h.Round(x)
-		for i := r + 1; i <= h.Store.LastRound(); i++ {
-			tr, err := h.Store.GetRound(i)
-			if err != nil && !common.Is(err, common.KeyNotFound) {
-				return err
-			}
-
-			//skip if some witnesses are left undecided
-			if !(tr.WitnessesDecided() && h.UndecidedRounds[0] > i) {
-				continue
-			}
-
-			fws := tr.FamousWitnesses()
-			//set of famous witnesses that see x
-			s := []string{}
-			for _, w := range fws {
-				if h.See(w, x) {
-					s = append(s, w)
-				}
-			}
-			if len(s) > len(fws)/2 {
-				ex, err := h.Store.GetEvent(x)
-				if err != nil {
-					return err
-				}
-				ex.SetRoundReceived(i)
-
-				t := []string{}
-				for _, a := range s {
-					t = append(t, h.OldestSelfAncestorToSee(a, x))
-				}
-
-				ex.consensusTimestamp = h.MedianTimestamp(t)
-
-				err = h.Store.SetEvent(ex)
-				if err != nil {
-					return err
-				}
-
-				break
-			}
-		}
+func (h *Hashgraph) setLowestRoundWithUndeterminedEvents(index int) {
+	if h.LowestRoundWithUndeterminedEvents == nil {
+		h.LowestRoundWithUndeterminedEvents = new(int)
 	}
-	return nil
+	*h.LowestRoundWithUndeterminedEvents = index
 }
 
-func (h *Hashgraph) FindOrder() error {
-	err := h.DecideRoundReceived()
-	if err != nil {
-		return err
+func (h *Hashgraph) setAnchorBlock(i int) {
+	if h.AnchorBlock == nil {
+		h.AnchorBlock = new(int)
 	}
-
-	newConsensusEvents := []Event{}
-	newUndeterminedEvents := []string{}
-	for _, x := range h.UndeterminedEvents {
-		ex, err := h.Store.GetEvent(x)
-		if err != nil {
-			return err
-		}
-		if ex.roundReceived != nil {
-			newConsensusEvents = append(newConsensusEvents, ex)
-		} else {
-			newUndeterminedEvents = append(newUndeterminedEvents, x)
-		}
-	}
-	h.UndeterminedEvents = newUndeterminedEvents
-
-	sorter := NewConsensusSorter(newConsensusEvents)
-	sort.Sort(sorter)
-
-	if err := h.handleNewConsensusEvents(newConsensusEvents); err != nil {
-		return err
-	}
-
-	return nil
+	*h.AnchorBlock = i
 }
 
-func (h *Hashgraph) handleNewConsensusEvents(newConsensusEvents []Event) error {
-
-	blockMap := make(map[int][][]byte) // [RoundReceived] => []Transactions
-	blockOrder := []int{}              // [index] => RoundReceived
-	for _, e := range newConsensusEvents {
-		err := h.Store.AddConsensusEvent(e.Hex())
-		if err != nil {
-			return err
-		}
-		h.ConsensusTransactions += len(e.Transactions())
-		if e.IsLoaded() {
-			h.PendingLoadedEvents--
-		}
-
-		btxs, ok := blockMap[*e.roundReceived]
-		if !ok {
-			btxs = [][]byte{}
-			blockOrder = append(blockOrder, *e.roundReceived)
-		}
-		btxs = append(btxs, e.Transactions()...)
-		blockMap[*e.roundReceived] = btxs
-	}
-
-	for _, rr := range blockOrder {
-		blockTxs, _ := blockMap[rr]
-		if len(blockTxs) > 0 {
-			block, err := h.createAndInsertBlock(rr, blockTxs)
-			if err != nil {
-				return err
-			}
-			if h.commitCh != nil {
-				h.commitCh <- block
-			}
-		}
-	}
-
-	return nil
-}
-
-func (h *Hashgraph) createAndInsertBlock(roundReceived int, txs [][]byte) (Block, error) {
-	block := NewBlock(h.LastBlockIndex+1, roundReceived, txs)
-	if err := h.Store.SetBlock(block); err != nil {
-		return Block{}, err
-	}
-	h.LastBlockIndex++
-	return block, nil
-}
-
-func (h *Hashgraph) MedianTimestamp(eventHashes []string) time.Time {
-	events := []Event{}
-	for _, x := range eventHashes {
-		ex, _ := h.Store.GetEvent(x)
-		events = append(events, ex)
-	}
-	sort.Sort(ByTimestamp(events))
-	return events[len(events)/2].Body.Timestamp
-}
-
-func (h *Hashgraph) ConsensusEvents() []string {
-	return h.Store.ConsensusEvents()
-}
-
-//last event index per participant
-func (h *Hashgraph) KnownEvents() map[int]int {
-	return h.Store.KnownEvents()
-}
-
-func (h *Hashgraph) Reset(roots map[string]Root) error {
-	if err := h.Store.Reset(roots); err != nil {
-		return err
-	}
-
-	h.UndeterminedEvents = []string{}
-	h.UndecidedRounds = []int{}
-	h.PendingLoadedEvents = 0
-	h.topologicalIndex = 0
-
-	cacheSize := h.Store.CacheSize()
-	h.ancestorCache = common.NewLRU(cacheSize, nil)
-	h.selfAncestorCache = common.NewLRU(cacheSize, nil)
-	h.oldestSelfAncestorCache = common.NewLRU(cacheSize, nil)
-	h.stronglySeeCache = common.NewLRU(cacheSize, nil)
-	h.parentRoundCache = common.NewLRU(cacheSize, nil)
-	h.roundCache = common.NewLRU(cacheSize, nil)
-
-	return nil
-}
-
-func (h *Hashgraph) GetFrame() (Frame, error) {
-	lastConsensusRoundIndex := 0
-	if lcr := h.LastConsensusRound; lcr != nil {
-		lastConsensusRoundIndex = *lcr
-	}
-
-	lastConsensusRound, err := h.Store.GetRound(lastConsensusRoundIndex)
-	if err != nil {
-		return Frame{}, err
-	}
-
-	witnessHashes := lastConsensusRound.Witnesses()
-
-	events := []Event{}
-	roots := make(map[string]Root)
-	for _, wh := range witnessHashes {
-		w, err := h.Store.GetEvent(wh)
-		if err != nil {
-			return Frame{}, err
-		}
-		events = append(events, w)
-		roots[w.Creator()] = Root{
-			X:      w.SelfParent(),
-			Y:      w.OtherParent(),
-			Index:  w.Index() - 1,
-			Round:  h.Round(w.SelfParent()),
-			Others: map[string]string{},
-		}
-
-		participantEvents, err := h.Store.ParticipantEvents(w.Creator(), w.Index())
-		if err != nil {
-			return Frame{}, err
-		}
-		for _, e := range participantEvents {
-			ev, err := h.Store.GetEvent(e)
-			if err != nil {
-				return Frame{}, err
-			}
-			events = append(events, ev)
-		}
-	}
-
-	//Not every participant necessarily has a witness in LastConsensusRound.
-	//Hence, there could be participants with no Root at this point.
-	//For these partcipants, use their last known Event.
-	for p := range h.Participants {
-		if _, ok := roots[p]; !ok {
-			var root Root
-			last, isRoot, err := h.Store.LastEventFrom(p)
-			if err != nil {
-				return Frame{}, err
-			}
-			if isRoot {
-				root, err = h.Store.GetRoot(p)
-				if err != nil {
-					return Frame{}, err
-				}
-			} else {
-				ev, err := h.Store.GetEvent(last)
-				if err != nil {
-					return Frame{}, err
-				}
-				events = append(events, ev)
-				root = Root{
-					X:      ev.SelfParent(),
-					Y:      ev.OtherParent(),
-					Index:  ev.Index() - 1,
-					Round:  h.Round(ev.SelfParent()),
-					Others: map[string]string{},
-				}
-			}
-			roots[p] = root
-		}
-	}
-
-	sort.Sort(ByTopologicalOrder(events))
-
-	//Some Events in the Frame might have other-parents that are outside of the
-	//Frame (cf root.go ex 2)
-	//When inserting these Events in a newly reset hashgraph, the CheckOtherParent
-	//method would return an error because the other-parent would not be found.
-	//So we make it possible to also look for other-parents in the creator's Root.
-	treated := map[string]bool{}
-	for _, ev := range events {
-		treated[ev.Hex()] = true
-		otherParent := ev.OtherParent()
-		if otherParent != "" {
-			opt, ok := treated[otherParent]
-			if !opt || !ok {
-				if ev.SelfParent() != roots[ev.Creator()].X {
-					roots[ev.Creator()].Others[ev.Hex()] = otherParent
-				}
-			}
-		}
-	}
-
-	frame := Frame{
-		Roots:  roots,
-		Events: events,
-	}
-
-	return frame, nil
-}
-
-//Bootstrap loads all Events from the Store's DB (if there is one) and feeds
-//them to the Hashgraph (in topological order) for consensus ordering. After this
-//method call, the Hashgraph should be in a state coeherent with the 'tip' of the
-//Hashgraph
-func (h *Hashgraph) Bootstrap() error {
-	if badgerStore, ok := h.Store.(*BadgerStore); ok {
-		//Retreive the Events from the underlying DB. They come out in topological
-		//order
-		topologicalEvents, err := badgerStore.dbTopologicalEvents()
-		if err != nil {
-			return err
-		}
-
-		//Insert the Events in the Hashgraph
-		for _, e := range topologicalEvents {
-			if err := h.InsertEvent(e, true); err != nil {
-				return err
-			}
-		}
-
-		//Compute the consensus order of Events
-		if err := h.DivideRounds(); err != nil {
-			return err
-		}
-		if err := h.DecideFame(); err != nil {
-			return err
-		}
-		if err := h.FindOrder(); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
+/*******************************************************************************
+   Helpers
+*******************************************************************************/
 
 func middleBit(ehex string) bool {
 	hash, err := hex.DecodeString(ehex[2:])
@@ -1117,11 +1444,4 @@ func middleBit(ehex string) bool {
 		return false
 	}
 	return true
-}
-
-func setVote(votes map[string]map[string]bool, x, y string, vote bool) {
-	if votes[x] == nil {
-		votes[x] = make(map[string]bool)
-	}
-	votes[x][y] = vote
 }

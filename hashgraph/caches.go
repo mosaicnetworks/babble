@@ -16,8 +16,9 @@ func (k Key) ToString() string {
 }
 
 type ParentRoundInfo struct {
-	round  int
-	isRoot bool
+	round                     int
+	isRoot                    bool
+	rootStronglySeenWitnesses int
 }
 
 func NewBaseParentRoundInfo() ParentRoundInfo {
@@ -92,6 +93,19 @@ func (pec *ParticipantEventsCache) GetItem(participant string, index int) (strin
 }
 
 func (pec *ParticipantEventsCache) GetLast(participant string) (string, error) {
+	id, err := pec.participantID(participant)
+	if err != nil {
+		return "", err
+	}
+
+	last, err := pec.rim.GetLast(id)
+	if err != nil {
+		return "", err
+	}
+	return last.(string), nil
+}
+
+func (pec *ParticipantEventsCache) GetLastConsensus(participant string) (string, error) {
 	id, err := pec.participantID(participant)
 	if err != nil {
 		return "", err

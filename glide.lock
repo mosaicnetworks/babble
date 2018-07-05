@@ -1,5 +1,5 @@
-hash: 24a598fa66a8241e793964d2cf06615ce7ad27938918fa07ec5cd0e207d7c49a
-updated: 2018-02-16T12:45:02.785613809+01:00
+hash: a132d6593df6c4a175d793233c5678af57e32e5da12ecd496c351977d11761e0
+updated: 2018-05-29T09:10:36.176487763+01:00
 imports:
 - name: github.com/AndreasBriese/bbloom
   version: 28f7e881ca57bc00e028f9ede9f0d9104cfeef5e
@@ -17,16 +17,14 @@ imports:
   version: 1e59b77b52bf8e4b449a57e6f79f21226d571845
   subpackages:
   - proto
-- name: github.com/gorilla/context
-  version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
-- name: github.com/gorilla/mux
-  version: 24fca303ac6da784b9e8269f724ddeb0b2eea5e7
 - name: github.com/pkg/errors
   version: f15c970de5b76fac0b59abb32d62c17cc7bed265
 - name: github.com/sirupsen/logrus
   version: 89742aefa4b206dcf400792f3bd35b542998eb3b
-- name: github.com/stretchr/testify
-  version: 12b6f73e6084dad08a7c6e575284b177ecafbc71
+- name: github.com/ugorji/go
+  version: b4c50a2b199d93b13dc15e78929cfb23bfdf21ab
+  subpackages:
+  - codec
 - name: golang.org/x/crypto
   version: 9f005a07e0d31d45e6656d241bb5c0f2efd4bc94
   subpackages:

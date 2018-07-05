@@ -49,3 +49,12 @@ func (p *mobileAppProxy) CommitBlock(block hashgraph.Block) ([]byte, error) {
 	stateHash := p.commitHandler.OnCommit(blockBytes)
 	return stateHash, nil
 }
+
+//TODO - Implement these two functions
+func (p *mobileAppProxy) GetSnapshot(blockIndex int) ([]byte, error) {
+	return []byte{}, nil
+}
+
+func (p *mobileAppProxy) Restore(snapshot []byte) error {
+	return nil
+}

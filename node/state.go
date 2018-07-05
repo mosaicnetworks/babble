@@ -36,10 +36,6 @@ type nodeState struct {
 	wg       sync.WaitGroup
 }
 
-func setRecording(shoudRecord bool) {
-
-}
-
 func (b *nodeState) getState() NodeState {
 	stateAddr := (*uint32)(&b.state)
 	return NodeState(atomic.LoadUint32(stateAddr))
@@ -48,10 +44,6 @@ func (b *nodeState) getState() NodeState {
 func (b *nodeState) setState(s NodeState) {
 	stateAddr := (*uint32)(&b.state)
 	atomic.StoreUint32(stateAddr, uint32(s))
-}
-
-func (b *nodeState) isStarting() bool {
-	return b.starting > 0
 }
 
 func (b *nodeState) setStarting(starting bool) {

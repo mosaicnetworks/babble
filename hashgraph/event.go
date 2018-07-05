@@ -5,16 +5,18 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/mosaicnetworks/babble/crypto"
 )
+
+/*******************************************************************************
+EventBody
+*******************************************************************************/
 
 type EventBody struct {
 	Transactions    [][]byte         //the payload
 	Parents         []string         //hashes of the event's parents, self-parent first
 	Creator         []byte           //creator's public key
-	Timestamp       time.Time        //creator's claimed timestamp of the event's creation
 	Index           int              //index in the sequence of events created by Creator
 	BlockSignatures []BlockSignature //list of Block signatures signed by the Event's Creator ONLY
 
@@ -53,6 +55,10 @@ func (e *EventBody) Hash() ([]byte, error) {
 	return crypto.SHA256(hashBytes), nil
 }
 
+/*******************************************************************************
+Event
+*******************************************************************************/
+
 type EventCoordinates struct {
 	hash  string
 	index int
@@ -64,8 +70,9 @@ type Event struct {
 
 	topologicalIndex int
 
-	roundReceived      *int
-	consensusTimestamp time.Time
+	round            *int
+	lamportTimestamp *int
+	roundReceived    *int
 
 	lastAncestors    []EventCoordinates //[participant fake id] => last ancestor
 	firstDescendants []EventCoordinates //[participant fake id] => first descendant
@@ -86,7 +93,6 @@ func NewEvent(transactions [][]byte,
 		BlockSignatures: blockSignatures,
 		Parents:         parents,
 		Creator:         creator,
-		Timestamp:       time.Now().UTC(), //strip monotonic time
 		Index:           index,
 	}
 	return Event{
@@ -130,10 +136,7 @@ func (e *Event) IsLoaded() bool {
 	hasTransactions := e.Body.Transactions != nil &&
 		len(e.Body.Transactions) > 0
 
-	hasBlockSignatures := e.Body.BlockSignatures != nil &&
-		len(e.Body.BlockSignatures) > 0
-
-	return hasTransactions || hasBlockSignatures
+	return hasTransactions
 }
 
 //ecdsa sig
@@ -203,6 +206,20 @@ func (e *Event) Hex() string {
 	return e.hex
 }
 
+func (e *Event) SetRound(r int) {
+	if e.round == nil {
+		e.round = new(int)
+	}
+	*e.round = r
+}
+
+func (e *Event) SetLamportTimestamp(t int) {
+	if e.lamportTimestamp == nil {
+		e.lamportTimestamp = new(int)
+	}
+	*e.lamportTimestamp = t
+}
+
 func (e *Event) SetRoundReceived(rr int) {
 	if e.roundReceived == nil {
 		e.roundReceived = new(int)
@@ -241,7 +258,6 @@ func (e *Event) ToWire() WireEvent {
 			OtherParentCreatorID: e.Body.otherParentCreatorID,
 			OtherParentIndex:     e.Body.otherParentIndex,
 			CreatorID:            e.Body.creatorID,
-			Timestamp:            e.Body.Timestamp,
 			Index:                e.Body.Index,
 			BlockSignatures:      e.WireBlockSignatures(),
 		},
@@ -249,24 +265,13 @@ func (e *Event) ToWire() WireEvent {
 	}
 }
 
-//Sorting
-
-// ByTimestamp implements sort.Interface for []Event based on
-// the timestamp field.
-type ByTimestamp []Event
-
-func (a ByTimestamp) Len() int      { return len(a) }
-func (a ByTimestamp) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a ByTimestamp) Less(i, j int) bool {
-	//normally, time.Sub uses monotonic time which only makes sense if it is
-	//being called in the same process that made the time object.
-	//that is why we strip out the monotonic time reading from the Timestamp at
-	//the time of creating the Event
-	return a[i].Body.Timestamp.Before(a[j].Body.Timestamp)
-}
+/*******************************************************************************
+Sorting
+*******************************************************************************/
 
 // ByTopologicalOrder implements sort.Interface for []Event based on
 // the topologicalIndex field.
+// THIS IS A PARTIAL ORDER
 type ByTopologicalOrder []Event
 
 func (a ByTopologicalOrder) Len() int      { return len(a) }
@@ -275,8 +280,33 @@ func (a ByTopologicalOrder) Less(i, j int) bool {
 	return a[i].topologicalIndex < a[j].topologicalIndex
 }
 
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// WireEvent
+// ByLamportTimestamp implements sort.Interface for []Event based on
+// the lamportTimestamp field.
+// THIS IS A TOTAL ORDER
+type ByLamportTimestamp []Event
+
+func (a ByLamportTimestamp) Len() int      { return len(a) }
+func (a ByLamportTimestamp) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByLamportTimestamp) Less(i, j int) bool {
+	it, jt := -1, -1
+	if a[i].lamportTimestamp != nil {
+		it = *a[i].lamportTimestamp
+	}
+	if a[j].lamportTimestamp != nil {
+		jt = *a[j].lamportTimestamp
+	}
+	if it != jt {
+		return it < jt
+	}
+
+	wsi, _, _ := crypto.DecodeSignature(a[i].Signature)
+	wsj, _, _ := crypto.DecodeSignature(a[j].Signature)
+	return wsi.Cmp(wsj) < 0
+}
+
+/*******************************************************************************
+ WireEvent
+*******************************************************************************/
 
 type WireBody struct {
 	Transactions    [][]byte
@@ -287,8 +317,7 @@ type WireBody struct {
 	OtherParentIndex     int
 	CreatorID            int
 
-	Timestamp time.Time
-	Index     int
+	Index int
 }
 
 type WireEvent struct {

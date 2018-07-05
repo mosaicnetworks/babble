@@ -49,3 +49,36 @@ func (p *SocketAppProxyClient) CommitBlock(block hashgraph.Block) ([]byte, error
 
 	return stateHash.Hash, err
 }
+
+func (p *SocketAppProxyClient) GetSnapshot(blockIndex int) ([]byte, error) {
+	rpcConn, err := p.getConnection()
+	if err != nil {
+		return nil, err
+	}
+
+	var snapshot bp.Snapshot
+	err = rpcConn.Call("State.GetSnapshot", blockIndex, &snapshot)
+
+	p.logger.WithFields(logrus.Fields{
+		"block":    blockIndex,
+		"snapshot": snapshot.Bytes,
+	}).Debug("AppProxyClient.GetSnapshot")
+
+	return snapshot.Bytes, err
+}
+
+func (p *SocketAppProxyClient) Restore(snapshot []byte) error {
+	rpcConn, err := p.getConnection()
+	if err != nil {
+		return err
+	}
+
+	var stateHash bp.StateHash
+	err = rpcConn.Call("State.Restore", snapshot, &stateHash)
+
+	p.logger.WithFields(logrus.Fields{
+		"state_hash": stateHash.Hash,
+	}).Debug("AppProxyClient.Restore")
+
+	return err
+}
