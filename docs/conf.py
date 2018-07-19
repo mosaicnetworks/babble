@@ -163,7 +163,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
     (master_doc, 'Babble', u'Babble Documentation',
-     author, 'Mosaic Networks ltd', 'Distributed Consensus Middleware',
+     author, 'Mosaic Networks ltd', 'Modular Blockchain Software',
      'Miscellaneous'),
 ]
 

@@ -107,7 +107,8 @@ the last formed block. In this way, all the block - and transactions - are
 connected via a linear linked list structure. In our system, blocks contain a 
 collection of signatures of their own hash from the participants. A block with 
 valid signatures from at least one third of validators can be considered valid 
-because - by hypothesis - at least of those signatures is from an honest member. 
+because - by hypothesis - at least one of those signatures is from an honest 
+member. 
 
 Projecting the hashgraph onto a blockchain makes it much easier for third 
 parties to verify the consensus order. It makes it possible to build 
