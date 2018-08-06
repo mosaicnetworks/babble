@@ -3,7 +3,11 @@
 Babble Consensus
 ================
 
-Here we describe some of the most important concepts behind the Babble consensus
+Babble is based on our own interpretation of Hashgraph, but also builds upon 
+other techniques that facilitate coordination within distributed systems. Here, 
+we give a high-level overview of the most important concepts that inspired the 
+development of Babble and how they all fit together. This document is also 
+intended for a non-technical audience.
 
 Common Knowledge
 ----------------
@@ -47,31 +51,29 @@ Gossip About Gossip
 
 One way to approximate common knowledge in this context is to use a 
 communication protocol where participants regularly tell each other everything
-they know about what everyone else knows. These are usually referred to as 
-Full Information Protocols, but Dr Leemon Baird, inventor of Hashgraph, coined 
-the lovely expression 'gossip about gossip'.
+they know about what everyone else knows. These are usually referred to as Full 
+Information Protocols, aka ‘gossip about gossip’.
 
-Members locally record the history of the gossip protocol in a directed graph, 
-called hashgraph, where each vertex represents a gossip event and the edges 
-connect a vertex to the immediately-preceding vertices. Roughly speaking, a 
-member, say Alice, will repeatedly choose another member at random, say Bob, and 
-attempt to learn what he knows that she doesn't know. She will send him a sync 
-request saying  'Hey, here is what I know; what do you know that I don't know?'. 
-Bob will compute the difference and respond with a set of events that he knows 
-and Alice doesn't yet know. Alice will insert these events in her  hashgraph, 
-and create a new event to record this sync. The newly created event includes the 
-hashes of her last event, and Bob's last event. Hence, the hashgraph is 
-connected by a succession of recursive cryptographic hashes; like a blockchain, 
-but two-dimensional. Each event contains the hashes of the events below it and 
-is digitally signed by its creator. So the entire graph of hashes is 
-cryptographically secure.
+Members locally record the history of the gossip protocol in a directed acyclic 
+graph, a DAG, where each vertex represents a gossip event and the edges connect 
+a vertex to the immediately-preceding vertices. Roughly speaking, a member, say 
+Alice, will repeatedly choose another member at random, say Bob, and attempt to 
+learn what he knows that she doesn’t know. She will send him a sync request 
+saying ‘Hey, here is what I know; what do you know that I don’t know?’. Bob will 
+compute the difference and respond with a set of events that he knows and Alice 
+doesn’t yet know. Alice will insert these events in her DAG, and create a new 
+event to record this sync. The newly created event includes the hashes of her 
+last event, and Bob’s last event. Hence, the DAG is connected by a succession of 
+recursive cryptographic hashes; like a blockchain, but two-dimensional. Each 
+event contains the hashes of the events below it and is digitally signed by its 
+creator. So the entire graph of hashes is cryptographically secure.
 
 .. image:: assets/dag.png
 
-The hashgraph is a very rich data structure from which we can extract all sorts 
-of information about the history of gossip, and also derive a consistent 
-ordering of the events, even in the presence of faulty participants. But let’s 
-take it step by step.
+The communication graph is a very rich data structure from which we can extract 
+all sorts of information about the history of gossip, and also derive a 
+consistent ordering of the events, even in the presence of faulty participants. 
+But let’s take it step by step.
 
 Lamport Timestamps
 ------------------
@@ -146,9 +148,10 @@ leader - and how this leader is elected or changed.
 Virtual Voting
 --------------
 
-A similar algorithm can be run internally thanks to the hashgraph by using the 
-concept of virtual voting. Instead of exchanging votes directly, we compute what 
-other participants would have voted, based on our knowledge of what they know. 
+A similar algorithm can be run internally thanks to the communication graph by 
+using the concept of virtual voting. Instead of exchanging votes directly, we 
+compute what other participants would have voted, based on our knowledge of what 
+they know. 
 
 First, the Hashgraph defines a concept of *Strongly Seeing*: 
 
@@ -171,10 +174,10 @@ algorithm are best described in the `original hashgraph whitepaper <https://www.
 
 .. image:: assets/dag_rounds.png
 
-So hashgraph doesn't need a leader. All participants run the algorithm locally, 
-process rounds at their own speed, and end up outputting the same batches of 
-ordered events. Babble takes these batches of events and projects them onto a 
-blockchain. 
+So this algorithm doesn't need a leader. All participants run the algorithm 
+locally, process rounds at their own speed, and end up outputting the same 
+batches of ordered events. Babble takes these batches of events and projects 
+them onto a blockchain. 
 
 Blockchain
 ----------
