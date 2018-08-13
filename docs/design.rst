@@ -107,7 +107,7 @@ the last formed block. In this way, all the block - and transactions - are
 connected via a linear linked list structure. In our system, blocks contain a 
 collection of signatures of their own hash from the participants. A block with 
 valid signatures from at least one third of validators can be considered valid 
-because - by hypothesis - at least of those signatures is from an honest member. 
+because - by hypothesis - at least that fraction of signatures are from honest members.
 
 Projecting the hashgraph onto a blockchain makes it much easier for third 
 parties to verify the consensus order. It makes it possible to build 
@@ -203,7 +203,7 @@ Babble nodes communicate with other Babble nodes in a fully connected Peer To
 Peer network. Nodes gossip by repeatedly choosing another node at random and 
 telling eachother what they know about the hashgraph. The gossip protocol is 
 extremely simple and serves the dual purpose of gossiping about transactions and 
-about the gossip itself (the hashgraph). The hashraph contains enough 
+about the gossip itself (the hashgraph). The hashgraph contains enough 
 information to compute a consensus ordering of transactions. 
 
 The communication mechanism is a custom RPC protocol over TCP connections. It  
@@ -254,7 +254,7 @@ two queries:
 
 **[GET] /stats**:  
 
-Returns a map with information about the node. 
+Returns a map with information about the Babble node. 
 
 ::
 
