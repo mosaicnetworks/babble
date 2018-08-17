@@ -35,7 +35,7 @@ func NewInmemStore(participants map[string]int, cacheSize int) *InmemStore {
 		roundCache:             cm.NewLRU(cacheSize, nil),
 		blockCache:             cm.NewLRU(cacheSize, nil),
 		frameCache:             cm.NewLRU(cacheSize, nil),
-		consensusCache:         cm.NewRollingIndex(cacheSize),
+		consensusCache:         cm.NewRollingIndex("ConsensusCache", cacheSize),
 		participantEventsCache: NewParticipantEventsCache(cacheSize, participants),
 		roots:               roots,
 		lastRound:           -1,
@@ -55,7 +55,7 @@ func (s *InmemStore) Participants() (map[string]int, error) {
 func (s *InmemStore) GetEvent(key string) (Event, error) {
 	res, ok := s.eventCache.Get(key)
 	if !ok {
-		return Event{}, cm.NewStoreErr(cm.KeyNotFound, key)
+		return Event{}, cm.NewStoreErr("EventCache", cm.KeyNotFound, key)
 	}
 
 	return res.(Event), nil
@@ -102,7 +102,7 @@ func (s *InmemStore) LastEventFrom(participant string) (last string, isRoot bool
 			last = root.X.Hash
 			isRoot = true
 		} else {
-			err = cm.NewStoreErr(cm.NoRoot, participant)
+			err = cm.NewStoreErr("InmemStore.Roots", cm.NoRoot, participant)
 		}
 	}
 	return
@@ -118,7 +118,7 @@ func (s *InmemStore) LastConsensusEventFrom(participant string) (last string, is
 			last = root.X.Hash
 			isRoot = true
 		} else {
-			err = cm.NewStoreErr(cm.NoRoot, participant)
+			err = cm.NewStoreErr("InmemStore.Roots", cm.NoRoot, participant)
 		}
 	}
 	return
@@ -151,7 +151,7 @@ func (s *InmemStore) AddConsensusEvent(event Event) error {
 func (s *InmemStore) GetRound(r int) (RoundInfo, error) {
 	res, ok := s.roundCache.Get(r)
 	if !ok {
-		return *NewRoundInfo(), cm.NewStoreErr(cm.KeyNotFound, strconv.Itoa(r))
+		return *NewRoundInfo(), cm.NewStoreErr("RoundCache", cm.KeyNotFound, strconv.Itoa(r))
 	}
 	return res.(RoundInfo), nil
 }
@@ -187,7 +187,7 @@ func (s *InmemStore) RoundEvents(r int) int {
 func (s *InmemStore) GetRoot(participant string) (Root, error) {
 	res, ok := s.roots[participant]
 	if !ok {
-		return Root{}, cm.NewStoreErr(cm.KeyNotFound, participant)
+		return Root{}, cm.NewStoreErr("RootCache", cm.KeyNotFound, participant)
 	}
 	return res, nil
 }
@@ -195,7 +195,7 @@ func (s *InmemStore) GetRoot(participant string) (Root, error) {
 func (s *InmemStore) GetBlock(index int) (Block, error) {
 	res, ok := s.blockCache.Get(index)
 	if !ok {
-		return Block{}, cm.NewStoreErr(cm.KeyNotFound, strconv.Itoa(index))
+		return Block{}, cm.NewStoreErr("BlockCache", cm.KeyNotFound, strconv.Itoa(index))
 	}
 	return res.(Block), nil
 }
@@ -220,7 +220,7 @@ func (s *InmemStore) LastBlockIndex() int {
 func (s *InmemStore) GetFrame(index int) (Frame, error) {
 	res, ok := s.frameCache.Get(index)
 	if !ok {
-		return Frame{}, cm.NewStoreErr(cm.KeyNotFound, strconv.Itoa(index))
+		return Frame{}, cm.NewStoreErr("FrameCache", cm.KeyNotFound, strconv.Itoa(index))
 	}
 	return res.(Frame), nil
 }
@@ -239,7 +239,7 @@ func (s *InmemStore) Reset(roots map[string]Root) error {
 	s.roots = roots
 	s.eventCache = cm.NewLRU(s.cacheSize, nil)
 	s.roundCache = cm.NewLRU(s.cacheSize, nil)
-	s.consensusCache = cm.NewRollingIndex(s.cacheSize)
+	s.consensusCache = cm.NewRollingIndex("ConsensusCache", s.cacheSize)
 	err := s.participantEventsCache.Reset()
 	s.lastRound = -1
 	s.lastBlock = -1

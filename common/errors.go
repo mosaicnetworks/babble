@@ -14,14 +14,16 @@ const (
 )
 
 type StoreErr struct {
-	errType StoreErrType
-	key     string
+	dataType string
+	errType  StoreErrType
+	key      string
 }
 
-func NewStoreErr(errType StoreErrType, key string) StoreErr {
+func NewStoreErr(dataType string, errType StoreErrType, key string) StoreErr {
 	return StoreErr{
-		errType: errType,
-		key:     key,
+		dataType: dataType,
+		errType:  errType,
+		key:      key,
 	}
 }
 
@@ -42,7 +44,7 @@ func (e StoreErr) Error() string {
 		m = "Unknown Participant"
 	}
 
-	return fmt.Sprintf("%s, %s", e.key, m)
+	return fmt.Sprintf("%s, %s, %s", e.dataType, e.key, m)
 }
 
 func Is(err error, t StoreErrType) bool {

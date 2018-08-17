@@ -855,8 +855,8 @@ func (h *Hashgraph) DecideFame() error {
 	return nil
 }
 
-//DecideRoundReceived assigns a RoundReceived and timestamp to undetermined
-//events when they reach consensus
+//DecideRoundReceived assigns a RoundReceived to undetermined events when they
+//reach consensus
 func (h *Hashgraph) DecideRoundReceived() error {
 
 	newUndeterminedEvents := []string{}
@@ -1044,6 +1044,7 @@ func (h *Hashgraph) GetFrame(roundReceived int) (Frame, error) {
 		}
 		events = append(events, e)
 	}
+
 	sort.Sort(ByLamportTimestamp(events))
 
 	// Get/Create Roots

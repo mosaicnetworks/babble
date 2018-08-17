@@ -39,7 +39,7 @@ func (a *State) GetSnapshot(blockIndex int) ([]byte, error) {
 }
 
 func (a *State) Restore(snapshot []byte) ([]byte, error) {
-	//XXX do something smart her
+	//XXX do something smart here
 	a.stateHash = snapshot
 	return a.stateHash, nil
 }

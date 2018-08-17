@@ -48,14 +48,14 @@ type ParticipantEventsCache struct {
 func NewParticipantEventsCache(size int, participants map[string]int) *ParticipantEventsCache {
 	return &ParticipantEventsCache{
 		participants: participants,
-		rim:          cm.NewRollingIndexMap(size, getValues(participants)),
+		rim:          cm.NewRollingIndexMap("ParticipantEvents", size, getValues(participants)),
 	}
 }
 
 func (pec *ParticipantEventsCache) participantID(participant string) (int, error) {
 	id, ok := pec.participants[participant]
 	if !ok {
-		return -1, cm.NewStoreErr(cm.UnknownParticipant, participant)
+		return -1, cm.NewStoreErr("ParticipantEvents", cm.UnknownParticipant, participant)
 	}
 	return id, nil
 }
@@ -145,14 +145,14 @@ type ParticipantBlockSignaturesCache struct {
 func NewParticipantBlockSignaturesCache(size int, participants map[string]int) *ParticipantBlockSignaturesCache {
 	return &ParticipantBlockSignaturesCache{
 		participants: participants,
-		rim:          cm.NewRollingIndexMap(size, getValues(participants)),
+		rim:          cm.NewRollingIndexMap("ParticipantBlockSignatures", size, getValues(participants)),
 	}
 }
 
 func (psc *ParticipantBlockSignaturesCache) participantID(participant string) (int, error) {
 	id, ok := psc.participants[participant]
 	if !ok {
-		return -1, cm.NewStoreErr(cm.UnknownParticipant, participant)
+		return -1, cm.NewStoreErr("ParticipantBlockSignatures", cm.UnknownParticipant, participant)
 	}
 	return id, nil
 }

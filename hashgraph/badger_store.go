@@ -147,7 +147,7 @@ func (s *BadgerStore) GetEvent(key string) (event Event, err error) {
 	if err != nil {
 		event, err = s.dbGetEvent(key)
 	}
-	return event, mapError(err, key)
+	return event, mapError(err, "Event", key)
 }
 
 func (s *BadgerStore) SetEvent(event Event) error {
@@ -172,7 +172,7 @@ func (s *BadgerStore) ParticipantEvent(participant string, index int) (string, e
 	if err != nil {
 		result, err = s.dbParticipantEvent(participant, index)
 	}
-	return result, mapError(err, string(participantEventKey(participant, index)))
+	return result, mapError(err, "ParticipantEvent", string(participantEventKey(participant, index)))
 }
 
 func (s *BadgerStore) LastEventFrom(participant string) (last string, isRoot bool, err error) {
@@ -225,7 +225,7 @@ func (s *BadgerStore) GetRound(r int) (RoundInfo, error) {
 	if err != nil {
 		res, err = s.dbGetRound(r)
 	}
-	return res, mapError(err, string(roundKey(r)))
+	return res, mapError(err, "Round", string(roundKey(r)))
 }
 
 func (s *BadgerStore) SetRound(r int, round RoundInfo) error {
@@ -260,7 +260,7 @@ func (s *BadgerStore) GetRoot(participant string) (Root, error) {
 	if err != nil {
 		root, err = s.dbGetRoot(participant)
 	}
-	return root, mapError(err, string(participantRootKey(participant)))
+	return root, mapError(err, "Root", string(participantRootKey(participant)))
 }
 
 func (s *BadgerStore) GetBlock(rr int) (Block, error) {
@@ -268,7 +268,7 @@ func (s *BadgerStore) GetBlock(rr int) (Block, error) {
 	if err != nil {
 		res, err = s.dbGetBlock(rr)
 	}
-	return res, mapError(err, string(blockKey(rr)))
+	return res, mapError(err, "Block", string(blockKey(rr)))
 }
 
 func (s *BadgerStore) SetBlock(block Block) error {
@@ -287,7 +287,7 @@ func (s *BadgerStore) GetFrame(rr int) (Frame, error) {
 	if err != nil {
 		res, err = s.dbGetFrame(rr)
 	}
-	return res, mapError(err, string(frameKey(rr)))
+	return res, mapError(err, "Frame", string(frameKey(rr)))
 }
 
 func (s *BadgerStore) SetFrame(frame Frame) error {
@@ -669,10 +669,10 @@ func isDBKeyNotFound(err error) bool {
 	return err.Error() == badger.ErrKeyNotFound.Error()
 }
 
-func mapError(err error, key string) error {
+func mapError(err error, name, key string) error {
 	if err != nil {
 		if isDBKeyNotFound(err) {
-			return cm.NewStoreErr(cm.KeyNotFound, key)
+			return cm.NewStoreErr(name, cm.KeyNotFound, key)
 		}
 	}
 	return err

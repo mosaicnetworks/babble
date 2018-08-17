@@ -108,7 +108,6 @@ func (n *Node) RunAsync(gossip bool) {
 }
 
 func (n *Node) Run(gossip bool) {
-
 	//The ControlTimer allows the background routines to control the
 	//heartbeat timer when the node is in the Babbling state. The timer should
 	//only be running when there are uncommitted transactions in the system.

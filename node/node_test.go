@@ -352,10 +352,18 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 	id := oldNode.id
 	key := oldNode.core.key
 	peers := oldNode.peerSelector.Peers()
-	store, err := hg.LoadBadgerStore(conf.CacheSize, conf.StorePath)
-	if err != nil {
-		t.Fatal(err)
+
+	var store hg.Store
+	var err error
+	if conf.StoreType == "badger" {
+		store, err = hg.LoadBadgerStore(conf.CacheSize, conf.StorePath)
+		if err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		store = hg.NewInmemStore(oldNode.core.participants, conf.CacheSize)
 	}
+
 	trans, err := net.NewTCPTransport(oldNode.localAddr,
 		nil, 2, time.Second, logger)
 	if err != nil {
@@ -565,6 +573,66 @@ func TestCatchUp(t *testing.T) {
 	checkGossip(nodes, *start, t)
 }
 
+func TestFastSync(t *testing.T) {
+	logger := common.NewTestLogger(t)
+
+	//Create  config for 4 nodes
+	keys, peers, pmap := initPeers(4)
+	nodes := initNodes(keys, peers, pmap, 1000, 400, "inmem", logger, t)
+	defer shutdownNodes(nodes)
+
+	target := 50
+
+	err := gossip(nodes, target, false, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes, 0, t)
+
+	node4 := nodes[3]
+	node4.Shutdown()
+
+	secondTarget := target + 50
+	err = bombardAndWait(nodes[0:3], secondTarget, 6*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes[0:3], 0, t)
+
+	//Can't re-run it; have to reinstantiate a new node.
+	node4 = recycleNode(node4, logger, t)
+
+	//Run parallel routine to check node4 eventually reaches CatchingUp state.
+	timeout := time.After(6 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-timeout:
+				t.Fatalf("Timeout waiting for node4 to enter CatchingUp state")
+			default:
+			}
+			if node4.getState() == CatchingUp {
+				break
+			}
+		}
+	}()
+
+	node4.RunAsync(true)
+	defer node4.Shutdown()
+
+	nodes[3] = node4
+
+	//Gossip some more
+	thirdTarget := secondTarget + 20
+	err = bombardAndWait(nodes, thirdTarget, 6*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	start := node4.core.hg.FirstConsensusRound
+	checkGossip(nodes, *start, t)
+}
+
 func TestShutdown(t *testing.T) {
 	logger := common.NewTestLogger(t)
 
@@ -630,7 +698,7 @@ func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
 	quit := make(chan struct{})
 	makeRandomTransactions(nodes, quit)
 
-	//wait until all nodes have at least 'target' blcoks
+	//wait until all nodes have at least 'target' blocks
 	stopper := time.After(timeout)
 	for {
 		select {
