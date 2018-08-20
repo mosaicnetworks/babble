@@ -2,6 +2,7 @@ package hashgraph
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/ugorji/go/codec"
 )
@@ -62,40 +63,44 @@ ex 2:
 //RootEvent contains enough information about an Event and its direct descendant
 //to allow inserting Events on top of it.
 type RootEvent struct {
-	Hash                            string
-	LamportTimestamp                int
-	Round                           int
-	DescendantStronglySeenWitnesses int  //How many witnesses of Round the direct descendant of this Event can StronglySee
-	DescendantWitness               bool //Is the direct descendant a witness?
+	Hash               string
+	CreatorID          int
+	Index              int
+	LamportTimestamp   int
+	Round              int
+	AuthoritativeRound *int
 }
 
 //NewBaseRootEvent creates a RootEvent corresponding to the the very beginning
 //of a Hashgraph.
-func NewBaseRootEvent() RootEvent {
-	return RootEvent{
-		LamportTimestamp:  -1,
-		Round:             -1,
-		DescendantWitness: true,
+func NewBaseRootEvent(creatorID int) RootEvent {
+	res := RootEvent{
+		Hash:             fmt.Sprintf("Root%d", creatorID),
+		CreatorID:        creatorID,
+		Index:            -1,
+		LamportTimestamp: -1,
+		Round:            -1,
 	}
+	authoritativeRound := int(0)
+	res.AuthoritativeRound = &authoritativeRound
+	return res
 }
 
 //Root forms a base on top of which a participant's Events can be inserted. In
-//contains the parents of the first descendant of the Root (X and Y), as well as
-//other Events, belonging to a past before the Root, which might be referenced
+//contains the SelfParent of the first descendant of the Root, as well as other
+//Events, belonging to a past before the Root, which might be referenced
 //in future Events.
+//XXX explain
 type Root struct {
-	X, Y   RootEvent //SelfParent and OtherParent
-	Index  int       //Index of SelfParent
-	Others map[string]RootEvent
+	SelfParent RootEvent
+	Others     map[string]RootEvent
 }
 
 //NewBaseRoot initializes a Root object for a fresh Hashgraph.
-func NewBaseRoot() Root {
+func NewBaseRoot(creatorID int) Root {
 	return Root{
-		X:      NewBaseRootEvent(),
-		Y:      NewBaseRootEvent(),
-		Index:  -1,
-		Others: map[string]RootEvent{},
+		SelfParent: NewBaseRootEvent(creatorID),
+		Others:     map[string]RootEvent{},
 	}
 }
 

@@ -9,7 +9,7 @@ import (
 func TestRollingIndex(t *testing.T) {
 	size := 10
 	testSize := 3 * size
-	RollingIndex := NewRollingIndex(size)
+	RollingIndex := NewRollingIndex("test", size)
 	items := []string{}
 	for i := 0; i < testSize; i++ {
 		item := fmt.Sprintf("item%d", i)
@@ -81,7 +81,7 @@ func TestRollingIndex(t *testing.T) {
 func TestRollingIndexSkip(t *testing.T) {
 	size := 10
 	testSize := 25
-	RollingIndex := NewRollingIndex(size)
+	RollingIndex := NewRollingIndex("test", size)
 
 	_, err := RollingIndex.Get(-1)
 	if err != nil {

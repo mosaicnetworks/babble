@@ -99,8 +99,8 @@ func (c *Core) SetHeadAndSeq() error {
 		if err != nil {
 			return err
 		}
-		head = root.X.Hash
-		seq = root.Index
+		head = root.SelfParent.Hash
+		seq = root.SelfParent.Index
 	} else {
 		lastEvent, err := c.GetEvent(last)
 		if err != nil {
@@ -128,7 +128,9 @@ func (c *Core) Bootstrap() error {
 		return err
 	}
 
-	return c.SetHeadAndSeq()
+	//XXX
+	//return c.SetHeadAndSeq()
+	return nil
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -234,7 +236,10 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 	for k, we := range unknownEvents {
 		ev, err := c.hg.ReadWireInfo(we)
 		if err != nil {
+			//XXX
+			c.logger.WithField("WireEvent", we).Errorf("ReadingWireInfo")
 			return err
+
 		}
 		if err := c.InsertEvent(*ev, false); err != nil {
 			return err
@@ -251,6 +256,9 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 }
 
 func (c *Core) FastForward(peer string, block hg.Block, frame hg.Frame) error {
+
+	//XXX
+	c.logger.WithField("Frame", frame).Debug("FastForwardFrame")
 
 	//Check Block Signatures
 	err := c.hg.CheckBlock(block)
@@ -277,15 +285,15 @@ func (c *Core) FastForward(peer string, block hg.Block, frame hg.Frame) error {
 		return err
 	}
 
-	lastEventFromPeer, _, err := c.hg.Store.LastEventFrom(peer)
-	if err != nil {
-		return err
-	}
+	// lastEventFromPeer, _, err := c.hg.Store.LastEventFrom(peer)
+	// if err != nil {
+	// 	return err
+	// }
 
-	err = c.AddSelfEvent(lastEventFromPeer)
-	if err != nil {
-		return err
-	}
+	// err = c.AddSelfEvent(lastEventFromPeer)
+	// if err != nil {
+	// 	return err
+	// }
 
 	err = c.RunConsensus()
 	if err != nil {

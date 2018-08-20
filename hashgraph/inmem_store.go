@@ -24,8 +24,8 @@ type InmemStore struct {
 
 func NewInmemStore(participants map[string]int, cacheSize int) *InmemStore {
 	roots := make(map[string]Root)
-	for pk := range participants {
-		root := NewBaseRoot()
+	for pk, pid := range participants {
+		root := NewBaseRoot(pid)
 		roots[pk] = root
 	}
 	return &InmemStore{
@@ -85,22 +85,33 @@ func (s *InmemStore) ParticipantEvents(participant string, skip int) ([]string, 
 	return s.participantEventsCache.Get(participant, skip)
 }
 
-func (s *InmemStore) ParticipantEvent(particant string, index int) (string, error) {
-	return s.participantEventsCache.GetItem(particant, index)
+func (s *InmemStore) ParticipantEvent(participant string, index int) (string, error) {
+	ev, err := s.participantEventsCache.GetItem(participant, index)
+	//XXX
+	if err != nil {
+		root, ok := s.roots[participant]
+		if !ok {
+			return "", cm.NewStoreErr("InmemStore.Roots", cm.NoRoot, participant)
+		}
+		if root.SelfParent.Index == index {
+			ev = root.SelfParent.Hash
+			err = nil
+		}
+	}
+	return ev, err
 }
 
 func (s *InmemStore) LastEventFrom(participant string) (last string, isRoot bool, err error) {
 	//try to get the last event from this participant
 	last, err = s.participantEventsCache.GetLast(participant)
-	if err != nil {
-		return
-	}
+
 	//if there is none, grab the root
-	if last == "" {
+	if err != nil && cm.Is(err, cm.Empty) {
 		root, ok := s.roots[participant]
 		if ok {
-			last = root.X.Hash
+			last = root.SelfParent.Hash
 			isRoot = true
+			err = nil
 		} else {
 			err = cm.NewStoreErr("InmemStore.Roots", cm.NoRoot, participant)
 		}
@@ -115,7 +126,7 @@ func (s *InmemStore) LastConsensusEventFrom(participant string) (last string, is
 	if !ok {
 		root, ok := s.roots[participant]
 		if ok {
-			last = root.X.Hash
+			last = root.SelfParent.Hash
 			isRoot = true
 		} else {
 			err = cm.NewStoreErr("InmemStore.Roots", cm.NoRoot, participant)
@@ -125,7 +136,17 @@ func (s *InmemStore) LastConsensusEventFrom(participant string) (last string, is
 }
 
 func (s *InmemStore) KnownEvents() map[int]int {
-	return s.participantEventsCache.Known()
+	known := s.participantEventsCache.Known()
+	//XXX
+	for p, pid := range s.participants {
+		if known[pid] == -1 {
+			root, ok := s.roots[p]
+			if ok {
+				known[pid] = root.SelfParent.Index
+			}
+		}
+	}
+	return known
 }
 
 func (s *InmemStore) ConsensusEvents() []string {

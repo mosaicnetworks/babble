@@ -386,7 +386,7 @@ func TestDBFrameMethods(t *testing.T) {
 
 	events := []Event{}
 	roots := []Root{}
-	for _, p := range participants {
+	for id, p := range participants {
 		event := NewEvent(
 			[][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], 0))},
 			[]BlockSignature{BlockSignature{Validator: []byte("validator"), Index: 0, Signature: "r|s"}},
@@ -396,7 +396,7 @@ func TestDBFrameMethods(t *testing.T) {
 		event.Sign(p.privKey)
 		events = append(events, event)
 
-		root := NewBaseRoot()
+		root := NewBaseRoot(id)
 		roots = append(roots, root)
 	}
 	frame := Frame{
@@ -643,7 +643,7 @@ func TestBadgerFrames(t *testing.T) {
 
 	events := []Event{}
 	roots := []Root{}
-	for _, p := range participants {
+	for id, p := range participants {
 		event := NewEvent(
 			[][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], 0))},
 			[]BlockSignature{BlockSignature{Validator: []byte("validator"), Index: 0, Signature: "r|s"}},
@@ -653,7 +653,7 @@ func TestBadgerFrames(t *testing.T) {
 		event.Sign(p.privKey)
 		events = append(events, event)
 
-		root := NewBaseRoot()
+		root := NewBaseRoot(id)
 		roots = append(roots, root)
 	}
 	frame := Frame{

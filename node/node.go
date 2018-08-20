@@ -99,7 +99,7 @@ func (n *Node) Init(bootstrap bool) error {
 		return n.core.Bootstrap()
 	}
 
-	return nil
+	return n.core.SetHeadAndSeq()
 }
 
 func (n *Node) RunAsync(gossip bool) {
