@@ -19,6 +19,11 @@ func (t Trilean) String() string {
 	return trileans[t]
 }
 
+type pendingRound struct {
+	Index   int
+	Decided bool
+}
+
 type RoundEvent struct {
 	Consensus bool
 	Witness   bool

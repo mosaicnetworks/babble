@@ -70,9 +70,11 @@ type Event struct {
 
 	topologicalIndex int
 
+	//used for sorting
 	round            *int
 	lamportTimestamp *int
-	roundReceived    *int
+
+	roundReceived *int
 
 	lastAncestors    []EventCoordinates //[participant fake id] => last ancestor
 	firstDescendants []EventCoordinates //[participant fake id] => first descendant
