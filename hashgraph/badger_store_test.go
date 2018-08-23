@@ -79,7 +79,7 @@ func TestNewBadgerStore(t *testing.T) {
 	}
 
 	//check roots
-	inmemRoots := store.inmemStore.roots
+	inmemRoots := store.inmemStore.rootsByParticipant
 	for participant, root := range inmemRoots {
 		dbRoot, err := store.dbGetRoot(participant)
 		if err != nil {

@@ -45,7 +45,7 @@ func NewBadgerStore(participants map[string]int, cacheSize int, path string) (*B
 	if err := store.dbSetParticipants(participants); err != nil {
 		return nil, err
 	}
-	if err := store.dbSetRoots(inmemStore.roots); err != nil {
+	if err := store.dbSetRoots(inmemStore.rootsByParticipant); err != nil {
 		return nil, err
 	}
 	return store, nil
@@ -138,6 +138,10 @@ func (s *BadgerStore) CacheSize() int {
 
 func (s *BadgerStore) Participants() (map[string]int, error) {
 	return s.participants, nil
+}
+
+func (s *BadgerStore) RootsBySelfParent() (map[string]Root, error) {
+	return s.inmemStore.RootsBySelfParent()
 }
 
 func (s *BadgerStore) GetEvent(key string) (event Event, err error) {

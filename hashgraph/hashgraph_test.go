@@ -141,7 +141,6 @@ func initHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
 		if err := h.updateAncestorFirstDescendant(ev); err != nil {
 			t.Fatalf("%d: %s", i, err)
 		}
-
 	}
 
 	return h, index
@@ -1543,7 +1542,8 @@ func TestGetFrame(t *testing.T) {
 	t.Run("Round 2", func(t *testing.T) {
 		expectedRoots := make([]Root, n)
 		expectedRoots[0] = Root{
-			SelfParent: RootEvent{index["e02"], 0, 1, 4, 0, create(1)},
+			NextRound:  1,
+			SelfParent: RootEvent{index["e02"], 0, 1, 4, 0},
 			Others: map[string]RootEvent{
 				index["f0"]: RootEvent{
 					Hash:             index["f1b"],
@@ -1553,17 +1553,17 @@ func TestGetFrame(t *testing.T) {
 					Round:            1,
 				},
 				index["f0x"]: RootEvent{
-					Hash:               index["e21b"],
-					CreatorID:          2,
-					Index:              2,
-					LamportTimestamp:   3,
-					Round:              0,
-					AuthoritativeRound: create(1),
+					Hash:             index["e21b"],
+					CreatorID:        2,
+					Index:            2,
+					LamportTimestamp: 3,
+					Round:            0,
 				},
 			},
 		}
 		expectedRoots[1] = Root{
-			SelfParent: RootEvent{index["e10"], 1, 1, 1, 0, create(1)},
+			NextRound:  1,
+			SelfParent: RootEvent{index["e10"], 1, 1, 1, 0},
 			Others: map[string]RootEvent{
 				index["f1"]: RootEvent{
 					Hash:             index["e02"],
@@ -1575,7 +1575,8 @@ func TestGetFrame(t *testing.T) {
 			},
 		}
 		expectedRoots[2] = Root{
-			SelfParent: RootEvent{index["e21b"], 2, 2, 3, 0, create(1)},
+			NextRound:  1,
+			SelfParent: RootEvent{index["e21b"], 2, 2, 3, 0},
 			Others: map[string]RootEvent{
 				index["f2"]: RootEvent{
 					Hash:             index["f1b"],
@@ -2221,47 +2222,54 @@ func TestFunkyHashgraphFrames(t *testing.T) {
 		2: []Root{
 			NewBaseRoot(0),
 			Root{
-				SelfParent: RootEvent{index["a12"], 1, 1, 2, 0, create(0)},
+				NextRound:  0,
+				SelfParent: RootEvent{index["a12"], 1, 1, 2, 0},
 				Others: map[string]RootEvent{
-					index["a10"]: RootEvent{index["a00"], 0, 1, 1, 0, nil},
+					index["a10"]: RootEvent{index["a00"], 0, 1, 1, 0},
 				},
 			},
 			Root{
-				SelfParent: RootEvent{index["a21"], 2, 2, 3, 0, create(1)},
+				NextRound:  1,
+				SelfParent: RootEvent{index["a21"], 2, 2, 3, 0},
 				Others: map[string]RootEvent{
-					index["w12"]: RootEvent{index["w13"], 3, 1, 4, 1, nil},
+					index["w12"]: RootEvent{index["w13"], 3, 1, 4, 1},
 				},
 			},
 			Root{
-				SelfParent: RootEvent{index["w03"], 3, 0, 0, 0, create(1)},
+				NextRound:  1,
+				SelfParent: RootEvent{index["w03"], 3, 0, 0, 0},
 				Others: map[string]RootEvent{
-					index["w13"]: RootEvent{index["a21"], 2, 2, 3, 0, nil},
+					index["w13"]: RootEvent{index["a21"], 2, 2, 3, 0},
 				},
 			},
 		},
 		3: []Root{
 			Root{
-				SelfParent: RootEvent{index["a00"], 0, 1, 1, 0, create(1)},
+				NextRound:  1,
+				SelfParent: RootEvent{index["a00"], 0, 1, 1, 0},
 				Others: map[string]RootEvent{
-					index["w10"]: RootEvent{index["w11"], 1, 3, 6, 1, nil},
+					index["w10"]: RootEvent{index["w11"], 1, 3, 6, 1},
 				},
 			},
 			Root{
-				SelfParent: RootEvent{index["w11"], 1, 3, 6, 1, create(2)},
+				NextRound:  2,
+				SelfParent: RootEvent{index["w11"], 1, 3, 6, 1},
 				Others: map[string]RootEvent{
-					index["w21"]: RootEvent{index["w23"], 3, 2, 8, 2, nil},
+					index["w21"]: RootEvent{index["w23"], 3, 2, 8, 2},
 				},
 			},
 			Root{
-				SelfParent: RootEvent{index["b21"], 2, 4, 7, 1, create(2)},
+				NextRound:  2,
+				SelfParent: RootEvent{index["b21"], 2, 4, 7, 1},
 				Others: map[string]RootEvent{
-					index["w22"]: RootEvent{index["c10"], 1, 5, 10, 2, nil},
+					index["w22"]: RootEvent{index["c10"], 1, 5, 10, 2},
 				},
 			},
 			Root{
-				SelfParent: RootEvent{index["w13"], 3, 1, 4, 1, create(2)},
+				NextRound:  2,
+				SelfParent: RootEvent{index["w13"], 3, 1, 4, 1},
 				Others: map[string]RootEvent{
-					index["w23"]: RootEvent{index["b21"], 2, 4, 7, 1, nil},
+					index["w23"]: RootEvent{index["b21"], 2, 4, 7, 1},
 				},
 			},
 		},
@@ -2534,53 +2542,61 @@ func TestSparseHashgraphFrames(t *testing.T) {
 		},
 		2: []Root{
 			Root{
-				SelfParent: RootEvent{index["w00"], 0, 0, 0, 0, create(1)},
+				NextRound:  1,
+				SelfParent: RootEvent{index["w00"], 0, 0, 0, 0},
 				Others: map[string]RootEvent{
-					index["w10"]: RootEvent{index["e32"], 3, 1, 3, 0, nil},
+					index["w10"]: RootEvent{index["e32"], 3, 1, 3, 0},
 				},
 			},
 			Root{
-				SelfParent: RootEvent{index["e10"], 1, 1, 1, 0, create(1)},
+				NextRound:  1,
+				SelfParent: RootEvent{index["e10"], 1, 1, 1, 0},
 				Others: map[string]RootEvent{
-					index["w11"]: RootEvent{index["w10"], 0, 1, 4, 1, nil},
+					index["w11"]: RootEvent{index["w10"], 0, 1, 4, 1},
 				},
 			},
 			Root{
-				SelfParent: RootEvent{index["e21"], 2, 1, 2, 0, create(1)},
+				NextRound:  1,
+				SelfParent: RootEvent{index["e21"], 2, 1, 2, 0},
 				Others: map[string]RootEvent{
-					index["w12"]: RootEvent{index["f01"], 0, 2, 6, 1, nil},
+					index["w12"]: RootEvent{index["f01"], 0, 2, 6, 1},
 				},
 			},
 			Root{
-				SelfParent: RootEvent{index["e32"], 3, 1, 3, 0, create(1)},
+				NextRound:  1,
+				SelfParent: RootEvent{index["e32"], 3, 1, 3, 0},
 				Others: map[string]RootEvent{
-					index["w13"]: RootEvent{index["w12"], 2, 2, 7, 1, nil},
+					index["w13"]: RootEvent{index["w12"], 2, 2, 7, 1},
 				},
 			},
 		},
 		3: []Root{
 			Root{
-				SelfParent: RootEvent{index["w10"], 0, 1, 4, 1, create(1)},
+				NextRound:  1,
+				SelfParent: RootEvent{index["w10"], 0, 1, 4, 1},
 				Others: map[string]RootEvent{
-					index["f01"]: RootEvent{index["w11"], 1, 2, 5, 1, nil},
+					index["f01"]: RootEvent{index["w11"], 1, 2, 5, 1},
 				},
 			},
 			Root{
-				SelfParent: RootEvent{index["w11"], 1, 2, 5, 1, create(2)},
+				NextRound:  2,
+				SelfParent: RootEvent{index["w11"], 1, 2, 5, 1},
 				Others: map[string]RootEvent{
-					index["w21"]: RootEvent{index["w13"], 3, 2, 8, 1, nil},
+					index["w21"]: RootEvent{index["w13"], 3, 2, 8, 1},
 				},
 			},
 			Root{
-				SelfParent: RootEvent{index["w12"], 2, 2, 7, 1, create(2)},
+				NextRound:  2,
+				SelfParent: RootEvent{index["w12"], 2, 2, 7, 1},
 				Others: map[string]RootEvent{
-					index["w22"]: RootEvent{index["w21"], 1, 3, 9, 2, nil},
+					index["w22"]: RootEvent{index["w21"], 1, 3, 9, 2},
 				},
 			},
 			Root{
-				SelfParent: RootEvent{index["w13"], 3, 2, 8, 1, create(2)},
+				NextRound:  2,
+				SelfParent: RootEvent{index["w13"], 3, 2, 8, 1},
 				Others: map[string]RootEvent{
-					index["w23"]: RootEvent{index["w22"], 2, 3, 10, 2, nil},
+					index["w23"]: RootEvent{index["w22"], 2, 3, 10, 2},
 				},
 			},
 		},

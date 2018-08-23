@@ -63,12 +63,11 @@ ex 2:
 //RootEvent contains enough information about an Event and its direct descendant
 //to allow inserting Events on top of it.
 type RootEvent struct {
-	Hash               string
-	CreatorID          int
-	Index              int
-	LamportTimestamp   int
-	Round              int
-	AuthoritativeRound *int
+	Hash             string
+	CreatorID        int
+	Index            int
+	LamportTimestamp int
+	Round            int
 }
 
 //NewBaseRootEvent creates a RootEvent corresponding to the the very beginning
@@ -81,8 +80,6 @@ func NewBaseRootEvent(creatorID int) RootEvent {
 		LamportTimestamp: -1,
 		Round:            -1,
 	}
-	authoritativeRound := int(0)
-	res.AuthoritativeRound = &authoritativeRound
 	return res
 }
 
@@ -92,16 +89,19 @@ func NewBaseRootEvent(creatorID int) RootEvent {
 //in future Events.
 //XXX explain
 type Root struct {
+	NextRound  int
 	SelfParent RootEvent
 	Others     map[string]RootEvent
 }
 
 //NewBaseRoot initializes a Root object for a fresh Hashgraph.
 func NewBaseRoot(creatorID int) Root {
-	return Root{
+	res := Root{
+		NextRound:  0,
 		SelfParent: NewBaseRootEvent(creatorID),
 		Others:     map[string]RootEvent{},
 	}
+	return res
 }
 
 //The JSON encoding of a Root must be DETERMINISTIC because it is itself
