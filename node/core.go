@@ -123,14 +123,7 @@ func (c *Core) SetHeadAndSeq() error {
 }
 
 func (c *Core) Bootstrap() error {
-
-	if err := c.hg.Bootstrap(); err != nil {
-		return err
-	}
-
-	//XXX
-	//return c.SetHeadAndSeq()
-	return nil
+	return c.hg.Bootstrap()
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

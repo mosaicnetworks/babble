@@ -142,7 +142,7 @@ func TestDBEventMethods(t *testing.T) {
 	store, participants := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
 
-	//inset events in db directly
+	//insert events in db directly
 	events := make(map[string][]Event)
 	topologicalIndex := 0
 	topologicalEvents := []Event{}

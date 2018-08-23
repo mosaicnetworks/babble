@@ -96,7 +96,9 @@ func (n *Node) Init(bootstrap bool) error {
 
 	if bootstrap {
 		n.logger.Debug("Bootstrap")
-		return n.core.Bootstrap()
+		if err := n.core.Bootstrap(); err != nil {
+			return err
+		}
 	}
 
 	return n.core.SetHeadAndSeq()
