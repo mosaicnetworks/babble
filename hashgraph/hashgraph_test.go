@@ -803,6 +803,49 @@ func TestDivideRounds(t *testing.T) {
 
 }
 
+func TestCreateRoot(t *testing.T) {
+	h, index := initRoundHashgraph(t)
+	h.DivideRounds()
+
+	expected := map[string]Root{
+		"e0": NewBaseRoot(0),
+		"e02": Root{
+			NextRound:  0,
+			SelfParent: RootEvent{index["s00"], 0, 1, 1, 0},
+			Others: map[string]RootEvent{
+				index["e02"]: RootEvent{index["e21"], 2, 2, 2, 0},
+			},
+		},
+		"s10": Root{
+			NextRound:  0,
+			SelfParent: RootEvent{index["e10"], 1, 1, 1, 0},
+			Others:     map[string]RootEvent{},
+		},
+		"f1": Root{
+			NextRound:  1,
+			SelfParent: RootEvent{index["s10"], 1, 2, 2, 0},
+			Others: map[string]RootEvent{
+				index["f1"]: RootEvent{index["e02"], 0, 2, 3, 0},
+			},
+		},
+	}
+
+	for evh, expRoot := range expected {
+		ev, err := h.Store.GetEvent(index[evh])
+		if err != nil {
+			t.Fatal(err)
+		}
+		root, err := h.createRoot(ev)
+		if err != nil {
+			t.Fatalf("Error creating %s Root: %v", evh, err)
+		}
+		if !reflect.DeepEqual(expRoot, root) {
+			t.Fatalf("%s Root should be %v, not %v", evh, expRoot, root)
+		}
+	}
+
+}
+
 func contains(s []string, x string) bool {
 	for _, e := range s {
 		if e == x {
@@ -810,6 +853,87 @@ func contains(s []string, x string) bool {
 		}
 	}
 	return false
+}
+
+/*
+
+
+
+e01  e12
+ |   |  \
+ e0  R1  e2
+ |       |
+ R0      R2
+
+*/
+func initDentedHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
+	index := make(map[string]string)
+	nodes := []TestNode{}
+	orderedEvents := &[]Event{}
+
+	for i := 0; i < n; i++ {
+		key, _ := crypto.GenerateECDSAKey()
+		node := NewTestNode(key, i)
+		nodes = append(nodes, node)
+		index[rootSelfParent(i)] = rootSelfParent(i)
+	}
+
+	plays := []play{
+		play{0, 0, rootSelfParent(0), "", "e0", nil, nil},
+		play{2, 0, rootSelfParent(2), "", "e2", nil, nil},
+		play{0, 1, "e0", "", "e01", nil, nil},
+		play{1, 0, rootSelfParent(1), "e2", "e12", nil, nil},
+	}
+
+	for _, p := range plays {
+		e := NewEvent(p.txPayload,
+			p.sigPayload,
+			[]string{index[p.selfParent], index[p.otherParent]},
+			nodes[p.to].Pub,
+			p.index)
+		nodes[p.to].signAndAddEvent(e, p.name, index, orderedEvents)
+	}
+
+	participants := make(map[string]int)
+	for _, node := range nodes {
+		participants[node.PubHex] = node.ID
+	}
+
+	hashgraph := NewHashgraph(participants, NewInmemStore(participants, cacheSize), nil, testLogger(t))
+	for i, ev := range *orderedEvents {
+		if err := hashgraph.InsertEvent(ev, true); err != nil {
+			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
+		}
+	}
+	return hashgraph, index
+}
+
+func TestCreateRootBis(t *testing.T) {
+	h, index := initDentedHashgraph(t)
+
+	expected := map[string]Root{
+		"e12": Root{
+			NextRound:  0,
+			SelfParent: NewBaseRootEvent(1),
+			Others: map[string]RootEvent{
+				index["e12"]: RootEvent{index["e2"], 2, 0, 0, 0},
+			},
+		},
+	}
+
+	for evh, expRoot := range expected {
+		ev, err := h.Store.GetEvent(index[evh])
+		if err != nil {
+			t.Fatal(err)
+		}
+		root, err := h.createRoot(ev)
+		if err != nil {
+			t.Fatalf("Error creating %s Root: %v", evh, err)
+		}
+		if !reflect.DeepEqual(expRoot, root) {
+			t.Fatalf("%s Root should be %v, not %v", evh, expRoot, root)
+		}
+	}
 }
 
 /*
@@ -1334,8 +1458,8 @@ func TestDecideRoundReceived(t *testing.T) {
 		}
 	}
 
-	if v := h.LowestRoundWithUndeterminedEvents; v == nil || *v != 2 {
-		t.Fatalf("LowestRoundWithUndeterminedEvents should be 2, not %d", v)
+	if v := h.LatestRoundWithUndeterminedEvents; v == nil || *v != 2 {
+		t.Fatalf("LatestRoundWithUndeterminedEvents should be 2, not %d", v)
 	}
 }
 
@@ -1436,8 +1560,8 @@ func TestProcessDecidedRounds(t *testing.T) {
 	}
 
 	//Anchor -------------------------------------------------------------------
-	if v := h.LowestRoundWithUndeterminedEvents; v == nil || *v != 2 {
-		t.Fatalf("LowestRoundWithUndecidedEvents should be 2, not %d", v)
+	if v := h.LatestRoundWithUndeterminedEvents; v == nil || *v != 2 {
+		t.Fatalf("LatestRoundWithUndeterminedEvents should be 2, not %d", v)
 	}
 	if v := h.AnchorBlock; v != nil {
 		t.Fatalf("AnchorBlock should be nil, not %v", v)
@@ -1761,8 +1885,8 @@ func TestResetFromFrame(t *testing.T) {
 		t.Fatalf("LastConsensusRound should be %d, not %d", block.RoundReceived(), *r)
 	}
 
-	if v := h2.LowestRoundWithUndeterminedEvents; v == nil || *v != 1 {
-		t.Fatalf("LowestRoundWithUndeterminedEvents should be 1, not %v", *v)
+	if v := h2.LatestRoundWithUndeterminedEvents; v == nil || *v != 1 {
+		t.Fatalf("LatestRoundWithUndeterminedEvents should be 1, not %#v", v)
 	}
 
 	if v := h2.AnchorBlock; v != nil {
@@ -2102,8 +2226,8 @@ func TestFunkyHashgraphFame(t *testing.T) {
 		}
 	}
 
-	if v := h.LowestRoundWithUndeterminedEvents; v == nil || *v != 1 {
-		t.Fatalf("LowestRoundWithUndecidedEvents should be 1, not %d", v)
+	if v := h.LatestRoundWithUndeterminedEvents; v == nil || *v != 1 {
+		t.Fatalf("LatestRoundWithUndeterminedEvents should be 1, not %d", v)
 	}
 }
 

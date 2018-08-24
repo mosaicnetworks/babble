@@ -20,9 +20,9 @@ type Hashgraph struct {
 	UndeterminedEvents                []string         //[index] => hash . FIFO queue of Events whose consensus order is not yet determined
 	PendingRounds                     []*pendingRound  //FIFO queue of Rounds which have not attained consensus yet
 	LastConsensusRound                *int             //index of last consensus round
-	FirstConsensusRound               *int             //index of first consensus round
-	LowestRoundWithUndeterminedEvents *int             //index of lowest round that contains undetermined Events
-	AnchorBlock                       *int             //index of last block below LowestRoundWithUndeterminedEvents
+	FirstConsensusRound               *int             //index of first consensus round (only used in tests)
+	LatestRoundWithUndeterminedEvents *int             //index of lowest round that contains undetermined Events
+	AnchorBlock                       *int             //index of last block below LatestRoundWithUndeterminedEvents
 	LastCommitedRoundEvents           int              //number of events in round before LastConsensusRound
 	SigPool                           []BlockSignature //Pool of Block signatures that need to be processed
 	ConsensusTransactions             int              //number of consensus transactions
@@ -55,6 +55,9 @@ func NewHashgraph(participants map[string]int, store Store, commitCh chan Block,
 		reverseParticipants[id] = pk
 	}
 
+	superMajority := 2*len(participants)/3 + 1
+	trustCount := int(math.Ceil(float64(len(participants)) / float64(3)))
+
 	cacheSize := store.CacheSize()
 	hashgraph := Hashgraph{
 		Participants:        participants,
@@ -67,8 +70,8 @@ func NewHashgraph(participants map[string]int, store Store, commitCh chan Block,
 		roundCache:          common.NewLRU(cacheSize, nil),
 		timestampCache:      common.NewLRU(cacheSize, nil),
 		logger:              logger,
-		superMajority:       2*len(participants)/3 + 1,
-		trustCount:          len(participants) / 3,
+		superMajority:       superMajority,
+		trustCount:          trustCount,
 	}
 
 	return &hashgraph
@@ -626,14 +629,23 @@ func (h *Hashgraph) setWireInfo(event *Event) error {
 		selfParentIndex = selfParent.Index()
 	}
 
-	//XXX check root
 	if event.OtherParent() != "" {
-		otherParent, err := h.Store.GetEvent(event.OtherParent())
+		//Check Root then regular Events
+		root, err := h.Store.GetRoot(event.Creator())
 		if err != nil {
 			return err
 		}
-		otherParentCreatorID = h.Participants[otherParent.Creator()]
-		otherParentIndex = otherParent.Index()
+		if other, ok := root.Others[event.Hex()]; ok && other.Hash == event.OtherParent() {
+			otherParentCreatorID = other.CreatorID
+			otherParentIndex = other.Index
+		} else {
+			otherParent, err := h.Store.GetEvent(event.OtherParent())
+			if err != nil {
+				return err
+			}
+			otherParentCreatorID = h.Participants[otherParent.Creator()]
+			otherParentIndex = otherParent.Index()
+		}
 	}
 
 	event.SetWireInfo(selfParentIndex,
@@ -720,9 +732,7 @@ func (h *Hashgraph) InsertEvent(event Event, setWireInfo bool) error {
 
 /*
 DivideRounds assigns a Round and LamportTimestamp to Events, and flags them as
-witnesses if necessary.
-XXX better function description (maybe another name). It does more than what the
-name implies
+witnesses if necessary. Pushes Rounds in the PendingRounds queue if necessary.
 */
 func (h *Hashgraph) DivideRounds() error {
 
@@ -806,10 +816,7 @@ func (h *Hashgraph) DivideRounds() error {
 	}
 
 	if l := len(h.PendingRounds); l > 0 {
-		//XXX - use 0 instead of l-1?
-		//This could be an invisible bug because lowestRoundWithUndetermindEvents
-		//is changed by another method
-		h.setLowestRoundWithUndeterminedEvents(h.PendingRounds[l-1].Index)
+		h.setLatestRoundWithUndeterminedEvents(h.PendingRounds[l-1].Index)
 	}
 
 	return nil
@@ -818,7 +825,7 @@ func (h *Hashgraph) DivideRounds() error {
 //DecideFame decides if witnesses are famous
 func (h *Hashgraph) DecideFame() error {
 
-	//XXX is the compiler Smart?
+	//Initialize the vote map
 	votes := make(map[string](map[string]bool)) //[x][y]=>vote(x,y)
 	setVote := func(votes map[string]map[string]bool, x, y string, vote bool) {
 		if votes[x] == nil {
@@ -936,12 +943,13 @@ func (h *Hashgraph) DecideRoundReceived() error {
 
 			tr, err := h.Store.GetRound(i)
 			if err != nil {
-
-				//XXX
-				received = true
-				break
-
-				//return err
+				//Can happen after a Reset/FastSync
+				if h.LastConsensusRound != nil &&
+					r < *h.LastConsensusRound {
+					received = true
+					break
+				}
+				return err
 			}
 
 			//We are looping from earlier to later rounds; so if we encounter
@@ -993,9 +1001,9 @@ func (h *Hashgraph) DecideRoundReceived() error {
 
 		if !received {
 			newUndeterminedEvents = append(newUndeterminedEvents, x)
-			if h.LowestRoundWithUndeterminedEvents == nil ||
-				r < *h.LowestRoundWithUndeterminedEvents {
-				h.setLowestRoundWithUndeterminedEvents(r)
+			if h.LatestRoundWithUndeterminedEvents == nil ||
+				r < *h.LatestRoundWithUndeterminedEvents {
+				h.setLatestRoundWithUndeterminedEvents(r)
 			}
 		}
 	}
@@ -1255,8 +1263,8 @@ func (h *Hashgraph) ProcessSigPool() error {
 		if len(block.Signatures) > h.trustCount &&
 			(h.AnchorBlock == nil ||
 				block.Index() > *h.AnchorBlock) &&
-			(h.LowestRoundWithUndeterminedEvents == nil ||
-				block.RoundReceived() < *h.LowestRoundWithUndeterminedEvents) {
+			(h.LatestRoundWithUndeterminedEvents == nil ||
+				block.RoundReceived() < *h.LatestRoundWithUndeterminedEvents) {
 			h.setAnchorBlock(block.Index())
 			h.logger.WithFields(logrus.Fields{
 				"block_index": block.Index(),
@@ -1312,7 +1320,7 @@ func (h *Hashgraph) Reset(block Block, frame Frame) error {
 	h.LastConsensusRound = nil
 	h.FirstConsensusRound = nil
 	h.AnchorBlock = nil
-	h.LowestRoundWithUndeterminedEvents = nil
+	h.LatestRoundWithUndeterminedEvents = nil
 
 	h.UndeterminedEvents = []string{}
 	h.PendingRounds = []*pendingRound{}
@@ -1418,17 +1426,14 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 	if wevent.Body.OtherParentIndex >= 0 {
 		otherParentCreator := h.ReverseParticipants[wevent.Body.OtherParentCreatorID]
 		otherParent, err = h.Store.ParticipantEvent(otherParentCreator, wevent.Body.OtherParentIndex)
-		//XXX
 		if err != nil {
-			//We are going to need the Root later
+			//PROBLEM Check if other parent can be found in the root
+			//problem, we do not known the WireEvent's EventHash, and
+			//we do not know the creators of the roots RootEvents
 			root, err := h.Store.GetRoot(creator)
 			if err != nil {
 				return nil, err
 			}
-			//PROBLEM Check if other parent can be found in the root
-			//problem, we do not known the WireEvent's EventHash, and
-			//we do not know the creators of the roots RootEvents
-
 			//loop through others
 			found := false
 			for _, re := range root.Others {
@@ -1502,11 +1507,11 @@ func (h *Hashgraph) setLastConsensusRound(i int) {
 	}
 }
 
-func (h *Hashgraph) setLowestRoundWithUndeterminedEvents(index int) {
-	if h.LowestRoundWithUndeterminedEvents == nil {
-		h.LowestRoundWithUndeterminedEvents = new(int)
+func (h *Hashgraph) setLatestRoundWithUndeterminedEvents(index int) {
+	if h.LatestRoundWithUndeterminedEvents == nil {
+		h.LatestRoundWithUndeterminedEvents = new(int)
 	}
-	*h.LowestRoundWithUndeterminedEvents = index
+	*h.LatestRoundWithUndeterminedEvents = index
 }
 
 func (h *Hashgraph) setAnchorBlock(i int) {

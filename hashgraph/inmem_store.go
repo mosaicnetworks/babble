@@ -98,7 +98,6 @@ func (s *InmemStore) ParticipantEvents(participant string, skip int) ([]string, 
 
 func (s *InmemStore) ParticipantEvent(participant string, index int) (string, error) {
 	ev, err := s.participantEventsCache.GetItem(participant, index)
-	//XXX
 	if err != nil {
 		root, ok := s.rootsByParticipant[participant]
 		if !ok {
@@ -148,7 +147,6 @@ func (s *InmemStore) LastConsensusEventFrom(participant string) (last string, is
 
 func (s *InmemStore) KnownEvents() map[int]int {
 	known := s.participantEventsCache.Known()
-	//XXX
 	for p, pid := range s.participants {
 		if known[pid] == -1 {
 			root, ok := s.rootsByParticipant[p]

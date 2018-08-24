@@ -229,7 +229,6 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 	for k, we := range unknownEvents {
 		ev, err := c.hg.ReadWireInfo(we)
 		if err != nil {
-			//XXX
 			c.logger.WithField("WireEvent", we).Errorf("ReadingWireInfo")
 			return err
 
@@ -249,9 +248,6 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 }
 
 func (c *Core) FastForward(peer string, block hg.Block, frame hg.Frame) error {
-
-	//XXX
-	c.logger.WithField("Frame", frame).Debug("FastForwardFrame")
 
 	//Check Block Signatures
 	err := c.hg.CheckBlock(block)

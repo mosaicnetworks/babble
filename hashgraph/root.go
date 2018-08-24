@@ -86,8 +86,9 @@ func NewBaseRootEvent(creatorID int) RootEvent {
 //Root forms a base on top of which a participant's Events can be inserted. In
 //contains the SelfParent of the first descendant of the Root, as well as other
 //Events, belonging to a past before the Root, which might be referenced
-//in future Events.
-//XXX explain
+//in future Events. NextRound corresponds to a proposed value for the child's
+//Round; it is only used if the child's OtherParent is empty or NOT in the
+//Root's Others.
 type Root struct {
 	NextRound  int
 	SelfParent RootEvent
