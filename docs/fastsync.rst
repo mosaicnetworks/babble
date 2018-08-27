@@ -85,20 +85,51 @@ So what about the first Event? Until now, we simply implemented a special case,
 whereby the first Event for any participant, could be inserted without checking 
 its references. In fact the above picture shows that Events A0, B0, and C0, have
 empty references, and yet they are part of the Hashgraph. This special case is 
-fine as long as we do not expect to initialize Hashgraphs 'on the go'.
+fine as long as we do not expect to initialize Hashgraphs from a 'non-zero' 
+state.
 
-We introduced the concept of Roots, to remove the special case and handle more
-general situations, allowing to initialize a Hashgraph from a section of an 
-existing Hashgraph.
+We introduced the concept of Roots to remove the special case and handle more
+general situations. They make it possible to initialize a Hashgraph from a 
+section of an existing Hashgraph.
 
 .. image:: assets/roots_1.png
+
+A Root is a data structure containing condensed information about the ancestors 
+of the first Events to be added to the Hashgraph. Each participant has a Root,
+containing a *SelfParent* - the direct ancestor of the first Event for the 
+corresponding participant - and *Others* - a map of parents matched to Event 
+hashes for which they are Other-Parent. These parents are instances of the 
+**RootEvent** object, which is a minimal version of the Hashgraph Event, 
+containing only the information we need. RootEvents also contain information 
+about the Index, Round, and LamportTimestamp of the corresponding Events. The 
+Root itself contains a NextRound field, which helps in calculating the Round of
+its direct descendant.
+
+::
+
+  type Root struct {
+    NextRound  int
+    SelfParent RootEvent
+    Others     map[string]RootEvent
+  }
+
+  type RootEvent struct {
+    Hash             string
+    CreatorID        int
+    Index            int
+    LamportTimestamp int
+    Round            int
+  }
 
 The new rule prescribes that an Event should only be inserted if its parents 
 belong to the Hashgraph or are referenced in one of the Roots. 
 
-[Detail of what a Root actually contains] => not entirely sure yet. Fix the code
-before finishing this section.
+The algorithm for computing an Event's Round has also changed slightly:
 
+
+
+
+s
 Transition _ could still fail if there are undetermined events below the Frame.
 why?
 
