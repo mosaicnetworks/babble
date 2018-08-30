@@ -97,13 +97,12 @@ section of an existing Hashgraph.
 A Root is a data structure containing condensed information about the ancestors 
 of the first Events to be added to the Hashgraph. Each participant has a Root,
 containing a *SelfParent* - the direct ancestor of the first Event for the 
-corresponding participant - and *Others* - a map of parents matched to Event 
-hashes for which they are Other-Parent. These parents are instances of the 
-**RootEvent** object, which is a minimal version of the Hashgraph Event, 
-containing only the information we need. RootEvents also contain information 
-about the Index, Round, and LamportTimestamp of the corresponding Events. The 
-Root itself contains a NextRound field, which helps in calculating the Round of
-its direct descendant.
+corresponding participant - and *Others* - a map of Event hashes to 
+OtherParents. These parents are instances of the **RootEvent** object, which is 
+a minimal version of the Hashgraph Event, containing only the information we 
+need. RootEvents also contain information about the Index, Round, and 
+LamportTimestamp of the corresponding Events. The Root itself contains a 
+NextRound field, which helps in calculating the Round of its direct descendant.
 
 ::
 
@@ -122,19 +121,29 @@ its direct descendant.
   }
 
 The new rule prescribes that an Event should only be inserted if its parents 
-belong to the Hashgraph or are referenced in one of the Roots. 
+belong to the Hashgraph or are referenced in one of the Roots. The algorithm for 
+computing an Event's Round has also changed slightly; there are 6 different 
+scenarios to take into consideration when computing the Round of an Event. Each
+scenario corresponds to a different relashionship between the Event and its 
+creator's Root.
 
-The algorithm for computing an Event's Round has also changed slightly:
+.. image:: assets/round_algo.png
 
+[Explain]
 
+The computation of LamportTimestamp is even easier because it only relies on 
+direct parents.
 
-
-s
 Transition _ could still fail if there are undetermined events below the Frame.
 why?
 
 Reset
 -----
+
+A Hashgraph may be initalized or reset from a Frame. Clear the Store, insert
+Roots, and insert Event on top. SetBlock, SetLastConsensusRound => consensus 
+methods and blockchain continue from the Frame.
+
 
 Resetting a Hashgraph from a Frame
 

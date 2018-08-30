@@ -1158,9 +1158,9 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 	|	| \ |   |                   | Block 0 |
 	|	|   \   |                   | RR    1 |
 	|	|   | \ |                   | Evs   7 |
-	----------- e21b                +---------+
-		|   |   |
-		|   |  e21
+	|   |   | e21b                  +---------+
+	|	|   |   |
+	---------- e21
 		|   | / |
 		|  e10  |
 	    | / |   |
@@ -1190,7 +1190,7 @@ func initConsensusHashgraph(db bool, t testing.TB) (*Hashgraph, map[string]strin
 		play{0, 2, "e02", "f1b", "f0", nil, nil},
 		play{2, 3, "e21b", "f1b", "f2", nil, nil},
 		play{1, 4, "f1b", "f0", "f10", nil, nil},
-		play{0, 3, "f0", "e21b", "f0x", nil, nil},
+		play{0, 3, "f0", "e21", "f0x", nil, nil},
 		play{2, 4, "f2", "f10", "f21", nil, nil},
 		play{0, 4, "f0x", "f21", "f02", nil, nil},
 		play{0, 5, "f02", "", "f02b", [][]byte{[]byte("f02b")}, nil},
@@ -1677,10 +1677,10 @@ func TestGetFrame(t *testing.T) {
 					Round:            1,
 				},
 				index["f0x"]: RootEvent{
-					Hash:             index["e21b"],
+					Hash:             index["e21"],
 					CreatorID:        2,
-					Index:            2,
-					LamportTimestamp: 3,
+					Index:            1,
+					LamportTimestamp: 2,
 					Round:            0,
 				},
 			},

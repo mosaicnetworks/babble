@@ -197,7 +197,7 @@ func (h *Hashgraph) round(x string) (int, error) {
 	r, err := h._round(x)
 	if err != nil {
 		return -1, err
-	}
+	}d
 	h.roundCache.Add(x, r)
 	return r, nil
 }
@@ -244,10 +244,17 @@ func (h *Hashgraph) _round(x string) (int, error) {
 		return math.MinInt32, err
 	}
 	if ex.OtherParent() != "" {
-		opRound, err := h.round(ex.OtherParent())
-		if err != nil {
-			return math.MinInt32, err
+		var opRound int
+		//XXX
+		if other, ok := root.Others[ex.Hex()]; ok && other.Hash == ex.OtherParent() {
+			opRound = root.NextRound
+		} else {
+			opRound, err = h.round(ex.OtherParent())
+			if err != nil {
+				return math.MinInt32, err
+			}
 		}
+
 		if opRound > parentRound {
 			parentRound = opRound
 		}
