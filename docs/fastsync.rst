@@ -135,10 +135,16 @@ The computation of LamportTimestamp is even easier because it only relies on
 direct parents.
 
 Transition _ could still fail if there are undetermined events below the Frame.
-why?
+why? Not all Frames can be used to Reset/Fastforward a hashgraph
 
-Reset
------
+FastForward
+-----------
+
+Block, Frame => Reset
+
+Check signatures against frame hash
+
+
 
 A Hashgraph may be initalized or reset from a Frame. Clear the Store, insert
 Roots, and insert Event on top. SetBlock, SetLastConsensusRound => consensus 
