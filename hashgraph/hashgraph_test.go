@@ -1457,10 +1457,6 @@ func TestDecideRoundReceived(t *testing.T) {
 			t.Fatalf("UndeterminedEvents[%d] should be %s, not %s", i, eue, ue)
 		}
 	}
-
-	if v := h.LatestRoundWithUndeterminedEvents; v == nil || *v != 2 {
-		t.Fatalf("LatestRoundWithUndeterminedEvents should be 2, not %d", v)
-	}
 }
 
 func TestProcessDecidedRounds(t *testing.T) {
@@ -1560,9 +1556,6 @@ func TestProcessDecidedRounds(t *testing.T) {
 	}
 
 	//Anchor -------------------------------------------------------------------
-	if v := h.LatestRoundWithUndeterminedEvents; v == nil || *v != 2 {
-		t.Fatalf("LatestRoundWithUndeterminedEvents should be 2, not %d", v)
-	}
 	if v := h.AnchorBlock; v != nil {
 		t.Fatalf("AnchorBlock should be nil, not %v", v)
 	}
@@ -1883,10 +1876,6 @@ func TestResetFromFrame(t *testing.T) {
 
 	if r := h2.LastConsensusRound; r == nil || *r != block.RoundReceived() {
 		t.Fatalf("LastConsensusRound should be %d, not %d", block.RoundReceived(), *r)
-	}
-
-	if v := h2.LatestRoundWithUndeterminedEvents; v == nil || *v != 1 {
-		t.Fatalf("LatestRoundWithUndeterminedEvents should be 1, not %#v", v)
 	}
 
 	if v := h2.AnchorBlock; v != nil {
@@ -2224,10 +2213,6 @@ func TestFunkyHashgraphFame(t *testing.T) {
 		if !reflect.DeepEqual(*pd, expectedpendingRounds[i]) {
 			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedpendingRounds[i], *pd)
 		}
-	}
-
-	if v := h.LatestRoundWithUndeterminedEvents; v == nil || *v != 1 {
-		t.Fatalf("LatestRoundWithUndeterminedEvents should be 1, not %d", v)
 	}
 }
 

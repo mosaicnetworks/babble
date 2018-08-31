@@ -14,23 +14,22 @@ import (
 //Hashgraph is a DAG of Events. It also contains methods to extract a consensus
 //order of Events and map them onto a blockchain.
 type Hashgraph struct {
-	Participants                      map[string]int   //[public key] => id
-	ReverseParticipants               map[int]string   //[id] => public key
-	Store                             Store            //store of Events, Rounds, and Blocks
-	UndeterminedEvents                []string         //[index] => hash . FIFO queue of Events whose consensus order is not yet determined
-	PendingRounds                     []*pendingRound  //FIFO queue of Rounds which have not attained consensus yet
-	LastConsensusRound                *int             //index of last consensus round
-	FirstConsensusRound               *int             //index of first consensus round (only used in tests)
-	LatestRoundWithUndeterminedEvents *int             //index of lowest round that contains undetermined Events
-	AnchorBlock                       *int             //index of last block below LatestRoundWithUndeterminedEvents
-	LastCommitedRoundEvents           int              //number of events in round before LastConsensusRound
-	SigPool                           []BlockSignature //Pool of Block signatures that need to be processed
-	ConsensusTransactions             int              //number of consensus transactions
-	PendingLoadedEvents               int              //number of loaded events that are not yet committed
-	commitCh                          chan Block       //channel for committing Blocks
-	topologicalIndex                  int              //counter used to order events in topological order (only local)
-	superMajority                     int
-	trustCount                        int
+	Participants            map[string]int   //[public key] => id
+	ReverseParticipants     map[int]string   //[id] => public key
+	Store                   Store            //store of Events, Rounds, and Blocks
+	UndeterminedEvents      []string         //[index] => hash . FIFO queue of Events whose consensus order is not yet determined
+	PendingRounds           []*pendingRound  //FIFO queue of Rounds which have not attained consensus yet
+	LastConsensusRound      *int             //index of last consensus round
+	FirstConsensusRound     *int             //index of first consensus round (only used in tests)
+	AnchorBlock             *int             //index of last block with enough signatures
+	LastCommitedRoundEvents int              //number of events in round before LastConsensusRound
+	SigPool                 []BlockSignature //Pool of Block signatures that need to be processed
+	ConsensusTransactions   int              //number of consensus transactions
+	PendingLoadedEvents     int              //number of loaded events that are not yet committed
+	commitCh                chan Block       //channel for committing Blocks
+	topologicalIndex        int              //counter used to order events in topological order (only local)
+	superMajority           int
+	trustCount              int
 
 	ancestorCache     *common.LRU
 	selfAncestorCache *common.LRU
@@ -197,7 +196,7 @@ func (h *Hashgraph) round(x string) (int, error) {
 	r, err := h._round(x)
 	if err != nil {
 		return -1, err
-	}d
+	}
 	h.roundCache.Add(x, r)
 	return r, nil
 }
@@ -822,10 +821,6 @@ func (h *Hashgraph) DivideRounds() error {
 		}
 	}
 
-	if l := len(h.PendingRounds); l > 0 {
-		h.setLatestRoundWithUndeterminedEvents(h.PendingRounds[l-1].Index)
-	}
-
 	return nil
 }
 
@@ -1008,10 +1003,6 @@ func (h *Hashgraph) DecideRoundReceived() error {
 
 		if !received {
 			newUndeterminedEvents = append(newUndeterminedEvents, x)
-			if h.LatestRoundWithUndeterminedEvents == nil ||
-				r < *h.LatestRoundWithUndeterminedEvents {
-				h.setLatestRoundWithUndeterminedEvents(r)
-			}
 		}
 	}
 
@@ -1269,9 +1260,7 @@ func (h *Hashgraph) ProcessSigPool() error {
 
 		if len(block.Signatures) > h.trustCount &&
 			(h.AnchorBlock == nil ||
-				block.Index() > *h.AnchorBlock) &&
-			(h.LatestRoundWithUndeterminedEvents == nil ||
-				block.RoundReceived() < *h.LatestRoundWithUndeterminedEvents) {
+				block.Index() > *h.AnchorBlock) {
 			h.setAnchorBlock(block.Index())
 			h.logger.WithFields(logrus.Fields{
 				"block_index": block.Index(),
@@ -1284,19 +1273,6 @@ func (h *Hashgraph) ProcessSigPool() error {
 	}
 
 	return nil
-}
-
-//GetLatestFrame returns the Frame corresponding to the last consensus round.
-//It is not safe to Reset a hashgraph from this Frame because it does not
-//necessarily correspond to an Anchor Block (there could be undetermined Events
-//below the Frame.
-func (h *Hashgraph) GetLatestFrame() (Frame, error) {
-	lastConsensusRoundIndex := 0
-	if lcr := h.LastConsensusRound; lcr != nil {
-		lastConsensusRoundIndex = *lcr
-	}
-
-	return h.GetFrame(lastConsensusRoundIndex)
 }
 
 //GetAnchorBlockWithFrame returns the AnchorBlock and the corresponding Frame.
@@ -1327,7 +1303,6 @@ func (h *Hashgraph) Reset(block Block, frame Frame) error {
 	h.LastConsensusRound = nil
 	h.FirstConsensusRound = nil
 	h.AnchorBlock = nil
-	h.LatestRoundWithUndeterminedEvents = nil
 
 	h.UndeterminedEvents = []string{}
 	h.PendingRounds = []*pendingRound{}
@@ -1512,13 +1487,6 @@ func (h *Hashgraph) setLastConsensusRound(i int) {
 		h.FirstConsensusRound = new(int)
 		*h.FirstConsensusRound = i
 	}
-}
-
-func (h *Hashgraph) setLatestRoundWithUndeterminedEvents(index int) {
-	if h.LatestRoundWithUndeterminedEvents == nil {
-		h.LatestRoundWithUndeterminedEvents = new(int)
-	}
-	*h.LatestRoundWithUndeterminedEvents = index
 }
 
 func (h *Hashgraph) setAnchorBlock(i int) {
