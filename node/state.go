@@ -54,6 +54,10 @@ func (b *nodeState) setStarting(starting bool) {
 	}
 }
 
+func (b *nodeState) isStarting() bool {
+	return b.starting > 0
+}
+
 // Start a goroutine and add it to waitgroup
 func (b *nodeState) goFunc(f func()) {
 	b.wg.Add(1)

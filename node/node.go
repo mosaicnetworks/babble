@@ -168,9 +168,13 @@ func (n *Node) doBackgroundWork() {
 	}
 }
 
+//babble is interrupted when a gossip function, launched asychronously, changes
+//the state from Babbling to CatchingUp, or when the node is shutdown.
+//Otherwise, it periodicaly initiates gossip while there is something to gossip
+//about, or waits.
 func (n *Node) babble(gossip bool) {
+	returnCh := make(chan struct{})
 	for {
-		oldState := n.getState()
 		select {
 		case <-n.controlTimer.tickCh:
 			if gossip {
@@ -178,7 +182,7 @@ func (n *Node) babble(gossip bool) {
 				if proceed && err == nil {
 					n.logger.Debug("Time to gossip!")
 					peer := n.peerSelector.Next()
-					n.goFunc(func() { n.gossip(peer.NetAddr) })
+					n.goFunc(func() { n.gossip(peer.NetAddr, returnCh) })
 				}
 			}
 			if !n.core.NeedGossip() {
@@ -186,12 +190,9 @@ func (n *Node) babble(gossip bool) {
 			} else if !n.controlTimer.set {
 				n.controlTimer.resetCh <- struct{}{}
 			}
-		case <-n.shutdownCh:
+		case <-returnCh:
 			return
-		}
-
-		newState := n.getState()
-		if newState != oldState {
+		case <-n.shutdownCh:
 			return
 		}
 	}
@@ -343,7 +344,7 @@ func (n *Node) preGossip() (bool, error) {
 	defer n.coreLock.Unlock()
 
 	//Check if it is necessary to gossip
-	if !n.core.NeedGossip() {
+	if !(n.core.NeedGossip() || n.isStarting()) {
 		n.logger.Debug("Nothing to gossip")
 		return false, nil
 	}
@@ -351,7 +352,11 @@ func (n *Node) preGossip() (bool, error) {
 	return true, nil
 }
 
-func (n *Node) gossip(peerAddr string) error {
+//This function is usually called in a go-routine and needs to inform the
+//calling routine (usually the babble routine) when it is time to exit the
+//Babbling state and return.
+func (n *Node) gossip(peerAddr string, parentReturnCh chan struct{}) error {
+
 	//pull
 	syncLimit, otherKnownEvents, err := n.pull(peerAddr)
 	if err != nil {
@@ -362,6 +367,7 @@ func (n *Node) gossip(peerAddr string) error {
 	if syncLimit {
 		n.logger.WithField("from", peerAddr).Debug("SyncLimit")
 		n.setState(CatchingUp)
+		parentReturnCh <- struct{}{}
 		return nil
 	}
 
@@ -524,6 +530,7 @@ func (n *Node) fastForward() error {
 	n.logger.Debug("Fast-Forward OK")
 
 	n.setState(Babbling)
+	n.setStarting(true)
 
 	return nil
 }

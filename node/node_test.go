@@ -642,7 +642,7 @@ func TestShutdown(t *testing.T) {
 
 	nodes[0].Shutdown()
 
-	err := nodes[1].gossip(nodes[0].localAddr)
+	err := nodes[1].gossip(nodes[0].localAddr, nil)
 	if err == nil {
 		t.Fatal("Expected Timeout Error")
 	}

@@ -182,10 +182,6 @@ func (c *Core) OverSyncLimit(knownEvents map[int]int, syncLimit int) bool {
 	return false
 }
 
-func (c *Core) GetLatestFrame() (hg.Frame, error) {
-	return c.hg.GetLatestFrame()
-}
-
 func (c *Core) GetAnchorBlockWithFrame() (hg.Block, hg.Frame, error) {
 	return c.hg.GetAnchorBlockWithFrame()
 }
