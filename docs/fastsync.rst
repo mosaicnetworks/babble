@@ -20,11 +20,6 @@ Snapshot/Restore functionality puts extra strain on the application developer,
 it remains entirely optional; FastSync can be activated or deactivated via 
 configuration.    
 
-WORK IN PROGRESS
-----------------
-
-
-
 Overview
 --------
 
@@ -137,13 +132,13 @@ the Round of its direct descendant.
 Algorithm Updates
 -----------------
 
-The new rule for inserting an Event in the Hasghraph prescribes that an Event 
+The new rule for inserting an Event in the Hashgraph prescribes that an Event 
 should only be inserted if its parents belong to the Hashgraph or are referenced 
 in one of the Roots. The algorithms for computing an Event's Round and 
 LamportTimestamp have also changed slightly.
 
 There are six different scenarios to consider when computing an Event's Round;
-each corresponding to a different relashionship between the Event and its 
+each corresponding to a different relationship between the Event and its 
 creator's Root.
 
 .. image:: assets/round_algo.png
@@ -210,7 +205,7 @@ such that, upon receiving these objects, the requester may check the Frame hash
 against the Block header, and count the Block signatures against the **known** 
 set of validators, before resetting the Hashgraph from the Frame. 
 
-Note the importance for the requester to be aware of the validaor set of the 
+Note the importance for the requester to be aware of the validator set of the 
 Hashgraph it wishes to sync with; it is fundamental when it comes to verifying a 
 Block. With a dynamic validator set, however, an additional mechanism will be 
 necessary to securely track changes to the validator set. 
@@ -245,17 +240,17 @@ to the corresponding state. If the snapshot was incorrect, the node will
 immediately diverge from the main chain because it will obtain different state
 hashes upon committing new blocks.
 
-Improvements and Furter Work
+Improvements and Further Work
 ----------------------------
 
 The protocol is not entirely watertight yet; there are edge cases that could 
 quickly lead to forks and diverging nodes. 
 
-1) Events above the Frame that reference parents from "below" the Frame. These
-Events will fail to be inserted into the Hashgraph, and the node would stop 
-making progress.
+1) Although it is unlikely, Events above the Frame that reference parents from 
+"below" the Frame. These Events will fail to be inserted into the Hashgraph, and 
+the node would stop making progress.
 
-2) The snapshot is not direcly linked to the Blockchain, only indirectly through
+2) The snapshot is not directly linked to the Blockchain, only indirectly through
 resulting StateHashes.
 
 Both these issues could be addressed with a general retry mechanism, whereby the 
