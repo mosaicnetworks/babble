@@ -54,7 +54,7 @@ Overview
                        
                             Network
 
-Almost any software application can be modelled in terms of a *service* and a 
+Almost any software application can be modeled in terms of a *service* and a 
 *state*. The *service* is responsible for processing commands (ex. user input), 
 while the *state* is responsible for manipulating and storing the data (eg. 
 database). Usually, when commands require updating the data, the *service* will 
@@ -88,7 +88,7 @@ over 30 years. Our system is based on our interpretation of a paper published by
 Leemon Baird in 2016 `<http://www.swirlds.com/downloads/SWIRLDS-TR-2016-01.pdf>`__  
 which describes a method for extracting a consensus order of events from a 
 data structure representing the history of gossip between a set of participants.
-Instead of only gossipping transactions and exchanging votes directly, members 
+Instead of only gossiping transactions and exchanging votes directly, members 
 gossip about gossip itself; something that can be represented in a Directed 
 Acyclic Graph (DAG) - the hashgraph. The algorithm for extracting a consensus 
 order from the hashgraph is proven to work and attains the theoretical limits of
@@ -96,7 +96,7 @@ Byzantine fault-tolerance in terms of the number and power of the malicious
 members it can cope with. The messaging routines required to gossip and create 
 the hashgraph are very simple compared to other BFT algorithms. The hashgraph 
 itself, however, is not ideal for representing the ordered list of transactions 
-because it is a two-demensional object which doesnt explicitily express a linear 
+because it is a two-dimensional object which doesn't explicitly express a linear 
 order of the items it contains. Hence, we developed a method to map the 
 hashgraph onto a blockchain. 
 
@@ -107,11 +107,12 @@ the last formed block. In this way, all the block - and transactions - are
 connected via a linear linked list structure. In our system, blocks contain a 
 collection of signatures of their own hash from the participants. A block with 
 valid signatures from at least one third of validators can be considered valid 
-because - by hypothesis - at least that fraction of signatures are from honest members.
+because - by hypothesis - at least one of those signatures is from an honest 
+member. 
 
 Projecting the hashgraph onto a blockchain makes it much easier for third 
 parties to verify the consensus order. It makes it possible to build 
-light-clients and to integrate Hahsgraph based systems with other blockchains. 
+light-clients and to integrate Hashgraph based systems with other blockchains. 
 For more detail about the projection method, please refer to :ref:`blockchain`
 
 Proxy
@@ -122,7 +123,7 @@ processes. They communicate via a very simple **JSON-RPC** interface over a
 **TCP** connection. 
 
 The App submits transactions for consensus ordering via the **SubmitTx** 
-endpoint exposed by the **App Proxy**. Babble asynchrously processes 
+endpoint exposed by the **App Proxy**. Babble asynchronously processes 
 transactions and eventually feeds them back to the App, in consensus order and 
 bundled into blocks, with a **CommitBlock** message.
 
@@ -132,7 +133,7 @@ represent. Therefore, encoding and decoding transactions is done by the App.
 Apps must implement their own **Babble Proxy** to submit and receive committed  
 transactions from Babble. The advantage of using a JSON-RPC API is that there is  
 no restriction on the programming language for the App. It only requires a 
-component that sends SubmitTx messages to Babble and exposes a TCP enpoint where 
+component that sends SubmitTx messages to Babble and exposes a TCP endpoint where 
 Babble can send CommitTx messages.
 
 When launching a Babble node, one must specify the address and port exposed by 
@@ -214,14 +215,14 @@ knows about the hashgraph. **B** computes what it knows that **A** doesn't know
 and returns a **SyncResponse** with the corresponding events in topological 
 order. Upon receiving the **SyncResponse**, **A** updates its hashgraph 
 accordingly and calculates the consensus order. Then, **A** sends an 
-**EagerSyncRequest** to **B** with the Events that it knowns and **B** doesn't. 
+**EagerSyncRequest** to **B** with the Events that it knows and **B** doesn't. 
 Upon receiving the **EagerSyncRequest**, **B** updates its hashgraph and runs 
 the consensus methods.
 
 The list of peers must be predefined and known to all peers. At the moment, it 
 is not possible to dynamically modify the list of peers while the network is 
 running but this is not a limitation of the Hashgraph algorithm, just an 
-implemention prioritization.
+implementation prioritization.
 
 Core
 ----
@@ -249,7 +250,7 @@ Service
 -------
 
 The Service exposes an HTTP API to query information about the state of the node
-as well as the underlyng hashgraph and blockchain. At the moment, it services 
+as well as the underlying hashgraph and blockchain. At the moment, it services 
 two queries:
 
 **[GET] /stats**:  

@@ -24,4 +24,6 @@ Babble
    design.rst
    usage.rst
    demo.rst
+   consensus.rst
    blockchain.rst
+   fastsync.rst

@@ -25,3 +25,16 @@ type EagerSyncResponse struct {
 	FromID  int
 	Success bool
 }
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+type FastForwardRequest struct {
+	FromID int
+}
+
+type FastForwardResponse struct {
+	FromID   int
+	Block    hashgraph.Block
+	Frame    hashgraph.Frame
+	Snapshot []byte
+}

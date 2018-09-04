@@ -3,7 +3,6 @@ package hashgraph
 import (
 	"bytes"
 	"encoding/json"
-	"math/big"
 )
 
 type Trilean int
@@ -20,9 +19,15 @@ func (t Trilean) String() string {
 	return trileans[t]
 }
 
+type pendingRound struct {
+	Index   int
+	Decided bool
+}
+
 type RoundEvent struct {
-	Witness bool
-	Famous  Trilean
+	Consensus bool
+	Witness   bool
+	Famous    Trilean
 }
 
 type RoundInfo struct {
@@ -43,6 +48,15 @@ func (r *RoundInfo) AddEvent(x string, witness bool) {
 			Witness: witness,
 		}
 	}
+}
+
+func (r *RoundInfo) SetConsensusEvent(x string) {
+	e, ok := r.Events[x]
+	if !ok {
+		e = RoundEvent{}
+	}
+	e.Consensus = true
+	r.Events[x] = e
 }
 
 func (r *RoundInfo) SetFame(x string, f bool) {
@@ -81,6 +95,27 @@ func (r *RoundInfo) Witnesses() []string {
 	return res
 }
 
+func (r *RoundInfo) RoundEvents() []string {
+	res := []string{}
+	for x, e := range r.Events {
+		if !e.Consensus {
+			res = append(res, x)
+		}
+	}
+	return res
+}
+
+//return consensus events
+func (r *RoundInfo) ConsensusEvents() []string {
+	res := []string{}
+	for x, e := range r.Events {
+		if e.Consensus {
+			res = append(res, x)
+		}
+	}
+	return res
+}
+
 //return famous witnesses
 func (r *RoundInfo) FamousWitnesses() []string {
 	res := []string{}
@@ -95,17 +130,6 @@ func (r *RoundInfo) FamousWitnesses() []string {
 func (r *RoundInfo) IsDecided(witness string) bool {
 	w, ok := r.Events[witness]
 	return ok && w.Witness && w.Famous != Undefined
-}
-
-func (r *RoundInfo) PseudoRandomNumber() *big.Int {
-	res := new(big.Int)
-	for x, e := range r.Events {
-		if e.Witness && e.Famous == True {
-			s, _ := new(big.Int).SetString(x, 16)
-			res = res.Xor(res, s)
-		}
-	}
-	return res
 }
 
 func (r *RoundInfo) Marshal() ([]byte, error) {

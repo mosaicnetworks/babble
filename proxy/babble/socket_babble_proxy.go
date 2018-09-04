@@ -49,6 +49,14 @@ func (p *SocketBabbleProxy) CommitCh() chan Commit {
 	return p.server.commitCh
 }
 
+func (p *SocketBabbleProxy) SnapshotRequestCh() chan SnapshotRequest {
+	return p.server.snapshotRequestCh
+}
+
+func (p *SocketBabbleProxy) RestoreCh() chan RestoreRequest {
+	return p.server.restoreCh
+}
+
 func (p *SocketBabbleProxy) SubmitTx(tx []byte) error {
 	ack, err := p.client.SubmitTx(tx)
 	if err != nil {

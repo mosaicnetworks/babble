@@ -90,6 +90,19 @@ func (i *InmemTransport) EagerSync(target string, args *EagerSyncRequest, resp *
 	return nil
 }
 
+// FastForward implements the Transport interface.
+func (i *InmemTransport) FastForward(target string, args *FastForwardRequest, resp *FastForwardResponse) error {
+	rpcResp, err := i.makeRPC(target, args, nil, i.timeout)
+	if err != nil {
+		return err
+	}
+
+	// Copy the result back
+	out := rpcResp.Response.(*FastForwardResponse)
+	*resp = *out
+	return nil
+}
+
 func (i *InmemTransport) makeRPC(target string, args interface{}, r io.Reader, timeout time.Duration) (rpcResp RPCResponse, err error) {
 	i.RLock()
 	peer, ok := i.peers[target]

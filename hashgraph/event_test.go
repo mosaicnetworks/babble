@@ -3,7 +3,6 @@ package hashgraph
 import (
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/mosaicnetworks/babble/crypto"
 )
@@ -13,7 +12,6 @@ func createDummyEventBody() EventBody {
 	body.Transactions = [][]byte{[]byte("abc"), []byte("def")}
 	body.Parents = []string{"self", "other"}
 	body.Creator = []byte("public key")
-	body.Timestamp = time.Now().UTC()
 	body.BlockSignatures = []BlockSignature{
 		BlockSignature{
 			Validator: body.Creator,
@@ -48,9 +46,6 @@ func TestMarshallBody(t *testing.T) {
 	}
 	if !reflect.DeepEqual(body.Creator, newBody.Creator) {
 		t.Fatalf("Creators do not match. Expected %#v, got %#v", body.Creator, newBody.Creator)
-	}
-	if body.Timestamp != newBody.Timestamp {
-		t.Fatalf("Timestamps do not match. Expected %#v, got %#v", body.Timestamp, newBody.Timestamp)
 	}
 
 }
@@ -124,7 +119,6 @@ func TestWireEvent(t *testing.T) {
 			OtherParentCreatorID: 66,
 			OtherParentIndex:     2,
 			CreatorID:            67,
-			Timestamp:            event.Body.Timestamp,
 			Index:                event.Body.Index,
 			BlockSignatures:      event.WireBlockSignatures(),
 		},

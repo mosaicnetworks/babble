@@ -11,6 +11,7 @@ func TestSignBlock(t *testing.T) {
 	privateKey, _ := crypto.GenerateECDSAKey()
 
 	block := NewBlock(0, 1,
+		[]byte("framehash"),
 		[][]byte{
 			[]byte("abc"),
 			[]byte("def"),
@@ -36,6 +37,7 @@ func TestAppendSignature(t *testing.T) {
 	pubKeyBytes := crypto.FromECDSAPub(&privateKey.PublicKey)
 
 	block := NewBlock(0, 1,
+		[]byte("framehash"),
 		[][]byte{
 			[]byte("abc"),
 			[]byte("def"),

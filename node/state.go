@@ -36,10 +36,6 @@ type nodeState struct {
 	wg       sync.WaitGroup
 }
 
-func setRecording(shoudRecord bool) {
-
-}
-
 func (b *nodeState) getState() NodeState {
 	stateAddr := (*uint32)(&b.state)
 	return NodeState(atomic.LoadUint32(stateAddr))
@@ -50,16 +46,16 @@ func (b *nodeState) setState(s NodeState) {
 	atomic.StoreUint32(stateAddr, uint32(s))
 }
 
-func (b *nodeState) isStarting() bool {
-	return b.starting > 0
-}
-
 func (b *nodeState) setStarting(starting bool) {
 	if starting {
 		atomic.CompareAndSwapInt32(&b.starting, 0, 1)
 	} else {
 		atomic.CompareAndSwapInt32(&b.starting, 1, 0)
 	}
+}
+
+func (b *nodeState) isStarting() bool {
+	return b.starting > 0
 }
 
 // Start a goroutine and add it to waitgroup

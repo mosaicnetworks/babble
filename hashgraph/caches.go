@@ -16,8 +16,9 @@ func (k Key) ToString() string {
 }
 
 type ParentRoundInfo struct {
-	round  int
-	isRoot bool
+	round                     int
+	isRoot                    bool
+	rootStronglySeenWitnesses int
 }
 
 func NewBaseParentRoundInfo() ParentRoundInfo {
@@ -47,14 +48,14 @@ type ParticipantEventsCache struct {
 func NewParticipantEventsCache(size int, participants map[string]int) *ParticipantEventsCache {
 	return &ParticipantEventsCache{
 		participants: participants,
-		rim:          cm.NewRollingIndexMap(size, getValues(participants)),
+		rim:          cm.NewRollingIndexMap("ParticipantEvents", size, getValues(participants)),
 	}
 }
 
 func (pec *ParticipantEventsCache) participantID(participant string) (int, error) {
 	id, ok := pec.participants[participant]
 	if !ok {
-		return -1, cm.NewStoreErr(cm.UnknownParticipant, participant)
+		return -1, cm.NewStoreErr("ParticipantEvents", cm.UnknownParticipant, participant)
 	}
 	return id, nil
 }
@@ -104,6 +105,19 @@ func (pec *ParticipantEventsCache) GetLast(participant string) (string, error) {
 	return last.(string), nil
 }
 
+func (pec *ParticipantEventsCache) GetLastConsensus(participant string) (string, error) {
+	id, err := pec.participantID(participant)
+	if err != nil {
+		return "", err
+	}
+
+	last, err := pec.rim.GetLast(id)
+	if err != nil {
+		return "", err
+	}
+	return last.(string), nil
+}
+
 func (pec *ParticipantEventsCache) Set(participant string, hash string, index int) error {
 	id, err := pec.participantID(participant)
 	if err != nil {
@@ -131,14 +145,14 @@ type ParticipantBlockSignaturesCache struct {
 func NewParticipantBlockSignaturesCache(size int, participants map[string]int) *ParticipantBlockSignaturesCache {
 	return &ParticipantBlockSignaturesCache{
 		participants: participants,
-		rim:          cm.NewRollingIndexMap(size, getValues(participants)),
+		rim:          cm.NewRollingIndexMap("ParticipantBlockSignatures", size, getValues(participants)),
 	}
 }
 
 func (psc *ParticipantBlockSignaturesCache) participantID(participant string) (int, error) {
 	id, ok := psc.participants[participant]
 	if !ok {
-		return -1, cm.NewStoreErr(cm.UnknownParticipant, participant)
+		return -1, cm.NewStoreErr("ParticipantBlockSignatures", cm.UnknownParticipant, participant)
 	}
 	return id, nil
 }

@@ -289,43 +289,53 @@ func TestAddTransaction(t *testing.T) {
 	node1.Shutdown()
 }
 
-func initNodes(n, cacheSize, syncLimit int, storeType string,
-	logger *logrus.Logger, t testing.TB) ([]*ecdsa.PrivateKey, []*Node) {
+func initNodes(keys []*ecdsa.PrivateKey,
+	peers []net.Peer,
+	pmap map[string]int,
+	cacheSize,
+	syncLimit int,
+	storeType string,
+	logger *logrus.Logger,
+	t testing.TB) []*Node {
 
-	keys, peers, pmap := initPeers(n)
 	nodes := []*Node{}
-	proxies := []*aproxy.InmemAppProxy{}
-	for i := 0; i < len(peers); i++ {
-		conf := NewConfig(5*time.Millisecond, time.Second, cacheSize, syncLimit,
-			storeType, fmt.Sprintf("test_data/db_%d", i), logger)
 
-		trans, err := net.NewTCPTransport(peers[i].NetAddr,
+	for _, k := range keys {
+		id := pmap[fmt.Sprintf("0x%X", crypto.FromECDSAPub(&k.PublicKey))]
+
+		conf := NewConfig(5*time.Millisecond, time.Second, cacheSize, syncLimit,
+			storeType, fmt.Sprintf("test_data/db_%d", id), logger)
+
+		trans, err := net.NewTCPTransport(peers[id].NetAddr,
 			nil, 2, time.Second, logger)
 		if err != nil {
-			t.Fatalf("failed to create transport for peer %d: %s", i, err)
+			t.Fatalf("failed to create transport for peer %d: %s", id, err)
 		}
 		var store hg.Store
 		switch storeType {
 		case "badger":
 			store, err = hg.NewBadgerStore(pmap, conf.CacheSize, conf.StorePath)
 			if err != nil {
-				t.Fatalf("failed to create BadgerStore for peer %d: %s", i, err)
+				t.Fatalf("failed to create BadgerStore for peer %d: %s", id, err)
 			}
 		case "inmem":
 			store = hg.NewInmemStore(pmap, conf.CacheSize)
 		}
 		prox := aproxy.NewInmemAppProxy(logger)
-		node := NewNode(conf, pmap[peers[i].PubKeyHex], keys[i], peers,
+		node := NewNode(conf,
+			id,
+			k,
+			peers,
 			store,
 			trans,
 			prox)
+
 		if err := node.Init(false); err != nil {
-			t.Fatalf("failed to initialize node%d: %s", i, err)
+			t.Fatalf("failed to initialize node%d: %s", id, err)
 		}
 		nodes = append(nodes, node)
-		proxies = append(proxies, prox)
 	}
-	return keys, nodes
+	return nodes
 }
 
 func recycleNodes(oldNodes []*Node, logger *logrus.Logger, t *testing.T) []*Node {
@@ -342,10 +352,18 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 	id := oldNode.id
 	key := oldNode.core.key
 	peers := oldNode.peerSelector.Peers()
-	store, err := hg.LoadBadgerStore(conf.CacheSize, conf.StorePath)
-	if err != nil {
-		t.Fatal(err)
+
+	var store hg.Store
+	var err error
+	if conf.StoreType == "badger" {
+		store, err = hg.LoadBadgerStore(conf.CacheSize, conf.StorePath)
+		if err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		store = hg.NewInmemStore(oldNode.core.participants, conf.CacheSize)
 	}
+
 	trans, err := net.NewTCPTransport(oldNode.localAddr,
 		nil, 2, time.Second, logger)
 	if err != nil {
@@ -395,21 +413,28 @@ func getCommittedTransactions(n *Node) ([][]byte, error) {
 }
 
 func TestGossip(t *testing.T) {
+
 	logger := common.NewTestLogger(t)
 
-	_, nodes := initNodes(4, 1000, 1000, "inmem", logger, t)
+	keys, peers, pmap := initPeers(4)
+	nodes := initNodes(keys, peers, pmap, 1000, 1000, "inmem", logger, t)
 
-	err := gossip(nodes, 50, true, 3*time.Second)
+	target := 50
+
+	err := gossip(nodes, target, true, 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	checkGossip(nodes, t)
+	checkGossip(nodes, 0, t)
 }
 
 func TestMissingNodeGossip(t *testing.T) {
+
 	logger := common.NewTestLogger(t)
-	_, nodes := initNodes(4, 1000, 1000, "inmem", logger, t)
+
+	keys, peers, pmap := initPeers(4)
+	nodes := initNodes(keys, peers, pmap, 1000, 1000, "inmem", logger, t)
 	defer shutdownNodes(nodes)
 
 	err := gossip(nodes[1:], 10, true, 3*time.Second)
@@ -417,12 +442,15 @@ func TestMissingNodeGossip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	checkGossip(nodes[1:], t)
+	checkGossip(nodes[1:], 0, t)
 }
 
 func TestSyncLimit(t *testing.T) {
+
 	logger := common.NewTestLogger(t)
-	_, nodes := initNodes(4, 1000, 300, "inmem", logger, t)
+
+	keys, peers, pmap := initPeers(4)
+	nodes := initNodes(keys, peers, pmap, 1000, 1000, "inmem", logger, t)
 
 	err := gossip(nodes, 10, false, 3*time.Second)
 	if err != nil {
@@ -459,15 +487,162 @@ func TestSyncLimit(t *testing.T) {
 	}
 }
 
+func TestFastForward(t *testing.T) {
+
+	logger := common.NewTestLogger(t)
+
+	keys, peers, pmap := initPeers(4)
+	nodes := initNodes(keys, peers, pmap, 1000, 1000, "inmem", logger, t)
+	defer shutdownNodes(nodes)
+
+	target := 50
+	err := gossip(nodes[1:], target, false, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = nodes[0].fastForward()
+	if err != nil {
+		t.Fatalf("Error FastForwarding: %s", err)
+	}
+
+	lbi := nodes[0].core.GetLastBlockIndex()
+	if lbi <= 0 {
+		t.Fatalf("LastBlockIndex is too low: %d", lbi)
+	}
+	sBlock, err := nodes[0].GetBlock(lbi)
+	if err != nil {
+		t.Fatalf("Error retrieving latest Block from reset hashgraph: %v", err)
+	}
+	expectedBlock, err := nodes[1].GetBlock(lbi)
+	if err != nil {
+		t.Fatalf("Failed to retrieve block %d from node1: %v", lbi, err)
+	}
+	if !reflect.DeepEqual(sBlock.Body, expectedBlock.Body) {
+		t.Fatalf("Blocks defer")
+	}
+}
+
+func TestCatchUp(t *testing.T) {
+	logger := common.NewTestLogger(t)
+
+	//Create  config for 4 nodes
+	keys, peers, pmap := initPeers(4)
+
+	//Initialize the first 3 nodes only
+	normalNodes := initNodes(keys[0:3], peers, pmap, 1000, 400, "inmem", logger, t)
+	defer shutdownNodes(normalNodes)
+
+	target := 50
+
+	err := gossip(normalNodes, target, false, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(normalNodes, 0, t)
+
+	node4 := initNodes(keys[3:], peers, pmap, 1000, 400, "inmem", logger, t)[0]
+
+	//Run parallel routine to check node4 eventually reaches CatchingUp state.
+	timeout := time.After(6 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-timeout:
+				t.Fatalf("Timeout waiting for node4 to enter CatchingUp state")
+			default:
+			}
+			if node4.getState() == CatchingUp {
+				break
+			}
+		}
+	}()
+
+	node4.RunAsync(true)
+	defer node4.Shutdown()
+
+	//Gossip some more
+	nodes := append(normalNodes, node4)
+	newTarget := target + 20
+	err = bombardAndWait(nodes, newTarget, 6*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	start := node4.core.hg.FirstConsensusRound
+	checkGossip(nodes, *start, t)
+}
+
+func TestFastSync(t *testing.T) {
+	logger := common.NewTestLogger(t)
+
+	//Create  config for 4 nodes
+	keys, peers, pmap := initPeers(4)
+	nodes := initNodes(keys, peers, pmap, 1000, 400, "inmem", logger, t)
+	defer shutdownNodes(nodes)
+
+	target := 50
+
+	err := gossip(nodes, target, false, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes, 0, t)
+
+	node4 := nodes[3]
+	node4.Shutdown()
+
+	secondTarget := target + 50
+	err = bombardAndWait(nodes[0:3], secondTarget, 6*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes[0:3], 0, t)
+
+	//Can't re-run it; have to reinstantiate a new node.
+	node4 = recycleNode(node4, logger, t)
+
+	//Run parallel routine to check node4 eventually reaches CatchingUp state.
+	timeout := time.After(6 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-timeout:
+				t.Fatalf("Timeout waiting for node4 to enter CatchingUp state")
+			default:
+			}
+			if node4.getState() == CatchingUp {
+				break
+			}
+		}
+	}()
+
+	node4.RunAsync(true)
+	defer node4.Shutdown()
+
+	nodes[3] = node4
+
+	//Gossip some more
+	thirdTarget := secondTarget + 20
+	err = bombardAndWait(nodes, thirdTarget, 6*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	start := node4.core.hg.FirstConsensusRound
+	checkGossip(nodes, *start, t)
+}
+
 func TestShutdown(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	_, nodes := initNodes(2, 1000, 1000, "inmem", logger, t)
 
+	keys, peers, pmap := initPeers(4)
+	nodes := initNodes(keys, peers, pmap, 1000, 1000, "inmem", logger, t)
 	runNodes(nodes, false)
 
 	nodes[0].Shutdown()
 
-	err := nodes[1].gossip(nodes[0].localAddr)
+	err := nodes[1].gossip(nodes[0].localAddr, nil)
 	if err == nil {
 		t.Fatal("Expected Timeout Error")
 	}
@@ -483,12 +658,13 @@ func TestBootstrapAllNodes(t *testing.T) {
 
 	//create a first network with BadgerStore and wait till it reaches 10 consensus
 	//rounds before shutting it down
-	_, nodes := initNodes(4, 10000, 1000, "badger", logger, t)
+	keys, peers, pmap := initPeers(4)
+	nodes := initNodes(keys, peers, pmap, 1000, 1000, "badger", logger, t)
 	err := gossip(nodes, 10, false, 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
-	checkGossip(nodes, t)
+	checkGossip(nodes, 0, t)
 	shutdownNodes(nodes)
 
 	//Now try to recreate a network from the databases created in the first step
@@ -498,11 +674,11 @@ func TestBootstrapAllNodes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	checkGossip(newNodes, t)
+	checkGossip(newNodes, 0, t)
 	shutdownNodes(newNodes)
 
 	//Check that both networks did not have completely different consensus events
-	checkGossip([]*Node{nodes[0], newNodes[0]}, t)
+	checkGossip([]*Node{nodes[0], newNodes[0]}, 0, t)
 }
 
 func gossip(nodes []*Node, target int, shutdown bool, timeout time.Duration) error {
@@ -518,10 +694,11 @@ func gossip(nodes []*Node, target int, shutdown bool, timeout time.Duration) err
 }
 
 func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
+
 	quit := make(chan struct{})
 	makeRandomTransactions(nodes, quit)
 
-	//wait until all nodes have at least 'target' rounds
+	//wait until all nodes have at least 'target' blocks
 	stopper := time.After(timeout)
 	for {
 		select {
@@ -532,10 +709,18 @@ func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
 		time.Sleep(10 * time.Millisecond)
 		done := true
 		for _, n := range nodes {
-			ce := n.core.GetLastConsensusRoundIndex()
-			if ce == nil || *ce < target {
+			ce := n.core.GetLastBlockIndex()
+			if ce < target {
 				done = false
 				break
+			} else {
+				//wait until the target block has retrieved a state hash from
+				//the app
+				targetBlock, _ := n.core.hg.Store.GetBlock(target)
+				if len(targetBlock.StateHash()) == 0 {
+					done = false
+					break
+				}
 			}
 		}
 		if done {
@@ -546,54 +731,33 @@ func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
 	return nil
 }
 
-func checkGossip(nodes []*Node, t *testing.T) {
-	consEvents := map[int][]string{}
-	consTransactions := map[int][][]byte{}
+func checkGossip(nodes []*Node, fromBlock int, t *testing.T) {
+
+	nodeBlocks := map[int][]hg.Block{}
 	for _, n := range nodes {
-		consEvents[n.id] = n.core.GetConsensusEvents()
-		nodeTxs, err := getCommittedTransactions(n)
-		if err != nil {
-			t.Fatal(err)
-		}
-		consTransactions[n.id] = nodeTxs
-	}
-
-	minE := len(consEvents[0])
-	minT := len(consTransactions[0])
-	for k := 1; k < len(nodes); k++ {
-		if len(consEvents[k]) < minE {
-			minE = len(consEvents[k])
-		}
-		if len(consTransactions[k]) < minT {
-			minT = len(consTransactions[k])
-		}
-	}
-
-	problem := false
-	t.Logf("min consensus events: %d", minE)
-	for i, e := range consEvents[0][0:minE] {
-		for j := range nodes[1:len(nodes)] {
-			if f := consEvents[j][i]; f != e {
-				er := nodes[0].core.hg.Round(e)
-				err := nodes[0].core.hg.RoundReceived(e)
-				fr := nodes[j].core.hg.Round(f)
-				frr := nodes[j].core.hg.RoundReceived(f)
-				t.Logf(
-					"nodes[%d].Consensus[%d] (%s, Round %d, Received %d) and nodes[0].Consensus[%d] (%s, Round %d, Received %d) are not equal",
-					j, i, e[:6], er, err, i, f[:6], fr, frr)
-				problem = true
+		blocks := []hg.Block{}
+		for i := fromBlock; i < n.core.hg.Store.LastBlockIndex(); i++ {
+			block, err := n.core.hg.Store.GetBlock(i)
+			if err != nil {
+				t.Fatalf("checkGossip: %v ", err)
 			}
+			blocks = append(blocks, block)
 		}
-	}
-	if problem {
-		t.Fatal()
+		nodeBlocks[n.id] = blocks
 	}
 
-	t.Logf("min consensus transactions: %d", minT)
-	for i, tx := range consTransactions[0][:minT] {
-		for k := range nodes[1:len(nodes)] {
-			if ot := string(consTransactions[k][i]); ot != string(tx) {
-				t.Fatalf("nodes[%d].ConsensusTransactions[%d] should be '%s' not '%s'", k, i, string(tx), ot)
+	minB := len(nodeBlocks[0])
+	for k := 1; k < len(nodes); k++ {
+		if len(nodeBlocks[k]) < minB {
+			minB = len(nodeBlocks[k])
+		}
+	}
+
+	for i, block := range nodeBlocks[0][:minB] {
+		for k := 1; k < len(nodes); k++ {
+			oBlock := nodeBlocks[k][i]
+			if !reflect.DeepEqual(block.Body, oBlock.Body) {
+				t.Fatalf("checkGossip: Difference in Block %d. ###### nodes[0]: %v ###### nodes[%d]: %v", block.Index(), block.Body, k, oBlock.Body)
 			}
 		}
 	}
@@ -627,9 +791,10 @@ func submitTransaction(n *Node, tx []byte) error {
 }
 
 func BenchmarkGossip(b *testing.B) {
-	logger := common.NewBenchmarkLogger(b)
+	logger := common.NewTestLogger(b)
 	for n := 0; n < b.N; n++ {
-		_, nodes := initNodes(3, 1000, 1000, "inmem", logger, b)
-		gossip(nodes, 5, true, 3*time.Second)
+		keys, peers, pmap := initPeers(4)
+		nodes := initNodes(keys, peers, pmap, 1000, 1000, "inmem", logger, b)
+		gossip(nodes, 50, true, 3*time.Second)
 	}
 }
