@@ -64,6 +64,42 @@ type EventCoordinates struct {
 	index int
 }
 
+type OrderedEventCoordinates []Index
+
+func (o OrderedEventCoordinates) GetIDIndex(id int) int {
+	for i, idx := range o {
+		if idx.participantId == id {
+			return i
+		}
+	}
+
+	return -1
+}
+
+func (o OrderedEventCoordinates) GetByID(id int) (Index, bool) {
+	for _, idx := range o {
+		if idx.participantId == id {
+			return idx, true
+		}
+	}
+
+	return Index{}, false
+}
+
+func (o *OrderedEventCoordinates) Add(id int, event EventCoordinates) {
+	*o = append(*o, Index{
+		participantId: id,
+		event:         event,
+	})
+}
+
+type Index struct {
+	participantId int
+	event         EventCoordinates
+}
+
+// -----
+
 type Event struct {
 	Body      EventBody
 	Signature string //creator's digital signature of body
@@ -76,8 +112,8 @@ type Event struct {
 
 	roundReceived *int
 
-	lastAncestors    []EventCoordinates //[participant fake id] => last ancestor
-	firstDescendants []EventCoordinates //[participant fake id] => first descendant
+	lastAncestors    OrderedEventCoordinates //[participant fake id] => last ancestor
+	firstDescendants OrderedEventCoordinates //[participant fake id] => first descendant
 
 	creator string
 	hash    []byte

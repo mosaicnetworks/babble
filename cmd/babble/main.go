@@ -6,7 +6,6 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"time"
 
 	_ "net/http/pprof"
@@ -18,6 +17,7 @@ import (
 	hg "github.com/mosaicnetworks/babble/hashgraph"
 	"github.com/mosaicnetworks/babble/net"
 	"github.com/mosaicnetworks/babble/node"
+	"github.com/mosaicnetworks/babble/peers"
 	"github.com/mosaicnetworks/babble/proxy"
 	aproxy "github.com/mosaicnetworks/babble/proxy/app"
 	"github.com/mosaicnetworks/babble/service"
@@ -199,33 +199,25 @@ func run(c *cli.Context) error {
 	}
 
 	// Create the peer store
-	peerStore := net.NewJSONPeers(datadir)
+	peerStore := peers.NewJSONPeers(datadir)
 
 	// Try a read
-	peers, err := peerStore.Peers()
+	participants, err := peerStore.Peers()
 	if err != nil {
 		return cli.NewExitError(err, 1)
 	}
 
 	// There should be at least two peers
-	if len(peers) < 2 {
+	if participants.Len() < 2 {
 		return cli.NewExitError("peers.json should define at least two peers", 1)
-	}
-
-	//Sort peers by public key and assign them an int ID
-	//Every participant in the network will run this and assign the same IDs
-	sort.Sort(net.ByPubKey(peers))
-	pmap := make(map[string]int)
-	for i, p := range peers {
-		pmap[p.PubKeyHex] = i
 	}
 
 	//Find the ID of this node
 	nodePub := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey))
-	nodeID := pmap[nodePub]
+	nodeID := participants.ByPubKey[nodePub].ID
 
 	logger.WithFields(logrus.Fields{
-		"pmap": pmap,
+		"pmap": participants,
 		"id":   nodeID,
 	}).Debug("PARTICIPANTS")
 
@@ -234,7 +226,7 @@ func run(c *cli.Context) error {
 	var needBootstrap bool
 	switch storeType {
 	case "inmem":
-		store = hg.NewInmemStore(pmap, conf.CacheSize)
+		store = hg.NewInmemStore(participants, conf.CacheSize)
 	case "badger":
 		//If the file already exists, load and bootstrap the store using the file
 		if _, err := os.Stat(conf.StorePath); err == nil {
@@ -249,7 +241,7 @@ func run(c *cli.Context) error {
 		} else {
 			//Otherwise create a new one
 			logger.Debug("creating new badger store from fresh database")
-			store, err = hg.NewBadgerStore(pmap, conf.CacheSize, conf.StorePath)
+			store, err = hg.NewBadgerStore(participants, conf.CacheSize, conf.StorePath)
 			if err != nil {
 				return cli.NewExitError(
 					fmt.Sprintf("failed to create new BadgerStore: %s", err),
@@ -274,7 +266,7 @@ func run(c *cli.Context) error {
 			conf.TCPTimeout, logger)
 	}
 
-	node := node.NewNode(conf, nodeID, key, peers, store, trans, prox)
+	node := node.NewNode(conf, nodeID, key, participants, store, trans, prox)
 	if err := node.Init(needBootstrap); err != nil {
 		return cli.NewExitError(
 			fmt.Sprintf("failed to initialize node: %s", err),

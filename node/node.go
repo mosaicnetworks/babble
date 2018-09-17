@@ -12,6 +12,7 @@ import (
 
 	hg "github.com/mosaicnetworks/babble/hashgraph"
 	"github.com/mosaicnetworks/babble/net"
+	"github.com/mosaicnetworks/babble/peers"
 	"github.com/mosaicnetworks/babble/proxy"
 )
 
@@ -50,7 +51,7 @@ type Node struct {
 func NewNode(conf *Config,
 	id int,
 	key *ecdsa.PrivateKey,
-	participants []net.Peer,
+	participants *peers.Peers,
 	store hg.Store,
 	trans net.Transport,
 	proxy proxy.AppProxy) *Node {
@@ -89,7 +90,7 @@ func NewNode(conf *Config,
 
 func (n *Node) Init(bootstrap bool) error {
 	peerAddresses := []string{}
-	for _, p := range n.peerSelector.Peers() {
+	for _, p := range n.peerSelector.Peers().ToPeerSlice() {
 		peerAddresses = append(peerAddresses, p.NetAddr)
 	}
 	n.logger.WithField("peers", peerAddresses).Debug("Init Node")
@@ -678,7 +679,7 @@ func (n *Node) GetStats() map[string]string {
 		"consensus_transactions": strconv.Itoa(n.core.GetConsensusTransactionsCount()),
 		"undetermined_events":    strconv.Itoa(len(n.core.GetUndeterminedEvents())),
 		"transaction_pool":       strconv.Itoa(len(n.core.transactionPool)),
-		"num_peers":              strconv.Itoa(len(n.peerSelector.Peers())),
+		"num_peers":              strconv.Itoa(n.peerSelector.Peers().Len()),
 		"sync_rate":              strconv.FormatFloat(n.SyncRate(), 'f', 2, 64),
 		"events_per_second":      strconv.FormatFloat(consensusEventsPerSecond, 'f', 2, 64),
 		"rounds_per_second":      strconv.FormatFloat(consensusRoundsPerSecond, 'f', 2, 64),
