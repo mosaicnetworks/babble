@@ -6,9 +6,9 @@ type PubKeyPeers map[string]*Peer
 type IdPeers map[int]*Peer
 
 type Peers struct {
-	ByAppearance []int
-	ByPubKey     PubKeyPeers
-	ById         IdPeers
+	Sorted   []*Peer
+	ByPubKey PubKeyPeers
+	ById     IdPeers
 }
 
 /* Constructors */
@@ -24,16 +24,19 @@ func NewPeersFromSlice(source []*Peer) *Peers {
 	peers := NewPeers()
 
 	for _, peer := range source {
-		peers.AddPeer(peer)
+		peers.addPeerRaw(peer)
 	}
+
+	peers.internalSort()
 
 	return peers
 }
 
 /* Add Methods */
 
-func (p *Peers) AddPeer(peer *Peer) {
-	// TODO: Check if peer doesn't exists
+// Add a peer without sorting the set.
+// Useful for adding a bunch of peers at the same time
+func (p *Peers) addPeerRaw(peer *Peer) {
 	if peer.ID == 0 {
 		peer.computeID()
 	}
@@ -42,33 +45,13 @@ func (p *Peers) AddPeer(peer *Peer) {
 	p.ById[peer.ID] = peer
 }
 
-/* Remove Methods */
+func (p *Peers) AddPeer(peer *Peer) {
+	p.addPeerRaw(peer)
 
-func (p *Peers) RemovePeer(peer *Peer) {
-	// TODO: Check if peer exists
-	delete(p.ByPubKey, peer.PubKeyHex)
-	delete(p.ById, peer.ID)
+	p.internalSort()
 }
 
-func (p *Peers) RemovePeerByPubKey(pubKey string) {
-	// TODO: Check if peer exists
-	id := p.ByPubKey[pubKey].ID
-
-	delete(p.ByPubKey, pubKey)
-	delete(p.ById, id)
-}
-
-func (p *Peers) RemovePeerById(id int) {
-	// TODO: Check if peer exists
-	pubKey := p.ById[id].PubKeyHex
-
-	delete(p.ByPubKey, pubKey)
-	delete(p.ById, id)
-}
-
-/* ToSlice Methods */
-
-func (p *Peers) ToPeerSlice() []*Peer {
+func (p *Peers) internalSort() {
 	res := []*Peer{}
 
 	for _, p := range p.ByPubKey {
@@ -77,14 +60,40 @@ func (p *Peers) ToPeerSlice() []*Peer {
 
 	sort.Sort(ByID(res))
 
-	return res
+	p.Sorted = res
+}
+
+/* Remove Methods */
+
+func (p *Peers) RemovePeer(peer *Peer) {
+	if _, ok := p.ByPubKey[peer.PubKeyHex]; !ok {
+		return
+	}
+
+	delete(p.ByPubKey, peer.PubKeyHex)
+	delete(p.ById, peer.ID)
+
+	p.internalSort()
+}
+
+func (p *Peers) RemovePeerByPubKey(pubKey string) {
+	p.RemovePeer(p.ByPubKey[pubKey])
+}
+
+func (p *Peers) RemovePeerById(id int) {
+	p.RemovePeer(p.ById[id])
+}
+
+/* ToSlice Methods */
+
+func (p *Peers) ToPeerSlice() []*Peer {
+	return p.Sorted
 }
 
 func (p *Peers) ToPubKeySlice() []string {
-	peers := p.ToPeerSlice()
 	res := []string{}
 
-	for _, peer := range peers {
+	for _, peer := range p.Sorted {
 		res = append(res, peer.PubKeyHex)
 	}
 
@@ -94,11 +103,9 @@ func (p *Peers) ToPubKeySlice() []string {
 func (p *Peers) ToIDSlice() []int {
 	res := []int{}
 
-	for id := range p.ById {
-		res = append(res, id)
+	for _, peer := range p.Sorted {
+		res = append(res, peer.ID)
 	}
-
-	sort.Sort(ByInt(res))
 
 	return res
 }
@@ -128,15 +135,5 @@ func (a ByID) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a ByID) Less(i, j int) bool {
 	ai := a[i].ID
 	aj := a[j].ID
-	return ai < aj
-}
-
-type ByInt []int
-
-func (a ByInt) Len() int      { return len(a) }
-func (a ByInt) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a ByInt) Less(i, j int) bool {
-	ai := a[i]
-	aj := a[j]
 	return ai < aj
 }
