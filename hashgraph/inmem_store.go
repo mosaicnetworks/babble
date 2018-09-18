@@ -93,7 +93,6 @@ func (s *InmemStore) SetEvent(event Event) error {
 }
 
 func (s *InmemStore) addParticpantEvent(participant string, hash string, index int) error {
-	// fmt.Println("ADD PARTICIPANT", participant, hash, index)
 	return s.participantEventsCache.Set(participant, hash, index)
 }
 
