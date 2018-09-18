@@ -10,25 +10,29 @@ import (
 	"github.com/mosaicnetworks/babble/common"
 	"github.com/mosaicnetworks/babble/crypto"
 	hg "github.com/mosaicnetworks/babble/hashgraph"
+	"github.com/mosaicnetworks/babble/peers"
 )
 
-func initCores(n int, t *testing.T) ([]Core, []*ecdsa.PrivateKey, map[string]string) {
+func initCores(n int, t *testing.T) ([]Core, map[int]*ecdsa.PrivateKey, map[string]string) {
 	cacheSize := 1000
 
 	cores := []Core{}
 	index := make(map[string]string)
+	participantKeys := map[int]*ecdsa.PrivateKey{}
 
-	participantKeys := []*ecdsa.PrivateKey{}
-	participants := make(map[string]int)
+	// participantKeys := []*ecdsa.PrivateKey{}
+	participants := peers.NewPeers()
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
-		participantKeys = append(participantKeys, key)
-		participants[fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey))] = i
+		pubHex := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey))
+		peer := peers.NewPeer(pubHex, "")
+		participants.AddPeer(peer)
+		participantKeys[peer.ID] = key
 	}
 
-	for i := 0; i < n; i++ {
+	for i, peer := range participants.ToPeerSlice() {
 		core := NewCore(i,
-			participantKeys[i],
+			participantKeys[peer.ID],
 			participants,
 			hg.NewInmemStore(participants, cacheSize),
 			nil,
@@ -36,7 +40,7 @@ func initCores(n int, t *testing.T) ([]Core, []*ecdsa.PrivateKey, map[string]str
 
 		//Create and save the first Event
 		initialEvent := hg.NewEvent([][]byte(nil), nil,
-			[]string{fmt.Sprintf("Root%d", i), ""},
+			[]string{fmt.Sprintf("Root%d", peer.ID), ""},
 			core.PubKey(),
 			0)
 		err := core.SignAndInsertSelfEvent(initialEvent)
@@ -63,7 +67,7 @@ e01 |   |
 e0  e1  e2
 0   1   2
 */
-func initHashgraph(cores []Core, keys []*ecdsa.PrivateKey, index map[string]string, participant int) {
+func initHashgraph(cores []Core, keys map[int]*ecdsa.PrivateKey, index map[string]string, participant int) {
 	for i := 0; i < len(cores); i++ {
 		if i != participant {
 			event, _ := cores[i].GetEvent(index[fmt.Sprintf("e%d", i)])
@@ -76,26 +80,26 @@ func initHashgraph(cores []Core, keys []*ecdsa.PrivateKey, index map[string]stri
 	event01 := hg.NewEvent([][]byte{}, nil,
 		[]string{index["e0"], index["e1"]}, //e0 and e1
 		cores[0].PubKey(), 1)
-	if err := insertEvent(cores, keys, index, event01, "e01", participant, 0); err != nil {
+	if err := insertEvent(cores, keys, index, event01, "e01", participant, common.Hash32(cores[0].pubKey)); err != nil {
 		fmt.Printf("error inserting e01: %s\n", err)
 	}
 
 	event20 := hg.NewEvent([][]byte{}, nil,
 		[]string{index["e2"], index["e01"]}, //e2 and e01
 		cores[2].PubKey(), 1)
-	if err := insertEvent(cores, keys, index, event20, "e20", participant, 2); err != nil {
+	if err := insertEvent(cores, keys, index, event20, "e20", participant, common.Hash32(cores[2].pubKey)); err != nil {
 		fmt.Printf("error inserting e20: %s\n", err)
 	}
 
 	event12 := hg.NewEvent([][]byte{}, nil,
 		[]string{index["e1"], index["e20"]}, //e1 and e20
 		cores[1].PubKey(), 1)
-	if err := insertEvent(cores, keys, index, event12, "e12", participant, 1); err != nil {
+	if err := insertEvent(cores, keys, index, event12, "e12", participant, common.Hash32(cores[1].pubKey)); err != nil {
 		fmt.Printf("error inserting e12: %s\n", err)
 	}
 }
 
-func insertEvent(cores []Core, keys []*ecdsa.PrivateKey, index map[string]string,
+func insertEvent(cores []Core, keys map[int]*ecdsa.PrivateKey, index map[string]string,
 	event hg.Event, name string, particant int, creator int) error {
 
 	if particant == creator {
@@ -177,13 +181,13 @@ func TestSync(t *testing.T) {
 	*/
 
 	knownBy0 := cores[0].KnownEvents()
-	if k := knownBy0[cores[0].ID()]; k != 1 {
+	if k := knownBy0[common.Hash32(cores[0].pubKey)]; k != 1 {
 		t.Fatalf("core 0 should have last-index 1 for core 0, not %d", k)
 	}
-	if k := knownBy0[cores[1].ID()]; k != 0 {
+	if k := knownBy0[common.Hash32(cores[1].pubKey)]; k != 0 {
 		t.Fatalf("core 0 should have last-index 0 for core 1, not %d", k)
 	}
-	if k := knownBy0[cores[2].ID()]; k != -1 {
+	if k := knownBy0[common.Hash32(cores[2].pubKey)]; k != -1 {
 		t.Fatalf("core 0 should have last-index -1 for core 2, not %d", k)
 	}
 	core0Head, _ := cores[0].GetHead()
@@ -215,13 +219,13 @@ func TestSync(t *testing.T) {
 	*/
 
 	knownBy2 := cores[2].KnownEvents()
-	if k := knownBy2[cores[0].ID()]; k != 1 {
+	if k := knownBy2[common.Hash32(cores[0].pubKey)]; k != 1 {
 		t.Fatalf("core 2 should have last-index 1 for core 0, not %d", k)
 	}
-	if k := knownBy2[cores[1].ID()]; k != 0 {
+	if k := knownBy2[common.Hash32(cores[1].pubKey)]; k != 0 {
 		t.Fatalf("core 2 should have last-index 0 core 1, not %d", k)
 	}
-	if k := knownBy2[cores[2].ID()]; k != 1 {
+	if k := knownBy2[common.Hash32(cores[2].pubKey)]; k != 1 {
 		t.Fatalf("core 2 should have last-index 1 for core 2, not %d", k)
 	}
 	core2Head, _ := cores[2].GetHead()
@@ -255,13 +259,13 @@ func TestSync(t *testing.T) {
 	*/
 
 	knownBy1 := cores[1].KnownEvents()
-	if k := knownBy1[cores[0].ID()]; k != 1 {
+	if k := knownBy1[common.Hash32(cores[0].pubKey)]; k != 1 {
 		t.Fatalf("core 1 should have last-index 1 for core 0, not %d", k)
 	}
-	if k := knownBy1[cores[1].ID()]; k != 1 {
+	if k := knownBy1[common.Hash32(cores[1].pubKey)]; k != 1 {
 		t.Fatalf("core 1 should have last-index 1 for core 1, not %d", k)
 	}
-	if k := knownBy1[cores[2].ID()]; k != 1 {
+	if k := knownBy1[common.Hash32(cores[2].pubKey)]; k != 1 {
 		t.Fatalf("core 1 should have last-index 1 for core 2, not %d", k)
 	}
 	core1Head, _ := cores[1].GetHead()
@@ -378,31 +382,35 @@ func TestConsensus(t *testing.T) {
 func TestOverSyncLimit(t *testing.T) {
 	cores := initConsensusHashgraph(t)
 
-	known := map[int]int{}
+	//positive
+	known := map[int]int{
+		common.Hash32(cores[0].pubKey): 1,
+		common.Hash32(cores[1].pubKey): 1,
+		common.Hash32(cores[2].pubKey): 1,
+	}
 
 	syncLimit := 10
 
-	//positive
-	for i := 0; i < 3; i++ {
-		known[i] = 1
-	}
 	if !cores[0].OverSyncLimit(known, syncLimit) {
 		t.Fatalf("OverSyncLimit(%v, %v) should return true", known, syncLimit)
 	}
 
 	//negative
-	for i := 0; i < 3; i++ {
-		known[i] = 6
+	known = map[int]int{
+		common.Hash32(cores[0].pubKey): 6,
+		common.Hash32(cores[1].pubKey): 6,
+		common.Hash32(cores[2].pubKey): 6,
 	}
+
 	if cores[0].OverSyncLimit(known, syncLimit) {
 		t.Fatalf("OverSyncLimit(%v, %v) should return false", known, syncLimit)
 	}
 
 	//edge
 	known = map[int]int{
-		0: 2,
-		1: 3,
-		2: 3,
+		common.Hash32(cores[0].pubKey): 2,
+		common.Hash32(cores[1].pubKey): 3,
+		common.Hash32(cores[2].pubKey): 3,
 	}
 	if cores[0].OverSyncLimit(known, syncLimit) {
 		t.Fatalf("OverSyncLimit(%v, %v) should return false", known, syncLimit)
@@ -593,10 +601,10 @@ func TestCoreFastForward(t *testing.T) {
 		}
 
 		expectedKnown := map[int]int{
-			0: -1,
-			1: 1,
-			2: 1,
-			3: 1,
+			common.Hash32(cores[0].pubKey): -1,
+			common.Hash32(cores[1].pubKey): 1,
+			common.Hash32(cores[2].pubKey): 1,
+			common.Hash32(cores[3].pubKey): 1,
 		}
 
 		if !reflect.DeepEqual(knownBy0, expectedKnown) {

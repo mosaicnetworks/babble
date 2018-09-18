@@ -1,16 +1,15 @@
 package mobile
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
-	"sort"
 	"time"
 
 	"github.com/mosaicnetworks/babble/crypto"
 	hg "github.com/mosaicnetworks/babble/hashgraph"
 	"github.com/mosaicnetworks/babble/net"
 	"github.com/mosaicnetworks/babble/node"
+	"github.com/mosaicnetworks/babble/peers"
 	"github.com/mosaicnetworks/babble/proxy"
 	"github.com/sirupsen/logrus"
 )
@@ -25,7 +24,7 @@ type Node struct {
 // New initializes Node struct
 func New(privKey string,
 	nodeAddr string,
-	peers string,
+	participants *peers.Peers,
 	commitHandler CommitHandler,
 	exceptionHandler ExceptionHandler,
 	config *MobileConfig) *Node {
@@ -34,7 +33,7 @@ func New(privKey string,
 
 	logger.WithFields(logrus.Fields{
 		"nodeAddr": nodeAddr,
-		"peers":    peers,
+		"peers":    participants,
 		"config":   fmt.Sprintf("%v", config),
 	}).Debug("New Mobile Node")
 
@@ -46,31 +45,18 @@ func New(privKey string,
 		return nil
 	}
 
-	//Check peers
-	var netPeers []net.Peer
-	if err := json.Unmarshal([]byte(peers), &netPeers); err != nil {
-		exceptionHandler.OnException(fmt.Sprintf("Unmarshalling json peers: %s. %s", err.Error(), peers))
-		return nil
-	}
-
 	// There should be at least two peers
-	if len(peers) < 2 {
+	if participants.Len() < 2 {
 		exceptionHandler.OnException(fmt.Sprintf("Should define at least two peers"))
 		return nil
 	}
 
-	sort.Sort(net.ByPubKey(netPeers))
-	pmap := make(map[string]int)
-	for i, p := range netPeers {
-		pmap[p.PubKeyHex] = i
-	}
-
 	//Find the ID of this node
 	nodePub := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey))
-	nodeID := pmap[nodePub]
+	nodeID := participants.ByPubKey[nodePub].ID
 
 	logger.WithFields(logrus.Fields{
-		"pmap": pmap,
+		"pmap": participants,
 		"id":   nodeID,
 	}).Debug("PARTICIPANTS")
 
@@ -88,7 +74,7 @@ func New(privKey string,
 	var needBootstrap bool
 	switch conf.StoreType {
 	case "inmem":
-		store = hg.NewInmemStore(pmap, conf.CacheSize)
+		store = hg.NewInmemStore(participants, conf.CacheSize)
 	case "badger":
 		//If the file already exists, load and bootstrap the store using the file
 		if _, err := os.Stat(conf.StorePath); err == nil {
@@ -102,7 +88,7 @@ func New(privKey string,
 		} else {
 			//Otherwise create a new one
 			logger.Debug("creating new badger store from fresh database")
-			store, err = hg.NewBadgerStore(pmap, conf.CacheSize, conf.StorePath)
+			store, err = hg.NewBadgerStore(participants, conf.CacheSize, conf.StorePath)
 			if err != nil {
 				exceptionHandler.OnException(fmt.Sprintf("failed to create new BadgerStore: %s", err))
 				return nil
@@ -123,7 +109,7 @@ func New(privKey string,
 	var prox proxy.AppProxy
 	prox = newMobileAppProxy(commitHandler, exceptionHandler, logger)
 
-	node := node.NewNode(conf, nodeID, key, netPeers, store, trans, prox)
+	node := node.NewNode(conf, nodeID, key, participants, store, trans, prox)
 	if err := node.Init(needBootstrap); err != nil {
 		exceptionHandler.OnException(fmt.Sprintf("Initializing node: %s", err))
 		return nil

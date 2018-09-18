@@ -11,6 +11,7 @@ import (
 
 	"github.com/mosaicnetworks/babble/crypto"
 	hg "github.com/mosaicnetworks/babble/hashgraph"
+	"github.com/mosaicnetworks/babble/peers"
 )
 
 type Core struct {
@@ -20,10 +21,9 @@ type Core struct {
 	hexID  string
 	hg     *hg.Hashgraph
 
-	participants        map[string]int //[PubKey] => id
-	reverseParticipants map[int]string //[id] => PubKey
-	Head                string
-	Seq                 int
+	participants *peers.Peers //[PubKey] => id
+	Head         string
+	Seq          int
 
 	transactionPool    [][]byte
 	blockSignaturePool []hg.BlockSignature
@@ -34,7 +34,7 @@ type Core struct {
 func NewCore(
 	id int,
 	key *ecdsa.PrivateKey,
-	participants map[string]int,
+	participants *peers.Peers,
 	store hg.Store,
 	commitCh chan hg.Block,
 	logger *logrus.Logger) Core {
@@ -45,22 +45,16 @@ func NewCore(
 	}
 	logEntry := logger.WithField("id", id)
 
-	reverseParticipants := make(map[int]string)
-	for pk, id := range participants {
-		reverseParticipants[id] = pk
-	}
-
 	core := Core{
-		id:                  id,
-		key:                 key,
-		hg:                  hg.NewHashgraph(participants, store, commitCh, logEntry),
-		participants:        participants,
-		reverseParticipants: reverseParticipants,
-		transactionPool:     [][]byte{},
-		blockSignaturePool:  []hg.BlockSignature{},
-		logger:              logEntry,
-		Head:                "",
-		Seq:                 -1,
+		id:                 id,
+		key:                key,
+		hg:                 hg.NewHashgraph(participants, store, commitCh, logEntry),
+		participants:       participants,
+		transactionPool:    [][]byte{},
+		blockSignaturePool: []hg.BlockSignature{},
+		logger:             logEntry,
+		Head:               "",
+		Seq:                -1,
 	}
 	return core
 }
@@ -193,9 +187,9 @@ func (c *Core) EventDiff(known map[int]int) (events []hg.Event, err error) {
 	//compare this to our view of events and fill unknown with events that we know of
 	// and the other doesnt
 	for id, ct := range known {
-		pk := c.reverseParticipants[id]
+		peer := c.participants.ById[id]
 		//get participant Events with index > ct
-		participantEvents, err := c.hg.Store.ParticipantEvents(pk, ct)
+		participantEvents, err := c.hg.Store.ParticipantEvents(peer.PubKeyHex, ct)
 		if err != nil {
 			return []hg.Event{}, err
 		}

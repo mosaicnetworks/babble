@@ -7,6 +7,7 @@ import (
 
 	"github.com/dgraph-io/badger"
 	cm "github.com/mosaicnetworks/babble/common"
+	"github.com/mosaicnetworks/babble/peers"
 )
 
 var (
@@ -19,14 +20,14 @@ var (
 )
 
 type BadgerStore struct {
-	participants map[string]int
+	participants *peers.Peers
 	inmemStore   *InmemStore
 	db           *badger.DB
 	path         string
 }
 
 //NewBadgerStore creates a brand new Store with a new database
-func NewBadgerStore(participants map[string]int, cacheSize int, path string) (*BadgerStore, error) {
+func NewBadgerStore(participants *peers.Peers, cacheSize int, path string) (*BadgerStore, error) {
 	inmemStore := NewInmemStore(participants, cacheSize)
 	opts := badger.DefaultOptions
 	opts.Dir = path
@@ -80,7 +81,7 @@ func LoadBadgerStore(cacheSize int, path string) (*BadgerStore, error) {
 
 	//read roots from db and put them in InmemStore
 	roots := make(map[string]Root)
-	for p := range participants {
+	for p := range participants.ByPubKey {
 		root, err := store.dbGetRoot(p)
 		if err != nil {
 			return nil, err
@@ -136,7 +137,7 @@ func (s *BadgerStore) CacheSize() int {
 	return s.inmemStore.CacheSize()
 }
 
-func (s *BadgerStore) Participants() (map[string]int, error) {
+func (s *BadgerStore) Participants() (*peers.Peers, error) {
 	return s.participants, nil
 }
 
@@ -189,7 +190,7 @@ func (s *BadgerStore) LastConsensusEventFrom(participant string) (last string, i
 
 func (s *BadgerStore) KnownEvents() map[int]int {
 	known := make(map[int]int)
-	for p, pid := range s.participants {
+	for p, pid := range s.participants.ByPubKey {
 		index := -1
 		last, isRoot, err := s.LastEventFrom(p)
 		if err == nil {
@@ -207,7 +208,7 @@ func (s *BadgerStore) KnownEvents() map[int]int {
 			}
 
 		}
-		known[pid] = index
+		known[pid.ID] = index
 	}
 	return known
 }
@@ -544,37 +545,34 @@ func (s *BadgerStore) dbSetRound(index int, round RoundInfo) error {
 	return tx.Commit(nil)
 }
 
-func (s *BadgerStore) dbGetParticipants() (map[string]int, error) {
-	res := make(map[string]int)
+func (s *BadgerStore) dbGetParticipants() (*peers.Peers, error) {
+	res := peers.NewPeers()
+
 	err := s.db.View(func(txn *badger.Txn) error {
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
 		prefix := []byte(participantPrefix)
+
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 			item := it.Item()
 			k := string(item.Key())
-			v, err := item.Value()
-			if err != nil {
-				return err
-			}
-			//key is of the form participant_0x.......
+
 			pubKey := k[len(participantPrefix)+1:]
-			id, err := strconv.Atoi(string(v))
-			if err != nil {
-				return err
-			}
-			res[pubKey] = id
+
+			res.AddPeer(peers.NewPeer(pubKey, ""))
 		}
+
 		return nil
 	})
+
 	return res, err
 }
 
-func (s *BadgerStore) dbSetParticipants(participants map[string]int) error {
+func (s *BadgerStore) dbSetParticipants(participants *peers.Peers) error {
 	tx := s.db.NewTransaction(true)
 	defer tx.Discard()
-	for participant, id := range participants {
+	for participant, id := range participants.ByPubKey {
 		key := participantKey(participant)
-		val := []byte(strconv.Itoa(id))
+		val := []byte(strconv.Itoa(id.ID))
 		//insert [participant_participant] => [id]
 		if err := tx.Set(key, val); err != nil {
 			return err

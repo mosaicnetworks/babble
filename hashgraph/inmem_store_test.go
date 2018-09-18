@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/mosaicnetworks/babble/crypto"
+	"github.com/mosaicnetworks/babble/peers"
 )
 
 type pub struct {
@@ -19,13 +20,15 @@ type pub struct {
 func initInmemStore(cacheSize int) (*InmemStore, []pub) {
 	n := 3
 	participantPubs := []pub{}
-	participants := make(map[string]int)
+	participants := peers.NewPeers()
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
 		pubKey := crypto.FromECDSAPub(&key.PublicKey)
+		peer := peers.NewPeer(fmt.Sprintf("0x%X", pubKey), "")
 		participantPubs = append(participantPubs,
-			pub{i, key, pubKey, fmt.Sprintf("0x%X", pubKey)})
-		participants[fmt.Sprintf("0x%X", pubKey)] = i
+			pub{i, key, pubKey, peer.PubKeyHex})
+		participants.AddPeer(peer)
+		participantPubs[len(participantPubs)-1].id = peer.ID
 	}
 
 	store := NewInmemStore(participants, cacheSize)

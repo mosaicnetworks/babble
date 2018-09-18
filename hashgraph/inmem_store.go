@@ -4,11 +4,12 @@ import (
 	"strconv"
 
 	cm "github.com/mosaicnetworks/babble/common"
+	"github.com/mosaicnetworks/babble/peers"
 )
 
 type InmemStore struct {
 	cacheSize              int
-	participants           map[string]int
+	participants           *peers.Peers
 	eventCache             *cm.LRU
 	roundCache             *cm.LRU
 	blockCache             *cm.LRU
@@ -23,12 +24,14 @@ type InmemStore struct {
 	lastBlock              int
 }
 
-func NewInmemStore(participants map[string]int, cacheSize int) *InmemStore {
+func NewInmemStore(participants *peers.Peers, cacheSize int) *InmemStore {
 	rootsByParticipant := make(map[string]Root)
-	for pk, pid := range participants {
-		root := NewBaseRoot(pid)
+
+	for pk, pid := range participants.ByPubKey {
+		root := NewBaseRoot(pid.ID)
 		rootsByParticipant[pk] = root
 	}
+
 	return &InmemStore{
 		cacheSize:              cacheSize,
 		participants:           participants,
@@ -49,7 +52,7 @@ func (s *InmemStore) CacheSize() int {
 	return s.cacheSize
 }
 
-func (s *InmemStore) Participants() (map[string]int, error) {
+func (s *InmemStore) Participants() (*peers.Peers, error) {
 	return s.participants, nil
 }
 
@@ -83,6 +86,7 @@ func (s *InmemStore) SetEvent(event Event) error {
 			return err
 		}
 	}
+
 	s.eventCache.Add(key, event)
 
 	return nil
@@ -147,11 +151,11 @@ func (s *InmemStore) LastConsensusEventFrom(participant string) (last string, is
 
 func (s *InmemStore) KnownEvents() map[int]int {
 	known := s.participantEventsCache.Known()
-	for p, pid := range s.participants {
-		if known[pid] == -1 {
+	for p, pid := range s.participants.ByPubKey {
+		if known[pid.ID] == -1 {
 			root, ok := s.rootsByParticipant[p]
 			if ok {
-				known[pid] = root.SelfParent.Index
+				known[pid.ID] = root.SelfParent.Index
 			}
 		}
 	}

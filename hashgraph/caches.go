@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	cm "github.com/mosaicnetworks/babble/common"
+	"github.com/mosaicnetworks/babble/peers"
 )
 
 type Key struct {
@@ -28,36 +29,28 @@ func NewBaseParentRoundInfo() ParentRoundInfo {
 	}
 }
 
-func getValues(mapping map[string]int) []int {
-	keys := make([]int, len(mapping))
-	i := 0
-	for _, id := range mapping {
-		keys[i] = id
-		i++
-	}
-	return keys
-}
-
 //------------------------------------------------------------------------------
 
 type ParticipantEventsCache struct {
-	participants map[string]int
+	participants *peers.Peers
 	rim          *cm.RollingIndexMap
 }
 
-func NewParticipantEventsCache(size int, participants map[string]int) *ParticipantEventsCache {
+func NewParticipantEventsCache(size int, participants *peers.Peers) *ParticipantEventsCache {
 	return &ParticipantEventsCache{
 		participants: participants,
-		rim:          cm.NewRollingIndexMap("ParticipantEvents", size, getValues(participants)),
+		rim:          cm.NewRollingIndexMap("ParticipantEvents", size, participants.ToIDSlice()),
 	}
 }
 
 func (pec *ParticipantEventsCache) participantID(participant string) (int, error) {
-	id, ok := pec.participants[participant]
+	peer, ok := pec.participants.ByPubKey[participant]
+
 	if !ok {
 		return -1, cm.NewStoreErr("ParticipantEvents", cm.UnknownParticipant, participant)
 	}
-	return id, nil
+
+	return peer.ID, nil
 }
 
 //return participant events with index > skip
@@ -138,23 +131,25 @@ func (pec *ParticipantEventsCache) Reset() error {
 //------------------------------------------------------------------------------
 
 type ParticipantBlockSignaturesCache struct {
-	participants map[string]int
+	participants *peers.Peers
 	rim          *cm.RollingIndexMap
 }
 
-func NewParticipantBlockSignaturesCache(size int, participants map[string]int) *ParticipantBlockSignaturesCache {
+func NewParticipantBlockSignaturesCache(size int, participants *peers.Peers) *ParticipantBlockSignaturesCache {
 	return &ParticipantBlockSignaturesCache{
 		participants: participants,
-		rim:          cm.NewRollingIndexMap("ParticipantBlockSignatures", size, getValues(participants)),
+		rim:          cm.NewRollingIndexMap("ParticipantBlockSignatures", size, participants.ToIDSlice()),
 	}
 }
 
 func (psc *ParticipantBlockSignaturesCache) participantID(participant string) (int, error) {
-	id, ok := psc.participants[participant]
+	peer, ok := psc.participants.ByPubKey[participant]
+
 	if !ok {
 		return -1, cm.NewStoreErr("ParticipantBlockSignatures", cm.UnknownParticipant, participant)
 	}
-	return id, nil
+
+	return peer.ID, nil
 }
 
 //return participant BlockSignatures where index > skip
@@ -190,10 +185,12 @@ func (psc *ParticipantBlockSignaturesCache) GetItem(participant string, index in
 }
 
 func (psc *ParticipantBlockSignaturesCache) GetLast(participant string) (BlockSignature, error) {
-	last, err := psc.rim.GetLast(psc.participants[participant])
+	last, err := psc.rim.GetLast(psc.participants.ByPubKey[participant].ID)
+
 	if err != nil {
 		return BlockSignature{}, err
 	}
+
 	return last.(BlockSignature), nil
 }
 

@@ -1,8 +1,10 @@
 package hashgraph
 
+import "github.com/mosaicnetworks/babble/peers"
+
 type Store interface {
 	CacheSize() int
-	Participants() (map[string]int, error)
+	Participants() (*peers.Peers, error)
 	RootsBySelfParent() (map[string]Root, error)
 	GetEvent(string) (Event, error)
 	SetEvent(Event) error

@@ -1,4 +1,4 @@
-package net
+package peers
 
 import (
 	"fmt"
@@ -29,23 +29,25 @@ func TestJSONPeers(t *testing.T) {
 	if err == nil {
 		t.Fatalf("store.Peers() should generate an error")
 	}
-	if len(peers) != 0 {
+	if peers != nil {
 		t.Fatalf("peers: %v", peers)
 	}
 
-	keys := []*ecdsa.PrivateKey{}
-	newPeers := []Peer{}
+	keys := map[string]*ecdsa.PrivateKey{}
+	newPeers := NewPeers()
 	for i := 0; i < 3; i++ {
 		key, _ := scrypto.GenerateECDSAKey()
 		peer := Peer{
 			NetAddr:   fmt.Sprintf("addr%d", i),
 			PubKeyHex: fmt.Sprintf("0x%X", scrypto.FromECDSAPub(&key.PublicKey)),
 		}
-		keys = append(keys, key)
-		newPeers = append(newPeers, peer)
+		newPeers.AddPeer(&peer)
+		keys[peer.NetAddr] = key
 	}
 
-	if err := store.SetPeers(newPeers); err != nil {
+	newPeersSlice := newPeers.ToPeerSlice()
+
+	if err := store.SetPeers(newPeersSlice); err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
@@ -54,25 +56,27 @@ func TestJSONPeers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	if len(peers) != 3 {
+	if peers.Len() != 3 {
 		t.Fatalf("peers: %v", peers)
 	}
 
+	peersSlice := peers.ToPeerSlice()
+
 	for i := 0; i < 3; i++ {
-		if peers[i].NetAddr != newPeers[i].NetAddr {
+		if peersSlice[i].NetAddr != newPeersSlice[i].NetAddr {
 			t.Fatalf("peers[%d] NetAddr should be %s, not %s", i,
-				newPeers[i].NetAddr, peers[i].NetAddr)
+				newPeersSlice[i].NetAddr, peersSlice[i].NetAddr)
 		}
-		if peers[i].PubKeyHex != newPeers[i].PubKeyHex {
+		if peersSlice[i].PubKeyHex != newPeersSlice[i].PubKeyHex {
 			t.Fatalf("peers[%d] PubKeyHex should be %s, not %s", i,
-				newPeers[i].PubKeyHex, peers[i].PubKeyHex)
+				newPeersSlice[i].PubKeyHex, peersSlice[i].PubKeyHex)
 		}
-		pubKeyBytes, err := peers[i].PubKeyBytes()
+		pubKeyBytes, err := peersSlice[i].PubKeyBytes()
 		if err != nil {
 			t.Fatal(err)
 		}
 		pubKey := scrypto.ToECDSAPub(pubKeyBytes)
-		if !reflect.DeepEqual(*pubKey, keys[i].PublicKey) {
+		if !reflect.DeepEqual(*pubKey, keys[peersSlice[i].NetAddr].PublicKey) {
 			t.Fatalf("peers[%d] PublicKey not parsed correctly", i)
 		}
 	}
