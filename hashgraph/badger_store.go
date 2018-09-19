@@ -342,6 +342,7 @@ func (s *BadgerStore) dbGetEvent(key string) (Event, error) {
 func (s *BadgerStore) dbSetEvents(events []Event) error {
 	tx := s.db.NewTransaction(true)
 	defer tx.Discard()
+
 	for _, event := range events {
 		eventHex := event.Hex()
 		val, err := event.Marshal()
@@ -550,6 +551,7 @@ func (s *BadgerStore) dbGetParticipants() (*peers.Peers, error) {
 
 	err := s.db.View(func(txn *badger.Txn) error {
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
 		prefix := []byte(participantPrefix)
 
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
@@ -570,6 +572,7 @@ func (s *BadgerStore) dbGetParticipants() (*peers.Peers, error) {
 func (s *BadgerStore) dbSetParticipants(participants *peers.Peers) error {
 	tx := s.db.NewTransaction(true)
 	defer tx.Discard()
+
 	for participant, id := range participants.ByPubKey {
 		key := participantKey(participant)
 		val := []byte(strconv.Itoa(id.ID))
