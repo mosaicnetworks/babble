@@ -1,11 +1,15 @@
 package peers
 
-import "sort"
+import (
+	"sort"
+	"sync"
+)
 
 type PubKeyPeers map[string]*Peer
 type IdPeers map[int]*Peer
 
 type Peers struct {
+	sync.RWMutex
 	Sorted   []*Peer
 	ByPubKey PubKeyPeers
 	ById     IdPeers
@@ -36,6 +40,8 @@ func NewPeersFromSlice(source []*Peer) *Peers {
 
 // Add a peer without sorting the set.
 // Useful for adding a bunch of peers at the same time
+// This method is private and is not protected by mutex.
+// Handle with care
 func (p *Peers) addPeerRaw(peer *Peer) {
 	if peer.ID == 0 {
 		peer.computeID()
@@ -46,6 +52,9 @@ func (p *Peers) addPeerRaw(peer *Peer) {
 }
 
 func (p *Peers) AddPeer(peer *Peer) {
+	p.Lock()
+	defer p.Unlock()
+
 	p.addPeerRaw(peer)
 
 	p.internalSort()
@@ -66,6 +75,9 @@ func (p *Peers) internalSort() {
 /* Remove Methods */
 
 func (p *Peers) RemovePeer(peer *Peer) {
+	p.Lock()
+	defer p.Unlock()
+
 	if _, ok := p.ByPubKey[peer.PubKeyHex]; !ok {
 		return
 	}
@@ -91,6 +103,9 @@ func (p *Peers) ToPeerSlice() []*Peer {
 }
 
 func (p *Peers) ToPubKeySlice() []string {
+	p.RLock()
+	defer p.RUnlock()
+
 	res := []string{}
 
 	for _, peer := range p.Sorted {
@@ -101,6 +116,9 @@ func (p *Peers) ToPubKeySlice() []string {
 }
 
 func (p *Peers) ToIDSlice() []int {
+	p.RLock()
+	defer p.RUnlock()
+
 	res := []int{}
 
 	for _, peer := range p.Sorted {
@@ -113,6 +131,9 @@ func (p *Peers) ToIDSlice() []int {
 /* Utilities */
 
 func (p *Peers) Len() int {
+	p.RLock()
+	defer p.RUnlock()
+
 	return len(p.ByPubKey)
 }
 
