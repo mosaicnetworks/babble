@@ -80,6 +80,84 @@ func testLogger(t testing.TB) *logrus.Entry {
 	return common.NewTestLogger(t).WithField("id", "test")
 }
 
+/* Initialisation functions */
+
+func initHashgraphNodes(n int) ([]TestNode, map[string]string, *[]Event, *peers.Peers) {
+	index := make(map[string]string)
+	nodes := []TestNode{}
+	orderedEvents := &[]Event{}
+	keys := map[string]*ecdsa.PrivateKey{}
+
+	participants := peers.NewPeers()
+
+	for i := 0; i < n; i++ {
+		key, _ := crypto.GenerateECDSAKey()
+		pub := crypto.FromECDSAPub(&key.PublicKey)
+		pubHex := fmt.Sprintf("0x%X", pub)
+		participants.AddPeer(peers.NewPeer(pubHex, ""))
+		keys[pubHex] = key
+	}
+
+	for i, peer := range participants.ToPeerSlice() {
+		nodes = append(nodes, NewTestNode(keys[peer.PubKeyHex], i))
+	}
+
+	return nodes, index, orderedEvents, participants
+}
+
+func playEvents(plays []play, nodes []TestNode, index map[string]string, orderedEvents *[]Event) {
+	for _, p := range plays {
+		e := NewEvent(p.txPayload,
+			p.sigPayload,
+			[]string{index[p.selfParent], index[p.otherParent]},
+			nodes[p.to].Pub,
+			p.index)
+
+		nodes[p.to].signAndAddEvent(e, p.name, index, orderedEvents)
+	}
+}
+
+func createHashgraph(db bool, orderedEvents *[]Event, participants *peers.Peers, logger *logrus.Entry) *Hashgraph {
+	var store Store
+	if db {
+		var err error
+		store, err = NewBadgerStore(participants, cacheSize, badgerDir)
+		if err != nil {
+			logger.Fatal(err)
+		}
+	} else {
+		store = NewInmemStore(participants, cacheSize)
+	}
+
+	hashgraph := NewHashgraph(participants, store, nil, logger)
+
+	for i, ev := range *orderedEvents {
+		if err := hashgraph.InsertEvent(ev, true); err != nil {
+			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
+		}
+	}
+
+	return hashgraph
+}
+
+func initHashgraphFull(plays []play, db bool, n int, logger *logrus.Entry) (*Hashgraph, map[string]string, *[]Event) {
+	nodes, index, orderedEvents, participants := initHashgraphNodes(n)
+
+	// Needed to have sorted nodes based on participants hash32
+	for i, peer := range participants.ToPeerSlice() {
+		event := NewEvent(nil, nil, []string{rootSelfParent(peer.ID), ""}, nodes[i].Pub, 0)
+		nodes[i].signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
+	}
+
+	playEvents(plays, nodes, index, orderedEvents)
+
+	hashgraph := createHashgraph(db, orderedEvents, participants, logger)
+
+	return hashgraph, index, orderedEvents
+}
+
+/*  */
+
 /*
 |  e12  |
 |   | \ |
@@ -95,18 +173,6 @@ e0  e1  e2
 0   1   2
 */
 func initHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
-	index := make(map[string]string)
-	nodes := []TestNode{}
-	orderedEvents := &[]Event{}
-
-	for i := 0; i < n; i++ {
-		key, _ := crypto.GenerateECDSAKey()
-		node := NewTestNode(key, i)
-		event := NewEvent(nil, nil, []string{rootSelfParent(node.ID), ""}, node.Pub, 0)
-		node.signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
-		nodes = append(nodes, node)
-	}
-
 	plays := []play{
 		play{0, 1, "e0", "e1", "e01", nil, nil},
 		play{2, 1, "e2", "", "s20", nil, nil},
@@ -116,22 +182,8 @@ func initHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
 		play{1, 2, "s10", "e20", "e12", nil, nil},
 	}
 
-	for _, p := range plays {
-		e := NewEvent(p.txPayload,
-			p.sigPayload,
-			[]string{index[p.selfParent], index[p.otherParent]},
-			nodes[p.to].Pub,
-			p.index)
-		nodes[p.to].signAndAddEvent(e, p.name, index, orderedEvents)
-	}
+	h, index, orderedEvents := initHashgraphFull(plays, false, n, testLogger(t))
 
-	participants := peers.NewPeers()
-	for _, node := range nodes {
-		participants.AddPeer(peers.NewPeer(node.PubHex, ""))
-	}
-
-	store := NewInmemStore(participants, cacheSize)
-	h := NewHashgraph(participants, store, nil, testLogger(t))
 	for i, ev := range *orderedEvents {
 		if err := h.initEventCoordinates(&ev); err != nil {
 			t.Fatalf("%d: %s", i, err)
@@ -363,29 +415,8 @@ s00 |  e21
 e0  e1  e2
 0   1    2
 */
+
 func initRoundHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
-	index := make(map[string]string)
-	nodes := []TestNode{}
-	orderedEvents := &[]Event{}
-	keys := map[string]*ecdsa.PrivateKey{}
-
-	participants := peers.NewPeers()
-
-	for i := 0; i < n; i++ {
-		key, _ := crypto.GenerateECDSAKey()
-		pub := crypto.FromECDSAPub(&key.PublicKey)
-		pubHex := fmt.Sprintf("0x%X", pub)
-		participants.AddPeer(peers.NewPeer(pubHex, ""))
-		keys[pubHex] = key
-	}
-
-	for i, peer := range participants.ToPeerSlice() {
-		node := NewTestNode(keys[peer.PubKeyHex], i)
-		event := NewEvent(nil, nil, []string{rootSelfParent(node.ID), ""}, node.Pub, 0)
-		node.signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
-		nodes = append(nodes, node)
-	}
-
 	plays := []play{
 		play{1, 1, "e1", "e0", "e10", nil, nil},
 		play{2, 1, "e2", "", "s20", nil, nil},
@@ -397,22 +428,9 @@ func initRoundHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
 		play{1, 4, "f1", "", "s11", [][]byte{[]byte("abc")}, nil},
 	}
 
-	for _, p := range plays {
-		e := NewEvent(p.txPayload,
-			p.sigPayload,
-			[]string{index[p.selfParent], index[p.otherParent]},
-			nodes[p.to].Pub,
-			p.index)
-		nodes[p.to].signAndAddEvent(e, p.name, index, orderedEvents)
-	}
+	h, index, _ := initHashgraphFull(plays, false, n, testLogger(t))
 
-	hashgraph := NewHashgraph(participants, NewInmemStore(participants, cacheSize), nil, testLogger(t))
-	for i, ev := range *orderedEvents {
-		if err := hashgraph.InsertEvent(ev, true); err != nil {
-			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
-		}
-	}
-	return hashgraph, index
+	return h, index
 }
 
 func TestInsertEvent(t *testing.T) {
@@ -876,26 +894,11 @@ e01  e12
 
 */
 func initDentedHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
-	index := make(map[string]string)
-	nodes := []TestNode{}
-	orderedEvents := &[]Event{}
-	keys := map[string]*ecdsa.PrivateKey{}
-
-	participants := peers.NewPeers()
-
-	for i := 0; i < n; i++ {
-		key, _ := crypto.GenerateECDSAKey()
-		pub := crypto.FromECDSAPub(&key.PublicKey)
-		pubHex := fmt.Sprintf("0x%X", pub)
-		participants.AddPeer(peers.NewPeer(pubHex, ""))
-		keys[pubHex] = key
-	}
+	nodes, index, orderedEvents, participants := initHashgraphNodes(n)
 
 	orderedPeers := participants.ToPeerSlice()
 
-	for i, peer := range orderedPeers {
-		node := NewTestNode(keys[peer.PubKeyHex], i)
-		nodes = append(nodes, node)
+	for _, peer := range orderedPeers {
 		index[rootSelfParent(peer.ID)] = rootSelfParent(peer.ID)
 	}
 
@@ -906,21 +909,10 @@ func initDentedHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
 		play{1, 0, rootSelfParent(orderedPeers[1].ID), "e2", "e12", nil, nil},
 	}
 
-	for _, p := range plays {
-		e := NewEvent(p.txPayload,
-			p.sigPayload,
-			[]string{index[p.selfParent], index[p.otherParent]},
-			nodes[p.to].Pub,
-			p.index)
-		nodes[p.to].signAndAddEvent(e, p.name, index, orderedEvents)
-	}
+	playEvents(plays, nodes, index, orderedEvents)
 
-	hashgraph := NewHashgraph(participants, NewInmemStore(participants, cacheSize), nil, testLogger(t))
-	for i, ev := range *orderedEvents {
-		if err := hashgraph.InsertEvent(ev, true); err != nil {
-			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
-		}
-	}
+	hashgraph := createHashgraph(false, orderedEvents, participants, testLogger(t))
+
 	return hashgraph, index
 }
 
@@ -960,27 +952,11 @@ e0  e1  e2    Block (0, 1)
 0   1    2
 */
 func initBlockHashgraph(t *testing.T) (*Hashgraph, []TestNode, map[string]string) {
-	index := make(map[string]string)
-	nodes := []TestNode{}
-	orderedEvents := &[]Event{}
-	keys := map[string]*ecdsa.PrivateKey{}
+	nodes, index, orderedEvents, participants := initHashgraphNodes(n)
 
-	participants := peers.NewPeers()
-
-	for i := 0; i < n; i++ {
-		key, _ := crypto.GenerateECDSAKey()
-		pub := crypto.FromECDSAPub(&key.PublicKey)
-		pubHex := fmt.Sprintf("0x%X", pub)
-		participants.AddPeer(peers.NewPeer(pubHex, ""))
-		keys[pubHex] = key
-	}
-
-	//create the initial events
 	for i, peer := range participants.ToPeerSlice() {
-		node := NewTestNode(keys[peer.PubKeyHex], i)
-		event := NewEvent(nil, nil, []string{rootSelfParent(peer.ID), ""}, node.Pub, 0)
-		node.signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
-		nodes = append(nodes, node)
+		event := NewEvent(nil, nil, []string{rootSelfParent(peer.ID), ""}, nodes[i].Pub, 0)
+		nodes[i].signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
 	}
 
 	hashgraph := NewHashgraph(participants, NewInmemStore(participants, cacheSize), nil, testLogger(t))
@@ -997,6 +973,7 @@ func initBlockHashgraph(t *testing.T) (*Hashgraph, []TestNode, map[string]string
 			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
 		}
 	}
+
 	return hashgraph, nodes, index
 }
 
@@ -1191,28 +1168,6 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 		0   1    2
 */
 func initConsensusHashgraph(db bool, t testing.TB) (*Hashgraph, map[string]string) {
-	index := make(map[string]string)
-	nodes := []TestNode{}
-	orderedEvents := &[]Event{}
-	keys := map[string]*ecdsa.PrivateKey{}
-
-	participants := peers.NewPeers()
-
-	for i := 0; i < n; i++ {
-		key, _ := crypto.GenerateECDSAKey()
-		pub := crypto.FromECDSAPub(&key.PublicKey)
-		pubHex := fmt.Sprintf("0x%X", pub)
-		participants.AddPeer(peers.NewPeer(pubHex, ""))
-		keys[pubHex] = key
-	}
-
-	for i, peer := range participants.ToPeerSlice() {
-		node := NewTestNode(keys[peer.PubKeyHex], i)
-		event := NewEvent(nil, nil, []string{rootSelfParent(peer.ID), ""}, node.Pub, 0)
-		node.signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
-		nodes = append(nodes, node)
-	}
-
 	plays := []play{
 		play{1, 1, "e1", "e0", "e10", nil, nil},
 		play{2, 1, "e2", "e10", "e21", [][]byte{[]byte("e21")}, nil},
@@ -1244,33 +1199,7 @@ func initConsensusHashgraph(db bool, t testing.TB) (*Hashgraph, map[string]strin
 		play{2, 9, "h21", "i1", "i2", nil, nil},
 	}
 
-	for _, p := range plays {
-		e := NewEvent(p.txPayload,
-			p.sigPayload,
-			[]string{index[p.selfParent], index[p.otherParent]},
-			nodes[p.to].Pub,
-			p.index)
-		nodes[p.to].signAndAddEvent(e, p.name, index, orderedEvents)
-	}
-
-	var store Store
-	if db {
-		var err error
-		store, err = NewBadgerStore(participants, cacheSize, badgerDir)
-		if err != nil {
-			t.Fatal(err)
-		}
-	} else {
-		store = NewInmemStore(participants, cacheSize)
-	}
-
-	hashgraph := NewHashgraph(participants, store, nil, testLogger(t))
-
-	for i, ev := range *orderedEvents {
-		if err := hashgraph.InsertEvent(ev, true); err != nil {
-			t.Fatalf("ERROR inserting event %d: %s\n", i, err)
-		}
-	}
+	hashgraph, index, _ := initHashgraphFull(plays, db, n, testLogger(t))
 
 	return hashgraph, index
 }
@@ -2099,28 +2028,12 @@ func TestBootstrap(t *testing.T) {
 */
 
 func initFunkyHashgraph(logger *logrus.Logger, full bool) (*Hashgraph, map[string]string) {
-	index := make(map[string]string)
-	nodes := []TestNode{}
-	orderedEvents := &[]Event{}
-	keys := map[string]*ecdsa.PrivateKey{}
-
-	participants := peers.NewPeers()
-	n := 4
-
-	for i := 0; i < n; i++ {
-		key, _ := crypto.GenerateECDSAKey()
-		pub := crypto.FromECDSAPub(&key.PublicKey)
-		pubHex := fmt.Sprintf("0x%X", pub)
-		participants.AddPeer(peers.NewPeer(pubHex, ""))
-		keys[pubHex] = key
-	}
+	nodes, index, orderedEvents, participants := initHashgraphNodes(4)
 
 	for i, peer := range participants.ToPeerSlice() {
-		node := NewTestNode(keys[peer.PubKeyHex], i)
 		name := fmt.Sprintf("w0%d", i)
-		event := NewEvent([][]byte{[]byte(name)}, nil, []string{rootSelfParent(peer.ID), ""}, node.Pub, 0)
-		node.signAndAddEvent(event, name, index, orderedEvents)
-		nodes = append(nodes, node)
+		event := NewEvent([][]byte{[]byte(name)}, nil, []string{rootSelfParent(peer.ID), ""}, nodes[i].Pub, 0)
+		nodes[i].signAndAddEvent(event, name, index, orderedEvents)
 	}
 
 	plays := []play{
@@ -2158,24 +2071,9 @@ func initFunkyHashgraph(logger *logrus.Logger, full bool) (*Hashgraph, map[strin
 		plays = append(plays, newPlays...)
 	}
 
-	for _, p := range plays {
-		e := NewEvent(p.txPayload,
-			p.sigPayload,
-			[]string{index[p.selfParent], index[p.otherParent]},
-			nodes[p.to].Pub,
-			p.index)
-		nodes[p.to].signAndAddEvent(e, p.name, index, orderedEvents)
-	}
+	playEvents(plays, nodes, index, orderedEvents)
 
-	hashgraph := NewHashgraph(participants,
-		NewInmemStore(participants, cacheSize),
-		nil, logger.WithField("test", 6))
-
-	for i, ev := range *orderedEvents {
-		if err := hashgraph.InsertEvent(ev, true); err != nil {
-			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
-		}
-	}
+	hashgraph := createHashgraph(false, orderedEvents, participants, logger.WithField("test", 6))
 
 	return hashgraph, index
 }
@@ -2582,28 +2480,12 @@ ATTENTION: Look at roots in Rounds 1 and 2
 */
 
 func initSparseHashgraph(logger *logrus.Logger) (*Hashgraph, map[string]string) {
-	index := make(map[string]string)
-	nodes := []TestNode{}
-	orderedEvents := &[]Event{}
-	keys := map[string]*ecdsa.PrivateKey{}
-
-	participants := peers.NewPeers()
-
-	n := 4
-	for i := 0; i < n; i++ {
-		key, _ := crypto.GenerateECDSAKey()
-		pub := crypto.FromECDSAPub(&key.PublicKey)
-		pubHex := fmt.Sprintf("0x%X", pub)
-		participants.AddPeer(peers.NewPeer(pubHex, ""))
-		keys[pubHex] = key
-	}
+	nodes, index, orderedEvents, participants := initHashgraphNodes(4)
 
 	for i, peer := range participants.ToPeerSlice() {
-		node := NewTestNode(keys[peer.PubKeyHex], i)
 		name := fmt.Sprintf("w0%d", i)
-		event := NewEvent([][]byte{[]byte(name)}, nil, []string{rootSelfParent(peer.ID), ""}, node.Pub, 0)
-		node.signAndAddEvent(event, name, index, orderedEvents)
-		nodes = append(nodes, node)
+		event := NewEvent([][]byte{[]byte(name)}, nil, []string{rootSelfParent(peer.ID), ""}, nodes[i].Pub, 0)
+		nodes[i].signAndAddEvent(event, name, index, orderedEvents)
 	}
 
 	plays := []play{
@@ -2639,15 +2521,9 @@ func initSparseHashgraph(logger *logrus.Logger) (*Hashgraph, map[string]string) 
 		nodes[p.to].signAndAddEvent(e, p.name, index, orderedEvents)
 	}
 
-	hashgraph := NewHashgraph(participants,
-		NewInmemStore(participants, cacheSize),
-		nil, logger.WithField("test", 6))
+	playEvents(plays, nodes, index, orderedEvents)
 
-	for i, ev := range *orderedEvents {
-		if err := hashgraph.InsertEvent(ev, true); err != nil {
-			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
-		}
-	}
+	hashgraph := createHashgraph(false, orderedEvents, participants, logger.WithField("test", 6))
 
 	return hashgraph, index
 }

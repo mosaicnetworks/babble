@@ -36,6 +36,7 @@ func NewPeersFromSlice(source []*Peer) *Peers {
 
 // Add a peer without sorting the set.
 // Useful for adding a bunch of peers at the same time
+// Without sacrifying performances
 func (p *Peers) addPeerRaw(peer *Peer) {
 	if peer.ID == 0 {
 		peer.computeID()
