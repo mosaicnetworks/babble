@@ -46,6 +46,8 @@ type Node struct {
 	start        time.Time
 	syncRequests int
 	syncErrors   int
+
+	needBoostrap bool
 }
 
 func NewNode(conf *Config,
@@ -81,6 +83,8 @@ func NewNode(conf *Config,
 		controlTimer: NewRandomControlTimer(conf.HeartbeatTimeout),
 	}
 
+	node.needBoostrap = store.NeedBoostrap()
+
 	//Initialize as Babbling
 	node.setStarting(true)
 	node.setState(Babbling)
@@ -88,14 +92,14 @@ func NewNode(conf *Config,
 	return &node
 }
 
-func (n *Node) Init(bootstrap bool) error {
+func (n *Node) Init() error {
 	peerAddresses := []string{}
 	for _, p := range n.peerSelector.Peers().ToPeerSlice() {
 		peerAddresses = append(peerAddresses, p.NetAddr)
 	}
 	n.logger.WithField("peers", peerAddresses).Debug("Init Node")
 
-	if bootstrap {
+	if n.needBoostrap {
 		n.logger.Debug("Bootstrap")
 		if err := n.core.Bootstrap(); err != nil {
 			return err
@@ -719,4 +723,8 @@ func (n *Node) SyncRate() float64 {
 
 func (n *Node) GetBlock(blockIndex int) (hg.Block, error) {
 	return n.core.hg.Store.GetBlock(blockIndex)
+}
+
+func (n *Node) ID() int {
+	return n.id
 }

@@ -284,3 +284,11 @@ func (s *InmemStore) Reset(roots map[string]Root) error {
 func (s *InmemStore) Close() error {
 	return nil
 }
+
+func (s *InmemStore) NeedBoostrap() bool {
+	return false
+}
+
+func (s *InmemStore) StorePath() string {
+	return ""
+}

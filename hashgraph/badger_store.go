@@ -24,6 +24,7 @@ type BadgerStore struct {
 	inmemStore   *InmemStore
 	db           *badger.DB
 	path         string
+	needBoostrap bool
 }
 
 //NewBadgerStore creates a brand new Store with a new database
@@ -68,8 +69,9 @@ func LoadBadgerStore(cacheSize int, path string) (*BadgerStore, error) {
 		return nil, err
 	}
 	store := &BadgerStore{
-		db:   handle,
-		path: path,
+		db:           handle,
+		path:         path,
+		needBoostrap: true,
 	}
 
 	participants, err := store.dbGetParticipants()
@@ -95,6 +97,22 @@ func LoadBadgerStore(cacheSize int, path string) (*BadgerStore, error) {
 
 	store.participants = participants
 	store.inmemStore = inmemStore
+
+	return store, nil
+}
+
+func LoadOrCreateBadgerStore(participants *peers.Peers, cacheSize int, path string) (*BadgerStore, error) {
+	store, err := LoadBadgerStore(cacheSize, path)
+
+	if err == os.ErrNotExist {
+		store, err = NewBadgerStore(participants, cacheSize, path)
+
+		if err != nil {
+			return nil, err
+		}
+	} else if err != nil {
+		return nil, err
+	}
 
 	return store, nil
 }
@@ -311,6 +329,14 @@ func (s *BadgerStore) Close() error {
 		return err
 	}
 	return s.db.Close()
+}
+
+func (s *BadgerStore) NeedBoostrap() bool {
+	return s.needBoostrap
+}
+
+func (s *BadgerStore) StorePath() string {
+	return s.path
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

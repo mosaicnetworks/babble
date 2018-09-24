@@ -3,6 +3,7 @@ package node
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"reflect"
@@ -56,7 +57,7 @@ func TestProcessSync(t *testing.T) {
 		hg.NewInmemStore(p, config.CacheSize),
 		peer0Trans,
 		aproxy.NewInmemAppProxy(testLogger))
-	node0.Init(false)
+	node0.Init()
 
 	node0.RunAsync(false)
 
@@ -70,7 +71,7 @@ func TestProcessSync(t *testing.T) {
 		hg.NewInmemStore(p, config.CacheSize),
 		peer1Trans,
 		aproxy.NewInmemAppProxy(testLogger))
-	node1.Init(false)
+	node1.Init()
 
 	node1.RunAsync(false)
 
@@ -152,7 +153,7 @@ func TestProcessEagerSync(t *testing.T) {
 		hg.NewInmemStore(p, config.CacheSize),
 		peer0Trans,
 		aproxy.NewInmemAppProxy(testLogger))
-	node0.Init(false)
+	node0.Init()
 
 	node0.RunAsync(false)
 
@@ -166,7 +167,7 @@ func TestProcessEagerSync(t *testing.T) {
 		hg.NewInmemStore(p, config.CacheSize),
 		peer1Trans,
 		aproxy.NewInmemAppProxy(testLogger))
-	node1.Init(false)
+	node1.Init()
 
 	node1.RunAsync(false)
 
@@ -229,7 +230,7 @@ func TestAddTransaction(t *testing.T) {
 		hg.NewInmemStore(p, config.CacheSize),
 		peer0Trans,
 		peer0Proxy)
-	node0.Init(false)
+	node0.Init()
 
 	node0.RunAsync(false)
 
@@ -244,7 +245,7 @@ func TestAddTransaction(t *testing.T) {
 		hg.NewInmemStore(p, config.CacheSize),
 		peer1Trans,
 		peer1Proxy)
-	node1.Init(false)
+	node1.Init()
 
 	node1.RunAsync(false)
 	//Submit a Tx to node0
@@ -303,8 +304,13 @@ func initNodes(keys []*ecdsa.PrivateKey,
 		peer := peers.ByPubKey[key]
 		id := peer.ID
 
-		conf := NewConfig(5*time.Millisecond, time.Second, cacheSize, syncLimit,
-			storeType, fmt.Sprintf("test_data/db_%d", id), logger)
+		conf := NewConfig(
+			5*time.Millisecond,
+			time.Second,
+			cacheSize,
+			syncLimit,
+			logger,
+		)
 
 		trans, err := net.NewTCPTransport(peer.NetAddr,
 			nil, 2, time.Second, logger)
@@ -314,7 +320,8 @@ func initNodes(keys []*ecdsa.PrivateKey,
 		var store hg.Store
 		switch storeType {
 		case "badger":
-			store, err = hg.NewBadgerStore(peers, conf.CacheSize, conf.StorePath)
+			path, _ := ioutil.TempDir("", "badger")
+			store, err = hg.NewBadgerStore(peers, conf.CacheSize, path)
 			if err != nil {
 				t.Fatalf("failed to create BadgerStore for peer %d: %s", id, err)
 			}
@@ -330,7 +337,7 @@ func initNodes(keys []*ecdsa.PrivateKey,
 			trans,
 			prox)
 
-		if err := node.Init(false); err != nil {
+		if err := node.Init(); err != nil {
 			t.Fatalf("failed to initialize node%d: %s", id, err)
 		}
 		nodes = append(nodes, node)
@@ -355,8 +362,8 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 
 	var store hg.Store
 	var err error
-	if conf.StoreType == "badger" {
-		store, err = hg.LoadBadgerStore(conf.CacheSize, conf.StorePath)
+	if _, ok := oldNode.core.hg.Store.(*hg.BadgerStore); ok {
+		store, err = hg.LoadBadgerStore(conf.CacheSize, oldNode.core.hg.Store.StorePath())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -373,7 +380,7 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 
 	newNode := NewNode(conf, id, key, peers, store, trans, prox)
 
-	if err := newNode.Init(true); err != nil {
+	if err := newNode.Init(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -397,7 +404,7 @@ func shutdownNodes(nodes []*Node) {
 
 func deleteStores(nodes []*Node, t *testing.T) {
 	for _, n := range nodes {
-		if err := os.RemoveAll(n.conf.StorePath); err != nil {
+		if err := os.RemoveAll(n.core.hg.Store.StorePath()); err != nil {
 			t.Fatal(err)
 		}
 	}
