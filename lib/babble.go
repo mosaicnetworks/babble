@@ -1,6 +1,7 @@
 package babble
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 
 	"github.com/mosaicnetworks/babble/crypto"
@@ -47,6 +48,10 @@ func (b *Babble) initTransport() error {
 
 func (b *Babble) initPeers() error {
 	if !b.Config.LoadPeers {
+		if b.Peers == nil {
+			return fmt.Errorf("Did not load peers but none was present")
+		}
+
 		return nil
 	}
 
@@ -70,14 +75,50 @@ func (b *Babble) initPeers() error {
 func (b *Babble) initStore() error {
 	if b.Config.StorePath == "" {
 		b.Store = h.NewInmemStore(b.Peers, b.Config.NodeConfig.CacheSize)
+
+		b.Config.Logger.Debug("created new in-mem store")
 	} else {
 		var err error
 
-		b.Store, err = h.LoadOrCreateBadgerStore(b.Peers, b.Config.NodeConfig.CacheSize, b.Config.StorePath)
+		b.Store, err = h.LoadOrCreateBadgerStore(b.Peers, b.Config.NodeConfig.CacheSize, b.Config.DataDir)
 
 		if err != nil {
 			return err
 		}
+
+		if b.Store.NeedBoostrap() {
+			b.Config.Logger.Debug("loaded badger store from existing database")
+		} else {
+			b.Config.Logger.Debug("created new badger store from fresh database")
+		}
+	}
+
+	return nil
+}
+
+func (b *Babble) initKey() error {
+	if b.Config.Key == nil {
+		pemKey := crypto.NewPemKey(b.Config.DataDir)
+
+		privKey, err := pemKey.ReadKey()
+
+		if err != nil {
+			b.Config.Logger.Warn("Cannot read private key from file", err)
+
+			privKey, err = Keygen(b.Config.DataDir)
+
+			if err != nil {
+				b.Config.Logger.Error("Cannot generate a new private key", err)
+
+				return err
+			}
+
+			pem, _ := crypto.ToPemKey(privKey)
+
+			b.Config.Logger.Info("Created a new key:", pem.PublicKey)
+		}
+
+		b.Config.Key = privKey
 	}
 
 	return nil
@@ -86,20 +127,19 @@ func (b *Babble) initStore() error {
 func (b *Babble) initNode() error {
 	key := b.Config.Key
 
-	if b.Config.Key == nil {
-		pemKey := crypto.NewPemKey(b.Config.DataDir)
+	nodePub := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey))
+	n, ok := b.Peers.ByPubKey[nodePub]
 
-		privKey, err := pemKey.ReadKey()
-
-		if err != nil {
-			return err
-		}
-
-		key = privKey
+	if !ok {
+		return fmt.Errorf("Cannot find self pubkey in peers.json")
 	}
 
-	nodePub := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey))
-	nodeID := b.Peers.ByPubKey[nodePub].ID
+	nodeID := n.ID
+
+	b.Config.Logger.WithFields(logrus.Fields{
+		"participants": b.Peers,
+		"id":           nodeID,
+	}).Debug("PARTICIPANTS")
 
 	b.Node = node.NewNode(
 		b.Config.NodeConfig,
@@ -127,11 +167,15 @@ func (b *Babble) Init() error {
 		return err
 	}
 
+	if err := b.initStore(); err != nil {
+		return err
+	}
+
 	if err := b.initTransport(); err != nil {
 		return err
 	}
 
-	if err := b.initStore(); err != nil {
+	if err := b.initKey(); err != nil {
 		return err
 	}
 
@@ -146,6 +190,24 @@ func (b *Babble) Run() {
 	b.Node.Run(true)
 }
 
-func Keygen() (*crypto.PemDump, error) {
-	return crypto.GeneratePemKey()
+func Keygen(datadir string) (*ecdsa.PrivateKey, error) {
+	pemKey := crypto.NewPemKey(datadir)
+
+	_, err := pemKey.ReadKey()
+
+	if err == nil {
+		return nil, fmt.Errorf("Another key already lives under %s", datadir)
+	}
+
+	privKey, err := crypto.GenerateECDSAKey()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := pemKey.WriteKey(privKey); err != nil {
+		return nil, err
+	}
+
+	return privKey, nil
 }

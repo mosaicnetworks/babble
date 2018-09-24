@@ -104,14 +104,12 @@ func LoadBadgerStore(cacheSize int, path string) (*BadgerStore, error) {
 func LoadOrCreateBadgerStore(participants *peers.Peers, cacheSize int, path string) (*BadgerStore, error) {
 	store, err := LoadBadgerStore(cacheSize, path)
 
-	if err == os.ErrNotExist {
+	if err != nil {
 		store, err = NewBadgerStore(participants, cacheSize, path)
 
 		if err != nil {
 			return nil, err
 		}
-	} else if err != nil {
-		return nil, err
 	}
 
 	return store, nil

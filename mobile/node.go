@@ -55,6 +55,7 @@ func New(privKey string,
 	}
 
 	babbleConfig.Proxy = newMobileAppProxy(commitHandler, exceptionHandler, babbleConfig.Logger)
+	babbleConfig.LoadPeers = false
 
 	engine := babble.NewBabble(babbleConfig)
 

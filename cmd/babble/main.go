@@ -3,8 +3,6 @@ package main
 import (
 	_ "net/http/pprof"
 
-	cli "gopkg.in/urfave/cli.v1"
-
 	babble "github.com/mosaicnetworks/babble/lib"
 	"github.com/mosaicnetworks/babble/service"
 )
@@ -14,7 +12,9 @@ func main() {
 		engine := babble.NewBabble(config)
 
 		if err := engine.Init(); err != nil {
-			cli.NewExitError(err, 1)
+			config.Logger.Error("Cannot initialize engine:", err)
+
+			return
 		}
 
 		serviceServer := service.NewService(serviceAddress, engine.Node, config.Logger)

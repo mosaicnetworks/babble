@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/mosaicnetworks/babble/crypto"
 	babble "github.com/mosaicnetworks/babble/lib"
 	"github.com/mosaicnetworks/babble/node"
 	aproxy "github.com/mosaicnetworks/babble/proxy/app"
@@ -78,7 +79,7 @@ var (
 	StorePathFlag = cli.StringFlag{
 		Name:  "store_path",
 		Usage: "File containing the store database",
-		Value: babble.DefaultBadgerDir(),
+		Value: "",
 	}
 )
 
@@ -92,6 +93,9 @@ func parseConfig(callback cliCallback) {
 			Name:   "keygen",
 			Usage:  "Dump new key pair",
 			Action: keygen,
+			Flags: []cli.Flag{
+				DataDirFlag,
+			},
 		},
 		{
 			Name:   "run",
@@ -123,18 +127,25 @@ func parseConfig(callback cliCallback) {
 }
 
 func keygen(c *cli.Context) error {
-	pemDump, err := babble.Keygen()
+	datadir := c.String(DataDirFlag.Name)
+
+	priv, err := babble.Keygen(datadir)
 
 	if err != nil {
-		fmt.Println("Error generating PemDump")
+		fmt.Println("Error generating Private key:", err)
+
 		os.Exit(2)
 	}
 
-	fmt.Println("PublicKey:")
-	fmt.Println(pemDump.PublicKey)
+	pemDump, err := crypto.ToPemKey(priv)
 
-	fmt.Println("PrivateKey:")
-	fmt.Println(pemDump.PrivateKey)
+	if err != nil {
+		fmt.Println("Error generating PemDump:", err)
+
+		os.Exit(2)
+	}
+
+	fmt.Println("PublicKey:", pemDump.PublicKey)
 
 	return nil
 }
@@ -157,6 +168,10 @@ func run(callback cliCallback) func(*cli.Context) error {
 		config := babble.NewDefaultConfig()
 
 		config.Logger.Level = babble.LogLevel(c.String(LogLevelFlag.Name))
+		config.BindAddr = addr
+		config.StorePath = storePath
+		config.DataDir = datadir
+		config.MaxPool = maxPool
 
 		config.Logger.WithFields(logrus.Fields{
 			"datadir":      datadir,
@@ -171,9 +186,6 @@ func run(callback cliCallback) func(*cli.Context) error {
 			"cache_size":   cacheSize,
 			"store_path":   storePath,
 		}).Debug("RUN")
-
-		config.StorePath = storePath
-		config.DataDir = datadir
 
 		config.NodeConfig = node.NewConfig(
 			time.Duration(heartbeat)*time.Millisecond,
