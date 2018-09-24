@@ -23,6 +23,9 @@ dist:
 hook:
 	sh -c "'$(CURDIR)/scripts/git_hook.sh'"
 
+changelog:
+	sh -c "'$(CURDIR)/scripts/changelog.sh'"
+
 test:
 	glide novendor | xargs go test
 
