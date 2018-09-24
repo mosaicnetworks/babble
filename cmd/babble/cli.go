@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/mosaicnetworks/babble/babble"
 	"github.com/mosaicnetworks/babble/crypto"
-	babble "github.com/mosaicnetworks/babble/lib"
 	"github.com/mosaicnetworks/babble/node"
 	aproxy "github.com/mosaicnetworks/babble/proxy/app"
 	"github.com/mosaicnetworks/babble/version"

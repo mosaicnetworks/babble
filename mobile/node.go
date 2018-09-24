@@ -3,8 +3,8 @@ package mobile
 import (
 	"fmt"
 
+	"github.com/mosaicnetworks/babble/babble"
 	"github.com/mosaicnetworks/babble/crypto"
-	babble "github.com/mosaicnetworks/babble/lib"
 	"github.com/mosaicnetworks/babble/node"
 	"github.com/mosaicnetworks/babble/peers"
 	"github.com/mosaicnetworks/babble/proxy"

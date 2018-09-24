@@ -3,7 +3,7 @@ package main
 import (
 	_ "net/http/pprof"
 
-	babble "github.com/mosaicnetworks/babble/lib"
+	"github.com/mosaicnetworks/babble/babble"
 	"github.com/mosaicnetworks/babble/service"
 )
 
