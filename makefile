@@ -5,7 +5,7 @@ vendor:
 	glide install
 
 # install compiles and places the binary in GOPATH/bin
-install: 
+install:
 	go install --ldflags '-extldflags "-static"' \
 		--ldflags "-X github.com/mosaicnetworks/babble/version.GitCommit=`git rev-parse HEAD`" \
 		./cmd/babble
@@ -20,8 +20,10 @@ build:
 dist:
 	@BUILD_TAGS='$(BUILD_TAGS)' sh -c "'$(CURDIR)/scripts/dist.sh'"
 
-test: 
+hook:
+	sh -c "'$(CURDIR)/scripts/git_hook.sh'"
+
+test:
 	glide novendor | xargs go test
 
 .PHONY: vendor install build dist test
-	
