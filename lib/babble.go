@@ -73,7 +73,7 @@ func (b *Babble) initPeers() error {
 }
 
 func (b *Babble) initStore() error {
-	if b.Config.StorePath == "" {
+	if !b.Config.Store {
 		b.Store = h.NewInmemStore(b.Peers, b.Config.NodeConfig.CacheSize)
 
 		b.Config.Logger.Debug("created new in-mem store")

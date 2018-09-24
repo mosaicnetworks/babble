@@ -76,10 +76,9 @@ var (
 		Usage: "Max number of events for sync",
 		Value: 1000,
 	}
-	StorePathFlag = cli.StringFlag{
-		Name:  "store_path",
-		Usage: "File containing the store database",
-		Value: "",
+	StoreFlag = cli.BoolFlag{
+		Name:  "store",
+		Usage: "Use BadgerDB as local store",
 	}
 )
 
@@ -114,7 +113,7 @@ func parseConfig(callback cliCallback) {
 				TcpTimeoutFlag,
 				CacheSizeFlag,
 				SyncLimitFlag,
-				StorePathFlag,
+				StoreFlag,
 			},
 		},
 		{
@@ -163,13 +162,13 @@ func run(callback cliCallback) func(*cli.Context) error {
 		tcpTimeout := c.Int(TcpTimeoutFlag.Name)
 		cacheSize := c.Int(CacheSizeFlag.Name)
 		syncLimit := c.Int(SyncLimitFlag.Name)
-		storePath := c.String(StorePathFlag.Name)
+		store := c.Bool(StoreFlag.Name)
 
 		config := babble.NewDefaultConfig()
 
 		config.Logger.Level = babble.LogLevel(c.String(LogLevelFlag.Name))
 		config.BindAddr = addr
-		config.StorePath = storePath
+		config.Store = store
 		config.DataDir = datadir
 		config.MaxPool = maxPool
 
@@ -184,7 +183,7 @@ func run(callback cliCallback) func(*cli.Context) error {
 			"max_pool":     maxPool,
 			"tcp_timeout":  tcpTimeout,
 			"cache_size":   cacheSize,
-			"store_path":   storePath,
+			"store":        store,
 		}).Debug("RUN")
 
 		config.NodeConfig = node.NewConfig(

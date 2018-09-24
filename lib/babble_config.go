@@ -20,7 +20,7 @@ type BabbleConfig struct {
 	MaxPool    int
 	NodeConfig *node.Config
 	Proxy      proxy.AppProxy
-	StorePath  string
+	Store      bool
 	LoadPeers  bool
 	Key        *ecdsa.PrivateKey
 }
@@ -33,7 +33,7 @@ func NewDefaultConfig() *BabbleConfig {
 		Logger:     logrus.New(),
 		MaxPool:    2,
 		NodeConfig: node.DefaultConfig(),
-		StorePath:  "",
+		Store:      false,
 		LoadPeers:  true,
 		Key:        nil,
 	}
