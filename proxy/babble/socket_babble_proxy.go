@@ -26,7 +26,9 @@ func NewSocketBabbleProxy(nodeAddr string,
 	}
 
 	client := NewSocketBabbleProxyClient(nodeAddr, timeout)
+
 	server, err := NewSocketBabbleProxyServer(bindAddr, timeout, logger)
+
 	if err != nil {
 		return nil, err
 	}
@@ -37,6 +39,7 @@ func NewSocketBabbleProxy(nodeAddr string,
 		client:      client,
 		server:      server,
 	}
+
 	go proxy.server.listen()
 
 	return proxy, nil
@@ -59,11 +62,14 @@ func (p *SocketBabbleProxy) RestoreCh() chan RestoreRequest {
 
 func (p *SocketBabbleProxy) SubmitTx(tx []byte) error {
 	ack, err := p.client.SubmitTx(tx)
+
 	if err != nil {
 		return err
 	}
+
 	if !*ack {
 		return fmt.Errorf("Failed to deliver transaction to Babble")
 	}
+
 	return nil
 }

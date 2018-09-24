@@ -17,14 +17,19 @@ type SocketAppProxy struct {
 	logger *logrus.Logger
 }
 
-func NewSocketAppProxy(clientAddr string, bindAddr string, timeout time.Duration, logger *logrus.Logger) *SocketAppProxy {
+func NewSocketAppProxy(clientAddr string, bindAddr string, timeout time.Duration, logger *logrus.Logger) (*SocketAppProxy, error) {
 	if logger == nil {
 		logger = logrus.New()
 		logger.Level = logrus.DebugLevel
 	}
 
 	client := NewSocketAppProxyClient(clientAddr, timeout, logger)
-	server := NewSocketAppProxyServer(bindAddr, logger)
+
+	server, err := NewSocketAppProxyServer(bindAddr, logger)
+
+	if err != nil {
+		return nil, err
+	}
 
 	proxy := &SocketAppProxy{
 		clientAddress: clientAddr,
@@ -33,9 +38,10 @@ func NewSocketAppProxy(clientAddr string, bindAddr string, timeout time.Duration
 		server:        server,
 		logger:        logger,
 	}
+
 	go proxy.server.listen()
 
-	return proxy
+	return proxy, nil
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

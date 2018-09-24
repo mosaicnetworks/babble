@@ -195,12 +195,18 @@ func run(callback cliCallback) func(*cli.Context) error {
 		)
 
 		if !noclient {
-			config.Proxy = aproxy.NewSocketAppProxy(
+			p, err := aproxy.NewSocketAppProxy(
 				clientAddress,
 				proxyAddress,
 				config.NodeConfig.TCPTimeout,
 				config.Logger,
 			)
+
+			if err != nil {
+				return err
+			}
+
+			config.Proxy = p
 		}
 
 		callback(config, serviceAddress)

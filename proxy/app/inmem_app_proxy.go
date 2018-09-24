@@ -22,6 +22,7 @@ func NewInmemAppProxy(logger *logrus.Logger) *InmemAppProxy {
 		logger = logrus.New()
 		logger.Level = logrus.DebugLevel
 	}
+
 	return &InmemAppProxy{
 		submitCh:              make(chan []byte),
 		stateHash:             []byte{},
@@ -32,10 +33,10 @@ func NewInmemAppProxy(logger *logrus.Logger) *InmemAppProxy {
 }
 
 func (iap *InmemAppProxy) commit(block hashgraph.Block) ([]byte, error) {
-
 	iap.committedTransactions = append(iap.committedTransactions, block.Transactions()...)
 
 	hash := iap.stateHash
+
 	for _, t := range block.Transactions() {
 		tHash := bcrypto.SHA256(t)
 		hash = bcrypto.SimpleHashFromTwoHashes(hash, tHash)
@@ -52,6 +53,7 @@ func (iap *InmemAppProxy) commit(block hashgraph.Block) ([]byte, error) {
 func (iap *InmemAppProxy) restore(snapshot []byte) error {
 	//XXX do something smart here
 	iap.stateHash = snapshot
+
 	return nil
 }
 
@@ -67,6 +69,7 @@ func (p *InmemAppProxy) CommitBlock(block hashgraph.Block) (stateHash []byte, er
 		"round_received": block.RoundReceived(),
 		"txs":            len(block.Transactions()),
 	}).Debug("InmemProxy CommitBlock")
+
 	return p.commit(block)
 }
 
@@ -74,6 +77,7 @@ func (p *InmemAppProxy) GetSnapshot(blockIndex int) (snapshot []byte, err error)
 	p.logger.WithField("block", blockIndex).Debug("InmemProxy GetSnapshot")
 
 	snapshot, ok := p.snapshots[blockIndex]
+
 	if !ok {
 		return nil, fmt.Errorf("Snapshot %d not found", blockIndex)
 	}
@@ -83,6 +87,7 @@ func (p *InmemAppProxy) GetSnapshot(blockIndex int) (snapshot []byte, err error)
 
 func (p *InmemAppProxy) Restore(snapshot []byte) error {
 	p.logger.WithField("snapshot", snapshot).Debug("Restore")
+
 	return p.restore(snapshot)
 }
 

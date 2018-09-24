@@ -15,6 +15,7 @@ type SocketAppProxyClient struct {
 	clientAddr string
 	timeout    time.Duration
 	logger     *logrus.Logger
+	rpc        *rpc.Client
 }
 
 func NewSocketAppProxyClient(clientAddr string, timeout time.Duration, logger *logrus.Logger) *SocketAppProxyClient {
@@ -25,60 +26,72 @@ func NewSocketAppProxyClient(clientAddr string, timeout time.Duration, logger *l
 	}
 }
 
-func (p *SocketAppProxyClient) getConnection() (*rpc.Client, error) {
-	conn, err := net.DialTimeout("tcp", p.clientAddr, p.timeout)
-	if err != nil {
-		return nil, err
+func (p *SocketAppProxyClient) getConnection() error {
+	if p.rpc == nil {
+		conn, err := net.DialTimeout("tcp", p.clientAddr, p.timeout)
+
+		if err != nil {
+			return err
+		}
+
+		p.rpc = jsonrpc.NewClient(conn)
 	}
-	return jsonrpc.NewClient(conn), nil
+
+	return nil
 }
 
 func (p *SocketAppProxyClient) CommitBlock(block hashgraph.Block) ([]byte, error) {
-	rpcConn, err := p.getConnection()
-	if err != nil {
-		return nil, err
+	if err := p.getConnection(); err != nil {
+		return []byte{}, err
 	}
 
 	var stateHash bp.StateHash
-	err = rpcConn.Call("State.CommitBlock", block, &stateHash)
+
+	if err := p.rpc.Call("State.CommitBlock", block, &stateHash); err != nil {
+		return []byte{}, err
+	}
 
 	p.logger.WithFields(logrus.Fields{
 		"block":      block.Index(),
 		"state_hash": stateHash.Hash,
 	}).Debug("AppProxyClient.CommitBlock")
 
-	return stateHash.Hash, err
+	return stateHash.Hash, nil
 }
 
 func (p *SocketAppProxyClient) GetSnapshot(blockIndex int) ([]byte, error) {
-	rpcConn, err := p.getConnection()
-	if err != nil {
-		return nil, err
+	if err := p.getConnection(); err != nil {
+		return []byte{}, err
 	}
 
 	var snapshot bp.Snapshot
-	err = rpcConn.Call("State.GetSnapshot", blockIndex, &snapshot)
+
+	if err := p.rpc.Call("State.GetSnapshot", blockIndex, &snapshot); err != nil {
+		return []byte{}, err
+	}
 
 	p.logger.WithFields(logrus.Fields{
 		"block":    blockIndex,
 		"snapshot": snapshot.Bytes,
 	}).Debug("AppProxyClient.GetSnapshot")
 
-	return snapshot.Bytes, err
+	return snapshot.Bytes, nil
 }
 
 func (p *SocketAppProxyClient) Restore(snapshot []byte) error {
-	rpcConn, err := p.getConnection()
-	if err != nil {
+	if err := p.getConnection(); err != nil {
 		return err
 	}
 
 	var stateHash bp.StateHash
-	err = rpcConn.Call("State.Restore", snapshot, &stateHash)
+
+	if err := p.rpc.Call("State.Restore", snapshot, &stateHash); err != nil {
+		return err
+	}
 
 	p.logger.WithFields(logrus.Fields{
 		"state_hash": stateHash.Hash,
 	}).Debug("AppProxyClient.Restore")
 
-	return err
+	return nil
 }

@@ -113,6 +113,7 @@ func (p *SocketBabbleProxyServer) register(bindAddress string) error {
 	p.rpcServer = rpcServer
 
 	l, err := net.Listen("tcp", bindAddress)
+
 	if err != nil {
 		return err
 	}
@@ -125,6 +126,7 @@ func (p *SocketBabbleProxyServer) register(bindAddress string) error {
 func (p *SocketBabbleProxyServer) listen() error {
 	for {
 		conn, err := (*p.netListener).Accept()
+
 		if err != nil {
 			return err
 		}
@@ -136,6 +138,7 @@ func (p *SocketBabbleProxyServer) listen() error {
 func (p *SocketBabbleProxyServer) CommitBlock(block hashgraph.Block, stateHash *StateHash) (err error) {
 	// Send the Commit over
 	respCh := make(chan CommitResponse)
+
 	p.commitCh <- Commit{
 		Block:    block,
 		RespChan: respCh,
@@ -145,9 +148,11 @@ func (p *SocketBabbleProxyServer) CommitBlock(block hashgraph.Block, stateHash *
 	select {
 	case commitResp := <-respCh:
 		stateHash.Hash = commitResp.StateHash
+
 		if commitResp.Error != nil {
 			err = commitResp.Error
 		}
+
 	case <-time.After(p.timeout):
 		err = fmt.Errorf("command timed out")
 	}
@@ -159,12 +164,12 @@ func (p *SocketBabbleProxyServer) CommitBlock(block hashgraph.Block, stateHash *
 	}).Debug("BabbleProxyServer.CommitBlock")
 
 	return
-
 }
 
 func (p *SocketBabbleProxyServer) GetSnapshot(blockIndex int, snapshot *Snapshot) (err error) {
 	// Send the Request over
 	respCh := make(chan SnapshotResponse)
+
 	p.snapshotRequestCh <- SnapshotRequest{
 		BlockIndex: blockIndex,
 		RespChan:   respCh,
@@ -174,9 +179,11 @@ func (p *SocketBabbleProxyServer) GetSnapshot(blockIndex int, snapshot *Snapshot
 	select {
 	case snapshotResp := <-respCh:
 		snapshot.Bytes = snapshotResp.Snapshot
+
 		if snapshotResp.Error != nil {
 			err = snapshotResp.Error
 		}
+
 	case <-time.After(p.timeout):
 		err = fmt.Errorf("command timed out")
 	}
@@ -188,12 +195,12 @@ func (p *SocketBabbleProxyServer) GetSnapshot(blockIndex int, snapshot *Snapshot
 	}).Debug("BabbleProxyServer.GetSnapshot")
 
 	return
-
 }
 
 func (p *SocketBabbleProxyServer) Restore(snapshot []byte, stateHash *StateHash) (err error) {
 	// Send the Request over
 	respCh := make(chan RestoreResponse)
+
 	p.restoreCh <- RestoreRequest{
 		Snapshot: snapshot,
 		RespChan: respCh,
@@ -203,9 +210,11 @@ func (p *SocketBabbleProxyServer) Restore(snapshot []byte, stateHash *StateHash)
 	select {
 	case restoreResp := <-respCh:
 		stateHash.Hash = restoreResp.StateHash
+
 		if restoreResp.Error != nil {
 			err = restoreResp.Error
 		}
+
 	case <-time.After(p.timeout):
 		err = fmt.Errorf("command timed out")
 	}
@@ -216,5 +225,4 @@ func (p *SocketBabbleProxyServer) Restore(snapshot []byte, stateHash *StateHash)
 	}).Debug("BabbleProxyServer.Restore")
 
 	return
-
 }
