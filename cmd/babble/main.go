@@ -18,6 +18,7 @@ func main() {
 		}
 
 		serviceServer := service.NewService(serviceAddress, engine.Node, config.Logger)
+
 		go serviceServer.Serve()
 
 		engine.Run()

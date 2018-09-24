@@ -1,5 +1,5 @@
-hash: c118a67ca0c85d7f18fab4157449fff8c4c4053c3ce0da3d242903342760493f
-updated: 2018-09-19T13:32:01.830456729+01:00
+hash: 5f2077671d4ca0b7a2ebc491fb3afbb9d8563f0cc9ab6f1eba3d8b1a047ef5e8
+updated: 2018-09-24T20:09:06.132606046+02:00
 imports:
 - name: github.com/AndreasBriese/bbloom
   version: 28f7e881ca57bc00e028f9ede9f0d9104cfeef5e
@@ -25,6 +25,8 @@ imports:
   version: b4c50a2b199d93b13dc15e78929cfb23bfdf21ab
   subpackages:
   - codec
+- name: github.com/urfave/cli
+  version: 934abfb2f102315b5794e15ebc7949e4ca253920
 - name: golang.org/x/crypto
   version: 0709b304e793a5edb4a2c0145f281ecdc20838a4
   subpackages:
@@ -40,6 +42,4 @@ imports:
   subpackages:
   - unix
   - windows
-- name: gopkg.in/urfave/cli.v1
-  version: cfb38830724cc34fedffe9a2a29fb54fa9169cd1
 testImports: []
