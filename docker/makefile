@@ -3,19 +3,19 @@ DUMMY_VERSION=0.3.0
 WATCHER_VERSION=0.0.2
 GLIDER_VERSION=0.0.2
 
-all: babble-image dummy-image watcher-image glider-image 
+all: babble-image dummy-image watcher-image glider-image
 
 demo: babble-image dummy-image watcher-image
 
 babble-image:
 	CGO_ENABLED=0 go build \
-		--ldflags "-X github.com/mosaicnetworks/babble/version.GitCommit=`git rev-parse HEAD`" \
-		-o babble/babble ../cmd/babble/
+		--ldflags "-X github.com/mosaicnetworks/babble/src/version.GitCommit=`git rev-parse HEAD`" \
+		-o babble/babble ../src/cmd/babble/
 	docker build --no-cache=true -t mosaicnetworks/babble:$(BABBLE_VERSION) babble/
 
 dummy-image:
 	CGO_ENABLED=0 go build \
-		-o dummy/dummy ../cmd/dummy_client/
+		-o dummy/dummy ../src/cmd/dummy_client/
 	docker build --no-cache=true -t mosaicnetworks/dummy:$(DUMMY_VERSION) dummy/
 
 watcher-image:

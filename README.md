@@ -265,7 +265,7 @@ application powered by the Babble consensus platform:
 ```
 [...]/babble/demo$ make demo
 ```
-![Demo](img/demo.png)
+![Demo](demo/img/demo.png)
 
 
 Finally, stop the testnet:
