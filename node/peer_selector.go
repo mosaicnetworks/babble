@@ -38,11 +38,18 @@ func (ps *RandomPeerSelector) UpdateLast(peer string) {
 
 func (ps *RandomPeerSelector) Next() *peers.Peer {
 	selectablePeers := ps.peers.ToPeerSlice()
+
 	if len(selectablePeers) > 1 {
 		_, selectablePeers = peers.ExcludePeer(selectablePeers, ps.localAddr)
-		_, selectablePeers = peers.ExcludePeer(selectablePeers, ps.last)
+
+		if len(selectablePeers) > 1 {
+			_, selectablePeers = peers.ExcludePeer(selectablePeers, ps.last)
+		}
 	}
+
 	i := rand.Intn(len(selectablePeers))
+
 	peer := selectablePeers[i]
+
 	return peer
 }
