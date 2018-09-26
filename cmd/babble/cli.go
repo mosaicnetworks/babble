@@ -5,11 +5,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/mosaicnetworks/babble/babble"
-	"github.com/mosaicnetworks/babble/crypto"
-	"github.com/mosaicnetworks/babble/node"
-	aproxy "github.com/mosaicnetworks/babble/proxy/app"
-	"github.com/mosaicnetworks/babble/version"
+	"github.com/mosaicnetworks/babble/src/babble"
+	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/node"
+	aproxy "github.com/mosaicnetworks/babble/src/proxy/app"
+	"github.com/mosaicnetworks/babble/src/version"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )

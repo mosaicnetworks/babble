@@ -3,8 +3,8 @@ package main
 import (
 	_ "net/http/pprof"
 
-	"github.com/mosaicnetworks/babble/babble"
-	"github.com/mosaicnetworks/babble/service"
+	"github.com/mosaicnetworks/babble/src/babble"
+	"github.com/mosaicnetworks/babble/src/service"
 )
 
 func main() {
