@@ -8,13 +8,13 @@ vendor:
 install:
 	go install --ldflags '-extldflags "-static"' \
 		--ldflags "-X github.com/mosaicnetworks/babble/src/version.GitCommit=`git rev-parse HEAD`" \
-		./src/cmd/babble
+		./cmd/babble
 
 # build compiles and places the binary in /build
 build:
 	CGO_ENABLED=0 go build \
 		--ldflags "-X github.com/mosaicnetworks/babble/src/version.GitCommit=`git rev-parse HEAD`" \
-		-o build/babble ./src/cmd/babble/
+		-o build/babble ./cmd/babble/
 
 # dist builds binaries for all platforms and packages them for distribution
 dist:
