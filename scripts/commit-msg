@@ -1,0 +1,8 @@
+COMMIT_REGEX='^(v?[0-9]+\.[0-9]+\.[0-9]+|Merge.*|(fix|feat|chores)\((\w|\-|\|){3,20}\): ((\w|\-| |&|,|.){5,80})(\s|\w){0,50})$'
+
+if ! grep -iqE "$COMMIT_REGEX" "$1"
+then
+	echo "ERROR: Bad commit message: $1.\n Exemple: 'feat(api): new commit system'"
+
+	exit 1
+fi
