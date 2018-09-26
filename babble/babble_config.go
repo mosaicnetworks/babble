@@ -38,6 +38,8 @@ func NewDefaultConfig() *BabbleConfig {
 		Key:        nil,
 	}
 
+	config.NodeConfig.Logger = config.Logger
+
 	config.Proxy = aproxy.NewInmemAppProxy(config.Logger)
 
 	return config
