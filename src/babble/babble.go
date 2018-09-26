@@ -33,7 +33,7 @@ func (b *Babble) initTransport() error {
 		b.Config.BindAddr,
 		nil,
 		b.Config.MaxPool,
-		b.Config.NodeConfig.HeartbeatTimeout,
+		b.Config.NodeConfig.TCPTimeout,
 		b.Config.Logger,
 	)
 
@@ -142,7 +142,7 @@ func (b *Babble) initNode() error {
 	}).Debug("PARTICIPANTS")
 
 	b.Node = node.NewNode(
-		b.Config.NodeConfig,
+		&b.Config.NodeConfig,
 		nodeID,
 		key,
 		b.Peers,
