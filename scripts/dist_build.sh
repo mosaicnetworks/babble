@@ -33,7 +33,7 @@ echo "==> Building..."
 		-ldflags "-X ${GIT_IMPORT}.GitCommit='${GIT_COMMIT}' -X ${GIT_IMPORT}.GitDescribe='${GIT_DESCRIBE}'" \
 		-output "build/pkg/{{.OS}}_{{.Arch}}/babble" \
 		-tags="${BUILD_TAGS}" \
-		github.com/mosaicnetworks/babble/src/cmd/babble
+		github.com/mosaicnetworks/babble/cmd/babble
 
 # Zip all the files.
 echo "==> Packaging..."

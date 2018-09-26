@@ -7,7 +7,6 @@ import (
 	"github.com/mosaicnetworks/babble/src/babble"
 	aproxy "github.com/mosaicnetworks/babble/src/proxy/app"
 	"github.com/mosaicnetworks/babble/src/service"
-	vers "github.com/mosaicnetworks/babble/src/version"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -34,7 +33,6 @@ func NewDefaultCliConfig() *CliConfig {
 var (
 	config  *CliConfig
 	datadir *string
-	version *bool
 )
 
 func init() {
@@ -62,13 +60,10 @@ func init() {
 	rootCmd.PersistentFlags().DurationP("timeout", "t", config.Babble.NodeConfig.TCPTimeout, "TCP Timeout")
 	rootCmd.PersistentFlags().Int("cache-size", config.Babble.NodeConfig.CacheSize, "Number of items in LRU caches")
 	rootCmd.PersistentFlags().Int("sync-limit", config.Babble.NodeConfig.SyncLimit, "Max amount of events for sync")
-
-	// Version
-	version = rootCmd.PersistentFlags().BoolP("version", "v", false, "Show version and exit")
-
 }
 
 func initConfig() {
+	// viper.SetConfigType("json")
 	viper.AddConfigPath(*datadir)
 	viper.SetConfigName("babble")
 
@@ -89,12 +84,6 @@ var rootCmd = &cobra.Command{
 	Short: "Babble Hashgraph consensus system",
 	Long:  "Babble Hashgraph consensus system",
 	Run: func(cmd *cobra.Command, args []string) {
-		if *version {
-			fmt.Println(vers.Version)
-
-			return
-		}
-
 		config.Babble.Logger.Level = babble.LogLevel(config.Babble.LogLevel)
 		config.Babble.NodeConfig.Logger = config.Babble.Logger
 

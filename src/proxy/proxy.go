@@ -1,6 +1,9 @@
 package proxy
 
-import "github.com/mosaicnetworks/babble/src/hashgraph"
+import (
+	"github.com/mosaicnetworks/babble/src/hashgraph"
+	bproxy "github.com/mosaicnetworks/babble/src/proxy/babble"
+)
 
 type AppProxy interface {
 	SubmitCh() chan []byte
@@ -10,8 +13,8 @@ type AppProxy interface {
 }
 
 type BabbleProxy interface {
-	CommitCh() chan hashgraph.Block
-	SnapshotRequestCh() chan int
-	RestoreCh() chan []byte
+	CommitCh() chan bproxy.Commit
+	SnapshotRequestCh() chan bproxy.SnapshotRequest
+	RestoreCh() chan bproxy.RestoreRequest
 	SubmitTx(tx []byte) error
 }
