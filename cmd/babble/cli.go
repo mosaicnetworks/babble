@@ -14,7 +14,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-type cliCallback func(*babble.BabbleConfig, string)
+type cliCallback func(*babble.BabbleConfig)
 
 var (
 	DataDirFlag = cli.StringFlag{
@@ -44,7 +44,6 @@ var (
 	ServiceAddressFlag = cli.StringFlag{
 		Name:  "service_addr",
 		Usage: "IP:Port of HTTP Service",
-		Value: "127.0.0.1:8000",
 	}
 	LogLevelFlag = cli.StringFlag{
 		Name:  "log_level",
@@ -168,6 +167,7 @@ func run(callback cliCallback) func(*cli.Context) error {
 
 		config.Logger.Level = babble.LogLevel(c.String(LogLevelFlag.Name))
 		config.BindAddr = addr
+		config.ServiceAddr = serviceAddress
 		config.Store = store
 		config.DataDir = datadir
 		config.MaxPool = maxPool
@@ -209,7 +209,7 @@ func run(callback cliCallback) func(*cli.Context) error {
 			config.Proxy = p
 		}
 
-		callback(config, serviceAddress)
+		callback(config)
 
 		return nil
 	}

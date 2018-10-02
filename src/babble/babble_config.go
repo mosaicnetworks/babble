@@ -14,21 +14,22 @@ import (
 )
 
 type BabbleConfig struct {
-	DataDir    string
-	BindAddr   string
-	Logger     *logrus.Logger
-	MaxPool    int
-	NodeConfig *node.Config
-	Proxy      proxy.AppProxy
-	Store      bool
-	LoadPeers  bool
-	Key        *ecdsa.PrivateKey
+	DataDir     string
+	BindAddr    string
+	ServiceAddr string
+	Logger      *logrus.Logger
+	MaxPool     int
+	NodeConfig  *node.Config
+	Proxy       proxy.AppProxy
+	Store       bool
+	LoadPeers   bool
+	Key         *ecdsa.PrivateKey
 }
 
 func NewDefaultConfig() *BabbleConfig {
 	config := &BabbleConfig{
 		DataDir:    DefaultDataDir(),
-		BindAddr:   "127.0.0.1:1337",
+		BindAddr:   ":1337",
 		Proxy:      nil,
 		Logger:     logrus.New(),
 		MaxPool:    2,
