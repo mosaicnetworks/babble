@@ -9,6 +9,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/net"
 	"github.com/mosaicnetworks/babble/src/node"
 	"github.com/mosaicnetworks/babble/src/peers"
+	"github.com/mosaicnetworks/babble/src/service"
 	"github.com/sirupsen/logrus"
 )
 
@@ -18,6 +19,7 @@ type Babble struct {
 	Transport net.Transport
 	Store     h.Store
 	Peers     *peers.Peers
+	Service   *service.Service
 }
 
 func NewBabble(config *BabbleConfig) *Babble {
@@ -158,6 +160,11 @@ func (b *Babble) initNode() error {
 	return nil
 }
 
+func (b *Babble) initService() error {
+	b.Service = service.NewService(b.Config.ServiceAddr, b.Node, b.Config.Logger)
+	return nil
+}
+
 func (b *Babble) Init() error {
 	if b.Config.Logger == nil {
 		b.Config.Logger = logrus.New()
@@ -183,10 +190,15 @@ func (b *Babble) Init() error {
 		return err
 	}
 
+	if err := b.initService(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (b *Babble) Run() {
+	go b.Service.Serve()
 	b.Node.Run(true)
 }
 
