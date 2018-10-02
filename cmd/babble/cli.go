@@ -44,7 +44,6 @@ var (
 	ServiceAddressFlag = cli.StringFlag{
 		Name:  "service_addr",
 		Usage: "IP:Port of HTTP Service",
-		Value: "127.0.0.1:8000",
 	}
 	LogLevelFlag = cli.StringFlag{
 		Name:  "log_level",

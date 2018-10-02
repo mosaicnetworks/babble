@@ -28,16 +28,15 @@ type BabbleConfig struct {
 
 func NewDefaultConfig() *BabbleConfig {
 	config := &BabbleConfig{
-		DataDir:     DefaultDataDir(),
-		BindAddr:    "127.0.0.1:1337",
-		ServiceAddr: "127.0.0.1:8000",
-		Proxy:       nil,
-		Logger:      logrus.New(),
-		MaxPool:     2,
-		NodeConfig:  node.DefaultConfig(),
-		Store:       false,
-		LoadPeers:   true,
-		Key:         nil,
+		DataDir:    DefaultDataDir(),
+		BindAddr:   ":1337",
+		Proxy:      nil,
+		Logger:     logrus.New(),
+		MaxPool:    2,
+		NodeConfig: node.DefaultConfig(),
+		Store:      false,
+		LoadPeers:  true,
+		Key:        nil,
 	}
 
 	config.NodeConfig.Logger = config.Logger

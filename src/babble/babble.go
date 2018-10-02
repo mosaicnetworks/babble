@@ -161,7 +161,9 @@ func (b *Babble) initNode() error {
 }
 
 func (b *Babble) initService() error {
-	b.Service = service.NewService(b.Config.ServiceAddr, b.Node, b.Config.Logger)
+	if b.Config.ServiceAddr != "" {
+		b.Service = service.NewService(b.Config.ServiceAddr, b.Node, b.Config.Logger)
+	}
 	return nil
 }
 
@@ -198,7 +200,9 @@ func (b *Babble) Init() error {
 }
 
 func (b *Babble) Run() {
-	go b.Service.Serve()
+	if b.Service != nil {
+		go b.Service.Serve()
+	}
 	b.Node.Run(true)
 }
 
