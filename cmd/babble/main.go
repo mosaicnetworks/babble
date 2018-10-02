@@ -3,9 +3,18 @@ package main
 import (
 	_ "net/http/pprof"
 
-	"github.com/mosaicnetworks/babble/cmd/babble/command"
+	cmd "github.com/mosaicnetworks/babble/cmd/babble/commands"
 )
 
 func main() {
-	command.Execute()
+	rootCmd := cmd.RootCmd
+
+	rootCmd.AddCommand(
+		cmd.VersionCmd,
+		cmd.KeygenCmd,
+		cmd.NewRunCmd())
+
+	if err := rootCmd.Execute(); err != nil {
+		panic(err)
+	}
 }

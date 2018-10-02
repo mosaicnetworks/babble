@@ -14,30 +14,34 @@ import (
 )
 
 type BabbleConfig struct {
+	DataDir     string `mapstructure:"datadir"`
+	BindAddr    string `mapstructure:"listen"`
+	ServiceAddr string `mapstructure:"service-listen"`
+	MaxPool     int    `mapstructure:"max-pool"`
+	Store       bool   `mapstructure:"store"`
+	LogLevel    string `mapstructure:"log"`
+
 	NodeConfig node.Config `mapstructure:",squash"`
-	DataDir    string      `mapstructure:"datadir"`
-	BindAddr   string      `mapstructure:"listen"`
-	MaxPool    int         `mapstructure:"max-pool"`
-	Store      bool        `mapstructure:"store"`
-	LogLevel   string      `mapstructure:"log"`
-	LoadPeers  bool
-	Proxy      proxy.AppProxy
-	Key        *ecdsa.PrivateKey
-	Logger     *logrus.Logger
+
+	LoadPeers bool
+	Proxy     proxy.AppProxy
+	Key       *ecdsa.PrivateKey
+	Logger    *logrus.Logger
 }
 
 func NewDefaultConfig() *BabbleConfig {
 	config := &BabbleConfig{
-		DataDir:    DefaultDataDir(),
-		BindAddr:   "127.0.0.1:1337",
-		MaxPool:    2,
-		NodeConfig: *node.DefaultConfig(),
-		Store:      false,
-		LogLevel:   "info",
-		Proxy:      nil,
-		Logger:     logrus.New(),
-		LoadPeers:  true,
-		Key:        nil,
+		DataDir:     DefaultDataDir(),
+		BindAddr:    ":1337",
+		ServiceAddr: ":8000",
+		MaxPool:     2,
+		NodeConfig:  *node.DefaultConfig(),
+		Store:       false,
+		LogLevel:    "info",
+		Proxy:       nil,
+		Logger:      logrus.New(),
+		LoadPeers:   true,
+		Key:         nil,
 	}
 
 	config.Logger.Level = LogLevel(config.LogLevel)
