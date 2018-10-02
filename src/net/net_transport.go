@@ -169,6 +169,11 @@ func (n *NetworkTransport) getConn(target string, timeout time.Duration) (*netCo
 	}
 
 	// Dial a new connection
+	n.logger.WithFields(logrus.Fields{
+		"target":  target,
+		"timeout": timeout,
+	}).Info("Dialing")
+
 	conn, err := n.stream.Dial(target, timeout)
 	if err != nil {
 		return nil, err
@@ -292,6 +297,10 @@ func decodeResponse(conn *netConn, resp interface{}) (bool, error) {
 
 // listen is used to handling incoming connections.
 func (n *NetworkTransport) listen() {
+	n.logger.WithFields(logrus.Fields{
+		"addr": n.LocalAddr(),
+	}).Info("Listening")
+
 	for {
 		// Accept incoming connections
 		conn, err := n.stream.Accept()
@@ -305,7 +314,7 @@ func (n *NetworkTransport) listen() {
 		n.logger.WithFields(logrus.Fields{
 			"node": conn.LocalAddr(),
 			"from": conn.RemoteAddr(),
-		}).Debug("accepted connection")
+		}).Info("accepted connection")
 
 		// Handle the connection in dedicated routine
 		go n.handleConn(conn)

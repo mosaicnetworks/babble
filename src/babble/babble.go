@@ -9,6 +9,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/net"
 	"github.com/mosaicnetworks/babble/src/node"
 	"github.com/mosaicnetworks/babble/src/peers"
+	"github.com/mosaicnetworks/babble/src/service"
 	"github.com/sirupsen/logrus"
 )
 
@@ -18,6 +19,7 @@ type Babble struct {
 	Transport net.Transport
 	Store     h.Store
 	Peers     *peers.Peers
+	Service   *service.Service
 }
 
 func NewBabble(config *BabbleConfig) *Babble {
@@ -33,7 +35,7 @@ func (b *Babble) initTransport() error {
 		b.Config.BindAddr,
 		nil,
 		b.Config.MaxPool,
-		b.Config.NodeConfig.HeartbeatTimeout,
+		b.Config.NodeConfig.TCPTimeout,
 		b.Config.Logger,
 	)
 
@@ -142,7 +144,7 @@ func (b *Babble) initNode() error {
 	}).Debug("PARTICIPANTS")
 
 	b.Node = node.NewNode(
-		b.Config.NodeConfig,
+		&b.Config.NodeConfig,
 		nodeID,
 		key,
 		b.Peers,
@@ -155,6 +157,13 @@ func (b *Babble) initNode() error {
 		return fmt.Errorf("failed to initialize node: %s", err)
 	}
 
+	return nil
+}
+
+func (b *Babble) initService() error {
+	if b.Config.ServiceAddr != "" {
+		b.Service = service.NewService(b.Config.ServiceAddr, b.Node, b.Config.Logger)
+	}
 	return nil
 }
 
@@ -183,10 +192,17 @@ func (b *Babble) Init() error {
 		return err
 	}
 
+	if err := b.initService(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (b *Babble) Run() {
+	if b.Service != nil {
+		go b.Service.Serve()
+	}
 	b.Node.Run(true)
 }
 
