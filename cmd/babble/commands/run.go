@@ -1,9 +1,6 @@
 package commands
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/mosaicnetworks/babble/src/babble"
 	aproxy "github.com/mosaicnetworks/babble/src/proxy/app"
 	"github.com/sirupsen/logrus"
@@ -136,10 +133,9 @@ func bindFlagsLoadViper(cmd *cobra.Command) error {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		// stderr, so if we redirect output to json file, this doesn't appear
-		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+		config.Babble.Logger.Debugf("Using config file: ", viper.ConfigFileUsed())
 	} else if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-		fmt.Fprintln(os.Stderr, "No config file found in:", config.Babble.DataDir)
+		config.Babble.Logger.Debugf("No config file found in:", config.Babble.DataDir)
 	} else {
 		return err
 	}
