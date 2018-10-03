@@ -26,7 +26,7 @@ func NewService(bindAddress string, node *node.Node, logger *logrus.Logger) *Ser
 }
 
 func (s *Service) Serve() {
-	s.logger.WithField("bind_address", s.bindAddress).Debug("Service serving")
+	s.logger.WithField("bind_address", s.bindAddress).Info("Service serving")
 	http.HandleFunc("/stats", s.GetStats)
 	http.HandleFunc("/block/", s.GetBlock)
 	err := http.ListenAndServe(s.bindAddress, nil)

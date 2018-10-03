@@ -14,34 +14,36 @@ import (
 )
 
 type BabbleConfig struct {
-	DataDir     string
-	BindAddr    string
-	ServiceAddr string
-	Logger      *logrus.Logger
-	MaxPool     int
-	NodeConfig  *node.Config
-	Proxy       proxy.AppProxy
-	Store       bool
+	NodeConfig  node.Config `mapstructure:",squash"`
+	DataDir     string      `mapstructure:"datadir"`
+	BindAddr    string      `mapstructure:"listen"`
+	ServiceAddr string      `mapstructure:"service-listen"`
+	MaxPool     int         `mapstructure:"max-pool"`
+	Store       bool        `mapstructure:"store"`
+	LogLevel    string      `mapstructure:"log"`
 	LoadPeers   bool
+	Proxy       proxy.AppProxy
 	Key         *ecdsa.PrivateKey
+	Logger      *logrus.Logger
 }
 
 func NewDefaultConfig() *BabbleConfig {
 	config := &BabbleConfig{
 		DataDir:    DefaultDataDir(),
-		BindAddr:   ":1337",
+		BindAddr:   "127.0.0.1:1337",
+		MaxPool:    2,
+		NodeConfig: *node.DefaultConfig(),
+		Store:      false,
+		LogLevel:   "info",
 		Proxy:      nil,
 		Logger:     logrus.New(),
-		MaxPool:    2,
-		NodeConfig: node.DefaultConfig(),
-		Store:      false,
 		LoadPeers:  true,
 		Key:        nil,
 	}
 
-	config.NodeConfig.Logger = config.Logger
-
+	config.Logger.Level = LogLevel(config.LogLevel)
 	config.Proxy = aproxy.NewInmemAppProxy(config.Logger)
+	config.NodeConfig.Logger = config.Logger
 
 	return config
 }
