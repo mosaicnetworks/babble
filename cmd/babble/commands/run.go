@@ -90,11 +90,12 @@ func AddRunFlags(cmd *cobra.Command) {
 
 func loadConfig(cmd *cobra.Command, args []string) error {
 
-	if err := bindFlagsLoadViper(cmd); err != nil {
+	err := bindFlagsLoadViper(cmd)
+	if err != nil {
 		return err
 	}
 
-	config, err := parseConfig()
+	config, err = parseConfig()
 	if err != nil {
 		return err
 	}
@@ -103,20 +104,20 @@ func loadConfig(cmd *cobra.Command, args []string) error {
 	config.Babble.NodeConfig.Logger = config.Babble.Logger
 
 	config.Babble.Logger.WithFields(logrus.Fields{
-		"babble.datadir":         config.Babble.DataDir,
-		"babble.bindaddr":        config.Babble.BindAddr,
-		"babble.service-listen":  config.Babble.ServiceAddr,
-		"babble.maxpool":         config.Babble.MaxPool,
-		"babble.store":           config.Babble.Store,
-		"babble.loadpeers":       config.Babble.LoadPeers,
-		"babble.log":             config.Babble.LogLevel,
-		"babble.node.heartbeat":  config.Babble.NodeConfig.HeartbeatTimeout,
-		"babble.node.tcptimeout": config.Babble.NodeConfig.TCPTimeout,
-		"babble.node.cachesize":  config.Babble.NodeConfig.CacheSize,
-		"babble.node.synclimit":  config.Babble.NodeConfig.SyncLimit,
-		"proxy-listen":           config.ProxyAddr,
-		"client-connect":         config.ClientAddr,
-		"inapp":                  config.Inapp,
+		"babble.DataDir":               config.Babble.DataDir,
+		"babble.BindAddr":              config.Babble.BindAddr,
+		"babble.ServiceAddr":           config.Babble.ServiceAddr,
+		"babble.MaxPool":               config.Babble.MaxPool,
+		"babble.Store":                 config.Babble.Store,
+		"babble.LoadPeers":             config.Babble.LoadPeers,
+		"babble.LogLevel":              config.Babble.LogLevel,
+		"babble.Node.HeartbeatTimeout": config.Babble.NodeConfig.HeartbeatTimeout,
+		"babble.Node.TCPTimeout":       config.Babble.NodeConfig.TCPTimeout,
+		"babble.node.CacheSize":        config.Babble.NodeConfig.CacheSize,
+		"babble.node.SyncLimit":        config.Babble.NodeConfig.SyncLimit,
+		"ProxyAddr":                    config.ProxyAddr,
+		"ClientAddr":                   config.ClientAddr,
+		"Inapp":                        config.Inapp,
 	}).Debug("RUN")
 
 	return nil

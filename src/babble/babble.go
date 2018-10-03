@@ -122,7 +122,6 @@ func (b *Babble) initKey() error {
 
 		b.Config.Key = privKey
 	}
-
 	return nil
 }
 
