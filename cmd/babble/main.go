@@ -2,20 +2,23 @@ package main
 
 import (
 	_ "net/http/pprof"
+	"os"
 
-	"github.com/mosaicnetworks/babble/src/babble"
+	cmd "github.com/mosaicnetworks/babble/cmd/babble/commands"
 )
 
 func main() {
-	parseConfig(func(config *babble.BabbleConfig) {
-		engine := babble.NewBabble(config)
+	rootCmd := cmd.RootCmd
 
-		if err := engine.Init(); err != nil {
-			config.Logger.Error("Cannot initialize engine:", err)
+	rootCmd.AddCommand(
+		cmd.VersionCmd,
+		cmd.NewKeygenCmd(),
+		cmd.NewRunCmd())
 
-			return
-		}
+	//Do not print usage when error occurs
+	rootCmd.SilenceUsage = true
 
-		engine.Run()
-	})
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(1)
+	}
 }
