@@ -122,7 +122,6 @@ func (b *Babble) initKey() error {
 
 		b.Config.Key = privKey
 	}
-
 	return nil
 }
 
@@ -144,7 +143,7 @@ func (b *Babble) initNode() error {
 	}).Debug("PARTICIPANTS")
 
 	b.Node = node.NewNode(
-		b.Config.NodeConfig,
+		&b.Config.NodeConfig,
 		nodeID,
 		key,
 		b.Peers,
@@ -203,6 +202,7 @@ func (b *Babble) Run() {
 	if b.Service != nil {
 		go b.Service.Serve()
 	}
+	
 	b.Node.Run(true)
 }
 

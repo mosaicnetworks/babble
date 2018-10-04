@@ -14,16 +14,17 @@ import (
 )
 
 type BabbleConfig struct {
-	DataDir     string
-	BindAddr    string
-	ServiceAddr string
-	Logger      *logrus.Logger
-	MaxPool     int
-	NodeConfig  *node.Config
-	Proxy       proxy.AppProxy
-	Store       bool
+	NodeConfig  node.Config `mapstructure:",squash"`
+	DataDir     string      `mapstructure:"datadir"`
+	BindAddr    string      `mapstructure:"listen"`
+	ServiceAddr string      `mapstructure:"service-listen"`
+	MaxPool     int         `mapstructure:"max-pool"`
+	Store       bool        `mapstructure:"store"`
+	LogLevel    string      `mapstructure:"log"`
 	LoadPeers   bool
+	Proxy       proxy.AppProxy
 	Key         *ecdsa.PrivateKey
+	Logger      *logrus.Logger
 }
 
 func NewDefaultConfig() *BabbleConfig {
@@ -33,7 +34,7 @@ func NewDefaultConfig() *BabbleConfig {
 		Proxy:      nil,
 		Logger:     logrus.New(),
 		MaxPool:    2,
-		NodeConfig: node.DefaultConfig(),
+		NodeConfig: *node.DefaultConfig(),
 		Store:      false,
 		LoadPeers:  true,
 		Key:        nil,
