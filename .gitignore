@@ -16,3 +16,4 @@ vendor
 *.aar
 *.jar
 
+.#*
