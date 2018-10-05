@@ -133,9 +133,9 @@ func bindFlagsLoadViper(cmd *cobra.Command) error {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		config.Babble.Logger.Debugf("Using config file: ", viper.ConfigFileUsed())
+		config.Babble.Logger.Debugf("Using config file: %s", viper.ConfigFileUsed())
 	} else if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-		config.Babble.Logger.Debugf("No config file found in:", config.Babble.DataDir)
+		config.Babble.Logger.Debugf("No config file found in: %s", config.Babble.DataDir)
 	} else {
 		return err
 	}
