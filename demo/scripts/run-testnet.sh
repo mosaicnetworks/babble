@@ -32,6 +32,7 @@ do
     --client-connect="172.77.5.$(($N+$i)):1339" \
     --service-listen="172.77.5.$i:80" \
     --sync-limit=1000 \
+    --store \
     --log="debug"
 
     docker cp $MPWD/conf/node$i node$i:/.babble

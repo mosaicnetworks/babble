@@ -82,7 +82,9 @@ func (b *Babble) initStore() error {
 	} else {
 		var err error
 
-		b.Store, err = h.LoadOrCreateBadgerStore(b.Peers, b.Config.NodeConfig.CacheSize, b.Config.DataDir)
+		b.Config.Logger.WithField("path", b.Config.BadgerDir()).Debug("Attempting to load or create database")
+
+		b.Store, err = h.LoadOrCreateBadgerStore(b.Peers, b.Config.NodeConfig.CacheSize, b.Config.BadgerDir())
 
 		if err != nil {
 			return err
@@ -202,7 +204,7 @@ func (b *Babble) Run() {
 	if b.Service != nil {
 		go b.Service.Serve()
 	}
-	
+
 	b.Node.Run(true)
 }
 

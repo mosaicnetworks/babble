@@ -9,10 +9,10 @@ import (
 )
 
 type Config struct {
-	HeartbeatTimeout time.Duration
-	TCPTimeout       time.Duration
-	CacheSize        int
-	SyncLimit        int
+	HeartbeatTimeout time.Duration `mapstructure:"heartbeat"`
+	TCPTimeout       time.Duration `mapstructure:"timeout"`
+	CacheSize        int           `mapstructure:"cache-size"`
+	SyncLimit        int           `mapstructure:"sync-limit"`
 	Logger           *logrus.Logger
 }
 

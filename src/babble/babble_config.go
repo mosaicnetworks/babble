@@ -14,17 +14,19 @@ import (
 )
 
 type BabbleConfig struct {
-	NodeConfig  node.Config `mapstructure:",squash"`
-	DataDir     string      `mapstructure:"datadir"`
-	BindAddr    string      `mapstructure:"listen"`
-	ServiceAddr string      `mapstructure:"service-listen"`
-	MaxPool     int         `mapstructure:"max-pool"`
-	Store       bool        `mapstructure:"store"`
-	LogLevel    string      `mapstructure:"log"`
-	LoadPeers   bool
-	Proxy       proxy.AppProxy
-	Key         *ecdsa.PrivateKey
-	Logger      *logrus.Logger
+	NodeConfig node.Config `mapstructure:",squash"`
+
+	DataDir     string `mapstructure:"datadir"`
+	BindAddr    string `mapstructure:"listen"`
+	ServiceAddr string `mapstructure:"service-listen"`
+	MaxPool     int    `mapstructure:"max-pool"`
+	Store       bool   `mapstructure:"store"`
+	LogLevel    string `mapstructure:"log"`
+
+	LoadPeers bool
+	Proxy     proxy.AppProxy
+	Key       *ecdsa.PrivateKey
+	Logger    *logrus.Logger
 }
 
 func NewDefaultConfig() *BabbleConfig {
@@ -47,12 +49,8 @@ func NewDefaultConfig() *BabbleConfig {
 	return config
 }
 
-func DefaultBadgerDir() string {
-	dataDir := DefaultDataDir()
-	if dataDir != "" {
-		return filepath.Join(dataDir, "badger_db")
-	}
-	return ""
+func (c *BabbleConfig) BadgerDir() string {
+	return filepath.Join(c.DataDir, "badger_db")
 }
 
 func DefaultDataDir() string {
