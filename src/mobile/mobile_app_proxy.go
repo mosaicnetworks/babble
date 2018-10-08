@@ -14,7 +14,7 @@ This type is not exported
 
 // mobileAppProxy object
 type mobileAppProxy struct {
-	*inapp.InmemFullProxy
+	*inapp.InappProxy
 
 	commitHandler    CommitHandler
 	exceptionHandler ExceptionHandler
@@ -28,7 +28,7 @@ func newMobileAppProxy(
 	logger *logrus.Logger,
 ) *mobileAppProxy {
 	return &mobileAppProxy{
-		InmemFullProxy:   inapp.NewInmemFullProxy(time.Second, logger),
+		InappProxy:       inapp.NewInappProxy(time.Second, logger),
 		commitHandler:    commitHandler,
 		exceptionHandler: exceptionHandler,
 		logger:           logger,
@@ -38,7 +38,7 @@ func newMobileAppProxy(
 // CommitBlock commits a Block's to the App and expects the resulting state hash
 // gomobile cannot export a Block object because it doesn't support arrays of
 // arrays of bytes; so we have to serialize the block.
-// Overrides  AppProxy::CommitBlock
+// Overrides  InappProxy::CommitBlock
 func (p *mobileAppProxy) CommitBlock(block hashgraph.Block) ([]byte, error) {
 	blockBytes, err := block.Marshal()
 
