@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/hashgraph"
-	bp "github.com/mosaicnetworks/babble/src/proxy/babble"
+	"github.com/mosaicnetworks/babble/src/proxy/proto"
 	"github.com/sirupsen/logrus"
 )
 
@@ -45,7 +45,7 @@ func (p *SocketAppProxyClient) CommitBlock(block hashgraph.Block) ([]byte, error
 		return []byte{}, err
 	}
 
-	var stateHash bp.StateHash
+	var stateHash proto.StateHash
 
 	if err := p.rpc.Call("State.CommitBlock", block, &stateHash); err != nil {
 		return []byte{}, err
@@ -64,7 +64,7 @@ func (p *SocketAppProxyClient) GetSnapshot(blockIndex int) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	var snapshot bp.Snapshot
+	var snapshot proto.Snapshot
 
 	if err := p.rpc.Call("State.GetSnapshot", blockIndex, &snapshot); err != nil {
 		return []byte{}, err
@@ -83,7 +83,7 @@ func (p *SocketAppProxyClient) Restore(snapshot []byte) error {
 		return err
 	}
 
-	var stateHash bp.StateHash
+	var stateHash proto.StateHash
 
 	if err := p.rpc.Call("State.Restore", snapshot, &stateHash); err != nil {
 		return err

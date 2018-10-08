@@ -8,7 +8,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/babble"
 	"github.com/mosaicnetworks/babble/src/crypto"
 	"github.com/mosaicnetworks/babble/src/node"
-	aproxy "github.com/mosaicnetworks/babble/src/proxy/app"
+	aproxy "github.com/mosaicnetworks/babble/src/proxy/socket/app"
 	"github.com/mosaicnetworks/babble/src/version"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"

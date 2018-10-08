@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mosaicnetworks/babble/src/proxy/proto"
 	"github.com/sirupsen/logrus"
 )
 
@@ -48,15 +49,15 @@ func NewSocketBabbleProxy(nodeAddr string,
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //Implement BabbleProxy interface
 
-func (p *SocketBabbleProxy) CommitCh() chan Commit {
+func (p *SocketBabbleProxy) CommitCh() chan proto.Commit {
 	return p.server.commitCh
 }
 
-func (p *SocketBabbleProxy) SnapshotRequestCh() chan SnapshotRequest {
+func (p *SocketBabbleProxy) SnapshotRequestCh() chan proto.SnapshotRequest {
 	return p.server.snapshotRequestCh
 }
 
-func (p *SocketBabbleProxy) RestoreCh() chan RestoreRequest {
+func (p *SocketBabbleProxy) RestoreCh() chan proto.RestoreRequest {
 	return p.server.restoreCh
 }
 

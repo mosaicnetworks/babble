@@ -9,8 +9,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-//InmemFullProxy serves as an Inapp proxy for those whom
-type InmemFullProxy struct {
+//InmemProxy serves as an Inapp proxy for those whom
+type InappProxy struct {
 	submitCh              chan []byte
 	commitCh              chan proto.Commit
 	stateHash             []byte
@@ -21,15 +21,15 @@ type InmemFullProxy struct {
 	timeout               time.Duration
 }
 
-// NewInmemFullProxy instantiate an InmemFullProxy.
+// NewInappProxy instantiate an InappProxy.
 // If no logger, a new one is created
-func NewInmemFullProxy(timeout time.Duration, logger *logrus.Logger) *InmemFullProxy {
+func NewInappProxy(timeout time.Duration, logger *logrus.Logger) *InappProxy {
 	if logger == nil {
 		logger = logrus.New()
 		logger.Level = logrus.DebugLevel
 	}
 
-	return &InmemFullProxy{
+	return &InappProxy{
 		submitCh:              make(chan []byte),
 		commitCh:              make(chan proto.Commit),
 		stateHash:             []byte{},
@@ -45,13 +45,13 @@ func NewInmemFullProxy(timeout time.Duration, logger *logrus.Logger) *InmemFullP
 //Implement AppProxy Interface
 
 // SubmitCh returns the channel of raw transactions
-func (p *InmemFullProxy) SubmitCh() chan []byte {
+func (p *InappProxy) SubmitCh() chan []byte {
 	return p.submitCh
 }
 
 // CommitBlock send the block to the user and wait for an answer.
 // It update the state hash accordingly
-func (p *InmemFullProxy) CommitBlock(block hg.Block) (res []byte, err error) {
+func (p *InappProxy) CommitBlock(block hg.Block) (res []byte, err error) {
 	respCh := make(chan proto.CommitResponse)
 
 	p.commitCh <- proto.Commit{
@@ -83,7 +83,7 @@ func (p *InmemFullProxy) CommitBlock(block hg.Block) (res []byte, err error) {
 }
 
 //TODO - Implement these two functions
-func (p *InmemFullProxy) GetSnapshot(blockIndex int) (res []byte, err error) {
+func (p *InappProxy) GetSnapshot(blockIndex int) (res []byte, err error) {
 	respCh := make(chan proto.SnapshotResponse)
 
 	p.snapshotRequestCh <- proto.SnapshotRequest{
@@ -113,7 +113,7 @@ func (p *InmemFullProxy) GetSnapshot(blockIndex int) (res []byte, err error) {
 	return
 }
 
-func (p *InmemFullProxy) Restore(snapshot []byte) (err error) {
+func (p *InappProxy) Restore(snapshot []byte) (err error) {
 	// Send the Request over
 	respCh := make(chan proto.RestoreResponse)
 
@@ -149,23 +149,23 @@ func (p *InmemFullProxy) Restore(snapshot []byte) (err error) {
 //Implement BabbleProxy Interface
 
 // SubmitTx adds a transaction to be validated
-func (p *InmemFullProxy) SubmitTx(tx []byte) error {
+func (p *InappProxy) SubmitTx(tx []byte) error {
 	p.submitCh <- tx
 
 	return nil
 }
 
 // CommitCh returns the channel of blocks comming from the network
-func (p *InmemFullProxy) CommitCh() chan proto.Commit {
+func (p *InappProxy) CommitCh() chan proto.Commit {
 	return p.commitCh
 }
 
 // SnapshotRequestCh returns the channel of incoming SnapshotRequest
-func (p *InmemFullProxy) SnapshotRequestCh() chan proto.SnapshotRequest {
+func (p *InappProxy) SnapshotRequestCh() chan proto.SnapshotRequest {
 	return p.snapshotRequestCh
 }
 
 // RestoreCh returns the channel of incoming RestoreRequest
-func (p *InmemFullProxy) RestoreCh() chan proto.RestoreRequest {
+func (p *InappProxy) RestoreCh() chan proto.RestoreRequest {
 	return p.restoreCh
 }

@@ -9,7 +9,7 @@ import (
 
 	"github.com/mosaicnetworks/babble/src/node"
 	"github.com/mosaicnetworks/babble/src/proxy"
-	aproxy "github.com/mosaicnetworks/babble/src/proxy/app"
+	aproxy "github.com/mosaicnetworks/babble/src/proxy/socket/app"
 	"github.com/sirupsen/logrus"
 )
 

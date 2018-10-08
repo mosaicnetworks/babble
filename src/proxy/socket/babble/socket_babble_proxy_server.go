@@ -8,82 +8,16 @@ import (
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/proxy/proto"
 	"github.com/sirupsen/logrus"
 )
-
-//------------------------------------------------------------------------------
-
-type StateHash struct {
-	Hash []byte
-}
-
-// CommitResponse captures both a response and a potential error.
-type CommitResponse struct {
-	StateHash []byte
-	Error     error
-}
-
-// Commit provides a response mechanism.
-type Commit struct {
-	Block    hashgraph.Block
-	RespChan chan<- CommitResponse
-}
-
-// Respond is used to respond with a response, error or both
-func (r *Commit) Respond(stateHash []byte, err error) {
-	r.RespChan <- CommitResponse{stateHash, err}
-}
-
-//------------------------------------------------------------------------------
-
-type Snapshot struct {
-	Bytes []byte
-}
-
-// SnapshotResponse captures both a response and a potential error.
-type SnapshotResponse struct {
-	Snapshot []byte
-	Error    error
-}
-
-// SnapshotRequest provides a response mechanism.
-type SnapshotRequest struct {
-	BlockIndex int
-	RespChan   chan<- SnapshotResponse
-}
-
-// Respond is used to respond with a response, error or both
-func (r *SnapshotRequest) Respond(snapshot []byte, err error) {
-	r.RespChan <- SnapshotResponse{snapshot, err}
-}
-
-//------------------------------------------------------------------------------
-
-// RestoreResponse captures both an error.
-type RestoreResponse struct {
-	StateHash []byte
-	Error     error
-}
-
-// RestoreRequest provides a response mechanism.
-type RestoreRequest struct {
-	Snapshot []byte
-	RespChan chan<- RestoreResponse
-}
-
-// Respond is used to respond with a response, error or both
-func (r *RestoreRequest) Respond(snapshot []byte, err error) {
-	r.RespChan <- RestoreResponse{snapshot, err}
-}
-
-//------------------------------------------------------------------------------
 
 type SocketBabbleProxyServer struct {
 	netListener       *net.Listener
 	rpcServer         *rpc.Server
-	commitCh          chan Commit
-	snapshotRequestCh chan SnapshotRequest
-	restoreCh         chan RestoreRequest
+	commitCh          chan proto.Commit
+	snapshotRequestCh chan proto.SnapshotRequest
+	restoreCh         chan proto.RestoreRequest
 	timeout           time.Duration
 	logger            *logrus.Logger
 }
@@ -93,9 +27,9 @@ func NewSocketBabbleProxyServer(bindAddress string,
 	logger *logrus.Logger) (*SocketBabbleProxyServer, error) {
 
 	server := &SocketBabbleProxyServer{
-		commitCh:          make(chan Commit),
-		snapshotRequestCh: make(chan SnapshotRequest),
-		restoreCh:         make(chan RestoreRequest),
+		commitCh:          make(chan proto.Commit),
+		snapshotRequestCh: make(chan proto.SnapshotRequest),
+		restoreCh:         make(chan proto.RestoreRequest),
 		timeout:           timeout,
 		logger:            logger,
 	}
@@ -135,11 +69,11 @@ func (p *SocketBabbleProxyServer) listen() error {
 	}
 }
 
-func (p *SocketBabbleProxyServer) CommitBlock(block hashgraph.Block, stateH *StateHash) (err error) {
+func (p *SocketBabbleProxyServer) CommitBlock(block hashgraph.Block, stateH *proto.StateHash) (err error) {
 	// Send the Commit over
-	respCh := make(chan CommitResponse)
+	respCh := make(chan proto.CommitResponse)
 
-	p.commitCh <- Commit{
+	p.commitCh <- proto.Commit{
 		Block:    block,
 		RespChan: respCh,
 	}
@@ -166,11 +100,11 @@ func (p *SocketBabbleProxyServer) CommitBlock(block hashgraph.Block, stateH *Sta
 	return
 }
 
-func (p *SocketBabbleProxyServer) GetSnapshot(blockIndex int, snapshot *Snapshot) (err error) {
+func (p *SocketBabbleProxyServer) GetSnapshot(blockIndex int, snapshot *proto.Snapshot) (err error) {
 	// Send the Request over
-	respCh := make(chan SnapshotResponse)
+	respCh := make(chan proto.SnapshotResponse)
 
-	p.snapshotRequestCh <- SnapshotRequest{
+	p.snapshotRequestCh <- proto.SnapshotRequest{
 		BlockIndex: blockIndex,
 		RespChan:   respCh,
 	}
@@ -197,11 +131,11 @@ func (p *SocketBabbleProxyServer) GetSnapshot(blockIndex int, snapshot *Snapshot
 	return
 }
 
-func (p *SocketBabbleProxyServer) Restore(snapshot []byte, stateHash *StateHash) (err error) {
+func (p *SocketBabbleProxyServer) Restore(snapshot []byte, stateHash *proto.StateHash) (err error) {
 	// Send the Request over
-	respCh := make(chan RestoreResponse)
+	respCh := make(chan proto.RestoreResponse)
 
-	p.restoreCh <- RestoreRequest{
+	p.restoreCh <- proto.RestoreRequest{
 		Snapshot: snapshot,
 		RespChan: respCh,
 	}

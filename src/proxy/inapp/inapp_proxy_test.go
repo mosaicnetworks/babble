@@ -1,4 +1,4 @@
-package proxy
+package inapp
 
 import (
 	"fmt"
@@ -9,18 +9,11 @@ import (
 	"github.com/mosaicnetworks/babble/src/common"
 	bcrypto "github.com/mosaicnetworks/babble/src/crypto"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
-	aproxy "github.com/mosaicnetworks/babble/src/proxy/app"
+	"github.com/mosaicnetworks/babble/src/proxy/dummy"
 )
 
-func TestSocketProxyServer(t *testing.T) {
-	clientAddr := "127.0.0.1:9990"
-	proxyAddr := "127.0.0.1:9991"
-
-	proxy, err := aproxy.NewSocketAppProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestLogger(t))
-
-	if err != nil {
-		t.Fatalf("Cannot create SocketAppProxy: %s", err)
-	}
+func TestInappProxyAppSide(t *testing.T) {
+	proxy := NewInappProxy(1*time.Second, common.NewTestLogger(t))
 
 	submitCh := proxy.SubmitCh()
 
@@ -34,45 +27,52 @@ func TestSocketProxyServer(t *testing.T) {
 			if !reflect.DeepEqual(st, tx) {
 				t.Fatalf("tx mismatch: %#v %#v", tx, st)
 			}
+
 		case <-time.After(200 * time.Millisecond):
 			t.Fatalf("timeout")
 		}
 	}()
 
-	// now client part connecting to RPC service
-	// and calling methods
-	dummyClient, err := NewDummySocketClient(clientAddr, proxyAddr, common.NewTestLogger(t))
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = dummyClient.SubmitTx(tx)
+	err := proxy.SubmitTx(tx)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestSocketProxyClient(t *testing.T) {
-	clientAddr := "127.0.0.1:9992"
-	proxyAddr := "127.0.0.1:9993"
+func TestInappProxyBabbleSide(t *testing.T) {
+	proxy := NewInappProxy(1*time.Second, common.NewTestLogger(t))
 
-	//launch dummy application
-	dummyClient, err := NewDummySocketClient(clientAddr, proxyAddr, common.NewTestLogger(t))
+	state := dummy.NewState(proxy.logger)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	initialStateHash := []byte{}
 
-	initialStateHash := dummyClient.state.stateHash
+	go func() {
+		for {
+			select {
+			case commit := <-proxy.CommitCh():
+				t.Log("CommitBlock")
 
-	//create client proxy
-	proxy, err := aproxy.NewSocketAppProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestLogger(t))
+				stateHash, err := state.CommitBlock(commit.Block)
 
-	if err != nil {
-		t.Fatalf("Cannot create SocketAppProxy: %s", err)
-	}
+				commit.Respond(stateHash, err)
+
+			case snapshotRequest := <-proxy.SnapshotRequestCh():
+				t.Log("GetSnapshot")
+
+				snapshot, err := state.GetSnapshot(snapshotRequest.BlockIndex)
+
+				snapshotRequest.Respond(snapshot, err)
+
+			case restoreRequest := <-proxy.RestoreCh():
+				t.Log("Restore")
+
+				stateHash, err := state.Restore(restoreRequest.Snapshot)
+
+				restoreRequest.Respond(stateHash, err)
+			}
+		}
+	}()
 
 	//create a few blocks
 	blocks := [5]hashgraph.Block{}
@@ -124,5 +124,4 @@ func TestSocketProxyClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error restoring snapshot: %v", err)
 	}
-
 }

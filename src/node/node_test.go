@@ -15,7 +15,7 @@ import (
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
 	peers_ "github.com/mosaicnetworks/babble/src/peers"
-	aproxy "github.com/mosaicnetworks/babble/src/proxy/app"
+	aproxy "github.com/mosaicnetworks/babble/src/proxy/socket/app"
 	"github.com/sirupsen/logrus"
 )
 
