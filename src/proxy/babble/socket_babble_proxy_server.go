@@ -135,7 +135,7 @@ func (p *SocketBabbleProxyServer) listen() error {
 	}
 }
 
-func (p *SocketBabbleProxyServer) CommitBlock(block hashgraph.Block, stateHash *StateHash) (err error) {
+func (p *SocketBabbleProxyServer) CommitBlock(block hashgraph.Block, stateH *StateHash) (err error) {
 	// Send the Commit over
 	respCh := make(chan CommitResponse)
 
@@ -147,7 +147,7 @@ func (p *SocketBabbleProxyServer) CommitBlock(block hashgraph.Block, stateHash *
 	// Wait for a response
 	select {
 	case commitResp := <-respCh:
-		stateHash.Hash = commitResp.StateHash
+		stateH.Hash = commitResp.StateHash
 
 		if commitResp.Error != nil {
 			err = commitResp.Error
@@ -159,7 +159,7 @@ func (p *SocketBabbleProxyServer) CommitBlock(block hashgraph.Block, stateHash *
 
 	p.logger.WithFields(logrus.Fields{
 		"block":      block.Index(),
-		"state_hash": stateHash.Hash,
+		"state_hash": stateH.Hash,
 		"err":        err,
 	}).Debug("BabbleProxyServer.CommitBlock")
 
