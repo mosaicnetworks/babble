@@ -1,4 +1,4 @@
-package dummy
+package state
 
 import (
 	"fmt"
@@ -9,10 +9,29 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+/*
+* The dummy App is used for testing and as an example for building Babble
+* applications. Here, we define the dummy's state which doesn't really do
+* anything useful. It writes block transactions (as strings) into a messages.txt
+* file. The state hash is computed by hashing transactions together. Snapshots
+* correspond to the state hash resulting from executing a the block's
+* transactions.
+ */
+
 type State struct {
 	stateHash []byte
 	snapshots map[int][]byte
 	logger    *logrus.Logger
+}
+
+func NewState(logger *logrus.Logger) *State {
+	state := &State{
+		stateHash: []byte{},
+		snapshots: make(map[int][]byte),
+		logger:    logger,
+	}
+	state.writeMessage([]byte("init"))
+	return state
 }
 
 func (a *State) CommitBlock(block hashgraph.Block) ([]byte, error) {
@@ -97,12 +116,4 @@ func (a *State) writeMessage(tx []byte) {
 func (a *State) getFile() (*os.File, error) {
 	path := "messages.txt"
 	return os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
-}
-
-func NewState(logger *logrus.Logger) *State {
-	return &State{
-		stateHash: []byte{},
-		snapshots: make(map[int][]byte),
-		logger:    logger,
-	}
 }

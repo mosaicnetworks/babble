@@ -8,8 +8,8 @@ import (
 
 	"github.com/mosaicnetworks/babble/src/common"
 	bcrypto "github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/dummy/state"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
-	"github.com/mosaicnetworks/babble/src/proxy/dummy"
 )
 
 func TestInappProxyAppSide(t *testing.T) {
@@ -43,7 +43,7 @@ func TestInappProxyAppSide(t *testing.T) {
 func TestInappProxyBabbleSide(t *testing.T) {
 	proxy := NewInappProxy(1*time.Second, common.NewTestLogger(t))
 
-	state := dummy.NewState(proxy.logger)
+	state := state.NewState(proxy.logger)
 
 	initialStateHash := []byte{}
 

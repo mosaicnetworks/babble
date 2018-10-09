@@ -3,32 +3,33 @@ package dummy
 import (
 	"time"
 
-	bproxy "github.com/mosaicnetworks/babble/src/proxy/socket/babble"
+	"github.com/mosaicnetworks/babble/src/dummy/state"
+	socket "github.com/mosaicnetworks/babble/src/proxy/socket/babble"
 	"github.com/sirupsen/logrus"
 )
 
+//DummySocketClient is a socket implementation of the dummy app. Babble and the
+//app run in separate processes and communicate through TCP sockets using
+//a SocketBabbleProxy and a SocketAppProxy.
 type DummySocketClient struct {
-	state       *State
-	babbleProxy *bproxy.SocketBabbleProxy
+	state       *state.State
+	babbleProxy *socket.SocketBabbleProxy
 	logger      *logrus.Logger
 }
 
+//NewDummySocketClient instantiates a DummySocketClient and starts the
+//SocketBabbleProxy
 func NewDummySocketClient(clientAddr string, nodeAddr string, logger *logrus.Logger) (*DummySocketClient, error) {
 
-	babbleProxy, err := bproxy.NewSocketBabbleProxy(nodeAddr, clientAddr, 1*time.Second, logger)
+	babbleProxy, err := socket.NewSocketBabbleProxy(nodeAddr, clientAddr, 1*time.Second, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	state := State{
-		stateHash: []byte{},
-		snapshots: make(map[int][]byte),
-		logger:    logger,
-	}
-	state.writeMessage([]byte(clientAddr))
+	state := state.NewState(logger)
 
 	client := &DummySocketClient{
-		state:       &state,
+		state:       state,
 		babbleProxy: babbleProxy,
 		logger:      logger,
 	}
@@ -38,6 +39,7 @@ func NewDummySocketClient(clientAddr string, nodeAddr string, logger *logrus.Log
 	return client, nil
 }
 
+//Run listens for messages from Babble via the SocketProxy
 func (c *DummySocketClient) Run() {
 	for {
 		select {
@@ -57,6 +59,7 @@ func (c *DummySocketClient) Run() {
 	}
 }
 
+//SubmitTx sends a transaction to Babble via the SocketProxy
 func (c *DummySocketClient) SubmitTx(tx []byte) error {
 	return c.babbleProxy.SubmitTx(tx)
 }
