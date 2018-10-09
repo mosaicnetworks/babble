@@ -3,7 +3,6 @@ package dummy
 import (
 	"time"
 
-	"github.com/mosaicnetworks/babble/src/dummy/state"
 	socket "github.com/mosaicnetworks/babble/src/proxy/socket/babble"
 	"github.com/sirupsen/logrus"
 )
@@ -12,7 +11,7 @@ import (
 //app run in separate processes and communicate through TCP sockets using
 //a SocketBabbleProxy and a SocketAppProxy.
 type DummySocketClient struct {
-	state       *state.State
+	state       *State
 	babbleProxy *socket.SocketBabbleProxy
 	logger      *logrus.Logger
 }
@@ -26,7 +25,7 @@ func NewDummySocketClient(clientAddr string, nodeAddr string, logger *logrus.Log
 		return nil, err
 	}
 
-	state := state.NewState(logger)
+	state := NewState(logger)
 
 	client := &DummySocketClient{
 		state:       state,

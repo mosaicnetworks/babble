@@ -1,14 +1,11 @@
 package socket
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/common"
-	bcrypto "github.com/mosaicnetworks/babble/src/crypto"
-	"github.com/mosaicnetworks/babble/src/dummy/state"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
 	aproxy "github.com/mosaicnetworks/babble/src/proxy/socket/app"
 	bproxy "github.com/mosaicnetworks/babble/src/proxy/socket/babble"
@@ -71,9 +68,15 @@ func TestSocketProxyClient(t *testing.T) {
 	//create babble proxy
 	babbleProxy, err := bproxy.NewSocketBabbleProxy(proxyAddr, clientAddr, 1*time.Second, logger)
 
-	state := state.NewState(logger)
+	transactions := [][]byte{
+		[]byte("tx 1"),
+		[]byte("tx 2"),
+		[]byte("tx 3"),
+	}
 
-	initialStateHash := []byte{}
+	block := hashgraph.NewBlock(0, 1, []byte{}, transactions)
+	expectedStateHash := []byte("statehash")
+	expectedSnapshot := []byte("snapshot")
 
 	go func() {
 		for {
@@ -81,74 +84,52 @@ func TestSocketProxyClient(t *testing.T) {
 			case commit := <-babbleProxy.CommitCh():
 				t.Log("CommitBlock")
 
-				stateHash, err := state.CommitBlock(commit.Block)
+				if !reflect.DeepEqual(block, commit.Block) {
+					t.Fatalf("block should be %v, not %v", block, commit.Block)
+				}
 
-				commit.Respond(stateHash, err)
+				commit.Respond(expectedStateHash, nil)
 
 			case snapshotRequest := <-babbleProxy.SnapshotRequestCh():
 				t.Log("GetSnapshot")
 
-				snapshot, err := state.GetSnapshot(snapshotRequest.BlockIndex)
+				if !reflect.DeepEqual(block.Index(), snapshotRequest.BlockIndex) {
+					t.Fatalf("blockIndex should be %v, not %v", block.Index(), snapshotRequest.BlockIndex)
+				}
 
-				snapshotRequest.Respond(snapshot, err)
+				snapshotRequest.Respond(expectedSnapshot, err)
 
 			case restoreRequest := <-babbleProxy.RestoreCh():
 				t.Log("Restore")
 
-				stateHash, err := state.Restore(restoreRequest.Snapshot)
+				if !reflect.DeepEqual(expectedSnapshot, restoreRequest.Snapshot) {
+					t.Fatalf("snapshot should be %v, not %v", expectedSnapshot, restoreRequest.Snapshot)
+				}
 
-				restoreRequest.Respond(stateHash, err)
+				restoreRequest.Respond(expectedStateHash, err)
 			}
 		}
 	}()
 
-	//create a few blocks
-	blocks := [5]hashgraph.Block{}
-
-	for i := 0; i < 5; i++ {
-		blocks[i] = hashgraph.NewBlock(i, i+1, []byte{}, [][]byte{[]byte(fmt.Sprintf("block %d transaction", i))})
-	}
-
-	//commit first block and check that the client's statehash is correct
-	stateHash, err := appProxy.CommitBlock(blocks[0])
-
+	stateHash, err := appProxy.CommitBlock(block)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	expectedStateHash := initialStateHash
-
-	for _, t := range blocks[0].Transactions() {
-		tHash := bcrypto.SHA256(t)
-
-		expectedStateHash = bcrypto.SimpleHashFromTwoHashes(expectedStateHash, tHash)
 	}
 
 	if !reflect.DeepEqual(stateHash, expectedStateHash) {
 		t.Fatalf("StateHash should be %v, not %v", expectedStateHash, stateHash)
 	}
 
-	snapshot, err := appProxy.GetSnapshot(blocks[0].Index())
-
+	snapshot, err := appProxy.GetSnapshot(block.Index())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !reflect.DeepEqual(snapshot, expectedStateHash) {
-		t.Fatalf("Snapshot should be %v, not %v", expectedStateHash, snapshot)
-	}
-
-	//commit a few more blocks, then attempt to restore back to block 0 state
-	for i := 1; i < 5; i++ {
-		_, err := appProxy.CommitBlock(blocks[i])
-
-		if err != nil {
-			t.Fatal(err)
-		}
+	if !reflect.DeepEqual(snapshot, expectedSnapshot) {
+		t.Fatalf("Snapshot should be %v, not %v", expectedSnapshot, snapshot)
 	}
 
 	err = appProxy.Restore(snapshot)
-
 	if err != nil {
 		t.Fatalf("Error restoring snapshot: %v", err)
 	}

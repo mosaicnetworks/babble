@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/hashgraph"
-	"github.com/mosaicnetworks/babble/src/proxy/proto"
+	"github.com/mosaicnetworks/babble/src/proxy/socket/proto"
 	"github.com/sirupsen/logrus"
 )
 

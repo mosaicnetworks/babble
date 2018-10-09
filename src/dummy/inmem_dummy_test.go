@@ -1,4 +1,4 @@
-package inapp
+package dummy
 
 import (
 	"fmt"
@@ -8,14 +8,16 @@ import (
 
 	"github.com/mosaicnetworks/babble/src/common"
 	bcrypto "github.com/mosaicnetworks/babble/src/crypto"
-	"github.com/mosaicnetworks/babble/src/dummy/state"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
 )
 
-func TestInappProxyAppSide(t *testing.T) {
-	proxy := NewInappProxy(1*time.Second, common.NewTestLogger(t))
+func TestInmemDummyAppSide(t *testing.T) {
 
-	submitCh := proxy.SubmitCh()
+	logger := common.NewTestLogger(t)
+
+	dummy := NewInmemDummyClient(logger)
+
+	submitCh := dummy.SubmitCh()
 
 	tx := []byte("the test transaction")
 
@@ -33,66 +35,32 @@ func TestInappProxyAppSide(t *testing.T) {
 		}
 	}()
 
-	err := proxy.SubmitTx(tx)
-
-	if err != nil {
-		t.Fatal(err)
-	}
+	dummy.SubmitTx(tx)
 }
 
-func TestInappProxyBabbleSide(t *testing.T) {
-	proxy := NewInappProxy(1*time.Second, common.NewTestLogger(t))
+func TestInmemDummyServerSide(t *testing.T) {
 
-	state := state.NewState(proxy.logger)
+	logger := common.NewTestLogger(t)
 
-	initialStateHash := []byte{}
-
-	go func() {
-		for {
-			select {
-			case commit := <-proxy.CommitCh():
-				t.Log("CommitBlock")
-
-				stateHash, err := state.CommitBlock(commit.Block)
-
-				commit.Respond(stateHash, err)
-
-			case snapshotRequest := <-proxy.SnapshotRequestCh():
-				t.Log("GetSnapshot")
-
-				snapshot, err := state.GetSnapshot(snapshotRequest.BlockIndex)
-
-				snapshotRequest.Respond(snapshot, err)
-
-			case restoreRequest := <-proxy.RestoreCh():
-				t.Log("Restore")
-
-				stateHash, err := state.Restore(restoreRequest.Snapshot)
-
-				restoreRequest.Respond(stateHash, err)
-			}
-		}
-	}()
+	dummy := NewInmemDummyClient(logger)
 
 	//create a few blocks
 	blocks := [5]hashgraph.Block{}
-
 	for i := 0; i < 5; i++ {
 		blocks[i] = hashgraph.NewBlock(i, i+1, []byte{}, [][]byte{[]byte(fmt.Sprintf("block %d transaction", i))})
 	}
 
 	//commit first block and check that the client's statehash is correct
-	stateHash, err := proxy.CommitBlock(blocks[0])
+	stateHash, err := dummy.CommitBlock(blocks[0])
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	expectedStateHash := initialStateHash
+	expectedStateHash := []byte{}
 
 	for _, t := range blocks[0].Transactions() {
 		tHash := bcrypto.SHA256(t)
-
 		expectedStateHash = bcrypto.SimpleHashFromTwoHashes(expectedStateHash, tHash)
 	}
 
@@ -100,8 +68,7 @@ func TestInappProxyBabbleSide(t *testing.T) {
 		t.Fatalf("StateHash should be %v, not %v", expectedStateHash, stateHash)
 	}
 
-	snapshot, err := proxy.GetSnapshot(blocks[0].Index())
-
+	snapshot, err := dummy.GetSnapshot(blocks[0].Index())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,16 +79,20 @@ func TestInappProxyBabbleSide(t *testing.T) {
 
 	//commit a few more blocks, then attempt to restore back to block 0 state
 	for i := 1; i < 5; i++ {
-		_, err := proxy.CommitBlock(blocks[i])
+		_, err := dummy.CommitBlock(blocks[i])
 
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	err = proxy.Restore(snapshot)
-
+	stateHash, err = dummy.Restore(snapshot)
 	if err != nil {
 		t.Fatalf("Error restoring snapshot: %v", err)
 	}
+
+	if !reflect.DeepEqual(stateHash, expectedStateHash) {
+		t.Fatalf("Restore StateHash should be %v, not %v", expectedStateHash, stateHash)
+	}
+
 }

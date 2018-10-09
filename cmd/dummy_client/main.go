@@ -63,11 +63,13 @@ func run(c *cli.Context) error {
 		"client_addr": clientAddress,
 	}).Debug("RUN")
 
+	//Create and run Dummy Socket Client
 	client, err := dummy.NewDummySocketClient(clientAddress, proxyAddress, logger)
 	if err != nil {
 		return err
 	}
 
+	//Listen for input messages from tty
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		fmt.Print("Enter your text: ")
