@@ -9,7 +9,6 @@ import (
 	"github.com/mosaicnetworks/babble/src/common"
 	bcrypto "github.com/mosaicnetworks/babble/src/crypto"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
-	"github.com/mosaicnetworks/babble/src/proxy/dummy"
 	aproxy "github.com/mosaicnetworks/babble/src/proxy/socket/app"
 )
 
@@ -42,7 +41,7 @@ func TestSocketProxyServer(t *testing.T) {
 
 	// now client part connecting to RPC service
 	// and calling methods
-	dummyClient, err := dummy.NewDummySocketClient(clientAddr, proxyAddr, common.NewTestLogger(t))
+	dummyClient, err := NewDummySocketClient(clientAddr, proxyAddr, common.NewTestLogger(t))
 
 	if err != nil {
 		t.Fatal(err)
@@ -59,7 +58,7 @@ func TestSocketProxyClient(t *testing.T) {
 	clientAddr := "127.0.0.1:9992"
 	proxyAddr := "127.0.0.1:9993"
 
-	_, err := dummy.NewDummySocketClient(clientAddr, proxyAddr, common.NewTestLogger(t))
+	_, err := NewDummySocketClient(clientAddr, proxyAddr, common.NewTestLogger(t))
 
 	if err != nil {
 		t.Fatal(err)

@@ -1,30 +1,27 @@
-package dummy
+package inapp
 
 import (
 	"time"
 
-	"github.com/mosaicnetworks/babble/src/proxy/inapp"
+	"github.com/mosaicnetworks/babble/src/proxy/proto"
 	"github.com/sirupsen/logrus"
 )
 
 type DummyInappClient struct {
-	state  *State
-	proxy  *inapp.InappProxy
+	state  *proto.State
+	proxy  *InappProxy
 	logger *logrus.Logger
 }
 
 func NewDummyInappClient(logger *logrus.Logger) (*DummyInappClient, error) {
-	proxy := inapp.NewInappProxy(1*time.Second, logger)
+	proxy := NewInappProxy(1*time.Second, logger)
 
-	state := State{
-		stateHash: []byte{},
-		snapshots: make(map[int][]byte),
-		logger:    logger,
-	}
-	state.writeMessage([]byte("InappDummy"))
+	state := proto.NewState(logger)
+
+	state.WriteMessage([]byte("InappDummy"))
 
 	client := &DummyInappClient{
-		state:  &state,
+		state:  state,
 		proxy:  proxy,
 		logger: logger,
 	}

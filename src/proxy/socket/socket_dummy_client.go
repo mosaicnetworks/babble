@@ -1,14 +1,15 @@
-package dummy
+package proxy
 
 import (
 	"time"
 
+	"github.com/mosaicnetworks/babble/src/proxy/proto"
 	bproxy "github.com/mosaicnetworks/babble/src/proxy/socket/babble"
 	"github.com/sirupsen/logrus"
 )
 
 type DummySocketClient struct {
-	state       *State
+	state       *proto.State
 	babbleProxy *bproxy.SocketBabbleProxy
 	logger      *logrus.Logger
 }
@@ -20,15 +21,12 @@ func NewDummySocketClient(clientAddr string, nodeAddr string, logger *logrus.Log
 		return nil, err
 	}
 
-	state := State{
-		stateHash: []byte{},
-		snapshots: make(map[int][]byte),
-		logger:    logger,
-	}
-	state.writeMessage([]byte(clientAddr))
+	state := proto.NewState(logger)
+
+	state.WriteMessage([]byte(clientAddr))
 
 	client := &DummySocketClient{
-		state:       &state,
+		state:       state,
 		babbleProxy: babbleProxy,
 		logger:      logger,
 	}

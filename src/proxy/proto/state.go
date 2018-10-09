@@ -1,4 +1,4 @@
-package dummy
+package proto
 
 import (
 	"fmt"
@@ -8,6 +8,8 @@ import (
 	"github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/sirupsen/logrus"
 )
+
+// This struct is used for Dummy proxy and tests.
 
 type State struct {
 	stateHash []byte
@@ -75,7 +77,7 @@ func (a *State) writeBlock(block hashgraph.Block) error {
 	return nil
 }
 
-func (a *State) writeMessage(tx []byte) {
+func (a *State) WriteMessage(tx []byte) {
 	file, err := a.getFile()
 	if err != nil {
 		a.logger.Error(err)
