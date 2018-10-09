@@ -1,6 +1,0 @@
-init
-block 0 transaction
-block 1 transaction
-block 2 transaction
-block 3 transaction
-block 4 transaction

@@ -35,7 +35,7 @@ func newMobileAppProxy(
 	}
 }
 
-// CommitBlock commits a Block's to the App and expects the resulting state hash
+// CommitBlock commits a Block to the App and expects the resulting state hash.
 // gomobile cannot export a Block object because it doesn't support arrays of
 // arrays of bytes; so we have to serialize the block.
 // Overrides  InappProxy::CommitBlock

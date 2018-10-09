@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mosaicnetworks/babble/src/proxy/dummy"
+	"github.com/mosaicnetworks/babble/src/dummy"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -74,8 +74,6 @@ func run(c *cli.Context) error {
 			fmt.Printf("Error in SubmitTx: %v\n", err)
 		}
 	}
-
-	select {}
 
 	return nil
 }

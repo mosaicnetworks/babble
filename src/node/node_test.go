@@ -12,10 +12,10 @@ import (
 
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/crypto"
+	dummy "github.com/mosaicnetworks/babble/src/dummy"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
 	peers_ "github.com/mosaicnetworks/babble/src/peers"
-	aproxy "github.com/mosaicnetworks/babble/src/proxy/socket/app"
 	"github.com/sirupsen/logrus"
 )
 
@@ -56,7 +56,7 @@ func TestProcessSync(t *testing.T) {
 	node0 := NewNode(config, peers[0].ID, keys[0], p,
 		hg.NewInmemStore(p, config.CacheSize),
 		peer0Trans,
-		aproxy.NewInmemAppProxy(testLogger))
+		dummy.NewDummyInappClient(testLogger))
 	node0.Init()
 
 	node0.RunAsync(false)
@@ -70,7 +70,7 @@ func TestProcessSync(t *testing.T) {
 	node1 := NewNode(config, peers[1].ID, keys[1], p,
 		hg.NewInmemStore(p, config.CacheSize),
 		peer1Trans,
-		aproxy.NewInmemAppProxy(testLogger))
+		dummy.NewDummyInappClient(testLogger))
 	node1.Init()
 
 	node1.RunAsync(false)
@@ -152,7 +152,7 @@ func TestProcessEagerSync(t *testing.T) {
 	node0 := NewNode(config, peers[0].ID, keys[0], p,
 		hg.NewInmemStore(p, config.CacheSize),
 		peer0Trans,
-		aproxy.NewInmemAppProxy(testLogger))
+		dummy.NewDummyInappClient(testLogger))
 	node0.Init()
 
 	node0.RunAsync(false)
@@ -166,7 +166,7 @@ func TestProcessEagerSync(t *testing.T) {
 	node1 := NewNode(config, peers[1].ID, keys[1], p,
 		hg.NewInmemStore(p, config.CacheSize),
 		peer1Trans,
-		aproxy.NewInmemAppProxy(testLogger))
+		dummy.NewDummyInappClient(testLogger))
 	node1.Init()
 
 	node1.RunAsync(false)
@@ -223,7 +223,7 @@ func TestAddTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	peer0Proxy := aproxy.NewInmemAppProxy(testLogger)
+	peer0Proxy := dummy.NewDummyInappClient(testLogger)
 	defer peer0Trans.Close()
 
 	node0 := NewNode(TestConfig(t), peers[0].ID, keys[0], p,
@@ -238,7 +238,7 @@ func TestAddTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	peer1Proxy := aproxy.NewInmemAppProxy(testLogger)
+	peer1Proxy := dummy.NewDummyInappClient(testLogger)
 	defer peer1Trans.Close()
 
 	node1 := NewNode(TestConfig(t), peers[1].ID, keys[1], p,
@@ -328,7 +328,7 @@ func initNodes(keys []*ecdsa.PrivateKey,
 		case "inmem":
 			store = hg.NewInmemStore(peers, conf.CacheSize)
 		}
-		prox := aproxy.NewInmemAppProxy(logger)
+		prox := dummy.NewDummyInappClient(logger)
 		node := NewNode(conf,
 			id,
 			k,
@@ -376,7 +376,7 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prox := aproxy.NewInmemAppProxy(logger)
+	prox := dummy.NewDummyInappClient(logger)
 
 	newNode := NewNode(conf, id, key, peers, store, trans, prox)
 
@@ -411,7 +411,7 @@ func deleteStores(nodes []*Node, t *testing.T) {
 }
 
 func getCommittedTransactions(n *Node) ([][]byte, error) {
-	InmemAppProxy, ok := n.proxy.(*aproxy.InmemAppProxy)
+	InmemAppProxy, ok := n.proxy.(*dummy.DummyInappClient)
 	if !ok {
 		return nil, fmt.Errorf("Error casting to InmemProp")
 	}
@@ -789,7 +789,7 @@ func makeRandomTransactions(nodes []*Node, quit chan struct{}) {
 }
 
 func submitTransaction(n *Node, tx []byte) error {
-	prox, ok := n.proxy.(*aproxy.InmemAppProxy)
+	prox, ok := n.proxy.(*dummy.DummyInappClient)
 	if !ok {
 		return fmt.Errorf("Error casting to InmemProp")
 	}

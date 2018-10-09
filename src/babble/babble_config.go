@@ -6,10 +6,11 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/mosaicnetworks/babble/src/node"
 	"github.com/mosaicnetworks/babble/src/proxy"
-	aproxy "github.com/mosaicnetworks/babble/src/proxy/socket/app"
+	sproxy "github.com/mosaicnetworks/babble/src/proxy/socket/app"
 	"github.com/sirupsen/logrus"
 )
 
@@ -41,7 +42,8 @@ func NewDefaultConfig() *BabbleConfig {
 
 	config.NodeConfig.Logger = config.Logger
 
-	config.Proxy = aproxy.NewInmemAppProxy(config.Logger)
+	//XXX
+	config.Proxy, _ = sproxy.NewSocketAppProxy("127.0.0.1:1338", "127.0.0.1:1339", 1*time.Second, config.Logger)
 
 	return config
 }
