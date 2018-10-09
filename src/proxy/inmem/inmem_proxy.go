@@ -87,7 +87,7 @@ func (p *InmemProxy) GetSnapshot(blockIndex int) ([]byte, error) {
 }
 
 //Restore calls the restoreHandler
-func (p *InmemProxy) Restore(snapshot []byte) ([]byte, error) {
+func (p *InmemProxy) Restore(snapshot []byte) error {
 
 	stateHash, err := p.restoreHandler(snapshot)
 
@@ -96,5 +96,5 @@ func (p *InmemProxy) Restore(snapshot []byte) ([]byte, error) {
 		"err":        err,
 	}).Debug("InmemProxy.Restore")
 
-	return stateHash, err
+	return err
 }
