@@ -10,7 +10,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
-var (
+const (
 	participantPrefix = "participant"
 	rootSuffix        = "root"
 	roundPrefix       = "round"
