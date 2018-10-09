@@ -1,8 +1,8 @@
 package: github.com/mosaicnetworks/babble
 import:
 - package: github.com/sirupsen/logrus
-- package: github.com/rifflock/lfshook
-- package: github.com/urfave/cli
+- package: github.com/spf13/cobra
+- package: github.com/spf13/viper
 - package: github.com/dgraph-io/badger
   version: ~1.5.4
 - package: github.com/ugorji/go/codec

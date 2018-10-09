@@ -16,9 +16,10 @@ for i in $(seq 1 $N)
 do
     docker run -d --name=client$i --net=babblenet --ip=172.77.5.$(($N+$i)) -it mosaicnetworks/dummy:0.3.0 \
     --name="client $i" \
-    --client_addr="172.77.5.$(($N+$i)):1339" \
-    --proxy_addr="172.77.5.$i:1338" \
-    --log_level="debug" 
+    --client-listen="172.77.5.$(($N+$i)):1339" \
+    --proxy-connect="172.77.5.$i:1338" \
+    --discard \
+    --log="debug" 
 done
 
 for i in $(seq 1 $N)

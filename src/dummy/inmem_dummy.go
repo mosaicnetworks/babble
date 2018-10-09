@@ -46,7 +46,7 @@ func NewInmemDummyClient(logger *logrus.Logger) *InmemDummyClient {
 	return client
 }
 
-//SubmitTx sends a transaction to the Babble node via the InappProxy
+//SubmitTx sends a transaction to the Babble node via the InmemProxy
 func (c *InmemDummyClient) SubmitTx(tx []byte) {
 	c.InmemProxy.SubmitTx(tx)
 }
