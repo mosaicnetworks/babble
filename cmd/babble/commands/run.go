@@ -2,7 +2,7 @@ package commands
 
 import (
 	"github.com/mosaicnetworks/babble/src/babble"
-	aproxy "github.com/mosaicnetworks/babble/src/proxy/app"
+	aproxy "github.com/mosaicnetworks/babble/src/proxy/socket/app"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

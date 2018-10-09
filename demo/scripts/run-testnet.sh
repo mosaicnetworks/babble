@@ -18,7 +18,7 @@ do
     --name="client $i" \
     --client_addr="172.77.5.$(($N+$i)):1339" \
     --proxy_addr="172.77.5.$i:1338" \
-    --log_level="info" 
+    --log_level="debug" 
 done
 
 for i in $(seq 1 $N)
