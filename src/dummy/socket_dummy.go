@@ -44,15 +44,15 @@ func (c *DummySocketClient) Run() {
 		select {
 		case commit := <-c.babbleProxy.CommitCh():
 			c.logger.Debug("CommitBlock")
-			stateHash, err := c.state.CommitBlock(commit.Block)
+			stateHash, err := c.state.CommitHandler(commit.Block)
 			commit.Respond(stateHash, err)
 		case snapshotRequest := <-c.babbleProxy.SnapshotRequestCh():
 			c.logger.Debug("GetSnapshot")
-			snapshot, err := c.state.GetSnapshot(snapshotRequest.BlockIndex)
+			snapshot, err := c.state.SnapshotHandler(snapshotRequest.BlockIndex)
 			snapshotRequest.Respond(snapshot, err)
 		case restoreRequest := <-c.babbleProxy.RestoreCh():
 			c.logger.Debug("Restore")
-			stateHash, err := c.state.Restore(restoreRequest.Snapshot)
+			stateHash, err := c.state.RestoreHandler(restoreRequest.Snapshot)
 			restoreRequest.Respond(stateHash, err)
 		}
 	}

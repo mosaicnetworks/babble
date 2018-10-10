@@ -7,11 +7,33 @@ import (
 
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/sirupsen/logrus"
 )
 
 type TestProxy struct {
 	*InmemProxy
 	transactions [][]byte
+	logger       *logrus.Logger
+}
+
+func (p *TestProxy) CommitHandler(block hashgraph.Block) ([]byte, error) {
+	p.logger.Debug("CommitBlock")
+
+	p.transactions = append(p.transactions, block.Transactions()...)
+
+	return []byte("statehash"), nil
+}
+
+func (p *TestProxy) SnapshotHandler(blockIndex int) ([]byte, error) {
+	p.logger.Debug("GetSnapshot")
+
+	return []byte("snapshot"), nil
+}
+
+func (p *TestProxy) RestoreHandler(snapshot []byte) ([]byte, error) {
+	p.logger.Debug("RestoreSnapshot")
+
+	return []byte("statehash"), nil
 }
 
 func NewTestProxy(t *testing.T) *TestProxy {
@@ -19,25 +41,10 @@ func NewTestProxy(t *testing.T) *TestProxy {
 
 	proxy := &TestProxy{
 		transactions: [][]byte{},
+		logger:       logger,
 	}
 
-	commitHandler := func(block hashgraph.Block) ([]byte, error) {
-		logger.Debug("CommitBlock")
-		proxy.transactions = append(proxy.transactions, block.Transactions()...)
-		return []byte("statehash"), nil
-	}
-
-	snapshotHandler := func(blockIndex int) ([]byte, error) {
-		logger.Debug("GetSnapshot")
-		return []byte("snapshot"), nil
-	}
-
-	restoreHandler := func(snapshot []byte) ([]byte, error) {
-		logger.Debug("RestoreSnapshot")
-		return []byte("statehash"), nil
-	}
-
-	proxy.InmemProxy = NewInmemProxy(commitHandler, snapshotHandler, restoreHandler, logger)
+	proxy.InmemProxy = NewInmemProxy(proxy, logger)
 
 	return proxy
 }

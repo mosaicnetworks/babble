@@ -86,13 +86,14 @@ func TestInmemDummyServerSide(t *testing.T) {
 		}
 	}
 
-	stateHash, err = dummy.Restore(snapshot)
+	err = dummy.Restore(snapshot)
+
 	if err != nil {
 		t.Fatalf("Error restoring snapshot: %v", err)
 	}
 
-	if !reflect.DeepEqual(stateHash, expectedStateHash) {
-		t.Fatalf("Restore StateHash should be %v, not %v", expectedStateHash, stateHash)
+	if !reflect.DeepEqual(dummy.state.stateHash, expectedStateHash) {
+		t.Fatalf("Restore StateHash should be %v, not %v", expectedStateHash, dummy.state.stateHash)
 	}
 
 }

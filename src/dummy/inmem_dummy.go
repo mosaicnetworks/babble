@@ -1,7 +1,6 @@
 package dummy
 
 import (
-	"github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/proxy/inmem"
 	"github.com/sirupsen/logrus"
 )
@@ -20,22 +19,7 @@ func NewInmemDummyClient(logger *logrus.Logger) *InmemDummyClient {
 
 	state := NewState(logger)
 
-	commitHandler := func(block hashgraph.Block) ([]byte, error) {
-		logger.Debug("CommitBlock")
-		return state.CommitBlock(block)
-	}
-
-	snapshotHandler := func(blockIndex int) ([]byte, error) {
-		logger.Debug("GetSnapshot")
-		return state.GetSnapshot(blockIndex)
-	}
-
-	restoreHandler := func(snapshot []byte) ([]byte, error) {
-		logger.Debug("RestoreSnapshot")
-		return state.Restore(snapshot)
-	}
-
-	proxy := inmem.NewInmemProxy(commitHandler, snapshotHandler, restoreHandler, logger)
+	proxy := inmem.NewInmemProxy(state, logger)
 
 	client := &InmemDummyClient{
 		InmemProxy: proxy,
