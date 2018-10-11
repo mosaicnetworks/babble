@@ -16,7 +16,6 @@ type InmemDummyClient struct {
 
 //NewInmemDummyClient instantiates an InemDummyClient
 func NewInmemDummyClient(logger *logrus.Logger) *InmemDummyClient {
-
 	state := NewState(logger)
 
 	proxy := inmem.NewInmemProxy(state, logger)

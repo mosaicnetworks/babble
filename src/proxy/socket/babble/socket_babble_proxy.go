@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mosaicnetworks/babble/src/proxy/socket/proto"
+	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/sirupsen/logrus"
 )
 
@@ -12,23 +12,29 @@ type SocketBabbleProxy struct {
 	nodeAddress string
 	bindAddress string
 
+	handler proxy.ProxyHandler
+
 	client *SocketBabbleProxyClient
 	server *SocketBabbleProxyServer
 }
 
-func NewSocketBabbleProxy(nodeAddr string,
+func NewSocketBabbleProxy(
+	nodeAddr string,
 	bindAddr string,
+	handler proxy.ProxyHandler,
 	timeout time.Duration,
-	logger *logrus.Logger) (*SocketBabbleProxy, error) {
+	logger *logrus.Logger,
+) (*SocketBabbleProxy, error) {
 
 	if logger == nil {
 		logger = logrus.New()
+
 		logger.Level = logrus.DebugLevel
 	}
 
 	client := NewSocketBabbleProxyClient(nodeAddr, timeout)
 
-	server, err := NewSocketBabbleProxyServer(bindAddr, timeout, logger)
+	server, err := NewSocketBabbleProxyServer(bindAddr, handler, timeout, logger)
 
 	if err != nil {
 		return nil, err
@@ -37,6 +43,7 @@ func NewSocketBabbleProxy(nodeAddr string,
 	proxy := &SocketBabbleProxy{
 		nodeAddress: nodeAddr,
 		bindAddress: bindAddr,
+		handler:     handler,
 		client:      client,
 		server:      server,
 	}
@@ -44,18 +51,6 @@ func NewSocketBabbleProxy(nodeAddr string,
 	go proxy.server.listen()
 
 	return proxy, nil
-}
-
-func (p *SocketBabbleProxy) CommitCh() chan proto.Commit {
-	return p.server.commitCh
-}
-
-func (p *SocketBabbleProxy) SnapshotRequestCh() chan proto.SnapshotRequest {
-	return p.server.snapshotRequestCh
-}
-
-func (p *SocketBabbleProxy) RestoreCh() chan proto.RestoreRequest {
-	return p.server.restoreCh
 }
 
 func (p *SocketBabbleProxy) SubmitTx(tx []byte) error {

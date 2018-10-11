@@ -12,10 +12,10 @@ import (
 
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/crypto"
-	dummy "github.com/mosaicnetworks/babble/src/dummy"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
 	peers_ "github.com/mosaicnetworks/babble/src/peers"
+	dummy "github.com/mosaicnetworks/babble/src/proxy/dummy"
 	"github.com/sirupsen/logrus"
 )
 

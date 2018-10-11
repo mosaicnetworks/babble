@@ -19,13 +19,13 @@ type DummySocketClient struct {
 //NewDummySocketClient instantiates a DummySocketClient and starts the
 //SocketBabbleProxy
 func NewDummySocketClient(clientAddr string, nodeAddr string, logger *logrus.Logger) (*DummySocketClient, error) {
+	state := NewState(logger)
 
-	babbleProxy, err := socket.NewSocketBabbleProxy(nodeAddr, clientAddr, 1*time.Second, logger)
+	babbleProxy, err := socket.NewSocketBabbleProxy(nodeAddr, clientAddr, state, 1*time.Second, logger)
+
 	if err != nil {
 		return nil, err
 	}
-
-	state := NewState(logger)
 
 	client := &DummySocketClient{
 		state:       state,
@@ -33,29 +33,7 @@ func NewDummySocketClient(clientAddr string, nodeAddr string, logger *logrus.Log
 		logger:      logger,
 	}
 
-	go client.Run()
-
 	return client, nil
-}
-
-//Run listens for messages from Babble via the SocketProxy
-func (c *DummySocketClient) Run() {
-	for {
-		select {
-		case commit := <-c.babbleProxy.CommitCh():
-			c.logger.Debug("CommitBlock")
-			stateHash, err := c.state.CommitHandler(commit.Block)
-			commit.Respond(stateHash, err)
-		case snapshotRequest := <-c.babbleProxy.SnapshotRequestCh():
-			c.logger.Debug("GetSnapshot")
-			snapshot, err := c.state.SnapshotHandler(snapshotRequest.BlockIndex)
-			snapshotRequest.Respond(snapshot, err)
-		case restoreRequest := <-c.babbleProxy.RestoreCh():
-			c.logger.Debug("Restore")
-			stateHash, err := c.state.RestoreHandler(restoreRequest.Snapshot)
-			restoreRequest.Respond(stateHash, err)
-		}
-	}
 }
 
 //SubmitTx sends a transaction to Babble via the SocketProxy
