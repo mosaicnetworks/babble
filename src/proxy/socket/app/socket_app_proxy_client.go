@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/hashgraph"
-	bp "github.com/mosaicnetworks/babble/src/proxy/babble"
 	"github.com/sirupsen/logrus"
 )
 
@@ -45,7 +44,7 @@ func (p *SocketAppProxyClient) CommitBlock(block hashgraph.Block) ([]byte, error
 		return []byte{}, err
 	}
 
-	var stateHash bp.StateHash
+	var stateHash []byte
 
 	if err := p.rpc.Call("State.CommitBlock", block, &stateHash); err != nil {
 		return []byte{}, err
@@ -53,10 +52,10 @@ func (p *SocketAppProxyClient) CommitBlock(block hashgraph.Block) ([]byte, error
 
 	p.logger.WithFields(logrus.Fields{
 		"block":      block.Index(),
-		"state_hash": stateHash.Hash,
+		"state_hash": stateHash,
 	}).Debug("AppProxyClient.CommitBlock")
 
-	return stateHash.Hash, nil
+	return stateHash, nil
 }
 
 func (p *SocketAppProxyClient) GetSnapshot(blockIndex int) ([]byte, error) {
@@ -64,7 +63,7 @@ func (p *SocketAppProxyClient) GetSnapshot(blockIndex int) ([]byte, error) {
 		return []byte{}, err
 	}
 
-	var snapshot bp.Snapshot
+	var snapshot []byte
 
 	if err := p.rpc.Call("State.GetSnapshot", blockIndex, &snapshot); err != nil {
 		return []byte{}, err
@@ -72,10 +71,10 @@ func (p *SocketAppProxyClient) GetSnapshot(blockIndex int) ([]byte, error) {
 
 	p.logger.WithFields(logrus.Fields{
 		"block":    blockIndex,
-		"snapshot": snapshot.Bytes,
+		"snapshot": snapshot,
 	}).Debug("AppProxyClient.GetSnapshot")
 
-	return snapshot.Bytes, nil
+	return snapshot, nil
 }
 
 func (p *SocketAppProxyClient) Restore(snapshot []byte) error {
@@ -83,14 +82,14 @@ func (p *SocketAppProxyClient) Restore(snapshot []byte) error {
 		return err
 	}
 
-	var stateHash bp.StateHash
+	var stateHash []byte
 
 	if err := p.rpc.Call("State.Restore", snapshot, &stateHash); err != nil {
 		return err
 	}
 
 	p.logger.WithFields(logrus.Fields{
-		"state_hash": stateHash.Hash,
+		"state_hash": stateHash,
 	}).Debug("AppProxyClient.Restore")
 
 	return nil

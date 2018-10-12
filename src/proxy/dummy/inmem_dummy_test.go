@@ -1,4 +1,4 @@
-package proxy
+package dummy
 
 import (
 	"fmt"
@@ -9,70 +9,35 @@ import (
 	"github.com/mosaicnetworks/babble/src/common"
 	bcrypto "github.com/mosaicnetworks/babble/src/crypto"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
-	aproxy "github.com/mosaicnetworks/babble/src/proxy/app"
 )
 
-func TestSocketProxyServer(t *testing.T) {
-	clientAddr := "127.0.0.1:9990"
-	proxyAddr := "127.0.0.1:9991"
+func TestInmemDummyAppSide(t *testing.T) {
+	logger := common.NewTestLogger(t)
 
-	proxy, err := aproxy.NewSocketAppProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestLogger(t))
-
-	if err != nil {
-		t.Fatalf("Cannot create SocketAppProxy: %s", err)
-	}
-
-	submitCh := proxy.SubmitCh()
+	dummy := NewInmemDummyClient(logger)
 
 	tx := []byte("the test transaction")
 
-	// Listen for a request
 	go func() {
 		select {
-		case st := <-submitCh:
+		case st := <-dummy.SubmitCh():
 			// Verify the command
 			if !reflect.DeepEqual(st, tx) {
 				t.Fatalf("tx mismatch: %#v %#v", tx, st)
 			}
+
 		case <-time.After(200 * time.Millisecond):
 			t.Fatalf("timeout")
 		}
 	}()
 
-	// now client part connecting to RPC service
-	// and calling methods
-	dummyClient, err := NewDummySocketClient(clientAddr, proxyAddr, common.NewTestLogger(t))
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = dummyClient.SubmitTx(tx)
-
-	if err != nil {
-		t.Fatal(err)
-	}
+	dummy.SubmitTx(tx)
 }
 
-func TestSocketProxyClient(t *testing.T) {
-	clientAddr := "127.0.0.1:9992"
-	proxyAddr := "127.0.0.1:9993"
+func TestInmemDummyServerSide(t *testing.T) {
+	logger := common.NewTestLogger(t)
 
-	//launch dummy application
-	dummyClient, err := NewDummySocketClient(clientAddr, proxyAddr, common.NewTestLogger(t))
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	initialStateHash := dummyClient.state.stateHash
-
-	//create client proxy
-	proxy, err := aproxy.NewSocketAppProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestLogger(t))
-
-	if err != nil {
-		t.Fatalf("Cannot create SocketAppProxy: %s", err)
-	}
+	dummy := NewInmemDummyClient(logger)
 
 	//create a few blocks
 	blocks := [5]hashgraph.Block{}
@@ -82,13 +47,13 @@ func TestSocketProxyClient(t *testing.T) {
 	}
 
 	//commit first block and check that the client's statehash is correct
-	stateHash, err := proxy.CommitBlock(blocks[0])
+	stateHash, err := dummy.CommitBlock(blocks[0])
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	expectedStateHash := initialStateHash
+	expectedStateHash := []byte{}
 
 	for _, t := range blocks[0].Transactions() {
 		tHash := bcrypto.SHA256(t)
@@ -100,7 +65,7 @@ func TestSocketProxyClient(t *testing.T) {
 		t.Fatalf("StateHash should be %v, not %v", expectedStateHash, stateHash)
 	}
 
-	snapshot, err := proxy.GetSnapshot(blocks[0].Index())
+	snapshot, err := dummy.GetSnapshot(blocks[0].Index())
 
 	if err != nil {
 		t.Fatal(err)
@@ -112,17 +77,21 @@ func TestSocketProxyClient(t *testing.T) {
 
 	//commit a few more blocks, then attempt to restore back to block 0 state
 	for i := 1; i < 5; i++ {
-		_, err := proxy.CommitBlock(blocks[i])
+		_, err := dummy.CommitBlock(blocks[i])
 
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	err = proxy.Restore(snapshot)
+	err = dummy.Restore(snapshot)
 
 	if err != nil {
 		t.Fatalf("Error restoring snapshot: %v", err)
+	}
+
+	if !reflect.DeepEqual(dummy.state.stateHash, expectedStateHash) {
+		t.Fatalf("Restore StateHash should be %v, not %v", expectedStateHash, dummy.state.stateHash)
 	}
 
 }
