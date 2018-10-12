@@ -158,6 +158,172 @@ build/
         └── babble.exe
 ```
 
+## Quick Start 
+
+Those two examples assume that you have a valid peers.json file with at least 2 participants
+
+### InappProxy
+
+To use Babble as an Inapp engine (in the same process as your handler), here is a quick procedure
+
+```go
+package main
+
+import (
+	"github.com/mosaicnetworks/babble/src/babble"
+	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/proxy/inmem"
+)
+
+// Implements proxy.ProxyHandler interface
+type Handler struct {
+	stateHash []byte
+}
+
+// Called when a new block is comming
+// You must provide a method to compute the stateHash incrementaly with incoming blocks
+func (h *Handler) CommitHandler(block hashgraph.Block) (stateHash []byte, err error) {
+	hash := h.stateHash
+
+	for _, tx := range block.Transactions() {
+		hash = crypto.SimpleHashFromTwoHashes(hash, crypto.SHA256(tx))
+	}
+
+	h.stateHash = hash
+
+	return h.stateHash, nil
+}
+
+// Called when syncing with the network
+func (h *Handler) SnapshotHandler(blockIndex int) (snapshot []byte, err error) {
+	return []byte{}, nil
+}
+
+// Called when syncing with the network
+func (h *Handler) RestoreHandler(snapshot []byte) (stateHash []byte, err error) {
+	return []byte{}, nil
+}
+
+func NewHandler() *Handler {
+	return &Handler{}
+}
+
+func main() {
+	// The default config listen to ":1337"
+	config := babble.NewDefaultConfig()
+
+	config.BindAddr = "127.0.0.1:1337"
+
+	// To use babble as an internal engine we use InmemProxy.
+	// See the SocketProxy to use it as an external engine
+	proxy := inmem.NewInmemProxy(NewHandler(), config.Logger)
+
+	config.Proxy = proxy
+
+	// Create the engine with the provided config
+	engine := babble.NewBabble(config)
+
+	// Initialize the engine and create the proxy connections
+	if err := engine.Init(); err != nil {
+		panic(err)
+	}
+
+	// Submit a transaction
+	go func() { proxy.SubmitTx([]byte("some content")) }()
+
+	// This is a blocking call
+	engine.Run()
+}
+```
+
+### SocketProxy
+
+To use Babble as an external engine (in a different process as your handler), here is a quick procedure
+
+First you must run the engine from CLI:
+
+```
+./babble keygen
+./babble run --listen=127.0.0.1:1337
+```
+
+It will run the engine on "127.0.0.1:1337" and have a proxy listening to "127.0.0.1:1339"
+
+To make this example work, you also have to have at least a second babble engine running
+
+```
+./babble keygen --pem=$HOME/.babble2/priv_key.pem --pub=$HOME/.babble2/key.pub
+./babble run --datadir=$HOME/.babble2 --listen=127.0.0.1:1347 --standalone
+```
+
+```go
+package main
+
+import (
+	"time"
+
+	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/proxy/socket/babble"
+)
+
+// Implements proxy.ProxyHandler interface
+type Handler struct {
+	stateHash []byte
+}
+
+// Called when a new block is comming
+// You must provide a method to compute the stateHash incrementaly with incoming blocks
+func (h *Handler) CommitHandler(block hashgraph.Block) (stateHash []byte, err error) {
+	hash := h.stateHash
+
+	for _, tx := range block.Transactions() {
+		hash = crypto.SimpleHashFromTwoHashes(hash, crypto.SHA256(tx))
+	}
+
+	h.stateHash = hash
+
+	return h.stateHash, nil
+}
+
+// Called when syncing with the network
+func (h *Handler) SnapshotHandler(blockIndex int) (snapshot []byte, err error) {
+	return []byte{}, nil
+}
+
+// Called when syncing with the network
+func (h *Handler) RestoreHandler(snapshot []byte) (stateHash []byte, err error) {
+	return []byte{}, nil
+}
+
+func NewHandler() *Handler {
+	return &Handler{}
+}
+
+func main() {
+	// Connect to the babble proxy in :1338 and listen to :1339 with the given handler,
+	// with 1s timeout and a creates a default logger
+	proxy, err := babble.NewSocketBabbleProxy("127.0.0.1:1338", "127.0.0.1:1339", NewHandler(), 1*time.Second, nil)
+
+	// Verify that it can listen
+	if err != nil {
+		panic(err)
+	}
+
+	// Verify that it can connect and submit a transaction
+	if err := proxy.SubmitTx([]byte("some content")); err != nil {
+		panic(err)
+	}
+
+	// Wait indefinitly
+	for {
+		time.Sleep(time.Second)
+	}
+}
+```
+
+
 ## Dev
 
 ### Go

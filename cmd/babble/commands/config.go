@@ -7,7 +7,7 @@ type CLIConfig struct {
 	Babble     babble.BabbleConfig `mapstructure:",squash"`
 	ProxyAddr  string              `mapstructure:"proxy-listen"`
 	ClientAddr string              `mapstructure:"client-connect"`
-	Inapp      bool                `mapstructure:"inapp"`
+	Standalone bool                `mapstructure:"standalone"`
 }
 
 //NewDefaultCLIConfig creates a CLIConfig with default values
@@ -16,6 +16,6 @@ func NewDefaultCLIConfig() *CLIConfig {
 		Babble:     *babble.NewDefaultConfig(),
 		ProxyAddr:  "127.0.0.1:1338",
 		ClientAddr: "127.0.0.1:1339",
-		Inapp:      false,
+		Standalone: false,
 	}
 }

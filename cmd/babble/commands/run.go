@@ -2,6 +2,7 @@ package commands
 
 import (
 	"github.com/mosaicnetworks/babble/src/babble"
+	"github.com/mosaicnetworks/babble/src/proxy/dummy"
 	aproxy "github.com/mosaicnetworks/babble/src/proxy/socket/app"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -25,7 +26,7 @@ func NewRunCmd() *cobra.Command {
 *******************************************************************************/
 
 func runBabble(cmd *cobra.Command, args []string) error {
-	if !config.Inapp {
+	if !config.Standalone {
 		p, err := aproxy.NewSocketAppProxy(
 			config.ClientAddr,
 			config.ProxyAddr,
@@ -37,6 +38,10 @@ func runBabble(cmd *cobra.Command, args []string) error {
 			config.Babble.Logger.Error("Cannot initialize socket AppProxy:", err)
 			return err
 		}
+
+		config.Babble.Proxy = p
+	} else {
+		p := dummy.NewInmemDummyClient(config.Babble.Logger)
 
 		config.Babble.Proxy = p
 	}
@@ -69,7 +74,7 @@ func AddRunFlags(cmd *cobra.Command) {
 	cmd.Flags().Int("max-pool", config.Babble.MaxPool, "Connection pool size max")
 
 	// Proxy
-	cmd.Flags().Bool("inapp", config.Inapp, "Use an in-app proxy")
+	cmd.Flags().Bool("standalone", config.Standalone, "Do not create a proxy")
 	cmd.Flags().StringP("proxy-listen", "p", config.ProxyAddr, "Listen IP:Port for babble proxy")
 	cmd.Flags().StringP("client-connect", "c", config.ClientAddr, "IP:Port to connect to client")
 
@@ -114,7 +119,7 @@ func loadConfig(cmd *cobra.Command, args []string) error {
 		"babble.node.SyncLimit":        config.Babble.NodeConfig.SyncLimit,
 		"ProxyAddr":                    config.ProxyAddr,
 		"ClientAddr":                   config.ClientAddr,
-		"Inapp":                        config.Inapp,
+		"Standalone":                   config.Standalone,
 	}).Debug("RUN")
 
 	return nil
