@@ -22,8 +22,8 @@ Babble
    introduction.rst
    install.rst
    design.rst
+   api.rst
    usage.rst
-   demo.rst
    consensus.rst
    blockchain.rst
    fastsync.rst

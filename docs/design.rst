@@ -8,51 +8,48 @@ Overview
 
 ::
 
-            ========================================
-            = APP                                  =  
-            =                                      =
-            =  ===============     ==============  =
-            =  = Service     = <-- = State      =  =
-            =  =             =     =            =  =
-            =  ===============     ==============  =
-            =          |                |          =
-            =       ========================       =
-            =       = Babble Proxy         =       =
-            =       ========================       =
-            =          |                ^          =
-            ===========|================|===========
-                       |                |
-            --------- SubmitTx(tx) ---- CommitBlock(Block) ------- (JSON-RPC/TCP)
-                       |                |
-         ==============|================|===============================
-         = BABBLE      |                |                              =
-         =             v                |                              =
-         =          ========================                           =
-         =          = App Proxy            =                           =
-         =          =                      =                           =
-         =          ========================                           = 
-         =                     |                                       =
-         =   =======================================                   =
-         =   = Core                                =                   =
-         =   =                                     =                   =
-         =   =                                     =    ============   =
-         =   =  =============        ===========   =    = Service  =   =  
-         =   =  = Hashgraph =        = Store   =   = -- =          = <----> HTTP API
-         =   =  =============        ===========   =    =          =   =
-         =   =                                     =    ============   =     
-         =   =                                     =                   =
-         =   =======================================                   =
-         =                     |                                       =
-         =   =======================================                   =
-         =   = Transport                           =                   =
-         =   =                                     =                   =
-         =   =======================================                   =
-         =                     ^                                       =
-         ======================|========================================
-                               |                  
-                               v
-                       
-                            Network
+        +--------------------------------------+
+        | APP                                  |
+        |                                      |
+        |  +-------------+     +------------+  | 
+        |  | Service     | <-- | State      |  |
+        |  |             |     |            |  |
+        |  +-------------+     +------------+  |
+        |          |                ^          |
+        |          |                |          |
+        +----------|----------------|----------+
+                   |                |                      
+    --------- SubmitTx(tx) ---- CommitBlock(Block) ------- JSON-RPC/TCP or in-memory       
+                   |                |                         
+     +-------------|----------------|------------------------------+
+     | BABBLE      |                |                              |
+     |             v                |                              |
+     |          +----------------------+                           |
+     |          | App Proxy            |                           |
+     |          |                      |                           |
+     |          +----------------------+                           |
+     |                     |                                       |
+     |   +-------------------------------------+                   |
+     |   | Core                                |                   |
+     |   |                                     |                   |
+     |   |  +------------+                     |    +----------+   |
+     |   |  | Hashgraph  |       +---------+   |    | Service  |   |
+     |   |  +------------+       | Store   |   | -- |          | <----> HTTP 
+     |   |  +------------+       +----------   |    |          |   |
+     |   |  | Blockchain |                     |    +----------+   |
+     |   |  +------------+                     |                   |
+     |   |                                     |                   |
+     |   +-------------------------------------+                   |
+     |                     |                                       |
+     |   +-------------------------------------+                   |
+     |   | Transport                           |                   |
+     |   |                                     |                   |
+     |   +-------------------------------------+                   |
+     |                     ^                                       |
+     +---------------------|---------------------------------------+
+                           |
+                           v
+                      P2P Network
 
 Almost any software application can be modeled in terms of a *service* and a 
 *state*. The *service* is responsible for processing commands (ex. user input), 
@@ -68,14 +65,13 @@ system* which takes care of broadcasting and ordering the transactions across
 all replicas before feeding them back to the application's *state*. 
 
 Babble is an ordering system that plugs into any application thanks to a very 
-simple JSON-RPC interface over TCP. It uses a consensus algorithm, to replicate 
-and order the transactions, and a blockchain to represent the resulting list. 
-A blockchain is a linear data structure composed of batches of transactions, 
-hashed and signed together, easily allowing to verify any transaction. So, 
-instead of applying commands directly to the *state*, Babble applications must 
-forward the commands to Babble and let them be processed asynchronously by the 
-consensus system before receiving them back, in blocks, ready to be applied 
-to the *state*.  
+simple interface. It uses a consensus algorithm, to replicate and order the 
+transactions, and a blockchain to represent the resulting list. A blockchain is 
+a linear data structure composed of batches of transactions, hashed and signed 
+together, easily allowing to verify any transaction. So, instead of applying 
+commands directly to the *state*, Babble applications must forward the commands 
+to Babble and let them be processed asynchronously by the consensus system 
+before receiving them back, in blocks, ready to be applied to the *state*.  
 
 Consensus and Blockchain
 ------------------------
@@ -118,84 +114,36 @@ For more detail about the projection method, please refer to :ref:`blockchain`
 Proxy
 -----
 
-The Babble node and the App are loosely coupled and can run in separate 
-processes. They communicate via a very simple **JSON-RPC** interface over a 
-**TCP** connection. 
+Babble communicates with the App through an `AppProxy` interface, which has two
+implementations:
 
-The App submits transactions for consensus ordering via the **SubmitTx** 
-endpoint exposed by the **App Proxy**. Babble asynchronously processes 
-transactions and eventually feeds them back to the App, in consensus order and 
-bundled into blocks, with a **CommitBlock** message.
+- ``SocketProxy``: A SocketProxy connects to an App via TCP sockets. It enables 
+  the application to run in a separate process or machine, and to 
+  be written in any programming language.
 
-Transactions are just raw bytes and Babble does not need to know what they 
+- ``InmemProxy``: An InmemProxy uses native callback handlers to integrate 
+  Babble as a regular Go dependency. 
+
+The ``AppProxy`` interface exposes three methods for Babble to call the App:
+
+- ``CommitBlock(Block) ([]byte, error)``: Commits a block to the application and 
+  returns the resulting state hash.
+
+- ``GetSnapshot(int) ([]byte, error)``: Gets the application snapshot 
+  corresponding to a particular block index.
+
+- ``Restore([]byte) error``: Restores the App state from a snapshot.
+
+Reciprocally, ``AppProxy`` relays transactions from the App to Babble via a 
+native Go channel - ``SubmitCh`` - which ties into the application differently 
+depending on the type of proxy (Socket or Inmem).
+
+Babble asynchronously processes transactions and eventually feeds them back to 
+the App, in consensus order and bundled into blocks, with a **CommitBlock** 
+call. Transactions are just raw bytes and Babble does not need to know what they 
 represent. Therefore, encoding and decoding transactions is done by the App.
 
-Apps must implement their own **Babble Proxy** to submit and receive committed  
-transactions from Babble. The advantage of using a JSON-RPC API is that there is  
-no restriction on the programming language for the App. It only requires a 
-component that sends SubmitTx messages to Babble and exposes a TCP endpoint where 
-Babble can send CommitTx messages.
-
-When launching a Babble node, one must specify the address and port exposed by 
-the Babble Proxy of the App. It is also possible to configure which address and 
-port the AppProxy exposes.
-
-Example SubmitTx request (from App to Babble):
-
-::
-
-    request: {"method":"Babble.SubmitTx","params":["Y2xpZW50IDE6IGhlbGxv"],"id":0}
-    response: {"id":0,"result":true,"error":null}
-
-
-Note that the Proxy API is **not** over HTTP; It is raw JSON over TCP. Here is 
-an example of how to make a SubmitTx request manually:  
-
-::
-
-    printf "{\"method\":\"Babble.SubmitTx\",\"params\":[\"Y2xpZW50IDE6IGhlbGxv\"],\"id\":0}" | nc -v  172.77.5.1 1338
-
-
-Example CommitBlock request (from Babble to App):
-
-::
-    
-    request:
-            {
-                "method": "State.CommitBlock",
-                "params": [
-                    {
-                    "Body": {
-                        "Index": 0,
-                        "RoundReceived": 7,
-                        "StateHash": null,
-                        "Transactions": [
-                        "Tm9kZTEgVHg5",
-                        "Tm9kZTEgVHgx",
-                        "Tm9kZTEgVHgy",
-                        "Tm9kZTEgVHgz",
-                        "Tm9kZTEgVHg0",
-                        "Tm9kZTEgVHg1",
-                        "Tm9kZTEgVHg2",
-                        "Tm9kZTEgVHg3",
-                        "Tm9kZTEgVHg4",
-                        "Tm9kZTEgVHgxMA=="
-                        ]
-                    },
-                    "Signatures": {}
-                    }
-                ],
-                "id": 0
-            }
-
-    response: {"id":0,"result":{"Hash":"6SKQataObI6oSY5n6mvf1swZR3T4Tek+C8yJmGijF00="},"error":null}
-
-The content of the request's "params" is the JSON representation of a Block 
-with a RoundReceived of 7 and 10 transactions. The transactions themselves are 
-base64 string encodings.
-
-The response's Hash value is the base64 representation of the application's 
-State-hash resulting from processing the block's transaction sequentially.
+See the :ref:`api` section for more details about the Proxy API.
 
 Transport
 ---------
@@ -287,6 +235,8 @@ Returns the Block with the specified index, as stored by the Babble node.
       "Body": {
         "Index": 0,
         "RoundReceived": 7,
+        "StateHash": "ib8wpBS/W18OT07R+HFxBVYjS/lwPPRtuAV/rcrpQ9w=",
+        "FrameHash": "T7EVNhAfbIx3jGyu5fXnyYs+eAihWCxFdu+8UDYOzfA=",
         "Transactions": [
           "Tm9kZTEgVHgx",
           "Tm9kZTEgVHgy",

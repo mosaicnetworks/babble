@@ -2,9 +2,18 @@
 
 SECURITY:
 
+* keygen: write keys to files instead of tty. 
+
 FEATURES:
 
+* proxy: Introcuced in-memory proxy.
+* cmd: Enable reading config from file (babble.toml, .json, or .yaml)
+
 IMPROVEMENTS:
+
+* node: major refactoring of configuration and initialization of Babble node.
+* node: Node ID is calculated from public key rather than from sorting the 
+peers.json file.
 
 BUG FIXES:
 

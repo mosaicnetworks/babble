@@ -1,5 +1,0 @@
-babble.pem
-terraform.tfstate*
-secret.tfvars
-conf/*
-ips.dat

@@ -95,11 +95,24 @@ If everything goes well, it should output something along these lines:
 
 ::
 
-    ok      github.com/mosaicnetworks/babble/net      0.052s
-    ok      github.com/mosaicnetworks/babble/common   0.011s
-    ?       github.com/mosaicnetworks/babble/cmd      [no test files]
-    ?       github.com/mosaicnetworks/babble/cmd/dummy_client [no test files]
-    ok      github.com/mosaicnetworks/babble/hashgraph        0.174s
-    ok      github.com/mosaicnetworks/babble/node     1.699s
-    ok      github.com/mosaicnetworks/babble/proxy    0.018s
-    ok      github.com/mosaicnetworks/babble/crypto   0.028s
+    ?       github.com/mosaicnetworks/babble/src/babble     [no test files]
+    ok      github.com/mosaicnetworks/babble/src/common     0.015s
+    ok      github.com/mosaicnetworks/babble/src/crypto     0.122s
+    ok      github.com/mosaicnetworks/babble/src/hashgraph  10.270s
+    ?       github.com/mosaicnetworks/babble/src/mobile     [no test files]
+    ok      github.com/mosaicnetworks/babble/src/net        0.012s
+    ok      github.com/mosaicnetworks/babble/src/node       19.171s
+    ok      github.com/mosaicnetworks/babble/src/peers      0.038s
+    ?       github.com/mosaicnetworks/babble/src/proxy      [no test files]
+    ok      github.com/mosaicnetworks/babble/src/proxy/dummy        0.013s
+    ok      github.com/mosaicnetworks/babble/src/proxy/inmem        0.037s
+    ok      github.com/mosaicnetworks/babble/src/proxy/socket       0.009s
+    ?       github.com/mosaicnetworks/babble/src/proxy/socket/app   [no test files]
+    ?       github.com/mosaicnetworks/babble/src/proxy/socket/babble        [no test files]
+    ?       github.com/mosaicnetworks/babble/src/service    [no test files]
+    ?       github.com/mosaicnetworks/babble/src/version    [no test files]
+    ?       github.com/mosaicnetworks/babble/cmd/babble     [no test files]
+    ?       github.com/mosaicnetworks/babble/cmd/babble/commands    [no test files]
+    ?       github.com/mosaicnetworks/babble/cmd/dummy      [no test files]
+    ?       github.com/mosaicnetworks/babble/cmd/dummy/commands     [no test files]
+
