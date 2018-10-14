@@ -12,7 +12,7 @@ cd "$DIR"
 # Get the git commit
 GIT_COMMIT="$(git rev-parse --short HEAD)"
 GIT_DESCRIBE="$(git describe --tags --always)"
-GIT_IMPORT="github.com/mosaicnetworks/babble/version"
+GIT_IMPORT="github.com/mosaicnetworks/babble/src/version"
 
 # Determine the arch/os combos we're building for
 XC_ARCH=${XC_ARCH:-"386 amd64 arm"}

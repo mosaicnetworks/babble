@@ -11,8 +11,10 @@ build
 
 # Dependencies
 vendor
+glide.lock
 
 # gomobile compilation output
 *.aar
 *.jar
 
+.#*
