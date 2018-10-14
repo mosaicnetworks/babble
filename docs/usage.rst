@@ -210,8 +210,8 @@ endpoints:
  - ``proxy-listen``  : where Babble listens for transactions from the App
  - ``client-connect`` : where the App listens for transactions from Babble 
 
-We also need to specify where Babble exposes its HTTP API where one can query 
-the Hashgraph and Blockchain data store. This is defined by the 
+We can also specify where Babble exposes its HTTP API providing information on 
+the Hashgraph and Blockchain data store. This is controlled by the optional 
 ``service-listen`` flag.
 
 Finally, we can choose to run Babble with a database backend or only with an 
@@ -220,7 +220,7 @@ file in ``datadir``/babdger_db. If the file exists, the node will load the
 database and bootstrap itself to a state consistent with the database and it 
 will be able to proceed with the consensus algorithm from there. If the file 
 does not exist yet, it will be created and the node will start from a clean 
-slate. 
+state. 
 
 Here is how the Docker demo starts Babble nodes together wth the Dummy 
 application:

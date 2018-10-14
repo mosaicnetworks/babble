@@ -6,7 +6,7 @@ SECURITY:
 
 FEATURES:
 
-* proxy: Introcuced in-memory proxy.
+* proxy: Introduced in-memory proxy.
 * cmd: Enable reading config from file (babble.toml, .json, or .yaml)
 
 IMPROVEMENTS:
