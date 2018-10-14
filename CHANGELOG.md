@@ -2,6 +2,16 @@
 
 SECURITY:
 
+FEATURES:
+
+IMPROVEMENTS:
+
+BUG FIXES:
+
+## v0.4.0 (October 14, 2018)
+
+SECURITY:
+
 * keygen: write keys to files instead of tty. 
 
 FEATURES:
@@ -14,8 +24,6 @@ IMPROVEMENTS:
 * node: major refactoring of configuration and initialization of Babble node.
 * node: Node ID is calculated from public key rather than from sorting the 
 peers.json file.
-
-BUG FIXES:
 
 ## v0.3.0 (September 4, 2018)
 
