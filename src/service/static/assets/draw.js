@@ -98,12 +98,12 @@ let drawEvent = event => {
 
     // The event index
     event.text = new Konva.Text({
-        x: event.x - 5,
+        x: event.x + 15,
         y: event.y - 5,
         text: event.Body.Index === -1 ? '' : '' + event.Body.Index,
         fontSize: 12,
         fontFamily: 'Calibri',
-        fill: 'black',
+        fill: 'white',
     });
 
     // If its root, draw the NodeId text
@@ -114,7 +114,7 @@ let drawEvent = event => {
             text: event.EventId.replace('Root', ''),
             fontSize: 12,
             fontFamily: 'Calibri',
-            fill: 'black',
+            fill: 'white',
         });
 
         hgGroup.add(nodeId);
@@ -189,12 +189,12 @@ let drawRoundLines = rounds => {
             });
 
             let txt = new Konva.Text({
-                x: (_.keys(participants).length + 1) * xInterval,
+                x: 5 + (_.keys(participants).length + 1) * xInterval,
                 y: ev.y - yInterval / 2 - 6,
                 text: '' + rId,
                 fontSize: 12,
                 fontFamily: 'Calibri',
-                fill: 'black',
+                fill: 'white',
             });
 
             hgGroup.add(line);
