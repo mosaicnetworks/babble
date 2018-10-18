@@ -18,9 +18,9 @@ let setupStage = () => {
     hgGroup = new Konva.Group({
         draggable: true,
         dragBoundFunc: pos => {
-            let yPos = pos.y > 0 ? 0 : pos.y;
+            let yPos = pos.y < -hgBack.getHeight() + window.innerHeight ? -hgBack.getHeight() + window.innerHeight : pos.y;
 
-            yPos = yPos < -hgBack.getHeight() + window.innerHeight ? -hgBack.getHeight() + window.innerHeight : yPos;
+            yPos = yPos > 0 ? 0 : yPos;
 
             return {
                 x: 0,
@@ -39,9 +39,9 @@ let setupStage = () => {
     blockGroup = new Konva.Group({
         draggable: true,
         dragBoundFunc: pos => {
-            let yPos = pos.y > 0 ? 0 : pos.y;
+            let yPos = pos.y < -blockBack.getHeight() + window.innerHeight ? -blockBack.getHeight() + window.innerHeight : pos.y;
 
-            yPos = yPos < -blockBack.getHeight() + window.innerHeight ? -blockBack.getHeight() + window.innerHeight : yPos;
+            yPos = yPos > 0 ? 0 : yPos;
 
             return {
                 x: 0,
@@ -105,6 +105,8 @@ let drawEvent = event => {
         fontFamily: 'Calibri',
         fill: 'white',
     });
+
+    event.text.hide();
 
     // If its root, draw the NodeId text
     if (event.Body.Index === -1) {
@@ -330,5 +332,53 @@ let drawLegend = () => {
     background.moveToBottom();
 
     legendLayer.draw();
+};
 
+// Draw the legend
+let drawSettings = () => {
+    let settings = [
+        {
+            label: 'Show event ids',
+            name: 'showEventIds',
+            trigger: () => _.each(events, ([eId, event]) => settingValues.showEventIds ? event.text.show() : event.text.hide()),
+        }
+    ];
+
+    let toggle = (setting) => {
+        settingValues[setting.name] = !settingValues[setting.name];
+
+        setting.rect.setFill(getSettingColor(settingValues[setting.name]));
+
+        setting.trigger();
+
+        legendLayer.draw();
+    };
+
+    let getSettingColor = (val) => val ? '#00ff00' : '#ff0000';
+
+    _.each(settings, (setting, i) => {
+        setting.rect = new Konva.Rect({
+            x: 800 + 15 + (i * 100),
+            y: 10,
+            width: 20,
+            height: 20,
+            fill: getSettingColor(settingValues[setting.name]),
+            stroke: 'black',
+        });
+
+        setting.text = new Konva.Text({
+            x: 800 + 40 + (i * 100),
+            y: 15,
+            text: setting.label,
+            fontSize: 12,
+            fontFamily: 'Calibri',
+            fill: 'black',
+        });
+
+        legendLayer.add(setting.rect, setting.text);
+
+        setting.rect.on('mousedown', () => toggle(setting))
+    });
+
+    legendLayer.draw();
 };

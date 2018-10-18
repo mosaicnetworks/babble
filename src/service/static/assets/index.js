@@ -18,6 +18,10 @@ let intervalHandler;
 let actualRound = -1;
 let actualBlock = -1;
 
+let settingValues = {
+    showEventIds: false,
+};
+
 // Main loop
 let loop = () => {
     fetch("/graph")
@@ -45,6 +49,8 @@ let main = () => {
     setupStage();
 
     drawLegend();
+
+    drawSettings();
 
     intervalHandler = setInterval(loop, 1000);
 };
