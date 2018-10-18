@@ -178,9 +178,8 @@ let drawRoundLines = rounds => {
                     (_.keys(participants).length + 1) * xInterval,
                     ev.y - yInterval / 2,
                 ],
-                fill: 'black',
-                stroke: 'black',
-                strokeWidth: 1,
+                stroke: 'white',
+                strokeWidth: 2,
             });
 
             let txt = new Konva.Text({
@@ -231,7 +230,7 @@ let drawBlocks = blocks => {
 };
 
 // Main draw function
-let draw = evs => {
+let draw = (evs, rounds, blocks) => {
     _.each(evs, ([eId, event]) => {
         drawEvent(event);
 
@@ -242,13 +241,69 @@ let draw = evs => {
         drawEventLinks(event);
     });
 
-    hgBack.setHeight(100 + _.maxBy(events, ([eId, event]) => event.y)[1].y);
+    drawRoundLines(rounds);
+
+    drawBlocks(blocks)
 
     layer.draw();
+
+    hgBack.setHeight(100 + _.maxBy(events, ([eId, event]) => event.y)[1].y);
 };
 
 // Draw the legend
 let drawLegend = () => {
+    let legends = [
+        {
+            name: 'Root',
+            color: getEventColor({ Body: { Index: -1 } }),
+        },
+        {
+            name: 'Consensus',
+            color: getEventColor({ Consensus: true }),
+        },
+        {
+            name: 'Famous',
+            color: getEventColor({ Famous: true }),
+        },
+        {
+            name: 'Witness',
+            color: getEventColor({ Witness: true }),
+        },
+        {
+            name: 'Normal',
+            color: getEventColor({ Body: {} }),
+        },
+        {
+            name: 'Transaction',
+            color: '#999999',
+        },
+    ];
+
+    _.each(legends, (legend, i) => {
+        let circle = new Konva.Circle({
+            x: 15 + (i * 100),
+            y: 20,
+            radius: 10,
+            fill: legend.color,
+        });
+
+        if (legend.name === 'Transaction') {
+            circle.setStroke('black');
+            circle.setStrokeWidth(3);
+        }
+
+        let text = new Konva.Text({
+            x: 30 + (i * 100),
+            y: 15,
+            text: legend.name,
+            fontSize: 12,
+            fontFamily: 'Calibri',
+            fill: 'black',
+        });
+
+        legendLayer.add(circle, text);
+    });
+
     let background = new Konva.Rect({
         x: 0,
         y: 0,
@@ -259,125 +314,9 @@ let drawLegend = () => {
         strokeWidth: 1,
     });
 
-    let root = new Konva.Circle({
-        x: 15,
-        y: 20,
-        radius: 10,
-        fill: getEventColor({ Body: { Index: -1 } }),
-    });
-
-    let rootText = new Konva.Text({
-        x: 25,
-        y: 15,
-        text: 'Root',
-        fontSize: 12,
-        fontFamily: 'Calibri',
-        fill: 'black',
-    });
-
-    let consensus = new Konva.Circle({
-        x: 70,
-        y: 20,
-        radius: 10,
-        fill: getEventColor({ Consensus: true }),
-    });
-
-    let consensusText = new Konva.Text({
-        x: 80,
-        y: 15,
-        text: 'Consensus',
-        fontSize: 12,
-        fontFamily: 'Calibri',
-        fill: 'black',
-    });
-
-    let famous = new Konva.Circle({
-        x: 160,
-        y: 20,
-        radius: 10,
-        fill: getEventColor({ Famous: true }),
-    });
-
-    let famousText = new Konva.Text({
-        x: 170,
-        y: 15,
-        text: 'Famous',
-        fontSize: 12,
-        fontFamily: 'Calibri',
-        fill: 'black',
-    });
-
-    let witness = new Konva.Circle({
-        x: 240,
-        y: 20,
-        radius: 10,
-        fill: getEventColor({ Witness: true }),
-    });
-
-    let witnessText = new Konva.Text({
-        x: 250,
-        y: 15,
-        text: 'Witness',
-        fontSize: 12,
-        fontFamily: 'Calibri',
-        fill: 'black',
-    });
-
-    let normal = new Konva.Circle({
-        x: 320,
-        y: 20,
-        radius: 10,
-        fill: getEventColor({ Body: {} }),
-    });
-
-    let normalText = new Konva.Text({
-        x: 330,
-        y: 15,
-        text: 'Normal',
-        fontSize: 12,
-        fontFamily: 'Calibri',
-        fill: 'black',
-    });
-
-    let tx = new Konva.Circle({
-        x: 400,
-        y: 20,
-        radius: 10,
-        fill: 'white',
-        stroke: 'black',
-        strokeWidth: 3,
-    });
-
-    let txText = new Konva.Text({
-        x: 410,
-        y: 15,
-        text: 'Transaction',
-        fontSize: 12,
-        fontFamily: 'Calibri',
-        fill: 'black',
-    });
-
     legendLayer.add(background);
-
-    legendLayer.add(root);
-    legendLayer.add(rootText);
-
-    legendLayer.add(consensus);
-    legendLayer.add(consensusText);
-
-    legendLayer.add(famous);
-    legendLayer.add(famousText);
-
-    legendLayer.add(witness);
-    legendLayer.add(witnessText);
-
-    legendLayer.add(normal);
-    legendLayer.add(normalText);
-
-    legendLayer.add(tx);
-    legendLayer.add(txText);
+    background.moveToBottom();
 
     legendLayer.draw();
 
-    background.moveToBottom();
 };
