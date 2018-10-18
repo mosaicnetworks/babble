@@ -106,7 +106,9 @@ let drawEvent = event => {
         fill: 'white',
     });
 
-    event.text.hide();
+    if (!settingValues.showEventIds) {
+        event.text.hide();
+    }
 
     // If its root, draw the NodeId text
     if (event.Body.Index === -1) {
@@ -131,7 +133,9 @@ let drawEvent = event => {
     hgGroup.add(event.circle);
     hgGroup.add(event.text);
 
-    hgGroup.setY(_.min([0, hgGroup.getY(), -event.y + window.innerHeight - 100]));
+    if (settingValues.autoScroll) {
+        hgGroup.setY(_.min([0, hgGroup.getY(), -event.y + window.innerHeight - 100]));
+    }
 };
 
 // Draw the links between an event and its parents
@@ -233,7 +237,9 @@ let drawBlocks = blocks => {
 
         blockGroup.add(b, txt);
 
-        blockGroup.setY(_.min([0, blockGroup.getY(), -(40 + yInterval + (yInterval * bId) + 5) + window.innerHeight]));
+        if (settingValues.autoScroll) {
+            blockGroup.setY(_.min([0, blockGroup.getY(), -(40 + yInterval + (yInterval * bId) + 5) + window.innerHeight]));
+        }
     })
 
     actualBlock = blocks.length - 1;
@@ -340,7 +346,15 @@ let drawSettings = () => {
         {
             label: 'Show event ids',
             name: 'showEventIds',
-            trigger: () => _.each(events, ([eId, event]) => settingValues.showEventIds ? event.text.show() : event.text.hide()),
+            trigger: () => {
+                _.each(events, ([eId, event]) => settingValues.showEventIds ? event.text.show() : event.text.hide());
+                layer.draw();
+            }
+        },
+        {
+            label: 'Auto scroll',
+            name: 'autoScroll',
+            trigger: () => { },
         }
     ];
 
@@ -358,7 +372,7 @@ let drawSettings = () => {
 
     _.each(settings, (setting, i) => {
         setting.rect = new Konva.Rect({
-            x: 800 + 15 + (i * 100),
+            x: 800 + 15 + (i * 120),
             y: 10,
             width: 20,
             height: 20,
@@ -367,7 +381,7 @@ let drawSettings = () => {
         });
 
         setting.text = new Konva.Text({
-            x: 800 + 40 + (i * 100),
+            x: 800 + 40 + (i * 120),
             y: 15,
             text: setting.label,
             fontSize: 12,

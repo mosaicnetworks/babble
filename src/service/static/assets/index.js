@@ -20,6 +20,7 @@ let actualBlock = -1;
 
 let settingValues = {
     showEventIds: false,
+    autoScroll: true,
 };
 
 // Main loop
