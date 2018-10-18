@@ -43,6 +43,7 @@ func NewRoundInfo() *RoundInfo {
 
 func (r *RoundInfo) AddEvent(x string, witness bool) {
 	_, ok := r.Events[x]
+
 	if !ok {
 		r.Events[x] = RoundEvent{
 			Witness: witness,
@@ -52,25 +53,31 @@ func (r *RoundInfo) AddEvent(x string, witness bool) {
 
 func (r *RoundInfo) SetConsensusEvent(x string) {
 	e, ok := r.Events[x]
+
 	if !ok {
 		e = RoundEvent{}
 	}
+
 	e.Consensus = true
+
 	r.Events[x] = e
 }
 
 func (r *RoundInfo) SetFame(x string, f bool) {
 	e, ok := r.Events[x]
+
 	if !ok {
 		e = RoundEvent{
 			Witness: true,
 		}
 	}
+
 	if f {
 		e.Famous = True
 	} else {
 		e.Famous = False
 	}
+
 	r.Events[x] = e
 }
 
@@ -81,68 +88,87 @@ func (r *RoundInfo) WitnessesDecided() bool {
 			return false
 		}
 	}
+
 	return true
 }
 
 //return witnesses
 func (r *RoundInfo) Witnesses() []string {
 	res := []string{}
+
 	for x, e := range r.Events {
 		if e.Witness {
 			res = append(res, x)
 		}
 	}
+
 	return res
 }
 
 func (r *RoundInfo) RoundEvents() []string {
 	res := []string{}
+
 	for x, e := range r.Events {
 		if !e.Consensus {
 			res = append(res, x)
 		}
 	}
+
 	return res
 }
 
 //return consensus events
 func (r *RoundInfo) ConsensusEvents() []string {
 	res := []string{}
+
 	for x, e := range r.Events {
 		if e.Consensus {
 			res = append(res, x)
 		}
 	}
+
 	return res
 }
 
 //return famous witnesses
 func (r *RoundInfo) FamousWitnesses() []string {
 	res := []string{}
+
 	for x, e := range r.Events {
 		if e.Witness && e.Famous == True {
 			res = append(res, x)
 		}
 	}
+
 	return res
 }
 
 func (r *RoundInfo) IsDecided(witness string) bool {
 	w, ok := r.Events[witness]
+
 	return ok && w.Witness && w.Famous != Undefined
 }
 
 func (r *RoundInfo) Marshal() ([]byte, error) {
 	var b bytes.Buffer
+
 	enc := json.NewEncoder(&b)
+
 	if err := enc.Encode(r); err != nil {
 		return nil, err
 	}
+
 	return b.Bytes(), nil
 }
 
 func (r *RoundInfo) Unmarshal(data []byte) error {
 	b := bytes.NewBuffer(data)
+
 	dec := json.NewDecoder(b) //will read from b
+
 	return dec.Decode(r)
+}
+
+func (r *RoundInfo) IsQueued() bool {
+	return r.queued
 }

@@ -7,11 +7,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/mosaicnetworks/babble/src/crypto"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/peers"
+	"github.com/sirupsen/logrus"
 )
 
 type Core struct {
@@ -180,7 +179,7 @@ func (c *Core) GetAnchorBlockWithFrame() (hg.Block, hg.Frame, error) {
 //returns events that c knowns about and are not in 'known'
 func (c *Core) EventDiff(known map[int]int) (events []hg.Event, err error) {
 	unknown := []hg.Event{}
-	//known represents the indez of the last event known for every participant
+	//known represents the index of the last event known for every participant
 	//compare this to our view of events and fill unknown with events that we know of
 	// and the other doesnt
 	for id, ct := range known {

@@ -3,17 +3,15 @@ package node
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
-
-	"github.com/sirupsen/logrus"
-
-	"strconv"
 
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
 	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/mosaicnetworks/babble/src/proxy"
+	"github.com/sirupsen/logrus"
 )
 
 type Node struct {
@@ -56,13 +54,14 @@ func NewNode(conf *Config,
 	participants *peers.Peers,
 	store hg.Store,
 	trans net.Transport,
-	proxy proxy.AppProxy) *Node {
-
+	proxy proxy.AppProxy,
+) *Node {
 	localAddr := trans.LocalAddr()
 
 	pmap, _ := store.Participants()
 
 	commitCh := make(chan hg.Block, 400)
+
 	core := NewCore(id, key, pmap, store, commitCh, conf.Logger)
 
 	peerSelector := NewRandomPeerSelector(participants, localAddr)
@@ -93,13 +92,16 @@ func NewNode(conf *Config,
 
 func (n *Node) Init() error {
 	peerAddresses := []string{}
+
 	for _, p := range n.peerSelector.Peers().ToPeerSlice() {
 		peerAddresses = append(peerAddresses, p.NetAddr)
 	}
+
 	n.logger.WithField("peers", peerAddresses).Debug("Init Node")
 
 	if n.needBoostrap {
 		n.logger.Debug("Bootstrap")
+
 		if err := n.core.Bootstrap(); err != nil {
 			return err
 		}
@@ -110,6 +112,7 @@ func (n *Node) Init() error {
 
 func (n *Node) RunAsync(gossip bool) {
 	n.logger.Debug("runasync")
+
 	go n.Run(gossip)
 }
 
@@ -127,13 +130,16 @@ func (n *Node) Run(gossip bool) {
 	for {
 		// Run different routines depending on node state
 		state := n.getState()
+
 		n.logger.WithField("state", state.String()).Debug("Run loop")
 
 		switch state {
 		case Babbling:
 			n.babble(gossip)
+
 		case CatchingUp:
 			n.fastForward()
+
 		case Shutdown:
 			return
 		}
@@ -160,6 +166,7 @@ func (n *Node) doBackgroundWork() {
 		select {
 		case t := <-n.submitCh:
 			n.logger.Debug("Adding Transaction")
+
 			n.addTransaction(t)
 			n.resetTimer()
 		case block := <-n.commitCh:
@@ -168,9 +175,11 @@ func (n *Node) doBackgroundWork() {
 				"round_received": block.RoundReceived(),
 				"txs":            len(block.Transactions()),
 			}).Debug("Committing Block")
+
 			if err := n.commit(block); err != nil {
 				n.logger.WithField("error", err).Error("Committing Block")
 			}
+
 		case <-n.shutdownCh:
 			return
 		}
@@ -200,6 +209,7 @@ func (n *Node) babble(gossip bool) {
 			n.resetTimer()
 		case <-returnCh:
 			return
+
 		case <-n.shutdownCh:
 			return
 		}
@@ -211,12 +221,16 @@ func (n *Node) processRPC(rpc net.RPC) {
 	switch cmd := rpc.Command.(type) {
 	case *net.SyncRequest:
 		n.processSyncRequest(rpc, cmd)
+
 	case *net.EagerSyncRequest:
 		n.processEagerSyncRequest(rpc, cmd)
+
 	case *net.FastForwardRequest:
 		n.processFastForwardRequest(rpc, cmd)
+
 	default:
 		n.logger.WithField("cmd", rpc.Command).Error("Unexpected RPC command")
+
 		rpc.Respond(nil, fmt.Errorf("unexpected command"))
 	}
 }
@@ -230,32 +244,46 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 	resp := &net.SyncResponse{
 		FromID: n.id,
 	}
+
 	var respErr error
 
 	//Check sync limit
 	n.coreLock.Lock()
+
 	overSyncLimit := n.core.OverSyncLimit(cmd.Known, n.conf.SyncLimit)
+
 	n.coreLock.Unlock()
+
 	if overSyncLimit {
 		n.logger.Debug("SyncLimit")
+
 		resp.SyncLimit = true
 	} else {
 		//Compute Diff
 		start := time.Now()
+
 		n.coreLock.Lock()
+
 		eventDiff, err := n.core.EventDiff(cmd.Known)
+
 		n.coreLock.Unlock()
+
 		elapsed := time.Since(start)
+
 		n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Diff()")
+
 		if err != nil {
 			n.logger.WithField("error", err).Error("Calculating Diff")
+
 			respErr = err
 		}
 
 		//Convert to WireEvents
 		wireEvents, err := n.core.ToWire(eventDiff)
+
 		if err != nil {
 			n.logger.WithField("error", err).Debug("Converting to WireEvent")
+
 			respErr = err
 		} else {
 			resp.Events = wireEvents
@@ -264,8 +292,11 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 
 	//Get Self Known
 	n.coreLock.Lock()
+
 	knownEvents := n.core.KnownEvents()
+
 	n.coreLock.Unlock()
+
 	resp.Known = knownEvents
 
 	n.logger.WithFields(logrus.Fields{
@@ -285,11 +316,16 @@ func (n *Node) processEagerSyncRequest(rpc net.RPC, cmd *net.EagerSyncRequest) {
 	}).Debug("EagerSyncRequest")
 
 	success := true
+
 	n.coreLock.Lock()
+
 	err := n.sync(cmd.Events)
+
 	n.coreLock.Unlock()
+
 	if err != nil {
 		n.logger.WithField("error", err).Error("sync()")
+
 		success = false
 	}
 
@@ -297,6 +333,7 @@ func (n *Node) processEagerSyncRequest(rpc net.RPC, cmd *net.EagerSyncRequest) {
 		FromID:  n.id,
 		Success: success,
 	}
+
 	rpc.Respond(resp, err)
 }
 
@@ -308,31 +345,42 @@ func (n *Node) processFastForwardRequest(rpc net.RPC, cmd *net.FastForwardReques
 	resp := &net.FastForwardResponse{
 		FromID: n.id,
 	}
+
 	var respErr error
 
 	//Get latest Frame
 	n.coreLock.Lock()
+
 	block, frame, err := n.core.GetAnchorBlockWithFrame()
+
 	n.coreLock.Unlock()
+
 	if err != nil {
 		n.logger.WithField("error", err).Error("Getting Frame")
+
 		respErr = err
 	}
+
 	resp.Block = block
+
 	resp.Frame = frame
 
 	//Get snapshot
 	snapshot, err := n.proxy.GetSnapshot(block.Index())
+
 	if err != nil {
 		n.logger.WithField("error", err).Error("Getting Snapshot")
+
 		respErr = err
 	}
+
 	resp.Snapshot = snapshot
 
 	n.logger.WithFields(logrus.Fields{
 		"Events": len(resp.Frame.Events),
 		"Error":  respErr,
 	}).Debug("Responding to FastForwardRequest")
+
 	rpc.Respond(resp, respErr)
 }
 
@@ -340,9 +388,9 @@ func (n *Node) processFastForwardRequest(rpc net.RPC, cmd *net.FastForwardReques
 //calling routine (usually the babble routine) when it is time to exit the
 //Babbling state and return.
 func (n *Node) gossip(peerAddr string, parentReturnCh chan struct{}) error {
-
 	//pull
 	syncLimit, otherKnownEvents, err := n.pull(peerAddr)
+
 	if err != nil {
 		return err
 	}
@@ -352,18 +400,22 @@ func (n *Node) gossip(peerAddr string, parentReturnCh chan struct{}) error {
 		n.logger.WithField("from", peerAddr).Debug("SyncLimit")
 		n.setState(CatchingUp) //
 		parentReturnCh <- struct{}{}
+
 		return nil
 	}
 
 	//push
 	err = n.push(peerAddr, otherKnownEvents)
+
 	if err != nil {
 		return err
 	}
 
 	//update peer selector
 	n.selectorLock.Lock()
+
 	n.peerSelector.UpdateLast(peerAddr)
+
 	n.selectorLock.Unlock()
 
 	n.logStats()
@@ -374,18 +426,26 @@ func (n *Node) gossip(peerAddr string, parentReturnCh chan struct{}) error {
 func (n *Node) pull(peerAddr string) (syncLimit bool, otherKnownEvents map[int]int, err error) {
 	//Compute Known
 	n.coreLock.Lock()
+
 	knownEvents := n.core.KnownEvents()
+
 	n.coreLock.Unlock()
 
 	//Send SyncRequest
 	start := time.Now()
+
 	resp, err := n.requestSync(peerAddr, knownEvents)
+
 	elapsed := time.Since(start)
+
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestSync()")
+
 	if err != nil {
 		n.logger.WithField("error", err).Error("requestSync()")
+
 		return false, nil, err
 	}
+
 	n.logger.WithFields(logrus.Fields{
 		"from_id":    resp.FromID,
 		"sync_limit": resp.SyncLimit,
@@ -413,22 +473,33 @@ func (n *Node) push(peerAddr string, knownEvents map[int]int) error {
 
 	//Check SyncLimit
 	n.coreLock.Lock()
+
 	overSyncLimit := n.core.OverSyncLimit(knownEvents, n.conf.SyncLimit)
+
 	n.coreLock.Unlock()
+
 	if overSyncLimit {
 		n.logger.Debug("SyncLimit")
+
 		return nil
 	}
 
 	//Compute Diff
 	start := time.Now()
+
 	n.coreLock.Lock()
+
 	eventDiff, err := n.core.EventDiff(knownEvents)
+
 	n.coreLock.Unlock()
+
 	elapsed := time.Since(start)
+
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Diff()")
+
 	if err != nil {
 		n.logger.WithField("error", err).Error("Calculating Diff")
+
 		return err
 	}
 
@@ -466,14 +537,21 @@ func (n *Node) fastForward() error {
 
 	//fastForwardRequest
 	peer := n.peerSelector.Next()
+
 	start := time.Now()
+
 	resp, err := n.requestFastForward(peer.NetAddr)
+
 	elapsed := time.Since(start)
+
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestFastForward()")
+
 	if err != nil {
 		n.logger.WithField("error", err).Error("requestFastForward()")
+
 		return err
 	}
+
 	n.logger.WithFields(logrus.Fields{
 		"from_id":              resp.FromID,
 		"block_index":          resp.Block.Index(),
@@ -485,17 +563,23 @@ func (n *Node) fastForward() error {
 
 	//prepare core. ie: fresh hashgraph
 	n.coreLock.Lock()
+
 	err = n.core.FastForward(peer.PubKeyHex, resp.Block, resp.Frame)
+
 	n.coreLock.Unlock()
+
 	if err != nil {
 		n.logger.WithField("error", err).Error("Fast Forwarding Hashgraph")
+
 		return err
 	}
 
 	//update app from snapshot
 	err = n.proxy.Restore(resp.Snapshot)
+
 	if err != nil {
 		n.logger.WithField("error", err).Error("Restoring App from Snapshot")
+
 		return err
 	}
 
@@ -507,13 +591,13 @@ func (n *Node) fastForward() error {
 }
 
 func (n *Node) requestSync(target string, known map[int]int) (net.SyncResponse, error) {
-
 	args := net.SyncRequest{
 		FromID: n.id,
 		Known:  known,
 	}
 
 	var out net.SyncResponse
+
 	err := n.trans.Sync(target, &args, &out)
 
 	return out, err
@@ -526,6 +610,7 @@ func (n *Node) requestEagerSync(target string, events []hg.WireEvent) (net.Eager
 	}
 
 	var out net.EagerSyncResponse
+
 	err := n.trans.EagerSync(target, &args, &out)
 
 	return out, err
@@ -541,6 +626,7 @@ func (n *Node) requestFastForward(target string) (net.FastForwardResponse, error
 	}
 
 	var out net.FastForwardResponse
+
 	err := n.trans.FastForward(target, &args, &out)
 
 	return out, err
@@ -549,18 +635,26 @@ func (n *Node) requestFastForward(target string) (net.FastForwardResponse, error
 func (n *Node) sync(events []hg.WireEvent) error {
 	//Insert Events in Hashgraph and create new Head if necessary
 	start := time.Now()
+
 	err := n.core.Sync(events)
+
 	elapsed := time.Since(start)
+
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed Sync()")
+
 	if err != nil {
 		return err
 	}
 
 	//Run consensus methods
 	start = time.Now()
+
 	err = n.core.RunConsensus()
+
 	elapsed = time.Since(start)
+
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed RunConsensus()")
+
 	if err != nil {
 		return err
 	}
@@ -569,8 +663,8 @@ func (n *Node) sync(events []hg.WireEvent) error {
 }
 
 func (n *Node) commit(block hg.Block) error {
-
 	stateHash, err := n.proxy.CommitBlock(block)
+
 	n.logger.WithFields(logrus.Fields{
 		"block":      block.Index(),
 		"state_hash": fmt.Sprintf("%X", stateHash),
@@ -583,12 +677,17 @@ func (n *Node) commit(block hg.Block) error {
 	//There is no point in using the stateHash if we know it is wrong
 	if err == nil {
 		block.Body.StateHash = stateHash
+
 		n.coreLock.Lock()
+
 		defer n.coreLock.Unlock()
+
 		sig, err := n.core.SignBlock(block)
+
 		if err != nil {
 			return err
 		}
+
 		n.core.AddBlockSignature(sig)
 	}
 
@@ -597,7 +696,9 @@ func (n *Node) commit(block hg.Block) error {
 
 func (n *Node) addTransaction(tx []byte) {
 	n.coreLock.Lock()
+
 	defer n.coreLock.Unlock()
+
 	n.core.AddTransactions([][]byte{tx})
 }
 
@@ -610,6 +711,7 @@ func (n *Node) Shutdown() {
 
 		//Stop and wait for concurrent operations
 		close(n.shutdownCh)
+
 		n.waitRoutines()
 
 		//For some reason this needs to be called after closing the shutdownCh
@@ -619,6 +721,7 @@ func (n *Node) Shutdown() {
 		//transport and store should only be closed once all concurrent operations
 		//are finished otherwise they will panic trying to use close objects
 		n.trans.Close()
+
 		n.core.hg.Store.Close()
 	}
 }
@@ -628,16 +731,20 @@ func (n *Node) GetStats() map[string]string {
 		if i == nil {
 			return "nil"
 		}
+
 		return strconv.Itoa(*i)
 	}
 
 	timeElapsed := time.Since(n.start)
 
 	consensusEvents := n.core.GetConsensusEventsCount()
+
 	consensusEventsPerSecond := float64(consensusEvents) / timeElapsed.Seconds()
 
 	lastConsensusRound := n.core.GetLastConsensusRoundIndex()
+
 	var consensusRoundsPerSecond float64
+
 	if lastConsensusRound != nil {
 		consensusRoundsPerSecond = float64(*lastConsensusRound) / timeElapsed.Seconds()
 	}
@@ -662,6 +769,7 @@ func (n *Node) GetStats() map[string]string {
 
 func (n *Node) logStats() {
 	stats := n.GetStats()
+
 	n.logger.WithFields(logrus.Fields{
 		"last_consensus_round":   stats["last_consensus_round"],
 		"last_block_index":       stats["last_block_index"],
@@ -681,14 +789,22 @@ func (n *Node) logStats() {
 
 func (n *Node) SyncRate() float64 {
 	var syncErrorRate float64
+
 	if n.syncRequests != 0 {
 		syncErrorRate = float64(n.syncErrors) / float64(n.syncRequests)
 	}
+
 	return 1 - syncErrorRate
 }
 
 func (n *Node) GetBlock(blockIndex int) (hg.Block, error) {
 	return n.core.hg.Store.GetBlock(blockIndex)
+}
+
+func (n *Node) GetEvents() (map[int]int, error) {
+	res := n.core.KnownEvents()
+
+	return res, nil
 }
 
 func (n *Node) ID() int {
