@@ -5,6 +5,7 @@ import hg "github.com/mosaicnetworks/babble/src/hashgraph"
 type Infos struct {
 	ParticipantEvents map[string]map[string]hg.Event
 	Rounds            []hg.RoundInfo
+	Blocks            []hg.Block
 }
 
 type Graph struct {
@@ -55,10 +56,31 @@ func (g *Graph) GetRounds() []hg.RoundInfo {
 	return res
 }
 
+func (g *Graph) GetBlocks() []hg.Block {
+	res := []hg.Block{}
+
+	blockIdx := 0
+
+	for blockIdx <= g.Node.core.hg.Store.LastBlockIndex() {
+		r, err := g.Node.core.hg.Store.GetBlock(blockIdx)
+
+		if err != nil {
+			break
+		}
+
+		res = append(res, r)
+
+		blockIdx++
+	}
+
+	return res
+}
+
 func (g *Graph) GetInfos() Infos {
 	return Infos{
 		ParticipantEvents: g.GetParticipantEvents(),
 		Rounds:            g.GetRounds(),
+		Blocks:            g.GetBlocks(),
 	}
 }
 

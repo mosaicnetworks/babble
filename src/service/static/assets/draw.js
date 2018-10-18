@@ -9,12 +9,59 @@ let setupStage = () => {
         container: 'container',
         width: window.innerWidth,
         height: window.innerHeight,
-        draggable: true,
     });
 
     layer = new Konva.Layer();
 
+    legendLayer = new Konva.Layer();
+
+    hgGroup = new Konva.Group({
+        draggable: true,
+        dragBoundFunc: pos => {
+            let yPos = pos.y > 0 ? 0 : pos.y;
+
+            return {
+                x: 0,
+                y: yPos,
+            };
+        },
+    });
+
+    hgBack = new Konva.Rect({
+        x: 0,
+        y: 0,
+        width: window.innerWidth - 100,
+        height: window.innerHeight,
+    });
+
+    blockGroup = new Konva.Group({
+        draggable: true,
+        dragBoundFunc: pos => {
+            let yPos = pos.y > 0 ? 0 : pos.y;
+
+            return {
+                x: 0,
+                y: yPos,
+            };
+        },
+    });
+
+    blockBack = new Konva.Rect({
+        x: window.innerWidth - 100,
+        y: 0,
+        width: 100,
+        height: window.innerHeight,
+    });
+
+    hgGroup.add(hgBack);
+
+    blockGroup.add(blockBack);
+
+    layer.add(hgGroup);
+    layer.add(blockGroup);
+
     stage.add(layer);
+    stage.add(legendLayer);
 };
 
 // Return the color of the event
@@ -66,7 +113,7 @@ let drawEvent = event => {
             fill: 'black',
         });
 
-        layer.add(nodeId);
+        hgGroup.add(nodeId);
     }
 
     // Set the border line if it contains a transaction
@@ -75,8 +122,8 @@ let drawEvent = event => {
         event.circle.setStrokeWidth(3);
     }
 
-    layer.add(event.circle);
-    layer.add(event.text);
+    hgGroup.add(event.circle);
+    hgGroup.add(event.text);
 };
 
 // Draw the links between an event and its parents
@@ -96,7 +143,7 @@ let drawEventLinks = event => {
             strokeWidth: 1,
         });
 
-        layer.add(arrow);
+        hgGroup.add(arrow);
 
         arrow.moveToBottom();
     });
@@ -145,11 +192,42 @@ let drawRoundLines = rounds => {
                 fill: 'black',
             });
 
-            layer.add(line);
-            layer.add(txt);
+            hgGroup.add(line);
+            hgGroup.add(txt);
         });
 
     actualRound = rounds.length - 1;
+};
+
+let drawBlocks = blocks => {
+    _.each(blocks, (block, bId) => {
+        if (bId <= actualBlock) {
+            return
+        }
+
+        let b = new Konva.Rect({
+            x: window.innerWidth - 80,
+            y: 20 + yInterval + (yInterval * bId),
+            height: 20,
+            width: 60,
+            fill: '#999999',
+            stroke: '#000000',
+            strokeWidth: 1,
+        });
+
+        let txt = new Konva.Text({
+            x: window.innerWidth - 60,
+            y: 20 + yInterval + (yInterval * bId) + 5,
+            text: '' + bId + ' (' + block.Body.Transactions.length + ')',
+            fontSize: 12,
+            fontFamily: 'Calibri',
+            fill: 'black',
+        });
+
+        blockGroup.add(b, txt);
+    })
+
+    actualBlock = blocks.length - 1;
 };
 
 // Main draw function
@@ -164,21 +242,33 @@ let draw = evs => {
         drawEventLinks(event);
     });
 
+    hgBack.setHeight(100 + _.maxBy(events, ([eId, event]) => event.y)[1].y);
+
     layer.draw();
 };
 
 // Draw the legend
 let drawLegend = () => {
+    let background = new Konva.Rect({
+        x: 0,
+        y: 0,
+        height: 40,
+        width: window.innerWidth,
+        fill: '#999999',
+        stroke: '#000000',
+        strokeWidth: 1,
+    });
+
     let root = new Konva.Circle({
-        x: 10,
-        y: 10,
+        x: 15,
+        y: 20,
         radius: 10,
         fill: getEventColor({ Body: { Index: -1 } }),
     });
 
     let rootText = new Konva.Text({
-        x: 20,
-        y: 5,
+        x: 25,
+        y: 15,
         text: 'Root',
         fontSize: 12,
         fontFamily: 'Calibri',
@@ -187,14 +277,14 @@ let drawLegend = () => {
 
     let consensus = new Konva.Circle({
         x: 70,
-        y: 10,
+        y: 20,
         radius: 10,
         fill: getEventColor({ Consensus: true }),
     });
 
     let consensusText = new Konva.Text({
         x: 80,
-        y: 5,
+        y: 15,
         text: 'Consensus',
         fontSize: 12,
         fontFamily: 'Calibri',
@@ -203,14 +293,14 @@ let drawLegend = () => {
 
     let famous = new Konva.Circle({
         x: 160,
-        y: 10,
+        y: 20,
         radius: 10,
         fill: getEventColor({ Famous: true }),
     });
 
     let famousText = new Konva.Text({
         x: 170,
-        y: 5,
+        y: 15,
         text: 'Famous',
         fontSize: 12,
         fontFamily: 'Calibri',
@@ -219,14 +309,14 @@ let drawLegend = () => {
 
     let witness = new Konva.Circle({
         x: 240,
-        y: 10,
+        y: 20,
         radius: 10,
         fill: getEventColor({ Witness: true }),
     });
 
     let witnessText = new Konva.Text({
         x: 250,
-        y: 5,
+        y: 15,
         text: 'Witness',
         fontSize: 12,
         fontFamily: 'Calibri',
@@ -235,14 +325,14 @@ let drawLegend = () => {
 
     let normal = new Konva.Circle({
         x: 320,
-        y: 10,
+        y: 20,
         radius: 10,
         fill: getEventColor({ Body: {} }),
     });
 
     let normalText = new Konva.Text({
         x: 330,
-        y: 5,
+        y: 15,
         text: 'Normal',
         fontSize: 12,
         fontFamily: 'Calibri',
@@ -251,7 +341,7 @@ let drawLegend = () => {
 
     let tx = new Konva.Circle({
         x: 400,
-        y: 10,
+        y: 20,
         radius: 10,
         fill: 'white',
         stroke: 'black',
@@ -260,28 +350,34 @@ let drawLegend = () => {
 
     let txText = new Konva.Text({
         x: 410,
-        y: 5,
+        y: 15,
         text: 'Transaction',
         fontSize: 12,
         fontFamily: 'Calibri',
         fill: 'black',
     });
 
-    layer.add(root);
-    layer.add(rootText);
+    legendLayer.add(background);
 
-    layer.add(consensus);
-    layer.add(consensusText);
+    legendLayer.add(root);
+    legendLayer.add(rootText);
 
-    layer.add(famous);
-    layer.add(famousText);
+    legendLayer.add(consensus);
+    legendLayer.add(consensusText);
 
-    layer.add(witness);
-    layer.add(witnessText);
+    legendLayer.add(famous);
+    legendLayer.add(famousText);
 
-    layer.add(normal);
-    layer.add(normalText);
+    legendLayer.add(witness);
+    legendLayer.add(witnessText);
 
-    layer.add(tx);
-    layer.add(txText);
+    legendLayer.add(normal);
+    legendLayer.add(normalText);
+
+    legendLayer.add(tx);
+    legendLayer.add(txText);
+
+    legendLayer.draw();
+
+    background.moveToBottom();
 };
