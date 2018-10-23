@@ -13,22 +13,20 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+/*******************************************************************************
+MOST OF THIS IS TAKEN FROM HASHICORP RAFT
+*******************************************************************************/
+
 const (
 	rpcSync uint8 = iota
 	rpcEagerSync
 	rpcFastForward
-
-	// DefaultTimeoutScale is the default TimeoutScale in a NetworkTransport.
-	DefaultTimeoutScale = 256 * 1024 // 256KB
 )
 
 var (
 	// ErrTransportShutdown is returned when operations on a transport are
 	// invoked after it's been terminated.
 	ErrTransportShutdown = errors.New("transport shutdown")
-
-	// ErrPipelineShutdown is returned when the pipeline is closed.
-	ErrPipelineShutdown = errors.New("append pipeline closed")
 )
 
 /*
@@ -86,8 +84,8 @@ func (n *netConn) Release() error {
 }
 
 // NewNetworkTransport creates a new network transport with the given dialer
-// and listener. The maxPool controls how many connections we will pool. The
-// timeout is used to apply I/O deadlines.
+// and listener. The maxPool controls how many connections we will pool (per
+// target). The timeout is used to apply I/O deadlines.
 func NewNetworkTransport(
 	stream StreamLayer,
 	maxPool int,

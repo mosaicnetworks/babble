@@ -5,14 +5,14 @@ import (
 	"time"
 )
 
-type timerFactory func() <-chan time.Time
+type timerFactory func(time.Duration) <-chan time.Time
 
 type ControlTimer struct {
 	timerFactory timerFactory
-	tickCh       chan struct{} //sends a signal to listening process
-	resetCh      chan struct{} //receives instruction to reset the heartbeatTimer
-	stopCh       chan struct{} //receives instruction to stop the heartbeatTimer
-	shutdownCh   chan struct{} //receives instruction to exit Run loop
+	tickCh       chan struct{}      //sends a signal to listening process
+	resetCh      chan time.Duration //receives instruction to reset the heartbeatTimer
+	stopCh       chan struct{}      //receives instruction to stop the heartbeatTimer
+	shutdownCh   chan struct{}      //receives instruction to exit Run loop
 	set          bool
 }
 
@@ -20,40 +20,39 @@ func NewControlTimer(timerFactory timerFactory) *ControlTimer {
 	return &ControlTimer{
 		timerFactory: timerFactory,
 		tickCh:       make(chan struct{}),
-		resetCh:      make(chan struct{}),
+		resetCh:      make(chan time.Duration),
 		stopCh:       make(chan struct{}),
 		shutdownCh:   make(chan struct{}),
 	}
 }
 
-func NewRandomControlTimer(base time.Duration) *ControlTimer {
+func NewRandomControlTimer() *ControlTimer {
 
-	randomTimeout := func() <-chan time.Time {
-		minVal := base
-		if minVal == 0 {
+	randomTimeout := func(min time.Duration) <-chan time.Time {
+		if min == 0 {
 			return nil
 		}
-		extra := (time.Duration(rand.Int63()) % minVal)
-		return time.After(minVal + extra)
+		extra := (time.Duration(rand.Int63()) % min)
+		return time.After(min + extra)
 	}
 	return NewControlTimer(randomTimeout)
 }
 
-func (c *ControlTimer) Run() {
+func (c *ControlTimer) Run(init time.Duration) {
 
-	setTimer := func() <-chan time.Time {
+	setTimer := func(t time.Duration) <-chan time.Time {
 		c.set = true
-		return c.timerFactory()
+		return c.timerFactory(t)
 	}
 
-	timer := setTimer()
+	timer := setTimer(init)
 	for {
 		select {
 		case <-timer:
 			c.tickCh <- struct{}{}
 			c.set = false
-		case <-c.resetCh:
-			timer = setTimer()
+		case t := <-c.resetCh:
+			timer = setTimer(t)
 		case <-c.stopCh:
 			timer = nil
 			c.set = false

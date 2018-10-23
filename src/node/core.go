@@ -126,10 +126,7 @@ func (c *Core) SignAndInsertSelfEvent(event hg.Event) error {
 	if err := event.Sign(c.key); err != nil {
 		return err
 	}
-	if err := c.InsertEvent(event, true); err != nil {
-		return err
-	}
-	return nil
+	return c.InsertEvent(event, true)
 }
 
 func (c *Core) InsertEvent(event hg.Event, setWireInfo bool) error {
@@ -234,7 +231,13 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 
 	//create new event with self head and other head only if there are pending
 	//loaded events or the pools are not empty
-	return c.AddSelfEvent(otherHead)
+	if c.hg.PendingLoadedEvents > 0 ||
+		len(c.transactionPool) > 0 ||
+		len(c.blockSignaturePool) > 0 {
+		return c.AddSelfEvent(otherHead)
+	}
+
+	return nil
 }
 
 func (c *Core) FastForward(peer string, block hg.Block, frame hg.Frame) error {
@@ -264,16 +267,6 @@ func (c *Core) FastForward(peer string, block hg.Block, frame hg.Frame) error {
 		return err
 	}
 
-	// lastEventFromPeer, _, err := c.hg.Store.LastEventFrom(peer)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// err = c.AddSelfEvent(lastEventFromPeer)
-	// if err != nil {
-	// 	return err
-	// }
-
 	err = c.RunConsensus()
 	if err != nil {
 		return err
@@ -284,14 +277,8 @@ func (c *Core) FastForward(peer string, block hg.Block, frame hg.Frame) error {
 
 func (c *Core) AddSelfEvent(otherHead string) error {
 
-	//exit if there is nothing to record
-	if otherHead == "" && len(c.transactionPool) == 0 && len(c.blockSignaturePool) == 0 {
-		c.logger.Debug("Empty transaction pool and block signature pool")
-		return nil
-	}
-
-	//create new event with self head and empty other parent
-	//empty transaction pool in its payload
+	//create new event with self head and otherHead
+	//empty pools in its payload
 	newHead := hg.NewEvent(c.transactionPool,
 		c.blockSignaturePool,
 		[]string{c.Head, otherHead},
@@ -444,10 +431,4 @@ func (c *Core) GetLastCommitedRoundEventsCount() int {
 
 func (c *Core) GetLastBlockIndex() int {
 	return c.hg.Store.LastBlockIndex()
-}
-
-func (c *Core) NeedGossip() bool {
-	return c.hg.PendingLoadedEvents > 0 ||
-		len(c.transactionPool) > 0 ||
-		len(c.blockSignaturePool) > 0
 }
