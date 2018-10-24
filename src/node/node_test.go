@@ -304,6 +304,7 @@ func initNodes(keys []*ecdsa.PrivateKey,
 		peer := peers.ByPubKey[key]
 		id := peer.ID
 
+		//XXX
 		conf := NewConfig(
 			5*time.Millisecond,
 			time.Second,
