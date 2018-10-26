@@ -8,10 +8,9 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/peers"
+	"github.com/sirupsen/logrus"
 )
 
 //Hashgraph is a DAG of Events. It also contains methods to extract a consensus
@@ -818,6 +817,7 @@ func (h *Hashgraph) DivideRounds() error {
 			if err != nil {
 				return err
 			}
+
 			roundInfo.AddEvent(hash, witness)
 
 			err = h.Store.SetRound(roundNumber, roundInfo)

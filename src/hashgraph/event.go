@@ -21,7 +21,7 @@ type EventBody struct {
 	BlockSignatures []BlockSignature //list of Block signatures signed by the Event's Creator ONLY
 
 	//wire
-	//It is cheaper to send ints then hashes over the wire
+	//It is cheaper to send ints than hashes over the wire
 	selfParentIndex      int
 	otherParentCreatorID int
 	otherParentIndex     int
