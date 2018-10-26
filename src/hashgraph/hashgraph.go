@@ -1098,14 +1098,16 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 			if err != nil {
 				return err
 			}
-			if err := h.Store.SetBlock(block); err != nil {
-				return err
-			}
 
-			if h.commitCh != nil {
-				h.commitCh <- block
-			}
+			if len(block.Transactions()) > 0 {
+				if err := h.Store.SetBlock(block); err != nil {
+					return err
+				}
 
+				if h.commitCh != nil {
+					h.commitCh <- block
+				}
+			}
 		} else {
 			h.logger.Debugf("No Events to commit for ConsensusRound %d", r.Index)
 		}
