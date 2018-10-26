@@ -47,6 +47,8 @@ func (p *SocketAppProxyClient) CommitBlock(block hashgraph.Block) ([]byte, error
 	var stateHash []byte
 
 	if err := p.rpc.Call("State.CommitBlock", block, &stateHash); err != nil {
+		p.rpc = nil
+
 		return []byte{}, err
 	}
 
@@ -66,6 +68,8 @@ func (p *SocketAppProxyClient) GetSnapshot(blockIndex int) ([]byte, error) {
 	var snapshot []byte
 
 	if err := p.rpc.Call("State.GetSnapshot", blockIndex, &snapshot); err != nil {
+		p.rpc = nil
+
 		return []byte{}, err
 	}
 
@@ -85,6 +89,8 @@ func (p *SocketAppProxyClient) Restore(snapshot []byte) error {
 	var stateHash []byte
 
 	if err := p.rpc.Call("State.Restore", snapshot, &stateHash); err != nil {
+		p.rpc = nil
+
 		return err
 	}
 
