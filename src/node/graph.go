@@ -11,14 +11,14 @@ type Infos struct {
 }
 
 type Graph struct {
-	Node IService
+	*Node
 }
 
 func (g *Graph) GetParticipantEvents() map[string]map[string]hg.Event {
 	res := make(map[string]map[string]hg.Event)
 
-	store := g.Node.GetStore()
-	peers := g.Node.GetPeers()
+	store := g.Node.core.hg.Store
+	peers := g.Node.core.hg.Participants
 
 	for _, p := range peers.ByPubKey {
 		root, err := store.GetRoot(p.PubKeyHex)
@@ -58,7 +58,7 @@ func (g *Graph) GetRounds() []hg.RoundInfo {
 
 	round := 0
 
-	store := g.Node.GetStore()
+	store := g.Node.core.hg.Store
 
 	for round <= store.LastRound() {
 		r, err := store.GetRound(round)
@@ -80,7 +80,7 @@ func (g *Graph) GetBlocks() []hg.Block {
 
 	blockIdx := 0
 
-	store := g.Node.GetStore()
+	store := g.Node.core.hg.Store
 
 	for blockIdx <= store.LastBlockIndex() {
 		r, err := store.GetBlock(blockIdx)
@@ -105,7 +105,7 @@ func (g *Graph) GetInfos() Infos {
 	}
 }
 
-func NewGraph(n IService) *Graph {
+func NewGraph(n *Node) *Graph {
 	return &Graph{
 		Node: n,
 	}

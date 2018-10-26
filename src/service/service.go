@@ -11,7 +11,7 @@ import (
 
 type Service struct {
 	bindAddress string
-	node        node.IService
+	node        *node.Node
 	graph       *node.Graph
 	logger      *logrus.Logger
 }
@@ -35,8 +35,6 @@ func (s *Service) Serve() {
 	http.HandleFunc("/block/", s.GetBlock)
 
 	http.HandleFunc("/graph", s.GetGraph)
-
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("src/service/static/"))))
 
 	err := http.ListenAndServe(s.bindAddress, nil)
 
