@@ -5,7 +5,9 @@ SECURITY:
 FEATURES:
 
 IMPROVEMENTS:
-
+- node: Gossip condition. Two-speed heartbeat timer. Nodes always gossip but 
+  slow down when there are no uncommitted transactions in the hg.
+   
 BUG FIXES:
 
 ## v0.4.0 (October 14, 2018)

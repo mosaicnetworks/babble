@@ -2512,15 +2512,6 @@ func initSparseHashgraph(logger *logrus.Logger) (*Hashgraph, map[string]string) 
 		play{1, 7, "w41", "i32", "w51", [][]byte{[]byte("w51")}, nil},
 	}
 
-	for _, p := range plays {
-		e := NewEvent(p.txPayload,
-			p.sigPayload,
-			[]string{index[p.selfParent], index[p.otherParent]},
-			nodes[p.to].Pub,
-			p.index)
-		nodes[p.to].signAndAddEvent(e, p.name, index, orderedEvents)
-	}
-
 	playEvents(plays, nodes, index, orderedEvents)
 
 	hashgraph := createHashgraph(false, orderedEvents, participants, logger.WithField("test", 6))
