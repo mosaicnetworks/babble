@@ -11,7 +11,7 @@ import (
 
 type Service struct {
 	bindAddress string
-	node        *node.Node
+	node        node.IService
 	graph       *node.Graph
 	logger      *logrus.Logger
 }

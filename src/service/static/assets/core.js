@@ -106,7 +106,7 @@ let assignRound = (rounds) => {
             let eventInfos = _.find(events, ([eId, _]) => eId === reId)
 
             if (eventInfos == null) {
-                console.log('ERROR: Unknown event', eId);
+                console.log('ERROR: Unknown event', reId);
 
                 return
             }

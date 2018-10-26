@@ -1,6 +1,8 @@
 package node
 
-import hg "github.com/mosaicnetworks/babble/src/hashgraph"
+import (
+	hg "github.com/mosaicnetworks/babble/src/hashgraph"
+)
 
 type Infos struct {
 	ParticipantEvents map[string]map[string]hg.Event
@@ -9,23 +11,38 @@ type Infos struct {
 }
 
 type Graph struct {
-	Node *Node
+	Node IService
 }
 
 func (g *Graph) GetParticipantEvents() map[string]map[string]hg.Event {
 	res := make(map[string]map[string]hg.Event)
 
-	for _, p := range g.Node.core.participants.ByPubKey {
-		root, _ := g.Node.core.hg.Store.GetRoot(p.PubKeyHex)
+	store := g.Node.GetStore()
+	peers := g.Node.GetPeers()
 
-		evs, _ := g.Node.core.hg.Store.ParticipantEvents(p.PubKeyHex, -1)
+	for _, p := range peers.ByPubKey {
+		root, err := store.GetRoot(p.PubKeyHex)
+
+		if err != nil {
+			panic(err)
+		}
+
+		evs, err := store.ParticipantEvents(p.PubKeyHex, root.SelfParent.Index)
+
+		if err != nil {
+			panic(err)
+		}
 
 		res[p.PubKeyHex] = make(map[string]hg.Event)
 
 		res[p.PubKeyHex][root.SelfParent.Hash] = hg.NewEvent([][]byte{}, []hg.BlockSignature{}, []string{}, []byte{}, -1)
 
 		for _, e := range evs {
-			event, _ := g.Node.core.GetEvent(e)
+			event, err := store.GetEvent(e)
+
+			if err != nil {
+				panic(err)
+			}
 
 			hash := event.Hex()
 
@@ -41,8 +58,10 @@ func (g *Graph) GetRounds() []hg.RoundInfo {
 
 	round := 0
 
-	for round <= g.Node.core.hg.Store.LastRound() {
-		r, err := g.Node.core.hg.Store.GetRound(round)
+	store := g.Node.GetStore()
+
+	for round <= store.LastRound() {
+		r, err := store.GetRound(round)
 
 		if err != nil || !r.IsQueued() {
 			break
@@ -61,8 +80,10 @@ func (g *Graph) GetBlocks() []hg.Block {
 
 	blockIdx := 0
 
-	for blockIdx <= g.Node.core.hg.Store.LastBlockIndex() {
-		r, err := g.Node.core.hg.Store.GetBlock(blockIdx)
+	store := g.Node.GetStore()
+
+	for blockIdx <= store.LastBlockIndex() {
+		r, err := store.GetBlock(blockIdx)
 
 		if err != nil {
 			break
@@ -84,7 +105,7 @@ func (g *Graph) GetInfos() Infos {
 	}
 }
 
-func NewGraph(n *Node) *Graph {
+func NewGraph(n IService) *Graph {
 	return &Graph{
 		Node: n,
 	}
