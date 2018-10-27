@@ -27,7 +27,6 @@ do
     docker create --name=node$i --net=babblenet --ip=172.77.5.$i mosaicnetworks/babble:0.4.0 run \
     --cache-size=50000 \
     --timeout=200ms \
-    --heartbeat=10ms \
     --listen="172.77.5.$i:1337" \
     --proxy-listen="172.77.5.$i:1338" \
     --client-connect="172.77.5.$(($N+$i)):1339" \
