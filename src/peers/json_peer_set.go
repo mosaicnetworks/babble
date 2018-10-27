@@ -8,24 +8,28 @@ import (
 	"sync"
 )
 
-// JSONPeers is used to provide peer persistence on disk in the form
-// of a JSON file. This allows human operators to manipulate the file.
-type JSONPeers struct {
+const (
+	jsonPeerSetPath = "peers.json"
+)
+
+// JSONPeerSet is used to provide peer persistence on disk in the form
+// of a JSON file.
+type JSONPeerSet struct {
 	l    sync.Mutex
 	path string
 }
 
-// NewJSONPeers creates a new JSONPeers store.
-func NewJSONPeers(base string) *JSONPeers {
-	path := filepath.Join(base, jsonPeerPath)
-	store := &JSONPeers{
+// NewJSONPeerSet creates a new JSONPeerSet.
+func NewJSONPeerSet(base string) *JSONPeerSet {
+	path := filepath.Join(base, jsonPeerSetPath)
+	store := &JSONPeerSet{
 		path: path,
 	}
 	return store
 }
 
-// Peers implements the PeerStore interface.
-func (j *JSONPeers) Peers() (*Peers, error) {
+//PeerSet creates a PeerSet from the JSONPeerSet
+func (j *JSONPeerSet) PeerSet() (*PeerSet, error) {
 	j.l.Lock()
 	defer j.l.Unlock()
 
@@ -41,17 +45,17 @@ func (j *JSONPeers) Peers() (*Peers, error) {
 	}
 
 	// Decode the peers
-	var peerSet []*Peer
+	var peers []*Peer
 	dec := json.NewDecoder(bytes.NewReader(buf))
-	if err := dec.Decode(&peerSet); err != nil {
+	if err := dec.Decode(&peers); err != nil {
 		return nil, err
 	}
 
-	return NewPeersFromSlice(peerSet), nil
+	return NewPeerSet(peers), nil
 }
 
-// SetPeers implements the PeerStore interface.
-func (j *JSONPeers) SetPeers(peers []*Peer) error {
+//Write persists a PeerSet to a JSON file in path
+func (j *JSONPeerSet) Write(peers []*Peer) error {
 	j.l.Lock()
 	defer j.l.Unlock()
 

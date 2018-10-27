@@ -20,7 +20,7 @@ const (
 )
 
 type BadgerStore struct {
-	participants *peers.Peers
+	peerSet      *peers.PeerSet
 	inmemStore   *InmemStore
 	db           *badger.DB
 	path         string
@@ -28,7 +28,7 @@ type BadgerStore struct {
 }
 
 //NewBadgerStore creates a brand new Store with a new database
-func NewBadgerStore(participants *peers.Peers, cacheSize int, path string) (*BadgerStore, error) {
+func NewBadgerStore(participants *peers.PeerSet, cacheSize int, path string) (*BadgerStore, error) {
 	inmemStore := NewInmemStore(participants, cacheSize)
 	opts := badger.DefaultOptions
 	opts.Dir = path
@@ -39,12 +39,12 @@ func NewBadgerStore(participants *peers.Peers, cacheSize int, path string) (*Bad
 		return nil, err
 	}
 	store := &BadgerStore{
-		participants: participants,
-		inmemStore:   inmemStore,
-		db:           handle,
-		path:         path,
+		peerSet:    participants,
+		inmemStore: inmemStore,
+		db:         handle,
+		path:       path,
 	}
-	if err := store.dbSetParticipants(participants); err != nil {
+	if err := store.dbSetPeerSet(participants); err != nil {
 		return nil, err
 	}
 	if err := store.dbSetRoots(inmemStore.rootsByParticipant); err != nil {
@@ -74,7 +74,7 @@ func LoadBadgerStore(cacheSize int, path string) (*BadgerStore, error) {
 		needBoostrap: true,
 	}
 
-	participants, err := store.dbGetParticipants()
+	participants, err := store.dbGetPeerSet()
 	if err != nil {
 		return nil, err
 	}
@@ -95,13 +95,13 @@ func LoadBadgerStore(cacheSize int, path string) (*BadgerStore, error) {
 		return nil, err
 	}
 
-	store.participants = participants
+	store.peerSet = participants
 	store.inmemStore = inmemStore
 
 	return store, nil
 }
 
-func LoadOrCreateBadgerStore(participants *peers.Peers, cacheSize int, path string) (*BadgerStore, error) {
+func LoadOrCreateBadgerStore(participants *peers.PeerSet, cacheSize int, path string) (*BadgerStore, error) {
 	store, err := LoadBadgerStore(cacheSize, path)
 
 	if err != nil {
@@ -153,8 +153,8 @@ func (s *BadgerStore) CacheSize() int {
 	return s.inmemStore.CacheSize()
 }
 
-func (s *BadgerStore) Participants() (*peers.Peers, error) {
-	return s.participants, nil
+func (s *BadgerStore) PeerSet() (*peers.PeerSet, error) {
+	return s.peerSet, nil
 }
 
 func (s *BadgerStore) RootsBySelfParent() (map[string]Root, error) {
@@ -206,7 +206,7 @@ func (s *BadgerStore) LastConsensusEventFrom(participant string) (last string, i
 
 func (s *BadgerStore) KnownEvents() map[int]int {
 	known := make(map[int]int)
-	for p, pid := range s.participants.ByPubKey {
+	for p, pid := range s.peerSet.ByPubKey {
 		index := -1
 		last, isRoot, err := s.LastEventFrom(p)
 		if err == nil {
@@ -541,12 +541,12 @@ func (s *BadgerStore) dbGetRound(index int) (RoundInfo, error) {
 	})
 
 	if err != nil {
-		return *NewRoundInfo(), err
+		return *NewRoundInfo(nil), err
 	}
 
 	roundInfo := new(RoundInfo)
 	if err := roundInfo.Unmarshal(roundBytes); err != nil {
-		return *NewRoundInfo(), err
+		return *NewRoundInfo(nil), err
 	}
 
 	return *roundInfo, nil
@@ -570,9 +570,9 @@ func (s *BadgerStore) dbSetRound(index int, round RoundInfo) error {
 	return tx.Commit(nil)
 }
 
-func (s *BadgerStore) dbGetParticipants() (*peers.Peers, error) {
-	res := peers.NewPeers()
+func (s *BadgerStore) dbGetPeerSet() (*peers.PeerSet, error) {
 
+	pirs := []*peers.Peer{}
 	err := s.db.View(func(txn *badger.Txn) error {
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer it.Close()
@@ -581,23 +581,23 @@ func (s *BadgerStore) dbGetParticipants() (*peers.Peers, error) {
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 			item := it.Item()
 			k := string(item.Key())
-
 			pubKey := k[len(participantPrefix)+1:]
-
-			res.AddPeer(peers.NewPeer(pubKey, ""))
+			pirs = append(pirs, peers.NewPeer(pubKey, ""))
 		}
 
 		return nil
 	})
 
+	res := peers.NewPeerSet(pirs)
+
 	return res, err
 }
 
-func (s *BadgerStore) dbSetParticipants(participants *peers.Peers) error {
+func (s *BadgerStore) dbSetPeerSet(peerSet *peers.PeerSet) error {
 	tx := s.db.NewTransaction(true)
 	defer tx.Discard()
 
-	for participant, id := range participants.ByPubKey {
+	for participant, id := range peerSet.ByPubKey {
 		key := participantKey(participant)
 		val := []byte(strconv.Itoa(id.ID))
 		//insert [participant_participant] => [id]

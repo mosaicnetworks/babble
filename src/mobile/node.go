@@ -21,7 +21,7 @@ type Node struct {
 // New initializes Node struct
 func New(privKey string,
 	nodeAddr string,
-	participants *peers.Peers,
+	peerSet *peers.PeerSet,
 	commitHandler CommitHandler,
 	exceptionHandler ExceptionHandler,
 	config *MobileConfig) *Node {
@@ -30,7 +30,7 @@ func New(privKey string,
 
 	babbleConfig.Logger.WithFields(logrus.Fields{
 		"nodeAddr": nodeAddr,
-		"peers":    participants,
+		"peers":    peerSet,
 		"config":   fmt.Sprintf("%v", config),
 	}).Debug("New Mobile Node")
 
@@ -48,7 +48,7 @@ func New(privKey string,
 	babbleConfig.Key = key
 
 	// There should be at least two peers
-	if participants.Len() < 2 {
+	if peerSet.Len() < 2 {
 		exceptionHandler.OnException(fmt.Sprintf("Should define at least two peers"))
 
 		return nil
@@ -59,7 +59,7 @@ func New(privKey string,
 
 	engine := babble.NewBabble(babbleConfig)
 
-	engine.Peers = participants
+	engine.Peers = peerSet
 
 	if err := engine.Init(); err != nil {
 		exceptionHandler.OnException(fmt.Sprintf("Cannot initialize engine: %s", err))

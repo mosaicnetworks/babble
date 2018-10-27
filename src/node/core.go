@@ -20,9 +20,9 @@ type Core struct {
 	hexID  string
 	hg     *hg.Hashgraph
 
-	participants *peers.Peers //[PubKey] => id
-	Head         string
-	Seq          int
+	peers *peers.PeerSet //[PubKey] => id
+	Head  string
+	Seq   int
 
 	transactionPool    [][]byte
 	blockSignaturePool []hg.BlockSignature
@@ -33,7 +33,7 @@ type Core struct {
 func NewCore(
 	id int,
 	key *ecdsa.PrivateKey,
-	participants *peers.Peers,
+	peers *peers.PeerSet,
 	store hg.Store,
 	commitCh chan hg.Block,
 	logger *logrus.Logger) Core {
@@ -47,8 +47,8 @@ func NewCore(
 	core := Core{
 		id:                 id,
 		key:                key,
-		hg:                 hg.NewHashgraph(participants, store, commitCh, logEntry),
-		participants:       participants,
+		hg:                 hg.NewHashgraph(peers, store, commitCh, logEntry),
+		peers:              peers,
 		transactionPool:    [][]byte{},
 		blockSignaturePool: []hg.BlockSignature{},
 		logger:             logEntry,
@@ -183,7 +183,7 @@ func (c *Core) EventDiff(known map[int]int) (events []hg.Event, err error) {
 	//compare this to our view of events and fill unknown with events that we know of
 	// and the other doesnt
 	for id, ct := range known {
-		peer := c.participants.ById[id]
+		peer := c.peers.ByID[id]
 		//get participant Events with index > ct
 		participantEvents, err := c.hg.Store.ParticipantEvents(peer.PubKeyHex, ct)
 		if err != nil {

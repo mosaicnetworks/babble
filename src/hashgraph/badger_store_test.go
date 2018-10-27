@@ -12,18 +12,21 @@ import (
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
-func initBadgerStore(cacheSize int, t *testing.T) (*BadgerStore, []pub) {
+func initBadgerStore(cacheSize int, t *testing.T) (*BadgerStore, []participant) {
 	n := 3
-	participantPubs := []pub{}
-	participants := peers.NewPeers()
+	participants := []participant{}
+
+	pirs := []*peers.Peer{}
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
 		pubKey := crypto.FromECDSAPub(&key.PublicKey)
 		peer := peers.NewPeer(fmt.Sprintf("0x%X", pubKey), "")
-		participants.AddPeer(peer)
-		participantPubs = append(participantPubs,
-			pub{peer.ID, key, pubKey, peer.PubKeyHex})
+		pirs = append(pirs, peer)
+		participants = append(participants,
+			participant{peer.ID, key, pubKey, peer.PubKeyHex})
 	}
+
+	peerSet := peers.NewPeerSet(pirs)
 
 	os.RemoveAll("test_data")
 	os.Mkdir("test_data", os.ModeDir|0777)
@@ -32,12 +35,12 @@ func initBadgerStore(cacheSize int, t *testing.T) (*BadgerStore, []pub) {
 		log.Fatal(err)
 	}
 
-	store, err := NewBadgerStore(participants, cacheSize, dir)
+	store, err := NewBadgerStore(peerSet, cacheSize, dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return store, participantPubs
+	return store, participants
 }
 
 func removeBadgerStore(store *BadgerStore, t *testing.T) {
@@ -50,7 +53,7 @@ func removeBadgerStore(store *BadgerStore, t *testing.T) {
 }
 
 func createTestDB(dir string, t *testing.T) *BadgerStore {
-	participants := peers.NewPeersFromSlice([]*peers.Peer{
+	participants := peers.NewPeerSet([]*peers.Peer{
 		peers.NewPeer("0xaa", ""),
 		peers.NewPeer("0xbb", ""),
 		peers.NewPeer("0xcc", ""),
@@ -88,13 +91,13 @@ func TestNewBadgerStore(t *testing.T) {
 		t.Fatalf("DB root should have 3 items, not %d", len(inmemRoots))
 	}
 
-	for participant, root := range inmemRoots {
-		dbRoot, err := store.dbGetRoot(participant)
+	for p, root := range inmemRoots {
+		dbRoot, err := store.dbGetRoot(p)
 		if err != nil {
-			t.Fatalf("Error retrieving DB root for participant %s: %s", participant, err)
+			t.Fatalf("Error retrieving DB root for peer %s: %s", p, err)
 		}
 		if !reflect.DeepEqual(dbRoot, root) {
-			t.Fatalf("%s DB root should be %#v, not %#v", participant, root, dbRoot)
+			t.Fatalf("%s DB root should be %#v, not %#v", p, root, dbRoot)
 		}
 	}
 
@@ -118,28 +121,28 @@ func TestLoadBadgerStore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	dbParticipants, err := badgerStore.dbGetParticipants()
+	dbPeerSet, err := badgerStore.dbGetPeerSet()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if badgerStore.participants.Len() != 3 {
-		t.Fatalf("store.participants  length should be %d items, not %d", 3, badgerStore.participants.Len())
+	if badgerStore.peerSet.Len() != 3 {
+		t.Fatalf("store.peerSet length should be %d items, not %d", 3, badgerStore.peerSet.Len())
 	}
 
-	if badgerStore.participants.Len() != dbParticipants.Len() {
-		t.Fatalf("store.participants should contain %d items, not %d",
-			dbParticipants.Len(),
-			badgerStore.participants.Len())
+	if badgerStore.peerSet.Len() != dbPeerSet.Len() {
+		t.Fatalf("store.peerSet should contain %d items, not %d",
+			dbPeerSet.Len(),
+			badgerStore.peerSet.Len())
 	}
 
-	for dbP, dbPeer := range dbParticipants.ByPubKey {
-		peer, ok := badgerStore.participants.ByPubKey[dbP]
+	for dbP, dbPeer := range dbPeerSet.ByPubKey {
+		peer, ok := badgerStore.peerSet.ByPubKey[dbP]
 		if !ok {
-			t.Fatalf("BadgerStore participants does not contains %s", dbP)
+			t.Fatalf("BadgerStore peerSet does not contains %s", dbP)
 		}
 		if peer.ID != dbPeer.ID {
-			t.Fatalf("participant %s ID should be %d, not %d", dbP, dbPeer.ID, peer.ID)
+			t.Fatalf("peerSet %s ID should be %d, not %d", dbP, dbPeer.ID, peer.ID)
 		}
 	}
 
@@ -233,7 +236,7 @@ func TestDBEventMethods(t *testing.T) {
 		}
 	}
 
-	//check that participant events where correctly added
+	//check that peerSet events where correctly added
 	skipIndex := -1 //do not skip any indexes
 	for _, p := range participants {
 		pEvents, err := store.dbParticipantEvents(p.hex, skipIndex)
@@ -247,7 +250,7 @@ func TestDBEventMethods(t *testing.T) {
 		expectedEvents := events[p.hex][skipIndex+1:]
 		for k, e := range expectedEvents {
 			if e.Hex() != pEvents[k] {
-				t.Fatalf("ParticipantEvents[%s][%d] should be %s, not %s",
+				t.Fatalf("peerSetEvents[%s][%d] should be %s, not %s",
 					p.hex, k, e.Hex(), pEvents[k])
 			}
 		}
@@ -259,7 +262,7 @@ func TestDBRoundMethods(t *testing.T) {
 	store, participants := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
 
-	round := NewRoundInfo()
+	round := NewRoundInfo(nil) //XXX something better here
 	events := make(map[string]Event)
 	for _, p := range participants {
 		event := NewEvent([][]byte{},
@@ -296,27 +299,27 @@ func TestDBRoundMethods(t *testing.T) {
 	}
 }
 
-func TestDBParticipantMethods(t *testing.T) {
+func TestDBPeerSetMethods(t *testing.T) {
 	cacheSize := 0
 	store, _ := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
 
-	if err := store.dbSetParticipants(store.participants); err != nil {
+	if err := store.dbSetPeerSet(store.peerSet); err != nil {
 		t.Fatal(err)
 	}
 
-	participantsFromDB, err := store.dbGetParticipants()
+	participantsFromDB, err := store.dbGetPeerSet()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	for p, peer := range store.participants.ByPubKey {
+	for p, peer := range store.peerSet.ByPubKey {
 		dbPeer, ok := participantsFromDB.ByPubKey[p]
 		if !ok {
-			t.Fatalf("DB does not contain participant %s", p)
+			t.Fatalf("DB does not contain peerSet %s", p)
 		}
 		if peer.ID != dbPeer.ID {
-			t.Fatalf("DB participant %s should have ID %d, not %d", p, peer.ID, dbPeer.ID)
+			t.Fatalf("DB peerSet %s should have ID %d, not %d", p, peer.ID, dbPeer.ID)
 		}
 	}
 }
@@ -479,7 +482,7 @@ func TestBadgerEvents(t *testing.T) {
 		}
 	}
 
-	//check retrieving events per participant
+	//check retrieving events per peerSet
 	skipIndex := -1 //do not skip any indexes
 	for _, p := range participants {
 		pEvents, err := store.ParticipantEvents(p.hex, skipIndex)
@@ -493,13 +496,13 @@ func TestBadgerEvents(t *testing.T) {
 		expectedEvents := events[p.hex][skipIndex+1:]
 		for k, e := range expectedEvents {
 			if e.Hex() != pEvents[k] {
-				t.Fatalf("ParticipantEvents[%s][%d] should be %s, not %s",
+				t.Fatalf("peerSetEvents[%s][%d] should be %s, not %s",
 					p.hex, k, e.Hex(), pEvents[k])
 			}
 		}
 	}
 
-	//check retrieving participant last
+	//check retrieving peerSet last
 	for _, p := range participants {
 		last, _, err := store.LastEventFrom(p.hex)
 		if err != nil {
@@ -538,7 +541,7 @@ func TestBadgerRounds(t *testing.T) {
 	store, participants := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
 
-	round := NewRoundInfo()
+	round := NewRoundInfo(nil) //XXX
 	events := make(map[string]Event)
 	for _, p := range participants {
 		event := NewEvent([][]byte{},

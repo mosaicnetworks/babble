@@ -14,28 +14,31 @@ import (
 	"github.com/mosaicnetworks/babble/src/crypto"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
-	peers_ "github.com/mosaicnetworks/babble/src/peers"
+	"github.com/mosaicnetworks/babble/src/peers"
 	dummy "github.com/mosaicnetworks/babble/src/proxy/dummy"
 	"github.com/sirupsen/logrus"
 )
 
 var ip = 9990
 
-func initPeers(n int) ([]*ecdsa.PrivateKey, *peers_.Peers) {
+func initPeers(n int) ([]*ecdsa.PrivateKey, *peers.PeerSet) {
 	keys := []*ecdsa.PrivateKey{}
-	peers := peers_.NewPeers()
+	pirs := []*peers.Peer{}
 
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
 		keys = append(keys, key)
-		peers.AddPeer(peers_.NewPeer(
+		peer := peers.NewPeer(
 			fmt.Sprintf("0x%X", crypto.FromECDSAPub(&keys[i].PublicKey)),
 			fmt.Sprintf("127.0.0.1:%d", ip),
-		))
+		)
+		pirs = append(pirs, peer)
 		ip++
 	}
 
-	return keys, peers
+	peerSet := peers.NewPeerSet(pirs)
+
+	return keys, peerSet
 }
 
 func TestProcessSync(t *testing.T) {
@@ -45,7 +48,7 @@ func TestProcessSync(t *testing.T) {
 
 	//Start two nodes
 
-	peers := p.ToPeerSlice()
+	peers := p.Peers
 
 	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, testLogger)
 	if err != nil {
@@ -141,7 +144,7 @@ func TestProcessEagerSync(t *testing.T) {
 
 	//Start two nodes
 
-	peers := p.ToPeerSlice()
+	peers := p.Peers
 
 	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, testLogger)
 	if err != nil {
@@ -217,7 +220,7 @@ func TestAddTransaction(t *testing.T) {
 
 	//Start two nodes
 
-	peers := p.ToPeerSlice()
+	peers := p.Peers
 
 	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
 	if err != nil {
@@ -290,7 +293,7 @@ func TestAddTransaction(t *testing.T) {
 }
 
 func initNodes(keys []*ecdsa.PrivateKey,
-	peers *peers_.Peers,
+	peers *peers.PeerSet,
 	cacheSize,
 	syncLimit int,
 	storeType string,
@@ -369,7 +372,7 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 			t.Fatal(err)
 		}
 	} else {
-		store = hg.NewInmemStore(oldNode.core.participants, conf.CacheSize)
+		store = hg.NewInmemStore(oldNode.core.peers, conf.CacheSize)
 	}
 
 	trans, err := net.NewTCPTransport(oldNode.localAddr,

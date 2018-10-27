@@ -9,7 +9,7 @@ import (
 
 type InmemStore struct {
 	cacheSize              int
-	participants           *peers.Peers
+	peerSet                *peers.PeerSet
 	eventCache             *cm.LRU
 	roundCache             *cm.LRU
 	blockCache             *cm.LRU
@@ -24,23 +24,23 @@ type InmemStore struct {
 	lastBlock              int
 }
 
-func NewInmemStore(participants *peers.Peers, cacheSize int) *InmemStore {
+func NewInmemStore(peerSet *peers.PeerSet, cacheSize int) *InmemStore {
 	rootsByParticipant := make(map[string]Root)
 
-	for pk, pid := range participants.ByPubKey {
+	for pk, pid := range peerSet.ByPubKey {
 		root := NewBaseRoot(pid.ID)
 		rootsByParticipant[pk] = root
 	}
 
 	return &InmemStore{
 		cacheSize:              cacheSize,
-		participants:           participants,
+		peerSet:                peerSet,
 		eventCache:             cm.NewLRU(cacheSize, nil),
 		roundCache:             cm.NewLRU(cacheSize, nil),
 		blockCache:             cm.NewLRU(cacheSize, nil),
 		frameCache:             cm.NewLRU(cacheSize, nil),
 		consensusCache:         cm.NewRollingIndex("ConsensusCache", cacheSize),
-		participantEventsCache: NewParticipantEventsCache(cacheSize, participants),
+		participantEventsCache: NewParticipantEventsCache(cacheSize, peerSet),
 		rootsByParticipant:     rootsByParticipant,
 		lastRound:              -1,
 		lastBlock:              -1,
@@ -52,8 +52,8 @@ func (s *InmemStore) CacheSize() int {
 	return s.cacheSize
 }
 
-func (s *InmemStore) Participants() (*peers.Peers, error) {
-	return s.participants, nil
+func (s *InmemStore) PeerSet() (*peers.PeerSet, error) {
+	return s.peerSet, nil
 }
 
 func (s *InmemStore) RootsBySelfParent() (map[string]Root, error) {
@@ -151,7 +151,7 @@ func (s *InmemStore) LastConsensusEventFrom(participant string) (last string, is
 
 func (s *InmemStore) KnownEvents() map[int]int {
 	known := s.participantEventsCache.Known()
-	for p, pid := range s.participants.ByPubKey {
+	for p, pid := range s.peerSet.ByPubKey {
 		if known[pid.ID] == -1 {
 			root, ok := s.rootsByParticipant[p]
 			if ok {
@@ -185,7 +185,7 @@ func (s *InmemStore) AddConsensusEvent(event Event) error {
 func (s *InmemStore) GetRound(r int) (RoundInfo, error) {
 	res, ok := s.roundCache.Get(r)
 	if !ok {
-		return *NewRoundInfo(), cm.NewStoreErr("RoundCache", cm.KeyNotFound, strconv.Itoa(r))
+		return *NewRoundInfo(nil), cm.NewStoreErr("RoundCache", cm.KeyNotFound, strconv.Itoa(r))
 	}
 	return res.(RoundInfo), nil
 }

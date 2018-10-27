@@ -35,7 +35,7 @@ type TestNode struct {
 	Events []Event
 }
 
-func NewTestNode(key *ecdsa.PrivateKey, id int) TestNode {
+func NewTestNode(key *ecdsa.PrivateKey) TestNode {
 	pub := crypto.FromECDSAPub(&key.PublicKey)
 	ID := common.Hash32(pub)
 	node := TestNode{
@@ -82,27 +82,25 @@ func testLogger(t testing.TB) *logrus.Entry {
 
 /* Initialisation functions */
 
-func initHashgraphNodes(n int) ([]TestNode, map[string]string, *[]Event, *peers.Peers) {
+func initHashgraphNodes(n int) ([]TestNode, map[string]string, *[]Event, *peers.PeerSet) {
 	index := make(map[string]string)
 	nodes := []TestNode{}
 	orderedEvents := &[]Event{}
 	keys := map[string]*ecdsa.PrivateKey{}
-
-	participants := peers.NewPeers()
+	pirs := []*peers.Peer{}
 
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
 		pub := crypto.FromECDSAPub(&key.PublicKey)
 		pubHex := fmt.Sprintf("0x%X", pub)
-		participants.AddPeer(peers.NewPeer(pubHex, ""))
+		pirs = append(pirs, peers.NewPeer(pubHex, ""))
 		keys[pubHex] = key
+		nodes = append(nodes, NewTestNode(key))
 	}
 
-	for i, peer := range participants.ToPeerSlice() {
-		nodes = append(nodes, NewTestNode(keys[peer.PubKeyHex], i))
-	}
+	peerSet := peers.NewPeerSet(pirs)
 
-	return nodes, index, orderedEvents, participants
+	return nodes, index, orderedEvents, peerSet
 }
 
 func playEvents(plays []play, nodes []TestNode, index map[string]string, orderedEvents *[]Event) {
@@ -112,24 +110,23 @@ func playEvents(plays []play, nodes []TestNode, index map[string]string, ordered
 			[]string{index[p.selfParent], index[p.otherParent]},
 			nodes[p.to].Pub,
 			p.index)
-
 		nodes[p.to].signAndAddEvent(e, p.name, index, orderedEvents)
 	}
 }
 
-func createHashgraph(db bool, orderedEvents *[]Event, participants *peers.Peers, logger *logrus.Entry) *Hashgraph {
+func createHashgraph(db bool, orderedEvents *[]Event, peerSet *peers.PeerSet, logger *logrus.Entry) *Hashgraph {
 	var store Store
 	if db {
 		var err error
-		store, err = NewBadgerStore(participants, cacheSize, badgerDir)
+		store, err = NewBadgerStore(peerSet, cacheSize, badgerDir)
 		if err != nil {
 			logger.Fatal(err)
 		}
 	} else {
-		store = NewInmemStore(participants, cacheSize)
+		store = NewInmemStore(peerSet, cacheSize)
 	}
 
-	hashgraph := NewHashgraph(participants, store, nil, logger)
+	hashgraph := NewHashgraph(peerSet, store, nil, logger)
 
 	for i, ev := range *orderedEvents {
 		if err := hashgraph.InsertEvent(ev, true); err != nil {
@@ -141,17 +138,16 @@ func createHashgraph(db bool, orderedEvents *[]Event, participants *peers.Peers,
 }
 
 func initHashgraphFull(plays []play, db bool, n int, logger *logrus.Entry) (*Hashgraph, map[string]string, *[]Event) {
-	nodes, index, orderedEvents, participants := initHashgraphNodes(n)
+	nodes, index, orderedEvents, peerSet := initHashgraphNodes(n)
 
-	// Needed to have sorted nodes based on participants hash32
-	for i, peer := range participants.ToPeerSlice() {
-		event := NewEvent(nil, nil, []string{rootSelfParent(peer.ID), ""}, nodes[i].Pub, 0)
-		nodes[i].signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
+	for i, n := range nodes {
+		event := NewEvent(nil, nil, []string{rootSelfParent(n.ID), ""}, n.Pub, 0)
+		n.signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
 	}
 
 	playEvents(plays, nodes, index, orderedEvents)
 
-	hashgraph := createHashgraph(db, orderedEvents, participants, logger)
+	hashgraph := createHashgraph(db, orderedEvents, peerSet, logger)
 
 	return hashgraph, index, orderedEvents
 }
@@ -351,17 +347,19 @@ and yet they are both ancestors of event e20
 func TestFork(t *testing.T) {
 	index := make(map[string]string)
 	nodes := []TestNode{}
-	participants := peers.NewPeers()
+	pirs := []*peers.Peer{}
 
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
-		node := NewTestNode(key, i)
+		node := NewTestNode(key)
 		nodes = append(nodes, node)
-		participants.AddPeer(peers.NewPeer(node.PubHex, ""))
+		pirs = append(pirs, peers.NewPeer(node.PubHex, ""))
 	}
 
-	store := NewInmemStore(participants, cacheSize)
-	hashgraph := NewHashgraph(participants, store, nil, testLogger(t))
+	peerSet := peers.NewPeerSet(pirs)
+
+	store := NewInmemStore(peerSet, cacheSize)
+	hashgraph := NewHashgraph(peerSet, store, nil, testLogger(t))
 
 	for i, node := range nodes {
 		event := NewEvent(nil, nil, []string{"", ""}, node.Pub, 0)
@@ -430,6 +428,17 @@ func initRoundHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
 
 	h, index, _ := initHashgraphFull(plays, false, n, testLogger(t))
 
+	//Set Rounds manually; this would normally be handled by DivideRounds()
+	round0Witnesses := make(map[string]RoundEvent)
+	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
+	round0Witnesses[index["e1"]] = RoundEvent{Witness: true, Famous: Undefined}
+	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
+	h.Store.SetRound(0, RoundInfo{Events: round0Witnesses, Peers: h.Participants})
+
+	round1Witnesses := make(map[string]RoundEvent)
+	round1Witnesses[index["f1"]] = RoundEvent{Witness: true, Famous: Undefined}
+	h.Store.SetRound(1, RoundInfo{Events: round1Witnesses, Peers: h.Participants})
+
 	return h, index
 }
 
@@ -438,7 +447,7 @@ func TestInsertEvent(t *testing.T) {
 
 	t.Run("Check Event Coordinates", func(t *testing.T) {
 
-		participants := h.Participants.ToPeerSlice()
+		participants := h.Participants.Peers
 
 		//e0
 		e0, err := h.Store.GetEvent(index["e0"])
@@ -466,7 +475,9 @@ func TestInsertEvent(t *testing.T) {
 		}
 
 		if !reflect.DeepEqual(e0.firstDescendants, expectedFirstDescendants) {
-			t.Fatal("e0 firstDescendants not good")
+			t.Fatalf("e0 firstDescendants should be %v, not %v",
+				expectedFirstDescendants,
+				e0.firstDescendants)
 		}
 		if !reflect.DeepEqual(e0.lastAncestors, expectedLastAncestors) {
 			t.Fatal("e0 lastAncestors not good")
@@ -632,7 +643,7 @@ func TestStronglySee(t *testing.T) {
 	}
 
 	for _, exp := range expected {
-		a, err := h.stronglySee(index[exp.descendant], index[exp.ancestor])
+		a, err := h.stronglySee(index[exp.descendant], index[exp.ancestor], h.Participants)
 		if err != nil && !exp.err {
 			t.Fatalf("Error computing stronglySee(%s, %s). Err: %v", exp.descendant, exp.ancestor, err)
 		}
@@ -644,16 +655,6 @@ func TestStronglySee(t *testing.T) {
 
 func TestWitness(t *testing.T) {
 	h, index := initRoundHashgraph(t)
-
-	round0Witnesses := make(map[string]RoundEvent)
-	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
-	round0Witnesses[index["e1"]] = RoundEvent{Witness: true, Famous: Undefined}
-	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
-	h.Store.SetRound(0, RoundInfo{Events: round0Witnesses})
-
-	round1Witnesses := make(map[string]RoundEvent)
-	round1Witnesses[index["f1"]] = RoundEvent{Witness: true, Famous: Undefined}
-	h.Store.SetRound(1, RoundInfo{Events: round1Witnesses})
 
 	expected := []ancestryItem{
 		ancestryItem{"", "e0", true, false},
@@ -678,12 +679,6 @@ func TestWitness(t *testing.T) {
 
 func TestRound(t *testing.T) {
 	h, index := initRoundHashgraph(t)
-
-	round0Witnesses := make(map[string]RoundEvent)
-	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
-	round0Witnesses[index["e1"]] = RoundEvent{Witness: true, Famous: Undefined}
-	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
-	h.Store.SetRound(0, RoundInfo{Events: round0Witnesses})
 
 	expected := []roundItem{
 		roundItem{"e0", 0},
@@ -712,12 +707,6 @@ func TestRound(t *testing.T) {
 
 func TestRoundDiff(t *testing.T) {
 	h, index := initRoundHashgraph(t)
-
-	round0Witnesses := make(map[string]RoundEvent)
-	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
-	round0Witnesses[index["e1"]] = RoundEvent{Witness: true, Famous: Undefined}
-	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
-	h.Store.SetRound(0, RoundInfo{Events: round0Witnesses})
 
 	if d, err := h.roundDiff(index["f1"], index["e02"]); d != 1 {
 		if err != nil {
@@ -832,7 +821,7 @@ func TestCreateRoot(t *testing.T) {
 	h, index := initRoundHashgraph(t)
 	h.DivideRounds()
 
-	participants := h.Participants.ToPeerSlice()
+	participants := h.Participants.Peers
 
 	expected := map[string]Root{
 		"e0": NewBaseRoot(participants[0].ID),
@@ -896,7 +885,7 @@ e01  e12
 func initDentedHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
 	nodes, index, orderedEvents, participants := initHashgraphNodes(n)
 
-	orderedPeers := participants.ToPeerSlice()
+	orderedPeers := participants.Peers
 
 	for _, peer := range orderedPeers {
 		index[rootSelfParent(peer.ID)] = rootSelfParent(peer.ID)
@@ -911,15 +900,22 @@ func initDentedHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
 
 	playEvents(plays, nodes, index, orderedEvents)
 
-	hashgraph := createHashgraph(false, orderedEvents, participants, testLogger(t))
+	h := createHashgraph(false, orderedEvents, participants, testLogger(t))
 
-	return hashgraph, index
+	//Set Rounds manually; this would normally be handled by DivideRounds()
+	round0Witnesses := make(map[string]RoundEvent)
+	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
+	round0Witnesses[index["e12"]] = RoundEvent{Witness: true, Famous: Undefined}
+	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
+	h.Store.SetRound(0, RoundInfo{Events: round0Witnesses, Peers: h.Participants})
+
+	return h, index
 }
 
 func TestCreateRootBis(t *testing.T) {
 	h, index := initDentedHashgraph(t)
 
-	participants := h.Participants.ToPeerSlice()
+	participants := h.Participants.Peers
 
 	expected := map[string]Root{
 		"e12": Root{
@@ -954,7 +950,7 @@ e0  e1  e2    Block (0, 1)
 func initBlockHashgraph(t *testing.T) (*Hashgraph, []TestNode, map[string]string) {
 	nodes, index, orderedEvents, participants := initHashgraphNodes(n)
 
-	for i, peer := range participants.ToPeerSlice() {
+	for i, peer := range participants.Peers {
 		event := NewEvent(nil, nil, []string{rootSelfParent(peer.ID), ""}, nodes[i].Pub, 0)
 		nodes[i].signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
 	}
@@ -1083,7 +1079,7 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 		//wrong validator
 		//Validator should be same as Event creator (node 0)
 		key, _ := crypto.GenerateECDSAKey()
-		badNode := NewTestNode(key, 666)
+		badNode := NewTestNode(key)
 		badNodeSig, _ := block.Sign(badNode.Key)
 
 		p := play{0, 2, "s00", "e21", "e02", nil, []BlockSignature{badNodeSig}}
@@ -1536,7 +1532,7 @@ func BenchmarkConsensus(b *testing.B) {
 func TestKnown(t *testing.T) {
 	h, _ := initConsensusHashgraph(false, t)
 
-	participants := h.Participants.ToPeerSlice()
+	participants := h.Participants.Peers
 
 	expectedKnown := map[int]int{
 		participants[0].ID: 10,
@@ -1545,7 +1541,7 @@ func TestKnown(t *testing.T) {
 	}
 
 	known := h.Store.KnownEvents()
-	for i := range h.Participants.ToIDSlice() {
+	for i := range h.Participants.IDs() {
 		if l := known[i]; l != expectedKnown[i] {
 			t.Fatalf("Known[%d] should be %d, not %d", i, expectedKnown[i], l)
 		}
@@ -1555,7 +1551,7 @@ func TestKnown(t *testing.T) {
 func TestGetFrame(t *testing.T) {
 	h, index := initConsensusHashgraph(false, t)
 
-	participants := h.Participants.ToPeerSlice()
+	participants := h.Participants.Peers
 
 	h.DivideRounds()
 	h.DecideFame()
@@ -1711,7 +1707,7 @@ func TestGetFrame(t *testing.T) {
 func TestResetFromFrame(t *testing.T) {
 	h, index := initConsensusHashgraph(false, t)
 
-	participants := h.Participants.ToPeerSlice()
+	participants := h.Participants.Peers
 
 	h.DivideRounds()
 	h.DecideFame()
@@ -1773,7 +1769,7 @@ func TestResetFromFrame(t *testing.T) {
 	}
 
 	known := h2.Store.KnownEvents()
-	for _, peer := range h2.Participants.ById {
+	for _, peer := range h2.Participants.ByID {
 		if l := known[peer.ID]; l != expectedKnown[peer.ID] {
 			t.Fatalf("Known[%d] should be %d, not %d", peer.ID, expectedKnown[peer.ID], l)
 		}
@@ -1922,7 +1918,7 @@ func TestBootstrap(t *testing.T) {
 	//Now we want to create a new Hashgraph based on the database of the previous
 	//Hashgraph and see if we can boostrap it to the same state.
 	recycledStore, err := LoadBadgerStore(cacheSize, badgerDir)
-	nh := NewHashgraph(recycledStore.participants,
+	nh := NewHashgraph(recycledStore.peerSet,
 		recycledStore,
 		nil,
 		logrus.New().WithField("id", "bootstrapped"))
@@ -2030,7 +2026,7 @@ func TestBootstrap(t *testing.T) {
 func initFunkyHashgraph(logger *logrus.Logger, full bool) (*Hashgraph, map[string]string) {
 	nodes, index, orderedEvents, participants := initHashgraphNodes(4)
 
-	for i, peer := range participants.ToPeerSlice() {
+	for i, peer := range participants.Peers {
 		name := fmt.Sprintf("w0%d", i)
 		event := NewEvent([][]byte{[]byte(name)}, nil, []string{rootSelfParent(peer.ID), ""}, nodes[i].Pub, 0)
 		nodes[i].signAndAddEvent(event, name, index, orderedEvents)
@@ -2225,7 +2221,7 @@ func TestFunkyHashgraphBlocks(t *testing.T) {
 func TestFunkyHashgraphFrames(t *testing.T) {
 	h, index := initFunkyHashgraph(common.NewTestLogger(t), true)
 
-	participants := h.Participants.ToPeerSlice()
+	participants := h.Participants.Peers
 
 	if err := h.DivideRounds(); err != nil {
 		t.Fatal(err)
@@ -2482,7 +2478,7 @@ ATTENTION: Look at roots in Rounds 1 and 2
 func initSparseHashgraph(logger *logrus.Logger) (*Hashgraph, map[string]string) {
 	nodes, index, orderedEvents, participants := initHashgraphNodes(4)
 
-	for i, peer := range participants.ToPeerSlice() {
+	for i, peer := range participants.Peers {
 		name := fmt.Sprintf("w0%d", i)
 		event := NewEvent([][]byte{[]byte(name)}, nil, []string{rootSelfParent(peer.ID), ""}, nodes[i].Pub, 0)
 		nodes[i].signAndAddEvent(event, name, index, orderedEvents)
@@ -2522,7 +2518,7 @@ func initSparseHashgraph(logger *logrus.Logger) (*Hashgraph, map[string]string) 
 func TestSparseHashgraphFrames(t *testing.T) {
 	h, index := initSparseHashgraph(common.NewTestLogger(t))
 
-	participants := h.Participants.ToPeerSlice()
+	participants := h.Participants.Peers
 
 	if err := h.DivideRounds(); err != nil {
 		t.Fatal(err)
@@ -2767,7 +2763,7 @@ func compareRoundWitnesses(h, h2 *Hashgraph, index map[string]string, round int,
 func getDiff(h *Hashgraph, known map[int]int, t *testing.T) []Event {
 	diff := []Event{}
 	for id, ct := range known {
-		pk := h.Participants.ById[id].PubKeyHex
+		pk := h.Participants.ByID[id].PubKeyHex
 		//get participant Events with index > ct
 		participantEvents, err := h.Store.ParticipantEvents(pk, ct)
 		if err != nil {

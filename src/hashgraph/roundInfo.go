@@ -2,7 +2,9 @@ package hashgraph
 
 import (
 	"bytes"
-	"encoding/json"
+
+	"github.com/mosaicnetworks/babble/src/peers"
+	"github.com/ugorji/go/codec"
 )
 
 type Trilean int
@@ -32,12 +34,14 @@ type RoundEvent struct {
 
 type RoundInfo struct {
 	Events map[string]RoundEvent
+	Peers  *peers.PeerSet
 	queued bool
 }
 
-func NewRoundInfo() *RoundInfo {
+func NewRoundInfo(peers *peers.PeerSet) *RoundInfo {
 	return &RoundInfo{
 		Events: make(map[string]RoundEvent),
+		Peers:  peers,
 	}
 }
 
@@ -150,9 +154,10 @@ func (r *RoundInfo) IsDecided(witness string) bool {
 }
 
 func (r *RoundInfo) Marshal() ([]byte, error) {
-	var b bytes.Buffer
-
-	enc := json.NewEncoder(&b)
+	b := new(bytes.Buffer)
+	jh := new(codec.JsonHandle)
+	jh.Canonical = true
+	enc := codec.NewEncoder(b, jh)
 
 	if err := enc.Encode(r); err != nil {
 		return nil, err
@@ -163,8 +168,9 @@ func (r *RoundInfo) Marshal() ([]byte, error) {
 
 func (r *RoundInfo) Unmarshal(data []byte) error {
 	b := bytes.NewBuffer(data)
-
-	dec := json.NewDecoder(b) //will read from b
+	jh := new(codec.JsonHandle)
+	jh.Canonical = true
+	dec := codec.NewDecoder(b, jh)
 
 	return dec.Decode(r)
 }

@@ -8,38 +8,32 @@ import (
 )
 
 type Key struct {
-	x string
-	y string
+	x, y string
 }
 
 func (k Key) ToString() string {
 	return fmt.Sprintf("{%s, %s}", k.x, k.y)
 }
 
-type ParentRoundInfo struct {
-	round                     int
-	isRoot                    bool
-	rootStronglySeenWitnesses int
+type TreKey struct {
+	x, y, z string
 }
 
-func NewBaseParentRoundInfo() ParentRoundInfo {
-	return ParentRoundInfo{
-		round:  -1,
-		isRoot: false,
-	}
+func (k TreKey) ToString() string {
+	return fmt.Sprintf("{%s, %s, %s}", k.x, k.y, k.z)
 }
 
 //------------------------------------------------------------------------------
 
 type ParticipantEventsCache struct {
-	participants *peers.Peers
+	participants *peers.PeerSet
 	rim          *cm.RollingIndexMap
 }
 
-func NewParticipantEventsCache(size int, participants *peers.Peers) *ParticipantEventsCache {
+func NewParticipantEventsCache(size int, participants *peers.PeerSet) *ParticipantEventsCache {
 	return &ParticipantEventsCache{
 		participants: participants,
-		rim:          cm.NewRollingIndexMap("ParticipantEvents", size, participants.ToIDSlice()),
+		rim:          cm.NewRollingIndexMap("ParticipantEvents", size, participants.IDs()),
 	}
 }
 
@@ -53,7 +47,7 @@ func (pec *ParticipantEventsCache) participantID(participant string) (int, error
 	return peer.ID, nil
 }
 
-//return participant events with index > skip
+//Get returns participant events with index > skip
 func (pec *ParticipantEventsCache) Get(participant string, skipIndex int) ([]string, error) {
 	id, err := pec.participantID(participant)
 	if err != nil {
@@ -131,14 +125,14 @@ func (pec *ParticipantEventsCache) Reset() error {
 //------------------------------------------------------------------------------
 
 type ParticipantBlockSignaturesCache struct {
-	participants *peers.Peers
+	participants *peers.PeerSet
 	rim          *cm.RollingIndexMap
 }
 
-func NewParticipantBlockSignaturesCache(size int, participants *peers.Peers) *ParticipantBlockSignaturesCache {
+func NewParticipantBlockSignaturesCache(size int, participants *peers.PeerSet) *ParticipantBlockSignaturesCache {
 	return &ParticipantBlockSignaturesCache{
 		participants: participants,
-		rim:          cm.NewRollingIndexMap("ParticipantBlockSignatures", size, participants.ToIDSlice()),
+		rim:          cm.NewRollingIndexMap("ParticipantBlockSignatures", size, participants.IDs()),
 	}
 }
 

@@ -14,7 +14,7 @@ import (
 //Hashgraph is a DAG of Events. It also contains methods to extract a consensus
 //order of Events and map them onto a blockchain.
 type Hashgraph struct {
-	Participants            *peers.Peers     //[public key] => id
+	Participants            *peers.PeerSet
 	Store                   Store            //store of Events, Rounds, and Blocks
 	UndeterminedEvents      []string         //[index] => hash . FIFO queue of Events whose consensus order is not yet determined
 	PendingRounds           []*pendingRound  //FIFO queue of Rounds which have not attained consensus yet
@@ -41,7 +41,7 @@ type Hashgraph struct {
 
 //NewHashgraph instantiates a Hashgraph from a list of participants, underlying
 //data store and commit channel
-func NewHashgraph(participants *peers.Peers, store Store, commitCh chan Block, logger *logrus.Entry) *Hashgraph {
+func NewHashgraph(participants *peers.PeerSet, store Store, commitCh chan Block, logger *logrus.Entry) *Hashgraph {
 	if logger == nil {
 		log := logrus.New()
 		log.Level = logrus.DebugLevel
@@ -146,20 +146,20 @@ func (h *Hashgraph) see(x, y string) (bool, error) {
 	//the same participant.
 }
 
-//true if x strongly sees y
-func (h *Hashgraph) stronglySee(x, y string) (bool, error) {
-	if c, ok := h.stronglySeeCache.Get(Key{x, y}); ok {
+//true if x strongly sees y based on peers set
+func (h *Hashgraph) stronglySee(x, y string, peers *peers.PeerSet) (bool, error) {
+	if c, ok := h.stronglySeeCache.Get(TreKey{x, y, peers.Hex()}); ok {
 		return c.(bool), nil
 	}
-	ss, err := h._stronglySee(x, y)
+	ss, err := h._stronglySee(x, y, peers)
 	if err != nil {
 		return false, err
 	}
-	h.stronglySeeCache.Add(Key{x, y}, ss)
+	h.stronglySeeCache.Add(TreKey{x, y, peers.Hex()}, ss)
 	return ss, nil
 }
 
-func (h *Hashgraph) _stronglySee(x, y string) (bool, error) {
+func (h *Hashgraph) _stronglySee(x, y string, peers *peers.PeerSet) (bool, error) {
 
 	ex, err := h.Store.GetEvent(x)
 	if err != nil {
@@ -172,13 +172,15 @@ func (h *Hashgraph) _stronglySee(x, y string) (bool, error) {
 	}
 
 	c := 0
-	for p, entry := range ex.lastAncestors {
-		ypd, ok := ey.firstDescendants[p]
-		if ok && entry.index >= ypd.index {
+	for p := range peers.ByPubKey {
+		xla, xlaok := ex.lastAncestors[p]
+		yfd, yfdok := ey.firstDescendants[p]
+		if xlaok && yfdok && xla.index >= yfd.index {
 			c++
 		}
 	}
-	return c >= h.superMajority, nil
+
+	return c >= peers.SuperMajority(), nil
 }
 
 func (h *Hashgraph) round(x string) (int, error) {
@@ -251,9 +253,15 @@ func (h *Hashgraph) _round(x string) (int, error) {
 		}
 	}
 
+	//XXX
+	parentRoundObj, err := h.Store.GetRound(parentRound)
+	if err != nil && !common.Is(err, common.KeyNotFound) {
+		return math.MinInt32, err
+	}
+
 	c := 0
-	for _, w := range h.Store.RoundWitnesses(parentRound) {
-		ss, err := h.stronglySee(x, w)
+	for _, w := range parentRoundObj.Witnesses() {
+		ss, err := h.stronglySee(x, w, parentRoundObj.Peers)
 		if err != nil {
 			return math.MinInt32, err
 		}
@@ -759,6 +767,11 @@ func (h *Hashgraph) DivideRounds() error {
 				return err
 			}
 
+			if roundInfo.Peers == nil {
+				//XXX should be a deep copy
+				roundInfo.Peers = h.Participants
+			}
+
 			/*
 				Why the lower bound?
 				Normally, once a Round has attained consensus, it is impossible for
@@ -852,7 +865,7 @@ func (h *Hashgraph) DecideFame() error {
 						//count votes
 						ssWitnesses := []string{}
 						for _, w := range h.Store.RoundWitnesses(j - 1) {
-							ss, err := h.stronglySee(y, w)
+							ss, err := h.stronglySee(y, w, roundInfo.Peers) //XXX use peers from j, or j-1, Round instead?
 							if err != nil {
 								return err
 							}
@@ -878,7 +891,7 @@ func (h *Hashgraph) DecideFame() error {
 
 						//normal round
 						if math.Mod(float64(diff), float64(h.Participants.Len())) > 0 {
-							if t >= h.superMajority {
+							if t >= h.superMajority { //XXX which majority? (from which round?)
 								roundInfo.SetFame(x, v)
 								setVote(votes, y, x, v)
 								break VOTE_LOOP //break out of j loop
@@ -886,7 +899,7 @@ func (h *Hashgraph) DecideFame() error {
 								setVote(votes, y, x, v)
 							}
 						} else { //coin round
-							if t >= h.superMajority {
+							if t >= h.superMajority { //XXX which majority?
 								setVote(votes, y, x, v)
 							} else {
 								setVote(votes, y, x, middleBit(y)) //middle bit of y's hash
@@ -1133,7 +1146,7 @@ func (h *Hashgraph) GetFrame(roundReceived int) (Frame, error) {
 	//Every participant needs a Root in the Frame. For the participants that
 	//have no Events in this Frame, we create a Root from their last consensus
 	//Event, or their last known Root
-	for _, p := range h.Participants.ToPubKeySlice() {
+	for _, p := range h.Participants.PubKeys() {
 		if _, ok := roots[p]; !ok {
 			var root Root
 			lastConsensusEventHash, isRoot, err := h.Store.LastConsensusEventFrom(p)
@@ -1181,7 +1194,7 @@ func (h *Hashgraph) GetFrame(roundReceived int) (Frame, error) {
 
 	//order roots
 	orderedRoots := make([]Root, h.Participants.Len())
-	for i, peer := range h.Participants.ToPeerSlice() {
+	for i, peer := range h.Participants.Peers {
 		orderedRoots[i] = roots[peer.PubKeyHex]
 	}
 
@@ -1307,7 +1320,7 @@ func (h *Hashgraph) Reset(block Block, frame Frame) error {
 	h.stronglySeeCache = common.NewLRU(cacheSize, nil)
 	h.roundCache = common.NewLRU(cacheSize, nil)
 
-	participants := h.Participants.ToPeerSlice()
+	participants := h.Participants.Peers
 
 	//Initialize new Roots
 	rootMap := map[string]Root{}
@@ -1384,7 +1397,7 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 	otherParent := ""
 	var err error
 
-	creator := h.Participants.ById[wevent.Body.CreatorID]
+	creator := h.Participants.ByID[wevent.Body.CreatorID]
 	creatorBytes, err := hex.DecodeString(creator.PubKeyHex[2:])
 	if err != nil {
 		return nil, err
@@ -1397,7 +1410,7 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 		}
 	}
 	if wevent.Body.OtherParentIndex >= 0 {
-		otherParentCreator := h.Participants.ById[wevent.Body.OtherParentCreatorID]
+		otherParentCreator := h.Participants.ByID[wevent.Body.OtherParentCreatorID]
 		otherParent, err = h.Store.ParticipantEvent(otherParentCreator.PubKeyHex, wevent.Body.OtherParentIndex)
 		if err != nil {
 			//PROBLEM Check if other parent can be found in the root

@@ -19,22 +19,23 @@ func initCores(n int, t *testing.T) ([]Core, map[int]*ecdsa.PrivateKey, map[stri
 	cores := []Core{}
 	index := make(map[string]string)
 	participantKeys := map[int]*ecdsa.PrivateKey{}
+	pirs := []*peers.Peer{}
 
-	// participantKeys := []*ecdsa.PrivateKey{}
-	participants := peers.NewPeers()
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
 		pubHex := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey))
 		peer := peers.NewPeer(pubHex, "")
-		participants.AddPeer(peer)
+		pirs = append(pirs, peer)
 		participantKeys[peer.ID] = key
 	}
 
-	for i, peer := range participants.ToPeerSlice() {
-		core := NewCore(i,
+	peerSet := peers.NewPeerSet(pirs)
+
+	for i, peer := range peerSet.Peers {
+		core := NewCore(peer.ID,
 			participantKeys[peer.ID],
-			participants,
-			hg.NewInmemStore(participants, cacheSize),
+			peerSet,
+			hg.NewInmemStore(peerSet, cacheSize),
 			nil,
 			common.NewTestLogger(t))
 
@@ -626,21 +627,7 @@ func TestCoreFastForward(t *testing.T) {
 		if !reflect.DeepEqual(sBlock.Body, block.Body) {
 			t.Fatalf("Blocks defer")
 		}
-
-		// lastEventFrom0, _, err := cores[0].hg.Store.LastEventFrom(cores[0].hexID)
-		// if err != nil {
-		// 	t.Fatal(err)
-		// }
-		// if c0h := cores[0].Head; c0h != lastEventFrom0 {
-		// 	t.Fatalf("Head should be %s, not %s", lastEventFrom0, c0h)
-		// }
-
-		// if c0s := cores[0].Seq; c0s != 0 {
-		// 	t.Fatalf("Seq should be %d, not %d", 0, c0s)
-		// }
-
 	})
-
 }
 
 func synchronizeCores(cores []Core, from int, to int, payload [][]byte) error {

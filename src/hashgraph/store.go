@@ -4,7 +4,7 @@ import "github.com/mosaicnetworks/babble/src/peers"
 
 type Store interface {
 	CacheSize() int
-	Participants() (*peers.Peers, error)
+	PeerSet() (*peers.PeerSet, error)
 	RootsBySelfParent() (map[string]Root, error)
 	GetEvent(string) (Event, error)
 	SetEvent(Event) error

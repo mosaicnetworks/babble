@@ -51,20 +51,20 @@ type Node struct {
 func NewNode(conf *Config,
 	id int,
 	key *ecdsa.PrivateKey,
-	participants *peers.Peers,
+	peers *peers.PeerSet,
 	store hg.Store,
 	trans net.Transport,
 	proxy proxy.AppProxy,
 ) *Node {
 	localAddr := trans.LocalAddr()
 
-	pmap, _ := store.Participants()
+	pmap, _ := store.PeerSet()
 
 	commitCh := make(chan hg.Block, 400)
 
 	core := NewCore(id, key, pmap, store, commitCh, conf.Logger)
 
-	peerSelector := NewRandomPeerSelector(participants, localAddr)
+	peerSelector := NewRandomPeerSelector(peers, localAddr)
 
 	node := Node{
 		id:           id,
@@ -93,7 +93,7 @@ func NewNode(conf *Config,
 func (n *Node) Init() error {
 	peerAddresses := []string{}
 
-	for _, p := range n.peerSelector.Peers().ToPeerSlice() {
+	for _, p := range n.peerSelector.Peers().Peers {
 		peerAddresses = append(peerAddresses, p.NetAddr)
 	}
 

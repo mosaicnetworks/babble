@@ -6,10 +6,6 @@ import (
 	"github.com/mosaicnetworks/babble/src/common"
 )
 
-const (
-	jsonPeerPath = "peers.json"
-)
-
 type Peer struct {
 	ID        int `json:"-"`
 	NetAddr   string
@@ -42,17 +38,6 @@ func (p *Peer) computeID() error {
 	p.ID = common.Hash32(pubKey)
 
 	return nil
-}
-
-// PeerStore provides an interface for persistent storage and
-// retrieval of peers.
-type PeerStore interface {
-	// Peers returns the list of known peers.
-	Peers() (*Peers, error)
-
-	// SetPeers sets the list of known peers. This is invoked when a peer is
-	// added or removed.
-	SetPeers([]*Peer) error
 }
 
 // ExcludePeer is used to exclude a single peer from a list of peers.

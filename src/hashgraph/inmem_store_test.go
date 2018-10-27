@@ -10,29 +10,32 @@ import (
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
-type pub struct {
+type participant struct {
 	id      int
 	privKey *ecdsa.PrivateKey
 	pubKey  []byte
 	hex     string
 }
 
-func initInmemStore(cacheSize int) (*InmemStore, []pub) {
+func initInmemStore(cacheSize int) (*InmemStore, []participant) {
 	n := 3
-	participantPubs := []pub{}
-	participants := peers.NewPeers()
+	participants := []participant{}
+
+	pirs := []*peers.Peer{}
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
 		pubKey := crypto.FromECDSAPub(&key.PublicKey)
 		peer := peers.NewPeer(fmt.Sprintf("0x%X", pubKey), "")
-		participantPubs = append(participantPubs,
-			pub{i, key, pubKey, peer.PubKeyHex})
-		participants.AddPeer(peer)
-		participantPubs[len(participantPubs)-1].id = peer.ID
+		participants = append(participants,
+			participant{peer.ID, key, pubKey, peer.PubKeyHex})
+		pirs = append(pirs, peer)
 	}
 
-	store := NewInmemStore(participants, cacheSize)
-	return store, participantPubs
+	peerSet := peers.NewPeerSet(pirs)
+
+	store := NewInmemStore(peerSet, cacheSize)
+
+	return store, participants
 }
 
 func TestInmemEvents(t *testing.T) {
@@ -122,7 +125,7 @@ func TestInmemEvents(t *testing.T) {
 func TestInmemRounds(t *testing.T) {
 	store, participants := initInmemStore(10)
 
-	round := NewRoundInfo()
+	round := NewRoundInfo(nil) //XXX
 	events := make(map[string]Event)
 	for _, p := range participants {
 		event := NewEvent([][]byte{},

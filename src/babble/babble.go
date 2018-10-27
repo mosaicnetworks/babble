@@ -18,7 +18,7 @@ type Babble struct {
 	Node      *node.Node
 	Transport net.Transport
 	Store     h.Store
-	Peers     *peers.Peers
+	Peers     *peers.PeerSet
 	Service   *service.Service
 }
 
@@ -57,9 +57,9 @@ func (b *Babble) initPeers() error {
 		return nil
 	}
 
-	peerStore := peers.NewJSONPeers(b.Config.DataDir)
+	peerStore := peers.NewJSONPeerSet(b.Config.DataDir)
 
-	participants, err := peerStore.Peers()
+	participants, err := peerStore.PeerSet()
 
 	if err != nil {
 		return err
