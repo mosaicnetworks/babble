@@ -56,7 +56,7 @@ func (e *EventBody) Hash() ([]byte, error) {
 }
 
 /*******************************************************************************
-Event
+EventCoordinates
 *******************************************************************************/
 
 type EventCoordinates struct {
@@ -64,41 +64,23 @@ type EventCoordinates struct {
 	index int
 }
 
-type OrderedEventCoordinates []Index
+type CoordinatesMap map[string]EventCoordinates
 
-func (o OrderedEventCoordinates) GetIDIndex(id int) int {
-	for i, idx := range o {
-		if idx.participantId == id {
-			return i
-		}
+func NewCoordinatesMap() CoordinatesMap {
+	return make(map[string]EventCoordinates)
+}
+
+func (c CoordinatesMap) Copy() CoordinatesMap {
+	res := make(map[string]EventCoordinates, len(c))
+	for k, v := range c {
+		res[k] = v
 	}
-
-	return -1
+	return res
 }
 
-func (o OrderedEventCoordinates) GetByID(id int) (Index, bool) {
-	for _, idx := range o {
-		if idx.participantId == id {
-			return idx, true
-		}
-	}
-
-	return Index{}, false
-}
-
-func (o *OrderedEventCoordinates) Add(id int, event EventCoordinates) {
-	*o = append(*o, Index{
-		participantId: id,
-		event:         event,
-	})
-}
-
-type Index struct {
-	participantId int
-	event         EventCoordinates
-}
-
-// -----
+/*******************************************************************************
+Event
+*******************************************************************************/
 
 type Event struct {
 	Body      EventBody
@@ -112,8 +94,8 @@ type Event struct {
 
 	roundReceived *int
 
-	lastAncestors    OrderedEventCoordinates //[participant fake id] => last ancestor
-	firstDescendants OrderedEventCoordinates //[participant fake id] => first descendant
+	lastAncestors    CoordinatesMap //[participant pubkey] => last ancestor
+	firstDescendants CoordinatesMap //[participant pubkey] => first descendant
 
 	creator string
 	hash    []byte

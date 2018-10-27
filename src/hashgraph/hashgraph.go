@@ -2,11 +2,9 @@ package hashgraph
 
 import (
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"math"
 	"sort"
-	"strconv"
 
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/peers"
@@ -103,16 +101,11 @@ func (h *Hashgraph) _ancestor(x, y string) (bool, error) {
 		return false, err
 	}
 
-	eyCreator := h.Participants.ByPubKey[ey.Creator()].ID
-	entry, ok := ex.lastAncestors.GetByID(eyCreator)
+	entry, ok := ex.lastAncestors[ey.Creator()]
 
-	if !ok {
-		return false, errors.New("Unknown event id " + strconv.Itoa(eyCreator))
-	}
+	res := ok && entry.index >= ey.Index()
 
-	lastAncestorKnownFromYCreator := entry.event.index
-
-	return lastAncestorKnownFromYCreator >= ey.Index(), nil
+	return res, nil
 }
 
 //true if y is a self-ancestor of x
@@ -136,15 +129,13 @@ func (h *Hashgraph) _selfAncestor(x, y string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	exCreator := h.Participants.ByPubKey[ex.Creator()].ID
 
 	ey, err := h.Store.GetEvent(y)
 	if err != nil {
 		return false, err
 	}
-	eyCreator := h.Participants.ByPubKey[ey.Creator()].ID
 
-	return exCreator == eyCreator && ex.Index() >= ey.Index(), nil
+	return ex.Creator() == ey.Creator() && ex.Index() >= ey.Index(), nil
 }
 
 //true if x sees y
@@ -181,8 +172,9 @@ func (h *Hashgraph) _stronglySee(x, y string) (bool, error) {
 	}
 
 	c := 0
-	for i, entry := range ex.lastAncestors {
-		if entry.event.index >= ey.firstDescendants[i].event.index {
+	for p, entry := range ex.lastAncestors {
+		ypd, ok := ey.firstDescendants[p]
+		if ok && entry.index >= ypd.index {
 			c++
 		}
 	}
@@ -436,99 +428,73 @@ func (h *Hashgraph) checkOtherParent(event Event) error {
 
 //initialize arrays of last ancestors and first descendants
 func (h *Hashgraph) initEventCoordinates(event *Event) error {
-	members := h.Participants.Len()
+	event.lastAncestors = NewCoordinatesMap()
+	event.firstDescendants = NewCoordinatesMap()
 
-	event.firstDescendants = make(OrderedEventCoordinates, members)
-	for i, id := range h.Participants.ToIDSlice() {
-		event.firstDescendants[i] = Index{
-			participantId: id,
-			event: EventCoordinates{
-				index: math.MaxInt32,
-			},
+	for p := range h.Participants.ByPubKey {
+		event.firstDescendants[p] = EventCoordinates{
+			index: math.MaxInt32,
 		}
 	}
-
-	event.lastAncestors = make(OrderedEventCoordinates, members)
 
 	selfParent, selfParentError := h.Store.GetEvent(event.SelfParent())
 	otherParent, otherParentError := h.Store.GetEvent(event.OtherParent())
 
 	if selfParentError != nil && otherParentError != nil {
-		for i, entry := range event.firstDescendants {
-			event.lastAncestors[i] = Index{
-				participantId: entry.participantId,
-				event: EventCoordinates{
-					index: -1,
-				},
+		for p := range event.firstDescendants {
+			event.lastAncestors[p] = EventCoordinates{
+				index: -1,
 			}
 		}
 	} else if selfParentError != nil {
-		copy(event.lastAncestors[:members], otherParent.lastAncestors)
+		event.lastAncestors = otherParent.lastAncestors.Copy()
 	} else if otherParentError != nil {
-		copy(event.lastAncestors[:members], selfParent.lastAncestors)
+		event.lastAncestors = selfParent.lastAncestors.Copy()
 	} else {
 		selfParentLastAncestors := selfParent.lastAncestors
 		otherParentLastAncestors := otherParent.lastAncestors
 
-		copy(event.lastAncestors[:members], selfParentLastAncestors)
-		for i := range event.lastAncestors {
-			if event.lastAncestors[i].event.index < otherParentLastAncestors[i].event.index {
-				event.lastAncestors[i].event.index = otherParentLastAncestors[i].event.index
-				event.lastAncestors[i].event.hash = otherParentLastAncestors[i].event.hash
+		event.lastAncestors = selfParentLastAncestors.Copy()
+		for p, ola := range otherParentLastAncestors {
+			sla, ok := event.lastAncestors[p]
+			if !ok || sla.index < ola.index {
+				event.lastAncestors[p] = EventCoordinates{
+					index: ola.index,
+					hash:  ola.hash,
+				}
 			}
 		}
 	}
 
-	index := event.Index()
-
-	creator := event.Creator()
-	creatorPeer, ok := h.Participants.ByPubKey[creator]
-	if !ok {
-		return fmt.Errorf("Could not find creator id (%s)", creator)
-	}
-	hash := event.Hex()
-
-	i := event.firstDescendants.GetIDIndex(creatorPeer.ID)
-	j := event.lastAncestors.GetIDIndex(creatorPeer.ID)
-
-	if i == -1 {
-		return fmt.Errorf("Could not find first descendant from creator id (%d)", creatorPeer.ID)
+	event.firstDescendants[event.Creator()] = EventCoordinates{
+		index: event.Index(),
+		hash:  event.Hex(),
 	}
 
-	if j == -1 {
-		return fmt.Errorf("Could not find last ancestor from creator id (%d)", creatorPeer.ID)
+	event.lastAncestors[event.Creator()] = EventCoordinates{
+		index: event.Index(),
+		hash:  event.Hex(),
 	}
-
-	event.firstDescendants[i].event = EventCoordinates{index: index, hash: hash}
-	event.lastAncestors[j].event = EventCoordinates{index: index, hash: hash}
 
 	return nil
 }
 
 //update first decendant of each last ancestor to point to event
 func (h *Hashgraph) updateAncestorFirstDescendant(event Event) error {
-	creatorPeer, ok := h.Participants.ByPubKey[event.Creator()]
-	if !ok {
-		return fmt.Errorf("Could not find creator id (%s)", event.Creator())
-	}
-	index := event.Index()
-	hash := event.Hex()
-
-	for i := range event.lastAncestors {
-		ah := event.lastAncestors[i].event.hash
+	for _, c := range event.lastAncestors {
+		ah := c.hash
 		for ah != "" {
 			a, err := h.Store.GetEvent(ah)
 			if err != nil {
 				break
 			}
-			idx := a.firstDescendants.GetIDIndex(creatorPeer.ID)
 
-			if idx == -1 {
-				return fmt.Errorf("Could not find first descendant by creator id (%s)", event.Creator())
-			}
-
-			if a.firstDescendants[idx].event.index == math.MaxInt32 {
-				a.firstDescendants[idx].event = EventCoordinates{index: index, hash: hash}
+			acfd, ok := a.firstDescendants[event.Creator()]
+			if !ok || acfd.index == math.MaxInt32 {
+				a.firstDescendants[event.Creator()] = EventCoordinates{
+					index: event.Index(),
+					hash:  event.Hex(),
+				}
 				if err := h.Store.SetEvent(a); err != nil {
 					return err
 				}

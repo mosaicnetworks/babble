@@ -453,16 +453,16 @@ func TestInsertEvent(t *testing.T) {
 			t.Fatalf("Invalid wire info on e0")
 		}
 
-		expectedFirstDescendants := OrderedEventCoordinates{
-			Index{participants[0].ID, EventCoordinates{index["e0"], 0}},
-			Index{participants[1].ID, EventCoordinates{index["e10"], 1}},
-			Index{participants[2].ID, EventCoordinates{index["e21"], 2}},
+		expectedFirstDescendants := CoordinatesMap{
+			participants[0].PubKeyHex: EventCoordinates{index["e0"], 0},
+			participants[1].PubKeyHex: EventCoordinates{index["e10"], 1},
+			participants[2].PubKeyHex: EventCoordinates{index["e21"], 2},
 		}
 
-		expectedLastAncestors := OrderedEventCoordinates{
-			Index{participants[0].ID, EventCoordinates{index["e0"], 0}},
-			Index{participants[1].ID, EventCoordinates{"", -1}},
-			Index{participants[2].ID, EventCoordinates{"", -1}},
+		expectedLastAncestors := CoordinatesMap{
+			participants[0].PubKeyHex: EventCoordinates{index["e0"], 0},
+			participants[1].PubKeyHex: EventCoordinates{"", -1},
+			participants[2].PubKeyHex: EventCoordinates{"", -1},
 		}
 
 		if !reflect.DeepEqual(e0.firstDescendants, expectedFirstDescendants) {
@@ -490,16 +490,16 @@ func TestInsertEvent(t *testing.T) {
 			t.Fatalf("Invalid wire info on e21")
 		}
 
-		expectedFirstDescendants = OrderedEventCoordinates{
-			Index{participants[0].ID, EventCoordinates{index["e02"], 2}},
-			Index{participants[1].ID, EventCoordinates{index["f1"], 3}},
-			Index{participants[2].ID, EventCoordinates{index["e21"], 2}},
+		expectedFirstDescendants = CoordinatesMap{
+			participants[0].PubKeyHex: EventCoordinates{index["e02"], 2},
+			participants[1].PubKeyHex: EventCoordinates{index["f1"], 3},
+			participants[2].PubKeyHex: EventCoordinates{index["e21"], 2},
 		}
 
-		expectedLastAncestors = OrderedEventCoordinates{
-			Index{participants[0].ID, EventCoordinates{index["e0"], 0}},
-			Index{participants[1].ID, EventCoordinates{index["e10"], 1}},
-			Index{participants[2].ID, EventCoordinates{index["e21"], 2}},
+		expectedLastAncestors = CoordinatesMap{
+			participants[0].PubKeyHex: EventCoordinates{index["e0"], 0},
+			participants[1].PubKeyHex: EventCoordinates{index["e10"], 1},
+			participants[2].PubKeyHex: EventCoordinates{index["e21"], 2},
 		}
 
 		if !reflect.DeepEqual(e21.firstDescendants, expectedFirstDescendants) {
@@ -522,16 +522,16 @@ func TestInsertEvent(t *testing.T) {
 			t.Fatalf("Invalid wire info on f1")
 		}
 
-		expectedFirstDescendants = OrderedEventCoordinates{
-			Index{participants[0].ID, EventCoordinates{"", math.MaxInt32}},
-			Index{participants[1].ID, EventCoordinates{index["f1"], 3}},
-			Index{participants[2].ID, EventCoordinates{"", math.MaxInt32}},
+		expectedFirstDescendants = CoordinatesMap{
+			participants[0].PubKeyHex: EventCoordinates{"", math.MaxInt32},
+			participants[1].PubKeyHex: EventCoordinates{index["f1"], 3},
+			participants[2].PubKeyHex: EventCoordinates{"", math.MaxInt32},
 		}
 
-		expectedLastAncestors = OrderedEventCoordinates{
-			Index{participants[0].ID, EventCoordinates{index["e02"], 2}},
-			Index{participants[1].ID, EventCoordinates{index["f1"], 3}},
-			Index{participants[2].ID, EventCoordinates{index["e21"], 2}},
+		expectedLastAncestors = CoordinatesMap{
+			participants[0].PubKeyHex: EventCoordinates{index["e02"], 2},
+			participants[1].PubKeyHex: EventCoordinates{index["f1"], 3},
+			participants[2].PubKeyHex: EventCoordinates{index["e21"], 2},
 		}
 
 		if !reflect.DeepEqual(f1.firstDescendants, expectedFirstDescendants) {
