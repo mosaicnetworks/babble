@@ -40,7 +40,9 @@ func initCores(n int, t *testing.T) ([]Core, map[int]*ecdsa.PrivateKey, map[stri
 			common.NewTestLogger(t))
 
 		//Create and save the first Event
-		initialEvent := hg.NewEvent([][]byte(nil), nil,
+		initialEvent := hg.NewEvent([][]byte(nil),
+			[]*hg.InternalTransaction{},
+			nil,
 			[]string{fmt.Sprintf("Root%d", peer.ID), ""},
 			core.PubKey(),
 			0)
@@ -78,21 +80,27 @@ func initHashgraph(cores []Core, keys map[int]*ecdsa.PrivateKey, index map[strin
 		}
 	}
 
-	event01 := hg.NewEvent([][]byte{}, nil,
+	event01 := hg.NewEvent([][]byte{},
+		[]*hg.InternalTransaction{},
+		nil,
 		[]string{index["e0"], index["e1"]}, //e0 and e1
 		cores[0].PubKey(), 1)
 	if err := insertEvent(cores, keys, index, event01, "e01", participant, common.Hash32(cores[0].pubKey)); err != nil {
 		fmt.Printf("error inserting e01: %s\n", err)
 	}
 
-	event20 := hg.NewEvent([][]byte{}, nil,
+	event20 := hg.NewEvent([][]byte{},
+		[]*hg.InternalTransaction{},
+		nil,
 		[]string{index["e2"], index["e01"]}, //e2 and e01
 		cores[2].PubKey(), 1)
 	if err := insertEvent(cores, keys, index, event20, "e20", participant, common.Hash32(cores[2].pubKey)); err != nil {
 		fmt.Printf("error inserting e20: %s\n", err)
 	}
 
-	event12 := hg.NewEvent([][]byte{}, nil,
+	event12 := hg.NewEvent([][]byte{},
+		[]*hg.InternalTransaction{},
+		nil,
 		[]string{index["e1"], index["e20"]}, //e1 and e20
 		cores[1].PubKey(), 1)
 	if err := insertEvent(cores, keys, index, event12, "e12", participant, common.Hash32(cores[1].pubKey)); err != nil {

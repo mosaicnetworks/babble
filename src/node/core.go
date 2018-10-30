@@ -24,8 +24,9 @@ type Core struct {
 	Head  string
 	Seq   int
 
-	transactionPool    [][]byte
-	blockSignaturePool []hg.BlockSignature
+	transactionPool         [][]byte
+	internalTransactionPool []*hg.InternalTransaction
+	blockSignaturePool      []hg.BlockSignature
 
 	logger *logrus.Entry
 }
@@ -45,15 +46,16 @@ func NewCore(
 	logEntry := logger.WithField("id", id)
 
 	core := Core{
-		id:                 id,
-		key:                key,
-		hg:                 hg.NewHashgraph(peers, store, commitCh, logEntry),
-		peers:              peers,
-		transactionPool:    [][]byte{},
-		blockSignaturePool: []hg.BlockSignature{},
-		logger:             logEntry,
-		Head:               "",
-		Seq:                -1,
+		id:                      id,
+		key:                     key,
+		hg:                      hg.NewHashgraph(peers, store, commitCh, logEntry),
+		peers:                   peers,
+		transactionPool:         [][]byte{},
+		internalTransactionPool: []*hg.InternalTransaction{},
+		blockSignaturePool:      []hg.BlockSignature{},
+		logger:                  logEntry,
+		Head:                    "",
+		Seq:                     -1,
 	}
 	return core
 }
@@ -203,11 +205,11 @@ func (c *Core) EventDiff(known map[int]int) (events []hg.Event, err error) {
 }
 
 func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
-
 	c.logger.WithFields(logrus.Fields{
-		"unknown_events":       len(unknownEvents),
-		"transaction_pool":     len(c.transactionPool),
-		"block_signature_pool": len(c.blockSignaturePool),
+		"unknown_events":            len(unknownEvents),
+		"transaction_pool":          len(c.transactionPool),
+		"internal_transaction_pool": len(c.internalTransactionPool),
+		"block_signature_pool":      len(c.blockSignaturePool),
 	}).Debug("Sync")
 
 	otherHead := ""
@@ -216,12 +218,14 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 		ev, err := c.hg.ReadWireInfo(we)
 		if err != nil {
 			c.logger.WithField("WireEvent", we).Errorf("ReadingWireInfo")
-			return err
 
+			return err
 		}
+
 		if err := c.InsertEvent(*ev, false); err != nil {
 			return err
 		}
+
 		//assume last event corresponds to other-head
 		if k == len(unknownEvents)-1 {
 			otherHead = ev.Hex()
@@ -232,6 +236,7 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 	//loaded events or the pools are not empty
 	if c.hg.PendingLoadedEvents > 0 ||
 		len(c.transactionPool) > 0 ||
+		len(c.internalTransactionPool) > 0 ||
 		len(c.blockSignaturePool) > 0 {
 		return c.AddSelfEvent(otherHead)
 	}
@@ -240,7 +245,6 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 }
 
 func (c *Core) FastForward(peer string, block hg.Block, frame hg.Frame) error {
-
 	//Check Block Signatures
 	err := c.hg.CheckBlock(block)
 	if err != nil {
@@ -252,6 +256,7 @@ func (c *Core) FastForward(peer string, block hg.Block, frame hg.Frame) error {
 	if err != nil {
 		return err
 	}
+
 	if !reflect.DeepEqual(block.FrameHash(), frameHash) {
 		return fmt.Errorf("Invalid Frame Hash")
 	}
@@ -275,10 +280,10 @@ func (c *Core) FastForward(peer string, block hg.Block, frame hg.Frame) error {
 }
 
 func (c *Core) AddSelfEvent(otherHead string) error {
-
 	//create new event with self head and otherHead
 	//empty pools in its payload
 	newHead := hg.NewEvent(c.transactionPool,
+		c.internalTransactionPool,
 		c.blockSignaturePool,
 		[]string{c.Head, otherHead},
 		c.PubKey(), c.Seq+1)
@@ -288,11 +293,13 @@ func (c *Core) AddSelfEvent(otherHead string) error {
 	}
 
 	c.logger.WithFields(logrus.Fields{
-		"transactions":     len(c.transactionPool),
-		"block_signatures": len(c.blockSignaturePool),
+		"transactions":          len(c.transactionPool),
+		"internal_transactions": len(c.internalTransactionPool),
+		"block_signatures":      len(c.blockSignaturePool),
 	}).Debug("Created Self-Event")
 
 	c.transactionPool = [][]byte{}
+	c.internalTransactionPool = []*hg.InternalTransaction{}
 	c.blockSignaturePool = []hg.BlockSignature{}
 
 	return nil
@@ -300,62 +307,87 @@ func (c *Core) AddSelfEvent(otherHead string) error {
 
 func (c *Core) FromWire(wireEvents []hg.WireEvent) ([]hg.Event, error) {
 	events := make([]hg.Event, len(wireEvents), len(wireEvents))
+
 	for i, w := range wireEvents {
 		ev, err := c.hg.ReadWireInfo(w)
 		if err != nil {
 			return nil, err
 		}
+
 		events[i] = *ev
 	}
+
 	return events, nil
 }
 
 func (c *Core) ToWire(events []hg.Event) ([]hg.WireEvent, error) {
 	wireEvents := make([]hg.WireEvent, len(events), len(events))
+
 	for i, e := range events {
 		wireEvents[i] = e.ToWire()
 	}
+
 	return wireEvents, nil
 }
 
 func (c *Core) RunConsensus() error {
 	start := time.Now()
+
 	err := c.hg.DivideRounds()
+
 	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("DivideRounds()")
+
 	if err != nil {
 		c.logger.WithField("error", err).Error("DivideRounds")
+
 		return err
 	}
 
 	start = time.Now()
+
 	err = c.hg.DecideFame()
+
 	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("DecideFame()")
+
 	if err != nil {
 		c.logger.WithField("error", err).Error("DecideFame")
+
 		return err
 	}
 
 	start = time.Now()
+
 	err = c.hg.DecideRoundReceived()
+
 	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("DecideRoundReceived()")
+
 	if err != nil {
 		c.logger.WithField("error", err).Error("DecideRoundReceived")
+
 		return err
 	}
 
 	start = time.Now()
+
 	err = c.hg.ProcessDecidedRounds()
+
 	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("ProcessDecidedRounds()")
+
 	if err != nil {
 		c.logger.WithField("error", err).Error("ProcessDecidedRounds")
+
 		return err
 	}
 
 	start = time.Now()
+
 	err = c.hg.ProcessSigPool()
+
 	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("ProcessSigPool()")
+
 	if err != nil {
 		c.logger.WithField("error", err).Error("ProcessSigPool()")
+
 		return err
 	}
 
@@ -364,6 +396,10 @@ func (c *Core) RunConsensus() error {
 
 func (c *Core) AddTransactions(txs [][]byte) {
 	c.transactionPool = append(c.transactionPool, txs...)
+}
+
+func (c *Core) AddInternalTransactions(txs []*hg.InternalTransaction) {
+	c.internalTransactionPool = append(c.internalTransactionPool, txs...)
 }
 
 func (c *Core) AddBlockSignature(bs hg.BlockSignature) {

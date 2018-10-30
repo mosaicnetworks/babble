@@ -47,6 +47,8 @@ func DefaultConfig() *Config {
 func TestConfig(t *testing.T) *Config {
 	config := DefaultConfig()
 
+	config.HeartbeatTimeout = time.Second * 1
+
 	config.Logger = common.NewTestLogger(t)
 
 	return config

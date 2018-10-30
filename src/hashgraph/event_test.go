@@ -134,7 +134,7 @@ func TestWireEvent(t *testing.T) {
 
 func TestIsLoaded(t *testing.T) {
 	//nil payload
-	event := NewEvent(nil, nil, []string{"p1", "p2"}, []byte("creator"), 1)
+	event := NewEvent(nil, nil, nil, []string{"p1", "p2"}, []byte("creator"), 1)
 	if event.IsLoaded() {
 		t.Fatalf("IsLoaded() should return false for nil Body.Transactions and Body.BlockSignatures")
 	}

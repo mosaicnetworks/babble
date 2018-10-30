@@ -35,7 +35,14 @@ func (g *Graph) GetParticipantEvents() map[string]map[string]hg.Event {
 
 		res[p.PubKeyHex] = make(map[string]hg.Event)
 
-		res[p.PubKeyHex][root.SelfParent.Hash] = hg.NewEvent([][]byte{}, []hg.BlockSignature{}, []string{}, []byte{}, -1)
+		res[p.PubKeyHex][root.SelfParent.Hash] = hg.NewEvent(
+			[][]byte{},
+			[]*hg.InternalTransaction{},
+			[]hg.BlockSignature{},
+			[]string{},
+			[]byte{},
+			-1,
+		)
 
 		for _, e := range evs {
 			event, err := store.GetEvent(e)

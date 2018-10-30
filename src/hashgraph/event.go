@@ -6,19 +6,69 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/btcsuite/btcd/peer"
 	"github.com/mosaicnetworks/babble/src/crypto"
 )
+
+/*******************************************************************************
+InternalTransactions
+*******************************************************************************/
+
+type TransactionType uint8
+
+const (
+	PEER_ADD TransactionType = iota
+	PEER_REMOVE
+)
+
+type InternalTransaction struct {
+	Type TransactionType
+	Peer peer.Peer
+}
+
+func NewInternalTransaction(tType TransactionType, peer peer.Peer) *InternalTransaction {
+	return &InternalTransaction{
+		Type: tType,
+		Peer: peer,
+	}
+}
+
+//json encoding of body only
+func (t *InternalTransaction) Marshal() ([]byte, error) {
+	var b bytes.Buffer
+
+	enc := json.NewEncoder(&b) //will write to b
+
+	if err := enc.Encode(t); err != nil {
+		return nil, err
+	}
+
+	return b.Bytes(), nil
+}
+
+func (t *InternalTransaction) Unmarshal(data []byte) error {
+	b := bytes.NewBuffer(data)
+
+	dec := json.NewDecoder(b) //will read from b
+
+	if err := dec.Decode(t); err != nil {
+		return err
+	}
+
+	return nil
+}
 
 /*******************************************************************************
 EventBody
 *******************************************************************************/
 
 type EventBody struct {
-	Transactions    [][]byte         //the payload
-	Parents         []string         //hashes of the event's parents, self-parent first
-	Creator         []byte           //creator's public key
-	Index           int              //index in the sequence of events created by Creator
-	BlockSignatures []BlockSignature //list of Block signatures signed by the Event's Creator ONLY
+	Transactions         [][]byte               //the payload
+	InternalTransactions []*InternalTransaction //peers add and removal internal consensus
+	Parents              []string               //hashes of the event's parents, self-parent first
+	Creator              []byte                 //creator's public key
+	Index                int                    //index in the sequence of events created by Creator
+	BlockSignatures      []BlockSignature       //list of Block signatures signed by the Event's Creator ONLY
 
 	//wire
 	//It is cheaper to send ints than hashes over the wire
@@ -103,17 +153,19 @@ type Event struct {
 }
 
 func NewEvent(transactions [][]byte,
+	internalTransactions []*InternalTransaction,
 	blockSignatures []BlockSignature,
 	parents []string,
 	creator []byte,
 	index int) Event {
 
 	body := EventBody{
-		Transactions:    transactions,
-		BlockSignatures: blockSignatures,
-		Parents:         parents,
-		Creator:         creator,
-		Index:           index,
+		Transactions:         transactions,
+		InternalTransactions: internalTransactions,
+		BlockSignatures:      blockSignatures,
+		Parents:              parents,
+		Creator:              creator,
+		Index:                index,
 	}
 	return Event{
 		Body: body,
@@ -154,7 +206,7 @@ func (e *Event) IsLoaded() bool {
 	}
 
 	hasTransactions := e.Body.Transactions != nil &&
-		len(e.Body.Transactions) > 0
+		(len(e.Body.Transactions) > 0 || len(e.Body.InternalTransactions) > 0)
 
 	return hasTransactions
 }
@@ -165,11 +217,14 @@ func (e *Event) Sign(privKey *ecdsa.PrivateKey) error {
 	if err != nil {
 		return err
 	}
+
 	R, S, err := crypto.Sign(privKey, signBytes)
 	if err != nil {
 		return err
 	}
+
 	e.Signature = crypto.EncodeSignature(R, S)
+
 	return err
 }
 
@@ -193,16 +248,21 @@ func (e *Event) Verify() (bool, error) {
 //json encoding of body and signature
 func (e *Event) Marshal() ([]byte, error) {
 	var b bytes.Buffer
+
 	enc := json.NewEncoder(&b)
+
 	if err := enc.Encode(e); err != nil {
 		return nil, err
 	}
+
 	return b.Bytes(), nil
 }
 
 func (e *Event) Unmarshal(data []byte) error {
 	b := bytes.NewBuffer(data)
+
 	dec := json.NewDecoder(b) //will read from b
+
 	return dec.Decode(e)
 }
 
@@ -213,16 +273,20 @@ func (e *Event) Hash() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		e.hash = hash
 	}
+
 	return e.hash, nil
 }
 
 func (e *Event) Hex() string {
 	if e.hex == "" {
 		hash, _ := e.Hash()
+
 		e.hex = fmt.Sprintf("0x%X", hash)
 	}
+
 	return e.hex
 }
 
@@ -230,6 +294,7 @@ func (e *Event) SetRound(r int) {
 	if e.round == nil {
 		e.round = new(int)
 	}
+
 	*e.round = r
 }
 
@@ -237,6 +302,7 @@ func (e *Event) SetLamportTimestamp(t int) {
 	if e.lamportTimestamp == nil {
 		e.lamportTimestamp = new(int)
 	}
+
 	*e.lamportTimestamp = t
 }
 
@@ -244,6 +310,7 @@ func (e *Event) SetRoundReceived(rr int) {
 	if e.roundReceived == nil {
 		e.roundReceived = new(int)
 	}
+
 	*e.roundReceived = rr
 }
 
@@ -260,20 +327,22 @@ func (e *Event) SetWireInfo(selfParentIndex,
 func (e *Event) WireBlockSignatures() []WireBlockSignature {
 	if e.Body.BlockSignatures != nil {
 		wireSignatures := make([]WireBlockSignature, len(e.Body.BlockSignatures))
+
 		for i, bs := range e.Body.BlockSignatures {
 			wireSignatures[i] = bs.ToWire()
 		}
 
 		return wireSignatures
 	}
+
 	return nil
 }
 
 func (e *Event) ToWire() WireEvent {
-
 	return WireEvent{
 		Body: WireBody{
 			Transactions:         e.Body.Transactions,
+			InternalTransactions: e.Body.InternalTransactions,
 			SelfParentIndex:      e.Body.selfParentIndex,
 			OtherParentCreatorID: e.Body.otherParentCreatorID,
 			OtherParentIndex:     e.Body.otherParentIndex,
@@ -333,8 +402,9 @@ func (a ByLamportTimestamp) Less(i, j int) bool {
 *******************************************************************************/
 
 type WireBody struct {
-	Transactions    [][]byte
-	BlockSignatures []WireBlockSignature
+	Transactions         [][]byte
+	InternalTransactions []*InternalTransaction
+	BlockSignatures      []WireBlockSignature
 
 	SelfParentIndex      int
 	OtherParentCreatorID int
@@ -352,6 +422,7 @@ type WireEvent struct {
 func (we *WireEvent) BlockSignatures(validator []byte) []BlockSignature {
 	if we.Body.BlockSignatures != nil {
 		blockSignatures := make([]BlockSignature, len(we.Body.BlockSignatures))
+
 		for k, bs := range we.Body.BlockSignatures {
 			blockSignatures[k] = BlockSignature{
 				Validator: validator,
@@ -359,7 +430,9 @@ func (we *WireEvent) BlockSignatures(validator []byte) []BlockSignature {
 				Signature: bs.Signature,
 			}
 		}
+
 		return blockSignatures
 	}
+
 	return nil
 }

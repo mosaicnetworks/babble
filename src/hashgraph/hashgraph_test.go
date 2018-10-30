@@ -3,22 +3,17 @@ package hashgraph
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"os"
-	"sort"
-	"testing"
-
-	"github.com/mosaicnetworks/babble/src/peers"
-
-	"github.com/sirupsen/logrus"
-
-	"strings"
-
-	"reflect"
-
 	"math"
+	"os"
+	"reflect"
+	"sort"
+	"strings"
+	"testing"
 
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/peers"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -106,6 +101,7 @@ func initHashgraphNodes(n int) ([]TestNode, map[string]string, *[]Event, *peers.
 func playEvents(plays []play, nodes []TestNode, index map[string]string, orderedEvents *[]Event) {
 	for _, p := range plays {
 		e := NewEvent(p.txPayload,
+			nil,
 			p.sigPayload,
 			[]string{index[p.selfParent], index[p.otherParent]},
 			nodes[p.to].Pub,
@@ -141,7 +137,7 @@ func initHashgraphFull(plays []play, db bool, n int, logger *logrus.Entry) (*Has
 	nodes, index, orderedEvents, peerSet := initHashgraphNodes(n)
 
 	for i, n := range nodes {
-		event := NewEvent(nil, nil, []string{rootSelfParent(n.ID), ""}, n.Pub, 0)
+		event := NewEvent(nil, nil, nil, []string{rootSelfParent(n.ID), ""}, n.Pub, 0)
 		n.signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
 	}
 
@@ -362,21 +358,21 @@ func TestFork(t *testing.T) {
 	hashgraph := NewHashgraph(peerSet, store, nil, testLogger(t))
 
 	for i, node := range nodes {
-		event := NewEvent(nil, nil, []string{"", ""}, node.Pub, 0)
+		event := NewEvent(nil, nil, nil, []string{"", ""}, node.Pub, 0)
 		event.Sign(node.Key)
 		index[fmt.Sprintf("e%d", i)] = event.Hex()
 		hashgraph.InsertEvent(event, true)
 	}
 
 	//a and e2 need to have different hashes
-	eventA := NewEvent([][]byte{[]byte("yo")}, nil, []string{"", ""}, nodes[2].Pub, 0)
+	eventA := NewEvent([][]byte{[]byte("yo")}, nil, nil, []string{"", ""}, nodes[2].Pub, 0)
 	eventA.Sign(nodes[2].Key)
 	index["a"] = eventA.Hex()
 	if err := hashgraph.InsertEvent(eventA, true); err == nil {
 		t.Fatal("InsertEvent should return error for 'a'")
 	}
 
-	event01 := NewEvent(nil, nil,
+	event01 := NewEvent(nil, nil, nil,
 		[]string{index["e0"], index["a"]}, //e0 and a
 		nodes[0].Pub, 1)
 	event01.Sign(nodes[0].Key)
@@ -385,7 +381,7 @@ func TestFork(t *testing.T) {
 		t.Fatal("InsertEvent should return error for e01")
 	}
 
-	event20 := NewEvent(nil, nil,
+	event20 := NewEvent(nil, nil, nil,
 		[]string{index["e2"], index["e01"]}, //e2 and e01
 		nodes[2].Pub, 1)
 	event20.Sign(nodes[2].Key)
@@ -951,7 +947,7 @@ func initBlockHashgraph(t *testing.T) (*Hashgraph, []TestNode, map[string]string
 	nodes, index, orderedEvents, participants := initHashgraphNodes(n)
 
 	for i, peer := range participants.Peers {
-		event := NewEvent(nil, nil, []string{rootSelfParent(peer.ID), ""}, nodes[i].Pub, 0)
+		event := NewEvent(nil, nil, nil, []string{rootSelfParent(peer.ID), ""}, nodes[i].Pub, 0)
 		nodes[i].signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
 	}
 
@@ -1007,6 +1003,7 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 
 		for _, p := range plays {
 			e := NewEvent(p.txPayload,
+				nil,
 				p.sigPayload,
 				[]string{index[p.selfParent], index[p.otherParent]},
 				nodes[p.to].Pub,
@@ -1054,6 +1051,7 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 		p := play{2, 2, "s20", "e10", "e21", nil, []BlockSignature{unknownBlockSig}}
 
 		e := NewEvent(nil,
+			nil,
 			p.sigPayload,
 			[]string{index[p.selfParent], index[p.otherParent]},
 			nodes[p.to].Pub,
@@ -1085,6 +1083,7 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 		p := play{0, 2, "s00", "e21", "e02", nil, []BlockSignature{badNodeSig}}
 
 		e := NewEvent(nil,
+			nil,
 			p.sigPayload,
 			[]string{index[p.selfParent], index[p.otherParent]},
 			nodes[p.to].Pub,
@@ -2028,7 +2027,7 @@ func initFunkyHashgraph(logger *logrus.Logger, full bool) (*Hashgraph, map[strin
 
 	for i, peer := range participants.Peers {
 		name := fmt.Sprintf("w0%d", i)
-		event := NewEvent([][]byte{[]byte(name)}, nil, []string{rootSelfParent(peer.ID), ""}, nodes[i].Pub, 0)
+		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{rootSelfParent(peer.ID), ""}, nodes[i].Pub, 0)
 		nodes[i].signAndAddEvent(event, name, index, orderedEvents)
 	}
 
@@ -2480,7 +2479,7 @@ func initSparseHashgraph(logger *logrus.Logger) (*Hashgraph, map[string]string) 
 
 	for i, peer := range participants.Peers {
 		name := fmt.Sprintf("w0%d", i)
-		event := NewEvent([][]byte{[]byte(name)}, nil, []string{rootSelfParent(peer.ID), ""}, nodes[i].Pub, 0)
+		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{rootSelfParent(peer.ID), ""}, nodes[i].Pub, 0)
 		nodes[i].signAndAddEvent(event, name, index, orderedEvents)
 	}
 

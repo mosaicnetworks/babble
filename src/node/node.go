@@ -32,8 +32,9 @@ type Node struct {
 	trans net.Transport
 	netCh <-chan net.RPC
 
-	proxy    proxy.AppProxy
-	submitCh chan []byte
+	proxy            proxy.AppProxy
+	submitCh         chan []byte
+	submitInternalCh chan *hg.InternalTransaction
 
 	commitCh chan hg.Block
 
@@ -67,19 +68,20 @@ func NewNode(conf *Config,
 	peerSelector := NewRandomPeerSelector(peers, localAddr)
 
 	node := Node{
-		id:           id,
-		conf:         conf,
-		core:         &core,
-		localAddr:    localAddr,
-		logger:       conf.Logger.WithField("this_id", id),
-		peerSelector: peerSelector,
-		trans:        trans,
-		netCh:        trans.Consumer(),
-		proxy:        proxy,
-		submitCh:     proxy.SubmitCh(),
-		commitCh:     commitCh,
-		shutdownCh:   make(chan struct{}),
-		controlTimer: NewRandomControlTimer(),
+		id:               id,
+		conf:             conf,
+		core:             &core,
+		localAddr:        localAddr,
+		logger:           conf.Logger.WithField("this_id", id),
+		peerSelector:     peerSelector,
+		trans:            trans,
+		netCh:            trans.Consumer(),
+		proxy:            proxy,
+		submitCh:         proxy.SubmitCh(),
+		submitInternalCh: proxy.SubmitInternalCh(),
+		commitCh:         commitCh,
+		shutdownCh:       make(chan struct{}),
+		controlTimer:     NewRandomControlTimer(),
 	}
 
 	node.needBoostrap = store.NeedBoostrap()
@@ -168,6 +170,11 @@ func (n *Node) doBackgroundWork() {
 			n.logger.Debug("Adding Transaction")
 
 			n.addTransaction(t)
+			n.resetTimer()
+		case t := <-n.submitInternalCh:
+			n.logger.Debug("Adding Internal Transaction")
+
+			n.addInternalTransaction(t)
 			n.resetTimer()
 		case block := <-n.commitCh:
 			n.logger.WithFields(logrus.Fields{
@@ -700,6 +707,14 @@ func (n *Node) addTransaction(tx []byte) {
 	defer n.coreLock.Unlock()
 
 	n.core.AddTransactions([][]byte{tx})
+}
+
+func (n *Node) addInternalTransaction(tx *hg.InternalTransaction) {
+	n.coreLock.Lock()
+
+	defer n.coreLock.Unlock()
+
+	n.core.AddInternalTransactions([]*hg.InternalTransaction{tx})
 }
 
 func (n *Node) Shutdown() {
