@@ -9,91 +9,125 @@ import (
 
 type InmemStore struct {
 	cacheSize              int
-	peerSet                *peers.PeerSet
 	eventCache             *cm.LRU
 	roundCache             *cm.LRU
 	blockCache             *cm.LRU
 	frameCache             *cm.LRU
 	consensusCache         *cm.RollingIndex
 	totConsensusEvents     int
+	peerSetCache           *PeerSetCache
 	participantEventsCache *ParticipantEventsCache
-	rootsByParticipant     map[string]Root //[participant] => Root
-	rootsBySelfParent      map[string]Root //[Root.SelfParent.Hash] => Root
+	rootsByParticipant     map[string]*Root //[participant] => Root
+	rootsBySelfParent      map[string]*Root //[Root.SelfParent.Hash] => Root
 	lastRound              int
 	lastConsensusEvents    map[string]string //[participant] => hex() of last consensus event
 	lastBlock              int
 }
 
 func NewInmemStore(peerSet *peers.PeerSet, cacheSize int) *InmemStore {
-	rootsByParticipant := make(map[string]Root)
-
+	rootsByParticipant := make(map[string]*Root)
+	rootsBySelfParent := make(map[string]*Root)
 	for pk, pid := range peerSet.ByPubKey {
 		root := NewBaseRoot(pid.ID)
 		rootsByParticipant[pk] = root
+		rootsBySelfParent[root.SelfParent.Hash] = root
 	}
+
+	peerSetCache := NewPeerSetCache()
+	peerSetCache.Set(0, peerSet)
 
 	return &InmemStore{
 		cacheSize:              cacheSize,
-		peerSet:                peerSet,
 		eventCache:             cm.NewLRU(cacheSize, nil),
 		roundCache:             cm.NewLRU(cacheSize, nil),
 		blockCache:             cm.NewLRU(cacheSize, nil),
 		frameCache:             cm.NewLRU(cacheSize, nil),
 		consensusCache:         cm.NewRollingIndex("ConsensusCache", cacheSize),
+		peerSetCache:           peerSetCache,
 		participantEventsCache: NewParticipantEventsCache(cacheSize, peerSet),
 		rootsByParticipant:     rootsByParticipant,
+		rootsBySelfParent:      rootsBySelfParent,
 		lastRound:              -1,
 		lastBlock:              -1,
 		lastConsensusEvents:    map[string]string{},
 	}
 }
 
+func NewInmemStoreFromFrame(frame *Frame, cacheSize int) (*InmemStore, error) {
+	store := &InmemStore{
+		cacheSize: cacheSize,
+	}
+
+	if err := store.Reset(frame); err != nil {
+		return nil, err
+	}
+
+	return store, nil
+}
+
 func (s *InmemStore) CacheSize() int {
 	return s.cacheSize
 }
 
-func (s *InmemStore) PeerSet() (*peers.PeerSet, error) {
-	return s.peerSet, nil
+func (s *InmemStore) GetPeerSet(round int) (*peers.PeerSet, error) {
+	return s.peerSetCache.Get(round)
 }
 
-func (s *InmemStore) RootsBySelfParent() (map[string]Root, error) {
-	if s.rootsBySelfParent == nil {
-		s.rootsBySelfParent = make(map[string]Root)
-		for _, root := range s.rootsByParticipant {
+func (s *InmemStore) GetLastPeerSet() (*peers.PeerSet, error) {
+	return s.peerSetCache.GetLast()
+}
+
+func (s *InmemStore) SetPeerSet(round int, peerSet *peers.PeerSet) error {
+	//Update PeerSetCache
+	err := s.peerSetCache.Set(round, peerSet)
+	if err != nil {
+		return err
+	}
+
+	//Extend PartipantEventsCache and Roots with new peers
+	for id, p := range peerSet.ByID {
+		if _, ok := s.participantEventsCache.participants.ByID[id]; !ok {
+			if err := s.participantEventsCache.AddPeer(p); err != nil {
+				return err
+			}
+		}
+		if _, ok := s.rootsByParticipant[p.PubKeyHex]; !ok {
+			root := NewBaseRoot(p.ID)
+			s.rootsByParticipant[p.PubKeyHex] = root
 			s.rootsBySelfParent[root.SelfParent.Hash] = root
 		}
 	}
-	return s.rootsBySelfParent, nil
+
+	//XXX Do the same for removing Peers
+	return nil
 }
 
-func (s *InmemStore) GetEvent(key string) (Event, error) {
+func (s *InmemStore) RootsBySelfParent() map[string]*Root {
+	return s.rootsBySelfParent
+}
+
+func (s *InmemStore) GetEvent(key string) (*Event, error) {
 	res, ok := s.eventCache.Get(key)
 	if !ok {
-		return Event{}, cm.NewStoreErr("EventCache", cm.KeyNotFound, key)
+		return nil, cm.NewStoreErr("EventCache", cm.KeyNotFound, key)
 	}
 
-	return res.(Event), nil
+	return res.(*Event), nil
 }
 
-func (s *InmemStore) SetEvent(event Event) error {
+func (s *InmemStore) SetEvent(event *Event) error {
 	key := event.Hex()
 	_, err := s.GetEvent(key)
 	if err != nil && !cm.Is(err, cm.KeyNotFound) {
 		return err
 	}
 	if cm.Is(err, cm.KeyNotFound) {
-		if err := s.addParticpantEvent(event.Creator(), key, event.Index()); err != nil {
+		if err := s.participantEventsCache.Set(event.Creator(), key, event.Index()); err != nil {
 			return err
 		}
 	}
-
 	s.eventCache.Add(key, event)
-
 	return nil
-}
-
-func (s *InmemStore) addParticpantEvent(participant string, hash string, index int) error {
-	return s.participantEventsCache.Set(participant, hash, index)
 }
 
 func (s *InmemStore) ParticipantEvents(participant string, skip int) ([]string, error) {
@@ -151,11 +185,14 @@ func (s *InmemStore) LastConsensusEventFrom(participant string) (last string, is
 
 func (s *InmemStore) KnownEvents() map[int]int {
 	known := s.participantEventsCache.Known()
-	for p, pid := range s.peerSet.ByPubKey {
-		if known[pid.ID] == -1 {
-			root, ok := s.rootsByParticipant[p]
-			if ok {
-				known[pid.ID] = root.SelfParent.Index
+	lastPeerSet, _ := s.GetLastPeerSet()
+	if lastPeerSet != nil {
+		for p, pid := range lastPeerSet.ByPubKey {
+			if known[pid.ID] == -1 {
+				root, ok := s.rootsByParticipant[p]
+				if ok {
+					known[pid.ID] = root.SelfParent.Index
+				}
 			}
 		}
 	}
@@ -175,22 +212,22 @@ func (s *InmemStore) ConsensusEventsCount() int {
 	return s.totConsensusEvents
 }
 
-func (s *InmemStore) AddConsensusEvent(event Event) error {
+func (s *InmemStore) AddConsensusEvent(event *Event) error {
 	s.consensusCache.Set(event.Hex(), s.totConsensusEvents)
 	s.totConsensusEvents++
 	s.lastConsensusEvents[event.Creator()] = event.Hex()
 	return nil
 }
 
-func (s *InmemStore) GetRound(r int) (RoundInfo, error) {
+func (s *InmemStore) GetRound(r int) (*RoundInfo, error) {
 	res, ok := s.roundCache.Get(r)
 	if !ok {
-		return *NewRoundInfo(nil), cm.NewStoreErr("RoundCache", cm.KeyNotFound, strconv.Itoa(r))
+		return nil, cm.NewStoreErr("RoundCache", cm.KeyNotFound, strconv.Itoa(r))
 	}
-	return res.(RoundInfo), nil
+	return res.(*RoundInfo), nil
 }
 
-func (s *InmemStore) SetRound(r int, round RoundInfo) error {
+func (s *InmemStore) SetRound(r int, round *RoundInfo) error {
 	s.roundCache.Add(r, round)
 	if r > s.lastRound {
 		s.lastRound = r
@@ -218,23 +255,23 @@ func (s *InmemStore) RoundEvents(r int) int {
 	return len(round.Events)
 }
 
-func (s *InmemStore) GetRoot(participant string) (Root, error) {
+func (s *InmemStore) GetRoot(participant string) (*Root, error) {
 	res, ok := s.rootsByParticipant[participant]
 	if !ok {
-		return Root{}, cm.NewStoreErr("RootCache", cm.KeyNotFound, participant)
+		return nil, cm.NewStoreErr("RootCache", cm.KeyNotFound, participant)
 	}
 	return res, nil
 }
 
-func (s *InmemStore) GetBlock(index int) (Block, error) {
+func (s *InmemStore) GetBlock(index int) (*Block, error) {
 	res, ok := s.blockCache.Get(index)
 	if !ok {
-		return Block{}, cm.NewStoreErr("BlockCache", cm.KeyNotFound, strconv.Itoa(index))
+		return nil, cm.NewStoreErr("BlockCache", cm.KeyNotFound, strconv.Itoa(index))
 	}
-	return res.(Block), nil
+	return res.(*Block), nil
 }
 
-func (s *InmemStore) SetBlock(block Block) error {
+func (s *InmemStore) SetBlock(block *Block) error {
 	index := block.Index()
 	_, err := s.GetBlock(index)
 	if err != nil && !cm.Is(err, cm.KeyNotFound) {
@@ -251,15 +288,15 @@ func (s *InmemStore) LastBlockIndex() int {
 	return s.lastBlock
 }
 
-func (s *InmemStore) GetFrame(index int) (Frame, error) {
+func (s *InmemStore) GetFrame(index int) (*Frame, error) {
 	res, ok := s.frameCache.Get(index)
 	if !ok {
-		return Frame{}, cm.NewStoreErr("FrameCache", cm.KeyNotFound, strconv.Itoa(index))
+		return nil, cm.NewStoreErr("FrameCache", cm.KeyNotFound, strconv.Itoa(index))
 	}
-	return res.(Frame), nil
+	return res.(*Frame), nil
 }
 
-func (s *InmemStore) SetFrame(frame Frame) error {
+func (s *InmemStore) SetFrame(frame *Frame) error {
 	index := frame.Round
 	_, err := s.GetFrame(index)
 	if err != nil && !cm.Is(err, cm.KeyNotFound) {
@@ -269,16 +306,31 @@ func (s *InmemStore) SetFrame(frame Frame) error {
 	return nil
 }
 
-func (s *InmemStore) Reset(roots map[string]Root) error {
-	s.rootsByParticipant = roots
-	s.rootsBySelfParent = nil
+func (s *InmemStore) Reset(frame *Frame) error {
+	//Reset Root caches
+	s.rootsByParticipant = frame.Roots
+	rootsBySelfParent := make(map[string]*Root, len(frame.Roots))
+	for _, r := range s.rootsByParticipant {
+		rootsBySelfParent[r.SelfParent.Hash] = r
+	}
+	s.rootsBySelfParent = rootsBySelfParent
+
+	//Reset Peer caches
+	peerSet := peers.NewPeerSet(frame.Peers)
+	s.peerSetCache.Set(frame.Round, peerSet)
+	s.participantEventsCache = NewParticipantEventsCache(s.cacheSize, peerSet)
+
+	//Reset Events and Rounds caches
 	s.eventCache = cm.NewLRU(s.cacheSize, nil)
 	s.roundCache = cm.NewLRU(s.cacheSize, nil)
+	s.frameCache = cm.NewLRU(s.cacheSize, nil)
 	s.consensusCache = cm.NewRollingIndex("ConsensusCache", s.cacheSize)
-	err := s.participantEventsCache.Reset()
+
 	s.lastRound = -1
 	s.lastBlock = -1
-	return err
+
+	//Set Frame
+	return s.SetFrame(frame)
 }
 
 func (s *InmemStore) Close() error {

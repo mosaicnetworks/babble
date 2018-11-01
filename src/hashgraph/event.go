@@ -106,7 +106,7 @@ func NewEvent(transactions [][]byte,
 	blockSignatures []BlockSignature,
 	parents []string,
 	creator []byte,
-	index int) Event {
+	index int) *Event {
 
 	body := EventBody{
 		Transactions:    transactions,
@@ -115,7 +115,7 @@ func NewEvent(transactions [][]byte,
 		Creator:         creator,
 		Index:           index,
 	}
-	return Event{
+	return &Event{
 		Body: body,
 	}
 }
@@ -296,7 +296,7 @@ Sorting
 // ByTopologicalOrder implements sort.Interface for []Event based on
 // the topologicalIndex field.
 // THIS IS A PARTIAL ORDER
-type ByTopologicalOrder []Event
+type ByTopologicalOrder []*Event
 
 func (a ByTopologicalOrder) Len() int      { return len(a) }
 func (a ByTopologicalOrder) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
@@ -307,7 +307,7 @@ func (a ByTopologicalOrder) Less(i, j int) bool {
 // ByLamportTimestamp implements sort.Interface for []Event based on
 // the lamportTimestamp field.
 // THIS IS A TOTAL ORDER
-type ByLamportTimestamp []Event
+type ByLamportTimestamp []*Event
 
 func (a ByLamportTimestamp) Len() int      { return len(a) }
 func (a ByLamportTimestamp) Swap(i, j int) { a[i], a[j] = a[j], a[i] }

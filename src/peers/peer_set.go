@@ -2,6 +2,7 @@ package peers
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/mosaicnetworks/babble/src/crypto"
 )
@@ -18,6 +19,7 @@ type PeerSet struct {
 	hash          []byte
 	hex           string
 	superMajority *int
+	trustCount    *int
 }
 
 /* Constructors */
@@ -41,6 +43,13 @@ func NewPeerSet(peers []*Peer) *PeerSet {
 	peerSet.Peers = peers
 
 	return peerSet
+}
+
+//WithNewPeer returns a new PeerSet with a list of peers including the new one.
+func (peerSet *PeerSet) WithNewPeer(peer *Peer) *PeerSet {
+	peers := append(peerSet.Peers, peer)
+	newPeerSet := NewPeerSet(peers)
+	return newPeerSet
 }
 
 /* ToSlice Methods */
@@ -105,6 +114,14 @@ func (c *PeerSet) SuperMajority() int {
 		c.superMajority = &val
 	}
 	return *c.superMajority
+}
+
+func (c *PeerSet) TrustCount() int {
+	if c.trustCount == nil {
+		val := int(math.Ceil(float64(c.Len()) / float64(3)))
+		c.trustCount = &val
+	}
+	return *c.trustCount
 }
 
 func (c *PeerSet) clearCache() {

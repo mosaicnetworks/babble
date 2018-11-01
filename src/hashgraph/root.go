@@ -96,8 +96,8 @@ type Root struct {
 }
 
 //NewBaseRoot initializes a Root object for a fresh Hashgraph.
-func NewBaseRoot(creatorID int) Root {
-	res := Root{
+func NewBaseRoot(creatorID int) *Root {
+	res := &Root{
 		NextRound:  0,
 		SelfParent: NewBaseRootEvent(creatorID),
 		Others:     map[string]RootEvent{},

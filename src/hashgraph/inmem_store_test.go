@@ -43,11 +43,11 @@ func TestInmemEvents(t *testing.T) {
 	testSize := 15
 	store, participants := initInmemStore(cacheSize)
 
-	events := make(map[string][]Event)
+	events := make(map[string][]*Event)
 
 	t.Run("Store Events", func(t *testing.T) {
 		for _, p := range participants {
-			items := []Event{}
+			items := []*Event{}
 			for k := 0; k < testSize; k++ {
 				event := NewEvent([][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], k))},
 					[]BlockSignature{BlockSignature{Validator: []byte("validator"), Index: 0, Signature: "r|s"}},
@@ -126,7 +126,7 @@ func TestInmemRounds(t *testing.T) {
 	store, participants := initInmemStore(10)
 
 	round := NewRoundInfo(nil) //XXX
-	events := make(map[string]Event)
+	events := make(map[string]*Event)
 	for _, p := range participants {
 		event := NewEvent([][]byte{},
 			[]BlockSignature{},
@@ -138,7 +138,7 @@ func TestInmemRounds(t *testing.T) {
 	}
 
 	t.Run("Store Round", func(t *testing.T) {
-		if err := store.SetRound(0, *round); err != nil {
+		if err := store.SetRound(0, round); err != nil {
 			t.Fatal(err)
 		}
 		storedRound, err := store.GetRound(0)
@@ -146,7 +146,7 @@ func TestInmemRounds(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if !reflect.DeepEqual(*round, storedRound) {
+		if !reflect.DeepEqual(round, storedRound) {
 			t.Fatalf("Round and StoredRound do not match")
 		}
 	})
@@ -184,7 +184,8 @@ func TestInmemBlocks(t *testing.T) {
 		[]byte("tx5"),
 	}
 	frameHash := []byte("this is the frame hash")
-	block := NewBlock(index, roundReceived, frameHash, transactions)
+
+	block := NewBlock(index, roundReceived, frameHash, []*peers.Peer{}, transactions)
 
 	sig1, err := block.Sign(participants[0].privKey)
 	if err != nil {

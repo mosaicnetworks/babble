@@ -241,8 +241,10 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 
 func (c *Core) FastForward(peer string, block hg.Block, frame hg.Frame) error {
 
+	peerSet := peers.NewPeerSet(frame.Peers)
+
 	//Check Block Signatures
-	err := c.hg.CheckBlock(block)
+	err := c.hg.CheckBlock(block, peerSet)
 	if err != nil {
 		return err
 	}

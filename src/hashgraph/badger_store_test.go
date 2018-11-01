@@ -126,18 +126,17 @@ func TestLoadBadgerStore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if badgerStore.peerSet.Len() != 3 {
-		t.Fatalf("store.peerSet length should be %d items, not %d", 3, badgerStore.peerSet.Len())
+	lastPeerSet, err := badgerStore.GetLastPeerSet()
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	if badgerStore.peerSet.Len() != dbPeerSet.Len() {
-		t.Fatalf("store.peerSet should contain %d items, not %d",
-			dbPeerSet.Len(),
-			badgerStore.peerSet.Len())
+	if lastPeerSet.Len() != 3 {
+		t.Fatalf("lastPeerSet length should be %d, not %d", 3, lastPeerSet.Len())
 	}
 
 	for dbP, dbPeer := range dbPeerSet.ByPubKey {
-		peer, ok := badgerStore.peerSet.ByPubKey[dbP]
+		peer, ok := lastPeerSet.ByPubKey[dbP]
 		if !ok {
 			t.Fatalf("BadgerStore peerSet does not contains %s", dbP)
 		}
@@ -158,11 +157,11 @@ func TestDBEventMethods(t *testing.T) {
 	defer removeBadgerStore(store, t)
 
 	//insert events in db directly
-	events := make(map[string][]Event)
+	events := make(map[string][]*Event)
 	topologicalIndex := 0
-	topologicalEvents := []Event{}
+	topologicalEvents := []*Event{}
 	for _, p := range participants {
-		items := []Event{}
+		items := []*Event{}
 		for k := 0; k < testSize; k++ {
 			event := NewEvent(
 				[][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], k))},
@@ -176,7 +175,7 @@ func TestDBEventMethods(t *testing.T) {
 			topologicalEvents = append(topologicalEvents, event)
 
 			items = append(items, event)
-			err := store.dbSetEvents([]Event{event})
+			err := store.dbSetEvents([]*Event{event})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -263,7 +262,7 @@ func TestDBRoundMethods(t *testing.T) {
 	defer removeBadgerStore(store, t)
 
 	round := NewRoundInfo(nil) //XXX something better here
-	events := make(map[string]Event)
+	events := make(map[string]*Event)
 	for _, p := range participants {
 		event := NewEvent([][]byte{},
 			[]BlockSignature{},
@@ -274,7 +273,7 @@ func TestDBRoundMethods(t *testing.T) {
 		round.AddEvent(event.Hex(), true)
 	}
 
-	if err := store.dbSetRound(0, *round); err != nil {
+	if err := store.dbSetRound(0, round); err != nil {
 		t.Fatal(err)
 	}
 
@@ -283,7 +282,7 @@ func TestDBRoundMethods(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !reflect.DeepEqual(*round, storedRound) {
+	if !reflect.DeepEqual(round, storedRound) {
 		t.Fatalf("Round and StoredRound do not match")
 	}
 
@@ -304,7 +303,12 @@ func TestDBPeerSetMethods(t *testing.T) {
 	store, _ := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
 
-	if err := store.dbSetPeerSet(store.peerSet); err != nil {
+	lastPeerSet, err := store.GetLastPeerSet()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := store.dbSetPeerSet(lastPeerSet); err != nil {
 		t.Fatal(err)
 	}
 
@@ -313,7 +317,7 @@ func TestDBPeerSetMethods(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for p, peer := range store.peerSet.ByPubKey {
+	for p, peer := range lastPeerSet.ByPubKey {
 		dbPeer, ok := participantsFromDB.ByPubKey[p]
 		if !ok {
 			t.Fatalf("DB does not contain peerSet %s", p)
@@ -340,7 +344,7 @@ func TestDBBlockMethods(t *testing.T) {
 	}
 	frameHash := []byte("this is the frame hash")
 
-	block := NewBlock(index, roundReceived, frameHash, transactions)
+	block := NewBlock(index, roundReceived, frameHash, []*peers.Peer{}, transactions)
 
 	sig1, err := block.Sign(participants[0].privKey)
 	if err != nil {
@@ -365,8 +369,12 @@ func TestDBBlockMethods(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if !reflect.DeepEqual(storedBlock, block) {
-			t.Fatalf("Block and StoredBlock do not match")
+		if !reflect.DeepEqual(storedBlock.Body, block.Body) {
+			t.Fatalf("Block and StoredBlock bodies do not match")
+		}
+
+		if !reflect.DeepEqual(storedBlock.Signatures, block.Signatures) {
+			t.Fatalf("Block and StoredBlock signatures do not match")
 		}
 	})
 
@@ -399,8 +407,8 @@ func TestDBFrameMethods(t *testing.T) {
 	store, participants := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
 
-	events := []Event{}
-	roots := []Root{}
+	events := []*Event{}
+	roots := make(map[string]*Root)
 	for id, p := range participants {
 		event := NewEvent(
 			[][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], 0))},
@@ -411,10 +419,10 @@ func TestDBFrameMethods(t *testing.T) {
 		event.Sign(p.privKey)
 		events = append(events, event)
 
-		root := NewBaseRoot(id)
-		roots = append(roots, root)
+		roots[p.hex] = NewBaseRoot(id)
 	}
-	frame := Frame{
+
+	frame := &Frame{
 		Round:  1,
 		Events: events,
 		Roots:  roots,
@@ -448,9 +456,9 @@ func TestBadgerEvents(t *testing.T) {
 	defer removeBadgerStore(store, t)
 
 	//insert event
-	events := make(map[string][]Event)
+	events := make(map[string][]*Event)
 	for _, p := range participants {
-		items := []Event{}
+		items := []*Event{}
 		for k := 0; k < testSize; k++ {
 			event := NewEvent([][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], k))},
 				[]BlockSignature{BlockSignature{Validator: []byte("validator"), Index: 0, Signature: "r|s"}},
@@ -542,7 +550,7 @@ func TestBadgerRounds(t *testing.T) {
 	defer removeBadgerStore(store, t)
 
 	round := NewRoundInfo(nil) //XXX
-	events := make(map[string]Event)
+	events := make(map[string]*Event)
 	for _, p := range participants {
 		event := NewEvent([][]byte{},
 			[]BlockSignature{},
@@ -553,7 +561,7 @@ func TestBadgerRounds(t *testing.T) {
 		round.AddEvent(event.Hex(), true)
 	}
 
-	if err := store.SetRound(0, *round); err != nil {
+	if err := store.SetRound(0, round); err != nil {
 		t.Fatal(err)
 	}
 
@@ -566,7 +574,7 @@ func TestBadgerRounds(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !reflect.DeepEqual(*round, storedRound) {
+	if !reflect.DeepEqual(round, storedRound) {
 		t.Fatalf("Round and StoredRound do not match")
 	}
 
@@ -597,7 +605,7 @@ func TestBadgerBlocks(t *testing.T) {
 		[]byte("tx5"),
 	}
 	frameHash := []byte("this is the frame hash")
-	block := NewBlock(index, roundReceived, frameHash, transactions)
+	block := NewBlock(index, roundReceived, frameHash, []*peers.Peer{}, transactions)
 
 	sig1, err := block.Sign(participants[0].privKey)
 	if err != nil {
@@ -622,8 +630,12 @@ func TestBadgerBlocks(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if !reflect.DeepEqual(storedBlock, block) {
-			t.Fatalf("Block and StoredBlock do not match")
+		if !reflect.DeepEqual(storedBlock.Body, block.Body) {
+			t.Fatalf("Block and StoredBlock bodies do not match")
+		}
+
+		if !reflect.DeepEqual(storedBlock.Signatures, block.Signatures) {
+			t.Fatalf("Block and StoredBlock signatures do not match")
 		}
 	})
 
@@ -656,8 +668,8 @@ func TestBadgerFrames(t *testing.T) {
 	store, participants := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
 
-	events := []Event{}
-	roots := []Root{}
+	events := []*Event{}
+	roots := make(map[string]*Root)
 	for id, p := range participants {
 		event := NewEvent(
 			[][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], 0))},
@@ -668,10 +680,10 @@ func TestBadgerFrames(t *testing.T) {
 		event.Sign(p.privKey)
 		events = append(events, event)
 
-		root := NewBaseRoot(id)
-		roots = append(roots, root)
+		roots[p.hex] = NewBaseRoot(id)
 	}
-	frame := Frame{
+
+	frame := &Frame{
 		Round:  1,
 		Events: events,
 		Roots:  roots,
