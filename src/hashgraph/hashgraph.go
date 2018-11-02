@@ -1439,10 +1439,11 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 	}
 
 	body := EventBody{
-		Transactions:    wevent.Body.Transactions,
-		BlockSignatures: wevent.BlockSignatures(creatorBytes),
-		Parents:         []string{selfParent, otherParent},
-		Creator:         creatorBytes,
+		Transactions:         wevent.Body.Transactions,
+		InternalTransactions: wevent.Body.InternalTransactions,
+		BlockSignatures:      wevent.BlockSignatures(creatorBytes),
+		Parents:              []string{selfParent, otherParent},
+		Creator:              creatorBytes,
 
 		Index:                wevent.Body.Index,
 		selfParentIndex:      wevent.Body.SelfParentIndex,
