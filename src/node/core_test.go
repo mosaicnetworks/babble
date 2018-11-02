@@ -41,7 +41,7 @@ func initCores(n int, t *testing.T) ([]Core, map[int]*ecdsa.PrivateKey, map[stri
 
 		//Create and save the first Event
 		initialEvent := hg.NewEvent([][]byte(nil),
-			[]*hg.InternalTransaction{},
+			[]hg.InternalTransaction{},
 			nil,
 			[]string{fmt.Sprintf("Root%d", peer.ID), ""},
 			core.PubKey(),
@@ -81,7 +81,7 @@ func initHashgraph(cores []Core, keys map[int]*ecdsa.PrivateKey, index map[strin
 	}
 
 	event01 := hg.NewEvent([][]byte{},
-		[]*hg.InternalTransaction{},
+		[]hg.InternalTransaction{},
 		nil,
 		[]string{index["e0"], index["e1"]}, //e0 and e1
 		cores[0].PubKey(), 1)
@@ -90,7 +90,7 @@ func initHashgraph(cores []Core, keys map[int]*ecdsa.PrivateKey, index map[strin
 	}
 
 	event20 := hg.NewEvent([][]byte{},
-		[]*hg.InternalTransaction{},
+		[]hg.InternalTransaction{},
 		nil,
 		[]string{index["e2"], index["e01"]}, //e2 and e01
 		cores[2].PubKey(), 1)
@@ -99,7 +99,7 @@ func initHashgraph(cores []Core, keys map[int]*ecdsa.PrivateKey, index map[strin
 	}
 
 	event12 := hg.NewEvent([][]byte{},
-		[]*hg.InternalTransaction{},
+		[]hg.InternalTransaction{},
 		nil,
 		[]string{index["e1"], index["e20"]}, //e1 and e20
 		cores[1].PubKey(), 1)

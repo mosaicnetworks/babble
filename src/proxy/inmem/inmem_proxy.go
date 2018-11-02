@@ -1,8 +1,8 @@
 package inmem
 
 import (
-	"github.com/btcsuite/btcd/peer"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/sirupsen/logrus"
 )
@@ -11,7 +11,7 @@ import (
 type InmemProxy struct {
 	handler          proxy.ProxyHandler
 	submitCh         chan []byte
-	submitInternalCh chan *hg.InternalTransaction
+	submitInternalCh chan hg.InternalTransaction
 	logger           *logrus.Logger
 }
 
@@ -29,7 +29,7 @@ func NewInmemProxy(handler proxy.ProxyHandler,
 	return &InmemProxy{
 		handler:          handler,
 		submitCh:         make(chan []byte),
-		submitInternalCh: make(chan *hg.InternalTransaction),
+		submitInternalCh: make(chan hg.InternalTransaction),
 		logger:           logger,
 	}
 }
@@ -49,11 +49,11 @@ func (p *InmemProxy) SubmitTx(tx []byte) {
 	p.submitCh <- t
 }
 
-func (p *InmemProxy) ProposePeerAdd(peer peer.Peer) {
+func (p *InmemProxy) ProposePeerAdd(peer peers.Peer) {
 	p.submitInternalCh <- hg.NewInternalTransaction(hg.PEER_ADD, peer)
 }
 
-func (p *InmemProxy) ProposePeerRemove(peer peer.Peer) {
+func (p *InmemProxy) ProposePeerRemove(peer peers.Peer) {
 	p.submitInternalCh <- hg.NewInternalTransaction(hg.PEER_REMOVE, peer)
 }
 
@@ -67,7 +67,7 @@ func (p *InmemProxy) SubmitCh() chan []byte {
 }
 
 //SubmitCh returns the channel of raw transactions
-func (p *InmemProxy) SubmitInternalCh() chan *hg.InternalTransaction {
+func (p *InmemProxy) SubmitInternalCh() chan hg.InternalTransaction {
 	return p.submitInternalCh
 }
 

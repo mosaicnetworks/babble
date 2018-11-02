@@ -51,6 +51,10 @@ func (p *SocketAppProxy) SubmitCh() chan []byte {
 	return p.server.submitCh
 }
 
+func (p *SocketAppProxy) SubmitInternalCh() chan hashgraph.InternalTransaction {
+	return p.server.submitInternalCh
+}
+
 func (p *SocketAppProxy) CommitBlock(block hashgraph.Block) ([]byte, error) {
 	return p.client.CommitBlock(block)
 }

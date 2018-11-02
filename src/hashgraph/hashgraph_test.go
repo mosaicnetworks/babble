@@ -1139,7 +1139,7 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 		| \ |   |                    | Evs   9 |
 		|   \   |                    +---------+
 		|   | \ |
-	---f0x  |   f21 //f0x's other-parent is e21b. This situation can happen with concurrency
+	---f0x  |   f21 //f0x's other-parent is e21. This situation can happen with concurrency
 	|	|   | / |
 	|	|  f10  |
 	|	| / |   |

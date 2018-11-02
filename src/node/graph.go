@@ -37,7 +37,7 @@ func (g *Graph) GetParticipantEvents() map[string]map[string]hg.Event {
 
 		res[p.PubKeyHex][root.SelfParent.Hash] = hg.NewEvent(
 			[][]byte{},
-			[]*hg.InternalTransaction{},
+			[]hg.InternalTransaction{},
 			[]hg.BlockSignature{},
 			[]string{},
 			[]byte{},

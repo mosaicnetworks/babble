@@ -10,6 +10,7 @@ import (
 func createDummyEventBody() EventBody {
 	body := EventBody{}
 	body.Transactions = [][]byte{[]byte("abc"), []byte("def")}
+	body.InternalTransactions = []InternalTransaction{}
 	body.Parents = []string{"self", "other"}
 	body.Creator = []byte("public key")
 	body.BlockSignatures = []BlockSignature{
@@ -37,6 +38,9 @@ func TestMarshallBody(t *testing.T) {
 
 	if !reflect.DeepEqual(body.Transactions, newBody.Transactions) {
 		t.Fatalf("Transactions do not match. Expected %#v, got %#v", body.Transactions, newBody.Transactions)
+	}
+	if !reflect.DeepEqual(body.InternalTransactions, newBody.InternalTransactions) {
+		t.Fatalf("Internal Transactions do not match. Expected %#v, got %#v", body.InternalTransactions, newBody.InternalTransactions)
 	}
 	if !reflect.DeepEqual(body.BlockSignatures, newBody.BlockSignatures) {
 		t.Fatalf("BlockSignatures do not match. Expected %#v, got %#v", body.BlockSignatures, newBody.BlockSignatures)
@@ -115,6 +119,7 @@ func TestWireEvent(t *testing.T) {
 	expectedWireEvent := WireEvent{
 		Body: WireBody{
 			Transactions:         event.Body.Transactions,
+			InternalTransactions: event.Body.InternalTransactions,
 			SelfParentIndex:      1,
 			OtherParentCreatorID: 66,
 			OtherParentIndex:     2,

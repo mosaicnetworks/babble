@@ -25,7 +25,7 @@ type Core struct {
 	Seq   int
 
 	transactionPool         [][]byte
-	internalTransactionPool []*hg.InternalTransaction
+	internalTransactionPool []hg.InternalTransaction
 	blockSignaturePool      []hg.BlockSignature
 
 	logger *logrus.Entry
@@ -51,7 +51,7 @@ func NewCore(
 		hg:                      hg.NewHashgraph(peers, store, commitCh, logEntry),
 		peers:                   peers,
 		transactionPool:         [][]byte{},
-		internalTransactionPool: []*hg.InternalTransaction{},
+		internalTransactionPool: []hg.InternalTransaction{},
 		blockSignaturePool:      []hg.BlockSignature{},
 		logger:                  logEntry,
 		Head:                    "",
@@ -299,7 +299,7 @@ func (c *Core) AddSelfEvent(otherHead string) error {
 	}).Debug("Created Self-Event")
 
 	c.transactionPool = [][]byte{}
-	c.internalTransactionPool = []*hg.InternalTransaction{}
+	c.internalTransactionPool = []hg.InternalTransaction{}
 	c.blockSignaturePool = []hg.BlockSignature{}
 
 	return nil
@@ -398,7 +398,7 @@ func (c *Core) AddTransactions(txs [][]byte) {
 	c.transactionPool = append(c.transactionPool, txs...)
 }
 
-func (c *Core) AddInternalTransactions(txs []*hg.InternalTransaction) {
+func (c *Core) AddInternalTransactions(txs []hg.InternalTransaction) {
 	c.internalTransactionPool = append(c.internalTransactionPool, txs...)
 }
 

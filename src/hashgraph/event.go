@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/btcsuite/btcd/peer"
 	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/peers"
 )
 
 /*******************************************************************************
@@ -23,11 +23,11 @@ const (
 
 type InternalTransaction struct {
 	Type TransactionType
-	Peer peer.Peer
+	Peer peers.Peer
 }
 
-func NewInternalTransaction(tType TransactionType, peer peer.Peer) *InternalTransaction {
-	return &InternalTransaction{
+func NewInternalTransaction(tType TransactionType, peer peers.Peer) InternalTransaction {
+	return InternalTransaction{
 		Type: tType,
 		Peer: peer,
 	}
@@ -63,12 +63,12 @@ EventBody
 *******************************************************************************/
 
 type EventBody struct {
-	Transactions         [][]byte               //the payload
-	InternalTransactions []*InternalTransaction //peers add and removal internal consensus
-	Parents              []string               //hashes of the event's parents, self-parent first
-	Creator              []byte                 //creator's public key
-	Index                int                    //index in the sequence of events created by Creator
-	BlockSignatures      []BlockSignature       //list of Block signatures signed by the Event's Creator ONLY
+	Transactions         [][]byte              //the payload
+	InternalTransactions []InternalTransaction //peers add and removal internal consensus
+	Parents              []string              //hashes of the event's parents, self-parent first
+	Creator              []byte                //creator's public key
+	Index                int                   //index in the sequence of events created by Creator
+	BlockSignatures      []BlockSignature      //list of Block signatures signed by the Event's Creator ONLY
 
 	//wire
 	//It is cheaper to send ints than hashes over the wire
@@ -153,7 +153,7 @@ type Event struct {
 }
 
 func NewEvent(transactions [][]byte,
-	internalTransactions []*InternalTransaction,
+	internalTransactions []InternalTransaction,
 	blockSignatures []BlockSignature,
 	parents []string,
 	creator []byte,
@@ -403,7 +403,7 @@ func (a ByLamportTimestamp) Less(i, j int) bool {
 
 type WireBody struct {
 	Transactions         [][]byte
-	InternalTransactions []*InternalTransaction
+	InternalTransactions []InternalTransaction
 	BlockSignatures      []WireBlockSignature
 
 	SelfParentIndex      int
