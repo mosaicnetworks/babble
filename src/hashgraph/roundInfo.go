@@ -92,7 +92,6 @@ func (r *RoundInfo) WitnessesDecided() bool {
 			return false
 		}
 	}
-
 	return true
 }
 

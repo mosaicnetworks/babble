@@ -983,7 +983,7 @@ func initBlockHashgraph(t *testing.T) (*Hashgraph, []TestNode, map[string]string
 
 	for i, ev := range *orderedEvents {
 		if err := hashgraph.InsertEvent(ev, true); err != nil {
-			fmt.Printf("ERROR inserting event %d: %s\n", i, err)
+			t.Fatalf("ERROR inserting event %d: %s\n", i, err)
 		}
 	}
 
@@ -1404,7 +1404,7 @@ func TestDecideRoundReceived(t *testing.T) {
 		t.Fatalf("Could not retrieve Round 2. %s", err)
 	}
 	if ce := len(round2.ConsensusEvents()); ce != 9 {
-		t.Fatalf("Round 1 should contain 9 ConsensusEvents, not %d", ce)
+		t.Fatalf("Round 2 should contain 9 ConsensusEvents, not %d", ce)
 	}
 
 	expectedUndeterminedEvents := []string{
