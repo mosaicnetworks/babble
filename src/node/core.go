@@ -121,14 +121,14 @@ func (c *Core) Bootstrap() error {
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-func (c *Core) SignAndInsertSelfEvent(event hg.Event) error {
+func (c *Core) SignAndInsertSelfEvent(event *hg.Event) error {
 	if err := event.Sign(c.key); err != nil {
 		return err
 	}
 	return c.InsertEvent(event, true)
 }
 
-func (c *Core) InsertEvent(event hg.Event, setWireInfo bool) error {
+func (c *Core) InsertEvent(event *hg.Event, setWireInfo bool) error {
 	if err := c.hg.InsertEvent(event, setWireInfo); err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ func (c *Core) KnownEvents() map[int]int {
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-func (c *Core) SignBlock(block hg.Block) (hg.BlockSignature, error) {
+func (c *Core) SignBlock(block *hg.Block) (hg.BlockSignature, error) {
 	sig, err := block.Sign(c.key)
 	if err != nil {
 		return hg.BlockSignature{}, err
@@ -172,13 +172,13 @@ func (c *Core) OverSyncLimit(knownEvents map[int]int, syncLimit int) bool {
 	return false
 }
 
-func (c *Core) GetAnchorBlockWithFrame() (hg.Block, hg.Frame, error) {
+func (c *Core) GetAnchorBlockWithFrame() (*hg.Block, *hg.Frame, error) {
 	return c.hg.GetAnchorBlockWithFrame()
 }
 
 //returns events that c knowns about and are not in 'known'
-func (c *Core) EventDiff(known map[int]int) (events []hg.Event, err error) {
-	unknown := []hg.Event{}
+func (c *Core) EventDiff(known map[int]int) (events []*hg.Event, err error) {
+	unknown := []*hg.Event{}
 	//known represents the index of the last event known for every participant
 	//compare this to our view of events and fill unknown with events that we know of
 	// and the other doesnt
@@ -187,12 +187,12 @@ func (c *Core) EventDiff(known map[int]int) (events []hg.Event, err error) {
 		//get participant Events with index > ct
 		participantEvents, err := c.hg.Store.ParticipantEvents(peer.PubKeyHex, ct)
 		if err != nil {
-			return []hg.Event{}, err
+			return []*hg.Event{}, err
 		}
 		for _, e := range participantEvents {
 			ev, err := c.hg.Store.GetEvent(e)
 			if err != nil {
-				return []hg.Event{}, err
+				return []*hg.Event{}, err
 			}
 			unknown = append(unknown, ev)
 		}
@@ -219,7 +219,7 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 			return err
 
 		}
-		if err := c.InsertEvent(*ev, false); err != nil {
+		if err := c.InsertEvent(ev, false); err != nil {
 			return err
 		}
 		//assume last event corresponds to other-head
@@ -239,7 +239,7 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 	return nil
 }
 
-func (c *Core) FastForward(peer string, block hg.Block, frame hg.Frame) error {
+func (c *Core) FastForward(peer string, block *hg.Block, frame *hg.Frame) error {
 
 	peerSet := peers.NewPeerSet(frame.Peers)
 
@@ -312,7 +312,7 @@ func (c *Core) FromWire(wireEvents []hg.WireEvent) ([]hg.Event, error) {
 	return events, nil
 }
 
-func (c *Core) ToWire(events []hg.Event) ([]hg.WireEvent, error) {
+func (c *Core) ToWire(events []*hg.Event) ([]hg.WireEvent, error) {
 	wireEvents := make([]hg.WireEvent, len(events), len(events))
 	for i, e := range events {
 		wireEvents[i] = e.ToWire()
@@ -372,11 +372,11 @@ func (c *Core) AddBlockSignature(bs hg.BlockSignature) {
 	c.blockSignaturePool = append(c.blockSignaturePool, bs)
 }
 
-func (c *Core) GetHead() (hg.Event, error) {
+func (c *Core) GetHead() (*hg.Event, error) {
 	return c.hg.Store.GetEvent(c.Head)
 }
 
-func (c *Core) GetEvent(hash string) (hg.Event, error) {
+func (c *Core) GetEvent(hash string) (*hg.Event, error) {
 	return c.hg.Store.GetEvent(hash)
 }
 

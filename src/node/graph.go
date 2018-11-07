@@ -5,20 +5,24 @@ import (
 )
 
 type Infos struct {
-	ParticipantEvents map[string]map[string]hg.Event
-	Rounds            []hg.RoundInfo
-	Blocks            []hg.Block
+	ParticipantEvents map[string]map[string]*hg.Event
+	Rounds            []*hg.RoundInfo
+	Blocks            []*hg.Block
 }
 
 type Graph struct {
 	*Node
 }
 
-func (g *Graph) GetParticipantEvents() map[string]map[string]hg.Event {
-	res := make(map[string]map[string]hg.Event)
+func (g *Graph) GetParticipantEvents() map[string]map[string]*hg.Event {
+	res := make(map[string]map[string]*hg.Event)
 
 	store := g.Node.core.hg.Store
-	peers := g.Node.core.hg.Participants
+	peers, err := g.Node.core.hg.Store.GetLastPeerSet()
+
+	if err != nil {
+		panic(err)
+	}
 
 	for _, p := range peers.ByPubKey {
 		root, err := store.GetRoot(p.PubKeyHex)
@@ -33,7 +37,7 @@ func (g *Graph) GetParticipantEvents() map[string]map[string]hg.Event {
 			panic(err)
 		}
 
-		res[p.PubKeyHex] = make(map[string]hg.Event)
+		res[p.PubKeyHex] = make(map[string]*hg.Event)
 
 		res[p.PubKeyHex][root.SelfParent.Hash] = hg.NewEvent([][]byte{}, []hg.BlockSignature{}, []string{}, []byte{}, -1)
 
@@ -53,8 +57,8 @@ func (g *Graph) GetParticipantEvents() map[string]map[string]hg.Event {
 	return res
 }
 
-func (g *Graph) GetRounds() []hg.RoundInfo {
-	res := []hg.RoundInfo{}
+func (g *Graph) GetRounds() []*hg.RoundInfo {
+	res := []*hg.RoundInfo{}
 
 	round := 0
 
@@ -75,8 +79,8 @@ func (g *Graph) GetRounds() []hg.RoundInfo {
 	return res
 }
 
-func (g *Graph) GetBlocks() []hg.Block {
-	res := []hg.Block{}
+func (g *Graph) GetBlocks() []*hg.Block {
+	res := []*hg.Block{}
 
 	blockIdx := 0
 

@@ -58,7 +58,8 @@ func NewNode(conf *Config,
 ) *Node {
 	localAddr := trans.LocalAddr()
 
-	pmap, _ := store.PeerSet()
+	// pmap, _ := store.PeerSet()
+	pmap := peers
 
 	commitCh := make(chan hg.Block, 400)
 
@@ -176,7 +177,7 @@ func (n *Node) doBackgroundWork() {
 				"txs":            len(block.Transactions()),
 			}).Debug("Committing Block")
 
-			if err := n.commit(block); err != nil {
+			if err := n.commit(&block); err != nil {
 				n.logger.WithField("error", err).Error("Committing Block")
 			}
 
@@ -361,9 +362,9 @@ func (n *Node) processFastForwardRequest(rpc net.RPC, cmd *net.FastForwardReques
 		respErr = err
 	}
 
-	resp.Block = block
+	resp.Block = *block
 
-	resp.Frame = frame
+	resp.Frame = *frame
 
 	//Get snapshot
 	snapshot, err := n.proxy.GetSnapshot(block.Index())
@@ -564,7 +565,7 @@ func (n *Node) fastForward() error {
 	//prepare core. ie: fresh hashgraph
 	n.coreLock.Lock()
 
-	err = n.core.FastForward(peer.PubKeyHex, resp.Block, resp.Frame)
+	err = n.core.FastForward(peer.PubKeyHex, &resp.Block, &resp.Frame)
 
 	n.coreLock.Unlock()
 
@@ -662,8 +663,8 @@ func (n *Node) sync(events []hg.WireEvent) error {
 	return nil
 }
 
-func (n *Node) commit(block hg.Block) error {
-	stateHash, err := n.proxy.CommitBlock(block)
+func (n *Node) commit(block *hg.Block) error {
+	stateHash, err := n.proxy.CommitBlock(*block)
 
 	n.logger.WithFields(logrus.Fields{
 		"block":      block.Index(),
@@ -797,7 +798,7 @@ func (n *Node) SyncRate() float64 {
 	return 1 - syncErrorRate
 }
 
-func (n *Node) GetBlock(blockIndex int) (hg.Block, error) {
+func (n *Node) GetBlock(blockIndex int) (*hg.Block, error) {
 	return n.core.hg.Store.GetBlock(blockIndex)
 }
 

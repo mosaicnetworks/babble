@@ -30,7 +30,7 @@ func (rim *RollingIndexMap) AddKey(key int) error {
 		return NewStoreErr(rim.name, KeyAlreadyExists, strconv.Itoa(key))
 	}
 	rim.keys = append(rim.keys, key)
-	rim.mapping[key] = NewRollingIndex(fmt.Sprintf("%s[%s]", rim.name, key), rim.size)
+	rim.mapping[key] = NewRollingIndex(fmt.Sprintf("%s[%d]", rim.name, key), rim.size)
 	return nil
 }
 

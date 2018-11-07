@@ -1469,7 +1469,7 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 
 //CheckBlock returns an error if the Block does not contain valid signatures
 //from MORE than 1/3 of participants
-func (h *Hashgraph) CheckBlock(block Block, peerSet *peers.PeerSet) error {
+func (h *Hashgraph) CheckBlock(block *Block, peerSet *peers.PeerSet) error {
 	psh, err := peerSet.Hash()
 	if err != nil {
 		return err

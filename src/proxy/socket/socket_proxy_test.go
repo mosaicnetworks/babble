@@ -7,6 +7,7 @@ import (
 
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/peers"
 	aproxy "github.com/mosaicnetworks/babble/src/proxy/socket/app"
 	bproxy "github.com/mosaicnetworks/babble/src/proxy/socket/babble"
 	"github.com/sirupsen/logrus"
@@ -119,17 +120,20 @@ func TestSocketProxyClient(t *testing.T) {
 		[]byte("tx 3"),
 	}
 
-	block := hashgraph.NewBlock(0, 1, []byte{}, transactions)
+	block := hashgraph.NewBlock(0, 1, []byte{}, []*peers.Peer{}, transactions)
 	expectedStateHash := []byte("statehash")
 	expectedSnapshot := []byte("snapshot")
 
-	stateHash, err := appProxy.CommitBlock(block)
+	stateHash, err := appProxy.CommitBlock(*block)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !reflect.DeepEqual(block, handler.blocks[0]) {
-		t.Fatalf("block should be %v, not %v", block, handler.blocks[0])
+	handler.blocks[0].PeerSet = nil
+	block.PeerSet = nil
+
+	if !reflect.DeepEqual(*block, handler.blocks[0]) {
+		t.Fatalf("block should be \n%#v\n, not \n%#v\n", *block, handler.blocks[0])
 	}
 
 	if !reflect.DeepEqual(stateHash, expectedStateHash) {

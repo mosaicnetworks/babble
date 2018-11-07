@@ -9,6 +9,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/common"
 	bcrypto "github.com/mosaicnetworks/babble/src/crypto"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/peers"
 )
 
 func TestInmemDummyAppSide(t *testing.T) {
@@ -40,14 +41,14 @@ func TestInmemDummyServerSide(t *testing.T) {
 	dummy := NewInmemDummyClient(logger)
 
 	//create a few blocks
-	blocks := [5]hashgraph.Block{}
+	blocks := [5]*hashgraph.Block{}
 
 	for i := 0; i < 5; i++ {
-		blocks[i] = hashgraph.NewBlock(i, i+1, []byte{}, [][]byte{[]byte(fmt.Sprintf("block %d transaction", i))})
+		blocks[i] = hashgraph.NewBlock(i, i+1, []byte{}, []*peers.Peer{}, [][]byte{[]byte(fmt.Sprintf("block %d transaction", i))})
 	}
 
 	//commit first block and check that the client's statehash is correct
-	stateHash, err := dummy.CommitBlock(blocks[0])
+	stateHash, err := dummy.CommitBlock(*blocks[0])
 
 	if err != nil {
 		t.Fatal(err)
@@ -77,7 +78,7 @@ func TestInmemDummyServerSide(t *testing.T) {
 
 	//commit a few more blocks, then attempt to restore back to block 0 state
 	for i := 1; i < 5; i++ {
-		_, err := dummy.CommitBlock(blocks[i])
+		_, err := dummy.CommitBlock(*blocks[i])
 
 		if err != nil {
 			t.Fatal(err)

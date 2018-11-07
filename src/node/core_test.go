@@ -101,7 +101,7 @@ func initHashgraph(cores []Core, keys map[int]*ecdsa.PrivateKey, index map[strin
 }
 
 func insertEvent(cores []Core, keys map[int]*ecdsa.PrivateKey, index map[string]string,
-	event hg.Event, name string, particant int, creator int) error {
+	event *hg.Event, name string, particant int, creator int) error {
 
 	if particant == creator {
 		if err := cores[particant].SignAndInsertSelfEvent(event); err != nil {

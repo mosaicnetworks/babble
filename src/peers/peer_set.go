@@ -11,15 +11,15 @@ import (
 
 //PeerSet is a set of Peers forming a consensus network
 type PeerSet struct {
-	Peers    []*Peer
-	ByPubKey map[string]*Peer
-	ByID     map[int]*Peer
+	Peers    []*Peer          `json:"peers"`
+	ByPubKey map[string]*Peer `json:"by_pub_key"`
+	ByID     map[int]*Peer    `json:"by_id"`
 
 	//cached values
-	hash          []byte
-	hex           string
-	superMajority *int
-	trustCount    *int
+	hash          []byte `json:"hash"`
+	hex           string `json:"hex"`
+	superMajority *int   `json:"super_majority"`
+	trustCount    *int   `json:"trust_count"`
 }
 
 /* Constructors */

@@ -97,7 +97,7 @@ type Block struct {
 
 	hash    []byte
 	hex     string
-	peerSet *peers.PeerSet
+	PeerSet *peers.PeerSet
 }
 
 func NewBlockFromFrame(blockIndex int, frame *Frame) (*Block, error) {
@@ -138,7 +138,7 @@ func NewBlock(blockIndex,
 	return &Block{
 		Body:       body,
 		Signatures: make(map[string]string),
-		peerSet:    peerSet,
+		PeerSet:    peerSet,
 	}
 }
 
