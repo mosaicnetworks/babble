@@ -33,15 +33,15 @@ type RoundEvent struct {
 }
 
 type RoundInfo struct {
-	Events map[string]RoundEvent
-	Peers  *peers.PeerSet
-	queued bool
+	Events  map[string]RoundEvent
+	PeerSet *peers.PeerSet
+	queued  bool
 }
 
 func NewRoundInfo(peers *peers.PeerSet) *RoundInfo {
 	return &RoundInfo{
-		Events: make(map[string]RoundEvent),
-		Peers:  peers,
+		Events:  make(map[string]RoundEvent),
+		PeerSet: peers,
 	}
 }
 
@@ -92,7 +92,6 @@ func (r *RoundInfo) WitnessesDecided() bool {
 			return false
 		}
 	}
-
 	return true
 }
 

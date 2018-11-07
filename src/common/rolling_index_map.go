@@ -25,6 +25,15 @@ func NewRollingIndexMap(name string, size int, keys []int) *RollingIndexMap {
 	}
 }
 
+func (rim *RollingIndexMap) AddKey(key int) error {
+	if _, ok := rim.mapping[key]; ok {
+		return NewStoreErr(rim.name, KeyAlreadyExists, strconv.Itoa(key))
+	}
+	rim.keys = append(rim.keys, key)
+	rim.mapping[key] = NewRollingIndex(fmt.Sprintf("%s[%d]", rim.name, key), rim.size)
+	return nil
+}
+
 //return key items with index > skip
 func (rim *RollingIndexMap) Get(key int, skipIndex int) ([]interface{}, error) {
 	items, ok := rim.mapping[key]
@@ -73,13 +82,4 @@ func (rim *RollingIndexMap) Known() map[int]int {
 		known[k] = lastIndex
 	}
 	return known
-}
-
-func (rim *RollingIndexMap) Reset() error {
-	items := make(map[int]*RollingIndex)
-	for _, key := range rim.keys {
-		items[key] = NewRollingIndex(fmt.Sprintf("%s[%d]", rim.name, key), rim.size)
-	}
-	rim.mapping = items
-	return nil
 }

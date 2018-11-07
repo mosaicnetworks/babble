@@ -2,6 +2,7 @@ package peers
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/mosaicnetworks/babble/src/crypto"
 )
@@ -10,14 +11,15 @@ import (
 
 //PeerSet is a set of Peers forming a consensus network
 type PeerSet struct {
-	Peers    []*Peer
-	ByPubKey map[string]*Peer
-	ByID     map[int]*Peer
+	Peers    []*Peer          `json:"peers"`
+	ByPubKey map[string]*Peer `json:"by_pub_key"`
+	ByID     map[int]*Peer    `json:"by_id"`
 
 	//cached values
-	hash          []byte
-	hex           string
-	superMajority *int
+	hash          []byte `json:"hash"`
+	hex           string `json:"hex"`
+	superMajority *int   `json:"super_majority"`
+	trustCount    *int   `json:"trust_count"`
 }
 
 /* Constructors */
@@ -41,6 +43,13 @@ func NewPeerSet(peers []*Peer) *PeerSet {
 	peerSet.Peers = peers
 
 	return peerSet
+}
+
+//WithNewPeer returns a new PeerSet with a list of peers including the new one.
+func (peerSet *PeerSet) WithNewPeer(peer *Peer) *PeerSet {
+	peers := append(peerSet.Peers, peer)
+	newPeerSet := NewPeerSet(peers)
+	return newPeerSet
 }
 
 /* ToSlice Methods */
@@ -105,6 +114,14 @@ func (c *PeerSet) SuperMajority() int {
 		c.superMajority = &val
 	}
 	return *c.superMajority
+}
+
+func (c *PeerSet) TrustCount() int {
+	if c.trustCount == nil {
+		val := int(math.Ceil(float64(c.Len()) / float64(3)))
+		c.trustCount = &val
+	}
+	return *c.trustCount
 }
 
 func (c *PeerSet) clearCache() {

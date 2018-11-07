@@ -7,6 +7,7 @@ import (
 
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/sirupsen/logrus"
 )
 
@@ -82,12 +83,12 @@ func TestInmemProxyBabbleSide(t *testing.T) {
 		[]byte("tx 3"),
 	}
 
-	block := hashgraph.NewBlock(0, 1, []byte{}, transactions)
+	block := hashgraph.NewBlock(0, 1, []byte{}, []*peers.Peer{}, transactions)
 
 	/***************************************************************************
 	Commit
 	***************************************************************************/
-	stateHash, err := proxy.CommitBlock(block)
+	stateHash, err := proxy.CommitBlock(*block)
 	if err != nil {
 		t.Fatal(err)
 	}

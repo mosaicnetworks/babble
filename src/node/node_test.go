@@ -744,9 +744,9 @@ func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
 
 func checkGossip(nodes []*Node, fromBlock int, t *testing.T) {
 
-	nodeBlocks := map[int][]hg.Block{}
+	nodeBlocks := map[int][]*hg.Block{}
 	for _, n := range nodes {
-		blocks := []hg.Block{}
+		blocks := []*hg.Block{}
 		for i := fromBlock; i < n.core.hg.Store.LastBlockIndex(); i++ {
 			block, err := n.core.hg.Store.GetBlock(i)
 			if err != nil {

@@ -4,10 +4,12 @@ import "github.com/mosaicnetworks/babble/src/peers"
 
 type Store interface {
 	CacheSize() int
-	PeerSet() (*peers.PeerSet, error)
-	RootsBySelfParent() (map[string]Root, error)
-	GetEvent(string) (Event, error)
-	SetEvent(Event) error
+	GetPeerSet(int) (*peers.PeerSet, error)
+	GetLastPeerSet() (*peers.PeerSet, error)
+	SetPeerSet(int, *peers.PeerSet) error
+	RootsBySelfParent() map[string]*Root
+	GetEvent(string) (*Event, error)
+	SetEvent(*Event) error
 	ParticipantEvents(string, int) ([]string, error)
 	ParticipantEvent(string, int) (string, error)
 	LastEventFrom(string) (string, bool, error)
@@ -15,19 +17,19 @@ type Store interface {
 	KnownEvents() map[int]int
 	ConsensusEvents() []string
 	ConsensusEventsCount() int
-	AddConsensusEvent(Event) error
-	GetRound(int) (RoundInfo, error)
-	SetRound(int, RoundInfo) error
+	AddConsensusEvent(*Event) error
+	GetRound(int) (*RoundInfo, error)
+	SetRound(int, *RoundInfo) error
 	LastRound() int
 	RoundWitnesses(int) []string
 	RoundEvents(int) int
-	GetRoot(string) (Root, error)
-	GetBlock(int) (Block, error)
-	SetBlock(Block) error
+	GetRoot(string) (*Root, error)
+	GetBlock(int) (*Block, error)
+	SetBlock(*Block) error
 	LastBlockIndex() int
-	GetFrame(int) (Frame, error)
-	SetFrame(Frame) error
-	Reset(map[string]Root) error
+	GetFrame(int) (*Frame, error)
+	SetFrame(*Frame) error
+	Reset(*Frame) error
 	Close() error
 	NeedBoostrap() bool // Was the store loaded from existing db
 	StorePath() string
