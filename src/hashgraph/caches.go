@@ -99,19 +99,6 @@ func (pec *ParticipantEventsCache) GetLast(participant string) (string, error) {
 	return last.(string), nil
 }
 
-func (pec *ParticipantEventsCache) GetLastConsensus(participant string) (string, error) {
-	id, err := pec.participantID(participant)
-	if err != nil {
-		return "", err
-	}
-
-	last, err := pec.rim.GetLast(id)
-	if err != nil {
-		return "", err
-	}
-	return last.(string), nil
-}
-
 func (pec *ParticipantEventsCache) Set(participant string, hash string, index int) error {
 	id, err := pec.participantID(participant)
 	if err != nil {
