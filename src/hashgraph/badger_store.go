@@ -289,7 +289,7 @@ func (s *BadgerStore) RoundEvents(r int) int {
 	if err != nil {
 		return 0
 	}
-	return len(round.Events)
+	return len(round.CreatedEvents)
 }
 
 func (s *BadgerStore) GetRoot(participant string) (*Root, error) {

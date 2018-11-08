@@ -270,7 +270,7 @@ func TestDBRoundMethods(t *testing.T) {
 			p.pubKey,
 			0)
 		events[p.hex] = event
-		round.AddEvent(event.Hex(), true)
+		round.AddCreatedEvent(event.Hex(), true)
 	}
 
 	if err := store.dbSetRound(0, round); err != nil {
@@ -558,7 +558,7 @@ func TestBadgerRounds(t *testing.T) {
 			p.pubKey,
 			0)
 		events[p.hex] = event
-		round.AddEvent(event.Hex(), true)
+		round.AddCreatedEvent(event.Hex(), true)
 	}
 
 	if err := store.SetRound(0, round); err != nil {

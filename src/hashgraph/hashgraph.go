@@ -807,7 +807,7 @@ func (h *Hashgraph) DivideRounds() error {
 				return err
 			}
 
-			roundInfo.AddEvent(hash, witness)
+			roundInfo.AddCreatedEvent(hash, witness)
 
 			err = h.Store.SetRound(roundNumber, roundInfo)
 			if err != nil {
@@ -1008,7 +1008,7 @@ func (h *Hashgraph) DecideRoundReceived() error {
 					return err
 				}
 
-				tr.SetConsensusEvent(x)
+				tr.AddReceivedEvent(x)
 				err = h.Store.SetRound(i, tr)
 				if err != nil {
 					return err
@@ -1130,7 +1130,7 @@ func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 	}
 
 	events := []*Event{}
-	for _, eh := range round.ConsensusEvents() {
+	for _, eh := range round.ReceivedEvents {
 		e, err := h.Store.GetEvent(eh)
 		if err != nil {
 			return nil, err

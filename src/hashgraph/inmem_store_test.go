@@ -134,7 +134,7 @@ func TestInmemRounds(t *testing.T) {
 			p.pubKey,
 			0)
 		events[p.hex] = event
-		round.AddEvent(event.Hex(), true)
+		round.AddCreatedEvent(event.Hex(), true)
 	}
 
 	t.Run("Store Round", func(t *testing.T) {

@@ -35,10 +35,10 @@ P: [1,2,3]       |    | /  |
                  |    | \  |
 		         |    |   w53
          ---------------/---------
-Round 4     |    |   w42   |
-P:[0,1,2,3] |    | /  |    |
-            |   w41   |    |
-            |  / |    |    |
+Round 4          |   w42   |
+P:[0,1,2,3]      | /  |    |
+                w41   |    |
+               / |    |    |
       		w40  |    |    |
             |    \    |    |
             |    |    \    |
@@ -292,21 +292,26 @@ func TestR2DynDecideFame(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expectedWitnesses := map[int]map[string]RoundEvent{
+	expectedEvents := map[int]map[string]RoundEvent{
 		0: map[string]RoundEvent{
 			"w00": RoundEvent{Witness: true, Famous: True},
 			"w01": RoundEvent{Witness: true, Famous: True},
 			"w02": RoundEvent{Witness: true, Famous: True},
+			"e10": RoundEvent{Witness: false, Famous: Undefined},
+			"e21": RoundEvent{Witness: false, Famous: Undefined},
+			"e12": RoundEvent{Witness: false, Famous: Undefined},
 		},
 		1: map[string]RoundEvent{
 			"w10": RoundEvent{Witness: true, Famous: True},
 			"w11": RoundEvent{Witness: true, Famous: True},
 			"w12": RoundEvent{Witness: true, Famous: True},
+			"f10": RoundEvent{Witness: false, Famous: Undefined},
 		},
 		2: map[string]RoundEvent{
 			"w20": RoundEvent{Witness: true, Famous: True},
 			"w21": RoundEvent{Witness: true, Famous: True},
 			"w22": RoundEvent{Witness: true, Famous: True},
+			"g21": RoundEvent{Witness: false, Famous: Undefined},
 		},
 		3: map[string]RoundEvent{
 			"w30": RoundEvent{Witness: true, Famous: True},
@@ -324,13 +329,16 @@ func TestR2DynDecideFame(t *testing.T) {
 			"w51": RoundEvent{Witness: true, Famous: True},
 			"w52": RoundEvent{Witness: true, Famous: True},
 			"w53": RoundEvent{Witness: true, Famous: True},
+			"j31": RoundEvent{Witness: false, Famous: Undefined},
 		},
 		6: map[string]RoundEvent{
 			"w61": RoundEvent{Witness: true, Famous: Undefined},
 			"w62": RoundEvent{Witness: true, Famous: Undefined},
 			"w63": RoundEvent{Witness: true, Famous: Undefined},
+			"h23": RoundEvent{Witness: false, Famous: Undefined},
 		},
 		7: map[string]RoundEvent{
+			//created
 			"w71": RoundEvent{Witness: true, Famous: Undefined},
 		},
 	}
@@ -340,12 +348,16 @@ func TestR2DynDecideFame(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for w, re := range expectedWitnesses[i] {
-			if f := round.Events[index[w]]; !(f.Witness && f.Famous == re.Famous) {
-				t.Fatalf("%s.Famous should be %v; got %v", w, re.Famous, f.Famous)
+		if l := len(round.CreatedEvents); l != len(expectedEvents[i]) {
+			t.Fatalf("Round[%d].CreatedEvents should contain %d items, not %d", i, len(expectedEvents[i]), l)
+		}
+		for w, re := range expectedEvents[i] {
+			if f := round.CreatedEvents[index[w]]; !reflect.DeepEqual(f, re) {
+				t.Fatalf("%s should be %v; got %v", w, re, f)
 			}
 		}
 	}
+
 }
 
 func TestR2DynDecideRoundReceived(t *testing.T) {
@@ -357,89 +369,15 @@ func TestR2DynDecideRoundReceived(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expectedEvents := map[int]map[string]RoundEvent{
-		0: map[string]RoundEvent{
-			//created
-			"w00": RoundEvent{Consensus: false, Witness: true, Famous: True},
-			"w01": RoundEvent{Consensus: false, Witness: true, Famous: True},
-			"w02": RoundEvent{Consensus: false, Witness: true, Famous: True},
-			"e10": RoundEvent{Consensus: false, Witness: false, Famous: Undefined},
-			"e21": RoundEvent{Consensus: false, Witness: false, Famous: Undefined},
-			"e12": RoundEvent{Consensus: false, Witness: false, Famous: Undefined},
-		},
-		1: map[string]RoundEvent{
-			//created
-			"w10": RoundEvent{Consensus: false, Witness: true, Famous: True},
-			"w11": RoundEvent{Consensus: false, Witness: true, Famous: True},
-			"w12": RoundEvent{Consensus: false, Witness: true, Famous: True},
-			"f10": RoundEvent{Consensus: false, Witness: false, Famous: Undefined},
-			//received
-			"w00": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-			"w01": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-			"w02": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-			"e10": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-			"e21": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-			"e12": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-		},
-		2: map[string]RoundEvent{
-			//created
-			"w20": RoundEvent{Consensus: false, Witness: true, Famous: True},
-			"w21": RoundEvent{Consensus: false, Witness: true, Famous: True},
-			"w22": RoundEvent{Consensus: false, Witness: true, Famous: True},
-			"g21": RoundEvent{Consensus: false, Witness: false, Famous: Undefined},
-			//received
-			"w10": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-			"w11": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-			"w12": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-			"f10": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-		},
-		3: map[string]RoundEvent{
-			//created
-			"w30": RoundEvent{Consensus: false, Witness: true, Famous: True},
-			"w31": RoundEvent{Consensus: false, Witness: true, Famous: True},
-			"w32": RoundEvent{Consensus: false, Witness: true, Famous: True},
-			"w33": RoundEvent{Consensus: false, Witness: true, Famous: True},
-			//received
-			"w20": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-			"w21": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-			"w22": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-			"g21": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-		},
-		4: map[string]RoundEvent{
-			//created
-			"w40": RoundEvent{Consensus: false, Witness: true, Famous: True},
-			"w41": RoundEvent{Consensus: false, Witness: true, Famous: True},
-			"w42": RoundEvent{Consensus: false, Witness: true, Famous: True},
-			"w43": RoundEvent{Consensus: false, Witness: true, Famous: True},
-			//received
-			"w30": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-			"w31": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-			"w32": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-			"w33": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-		},
-		5: map[string]RoundEvent{
-			//created
-			"w51": RoundEvent{Consensus: false, Witness: true, Famous: True},
-			"w52": RoundEvent{Consensus: false, Witness: true, Famous: True},
-			"w53": RoundEvent{Consensus: false, Witness: true, Famous: True},
-			"j31": RoundEvent{Consensus: false, Witness: false, Famous: Undefined},
-			//received
-			"w40": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-			"w41": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-			"w42": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-			"w43": RoundEvent{Consensus: true, Witness: false, Famous: Undefined},
-		},
-		6: map[string]RoundEvent{
-			//created
-			"w61": RoundEvent{Consensus: false, Witness: true, Famous: Undefined},
-			"w62": RoundEvent{Consensus: false, Witness: true, Famous: Undefined},
-			"w63": RoundEvent{Consensus: false, Witness: true, Famous: Undefined},
-			"h23": RoundEvent{Consensus: false, Witness: false, Famous: Undefined},
-		},
-		7: map[string]RoundEvent{
-			//created
-			"w71": RoundEvent{Consensus: false, Witness: true, Famous: Undefined},
-		},
+	expectedConsensusEvents := map[int][]string{
+		0: []string{},
+		1: []string{index["w00"], index["w01"], index["w02"], index["e10"], index["e21"], index["e12"]},
+		2: []string{index["w11"], index["w12"], index["w10"], index["f10"]},
+		3: []string{index["w22"], index["w20"], index["w21"], index["g21"]},
+		4: []string{index["w33"], index["w30"], index["w31"], index["w32"]},
+		5: []string{index["w43"], index["w40"], index["w41"], index["w42"]},
+		6: []string{},
+		7: []string{},
 	}
 
 	for i := 0; i < 8; i++ {
@@ -447,13 +385,8 @@ func TestR2DynDecideRoundReceived(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if l := len(round.Events); l != len(expectedEvents[i]) {
-			t.Fatalf("Round[%d].Events should contain %d items, not %d", i, len(expectedEvents[i]), l)
-		}
-		for w, re := range expectedEvents[i] {
-			if f := round.Events[index[w]]; !reflect.DeepEqual(f, re) {
-				t.Fatalf("%s should be %v; got %v", w, re, f)
-			}
+		if !reflect.DeepEqual(round.ReceivedEvents, expectedConsensusEvents[i]) {
+			t.Fatalf("Round[%d].ReceivedEvents should be %v, %v", i, expectedConsensusEvents[i], round.ReceivedEvents)
 		}
 	}
 
