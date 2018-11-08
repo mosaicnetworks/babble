@@ -424,7 +424,6 @@ func getCommittedTransactions(n *Node) ([][]byte, error) {
 }
 
 func TestGossip(t *testing.T) {
-
 	logger := common.NewTestLogger(t)
 
 	keys, peers := initPeers(4)

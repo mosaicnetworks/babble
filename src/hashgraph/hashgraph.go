@@ -621,14 +621,14 @@ func (h *Hashgraph) setWireInfo(event *Event) error {
 	otherParentCreatorID := -1
 	otherParentIndex := -1
 
-	lastPeerSet, err := h.Store.GetLastPeerSet()
-	if err != nil {
-		return err
+	creator, ok := h.Store.RepertoireByPubKey()[event.Creator()]
+	if !ok {
+		return fmt.Errorf("Creator %s not found", event.Creator())
 	}
 
 	//could be the first Event inserted for this creator. In this case, use Root
-	if lf, isRoot, _ := h.Store.LastEventFrom(event.Creator()); isRoot && lf == event.SelfParent() {
-		root, err := h.Store.GetRoot(event.Creator())
+	if lf, isRoot, _ := h.Store.LastEventFrom(creator.PubKeyHex); isRoot && lf == event.SelfParent() {
+		root, err := h.Store.GetRoot(creator.PubKeyHex)
 		if err != nil {
 			return err
 		}
@@ -643,7 +643,7 @@ func (h *Hashgraph) setWireInfo(event *Event) error {
 
 	if event.OtherParent() != "" {
 		//Check Root then regular Events
-		root, err := h.Store.GetRoot(event.Creator())
+		root, err := h.Store.GetRoot(creator.PubKeyHex)
 		if err != nil {
 			return err
 		}
@@ -655,9 +655,11 @@ func (h *Hashgraph) setWireInfo(event *Event) error {
 			if err != nil {
 				return err
 			}
-			//XXX What if it needs a peer that is not in LastPeerSet - should use
-			//a list of all IDs ever used
-			otherParentCreatorID = lastPeerSet.ByPubKey[otherParent.Creator()].ID
+			otherParentCreator, ok := h.Store.RepertoireByPubKey()[otherParent.Creator()]
+			if !ok {
+				return fmt.Errorf("Creator %s not found", otherParent.Creator())
+			}
+			otherParentCreatorID = otherParentCreator.ID
 			otherParentIndex = otherParent.Index()
 		}
 	}
@@ -665,7 +667,7 @@ func (h *Hashgraph) setWireInfo(event *Event) error {
 	event.SetWireInfo(selfParentIndex,
 		otherParentCreatorID,
 		otherParentIndex,
-		lastPeerSet.ByPubKey[event.Creator()].ID)
+		creator.ID)
 
 	return nil
 }
@@ -1409,14 +1411,7 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 	otherParent := ""
 	var err error
 
-	//XXX should probably look in a map of all known participants, not just
-	//last PeerSet
-	lastPeerSet, err := h.Store.GetLastPeerSet()
-	if err != nil {
-		return nil, err
-	}
-
-	creator := lastPeerSet.ByID[wevent.Body.CreatorID]
+	creator := h.Store.RepertoireByID()[wevent.Body.CreatorID]
 	creatorBytes, err := hex.DecodeString(creator.PubKeyHex[2:])
 	if err != nil {
 		return nil, err
@@ -1429,7 +1424,7 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 		}
 	}
 	if wevent.Body.OtherParentIndex >= 0 {
-		otherParentCreator := lastPeerSet.ByID[wevent.Body.OtherParentCreatorID]
+		otherParentCreator := h.Store.RepertoireByID()[wevent.Body.OtherParentCreatorID]
 		otherParent, err = h.Store.ParticipantEvent(otherParentCreator.PubKeyHex, wevent.Body.OtherParentIndex)
 		if err != nil {
 			//PROBLEM Check if other parent can be found in the root

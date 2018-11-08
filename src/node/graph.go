@@ -18,13 +18,9 @@ func (g *Graph) GetParticipantEvents() map[string]map[string]*hg.Event {
 	res := make(map[string]map[string]*hg.Event)
 
 	store := g.Node.core.hg.Store
-	peers, err := g.Node.core.hg.Store.GetLastPeerSet()
+	repertoire := g.Node.core.hg.Store.RepertoireByPubKey()
 
-	if err != nil {
-		panic(err)
-	}
-
-	for _, p := range peers.ByPubKey {
+	for _, p := range repertoire {
 		root, err := store.GetRoot(p.PubKeyHex)
 
 		if err != nil {

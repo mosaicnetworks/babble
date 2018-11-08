@@ -9,48 +9,45 @@ import (
 
 type InmemStore struct {
 	cacheSize              int
-	eventCache             *cm.LRU
-	roundCache             *cm.LRU
-	blockCache             *cm.LRU
-	frameCache             *cm.LRU
-	consensusCache         *cm.RollingIndex
+	eventCache             *cm.LRU          //hash => Event
+	roundCache             *cm.LRU          //round number => Round
+	blockCache             *cm.LRU          //index => Block
+	frameCache             *cm.LRU          //round received => Frame
+	consensusCache         *cm.RollingIndex //consensus index => hash
 	totConsensusEvents     int
-	peerSetCache           *PeerSetCache
-	participantEventsCache *ParticipantEventsCache
-	rootsByParticipant     map[string]*Root //[participant] => Root
-	rootsBySelfParent      map[string]*Root //[Root.SelfParent.Hash] => Root
+	peerSetCache           *PeerSetCache //start round => PeerSet
+	repertoireByPubKey     map[string]*peers.Peer
+	repertoireByID         map[int]*peers.Peer
+	participantEventsCache *ParticipantEventsCache //pubkey => Events
+	rootsByParticipant     map[string]*Root        //[participant] => Root
+	rootsBySelfParent      map[string]*Root        //[Root.SelfParent.Hash] => Root
 	lastRound              int
 	lastConsensusEvents    map[string]string //[participant] => hex() of last consensus event
 	lastBlock              int
 }
 
 func NewInmemStore(peerSet *peers.PeerSet, cacheSize int) *InmemStore {
-	rootsByParticipant := make(map[string]*Root)
-	rootsBySelfParent := make(map[string]*Root)
-	for pk, pid := range peerSet.ByPubKey {
-		root := NewBaseRoot(pid.ID)
-		rootsByParticipant[pk] = root
-		rootsBySelfParent[root.SelfParent.Hash] = root
-	}
-
-	peerSetCache := NewPeerSetCache()
-	peerSetCache.Set(0, peerSet)
-
-	return &InmemStore{
+	store := &InmemStore{
 		cacheSize:              cacheSize,
 		eventCache:             cm.NewLRU(cacheSize, nil),
 		roundCache:             cm.NewLRU(cacheSize, nil),
 		blockCache:             cm.NewLRU(cacheSize, nil),
 		frameCache:             cm.NewLRU(cacheSize, nil),
 		consensusCache:         cm.NewRollingIndex("ConsensusCache", cacheSize),
-		peerSetCache:           peerSetCache,
+		peerSetCache:           NewPeerSetCache(),
+		repertoireByPubKey:     make(map[string]*peers.Peer),
+		repertoireByID:         make(map[int]*peers.Peer),
 		participantEventsCache: NewParticipantEventsCache(cacheSize, peerSet),
-		rootsByParticipant:     rootsByParticipant,
-		rootsBySelfParent:      rootsBySelfParent,
+		rootsByParticipant:     make(map[string]*Root),
+		rootsBySelfParent:      make(map[string]*Root),
 		lastRound:              -1,
 		lastBlock:              -1,
 		lastConsensusEvents:    map[string]string{},
 	}
+
+	store.SetPeerSet(0, peerSet)
+
+	return store
 }
 
 func NewInmemStoreFromFrame(frame *Frame, cacheSize int) (*InmemStore, error) {
@@ -91,14 +88,26 @@ func (s *InmemStore) SetPeerSet(round int, peerSet *peers.PeerSet) error {
 				return err
 			}
 		}
+
 		if _, ok := s.rootsByParticipant[p.PubKeyHex]; !ok {
 			root := NewBaseRoot(p.ID)
 			s.rootsByParticipant[p.PubKeyHex] = root
 			s.rootsBySelfParent[root.SelfParent.Hash] = root
 		}
+
+		s.repertoireByPubKey[p.PubKeyHex] = p
+		s.repertoireByID[p.ID] = p
 	}
 
 	return nil
+}
+
+func (s *InmemStore) RepertoireByPubKey() map[string]*peers.Peer {
+	return s.repertoireByPubKey
+}
+
+func (s *InmemStore) RepertoireByID() map[int]*peers.Peer {
+	return s.repertoireByID
 }
 
 func (s *InmemStore) RootsBySelfParent() map[string]*Root {

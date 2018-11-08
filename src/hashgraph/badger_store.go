@@ -172,6 +172,14 @@ func (s *BadgerStore) SetPeerSet(round int, peerSet *peers.PeerSet) error {
 	return s.inmemStore.SetPeerSet(round, peerSet)
 }
 
+func (s *BadgerStore) RepertoireByPubKey() map[string]*peers.Peer {
+	return s.inmemStore.RepertoireByPubKey()
+}
+
+func (s *BadgerStore) RepertoireByID() map[int]*peers.Peer {
+	return s.inmemStore.RepertoireByID()
+}
+
 func (s *BadgerStore) RootsBySelfParent() map[string]*Root {
 	return s.inmemStore.RootsBySelfParent()
 }
