@@ -52,6 +52,19 @@ func (peerSet *PeerSet) WithNewPeer(peer *Peer) *PeerSet {
 	return newPeerSet
 }
 
+//WithRemovedPeer returns a new PeerSet with a list of peers exluding the
+//provided one
+func (peerSet *PeerSet) WithRemovedPeer(peer *Peer) *PeerSet {
+	peers := []*Peer{}
+	for _, p := range peerSet.Peers {
+		if p.PubKeyHex != peer.PubKeyHex {
+			peers = append(peers, p)
+		}
+	}
+	newPeerSet := NewPeerSet(peers)
+	return newPeerSet
+}
+
 /* ToSlice Methods */
 
 //PubKeys returns the PeerSet's slice of public keys

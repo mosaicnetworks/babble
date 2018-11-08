@@ -434,11 +434,11 @@ func initRoundHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
 	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
 	round0Witnesses[index["e1"]] = RoundEvent{Witness: true, Famous: Undefined}
 	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
-	h.Store.SetRound(0, &RoundInfo{Events: round0Witnesses, PeerSet: lastPeerSet})
+	h.Store.SetRound(0, &RoundInfo{CreatedEvents: round0Witnesses, PeerSet: lastPeerSet})
 
 	round1Witnesses := make(map[string]RoundEvent)
 	round1Witnesses[index["f1"]] = RoundEvent{Witness: true, Famous: Undefined}
-	h.Store.SetRound(1, &RoundInfo{Events: round1Witnesses, PeerSet: lastPeerSet})
+	h.Store.SetRound(1, &RoundInfo{CreatedEvents: round1Witnesses, PeerSet: lastPeerSet})
 
 	return h, index
 }
@@ -750,32 +750,42 @@ func TestDivideRounds(t *testing.T) {
 		t.Fatalf("last round should be 1 not %d", l)
 	}
 
+	expectedRounds := map[int]*RoundInfo{
+		0: &RoundInfo{
+			CreatedEvents: map[string]RoundEvent{
+				index["e0"]:  RoundEvent{Witness: true, Famous: Undefined},
+				index["e1"]:  RoundEvent{Witness: true, Famous: Undefined},
+				index["e2"]:  RoundEvent{Witness: true, Famous: Undefined},
+				index["e10"]: RoundEvent{Witness: false, Famous: Undefined},
+				index["s20"]: RoundEvent{Witness: false, Famous: Undefined},
+				index["e21"]: RoundEvent{Witness: false, Famous: Undefined},
+				index["s00"]: RoundEvent{Witness: false, Famous: Undefined},
+				index["e02"]: RoundEvent{Witness: false, Famous: Undefined},
+				index["s10"]: RoundEvent{Witness: false, Famous: Undefined},
+			},
+		},
+		1: &RoundInfo{
+			CreatedEvents: map[string]RoundEvent{
+				index["f1"]:  RoundEvent{Witness: true, Famous: Undefined},
+				index["s11"]: RoundEvent{Witness: false, Famous: Undefined},
+			},
+		},
+	}
+
 	round0, err := h.Store.GetRound(0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if l := len(round0.Witnesses()); l != 3 {
-		t.Fatalf("round 0 should have 3 witnesses, not %d", l)
-	}
-	if !contains(round0.Witnesses(), index["e0"]) {
-		t.Fatalf("round 0 witnesses should contain e0")
-	}
-	if !contains(round0.Witnesses(), index["e1"]) {
-		t.Fatalf("round 0 witnesses should contain e1")
-	}
-	if !contains(round0.Witnesses(), index["e2"]) {
-		t.Fatalf("round 0 witnesses should contain e2")
+	if !reflect.DeepEqual(expectedRounds[0].CreatedEvents, round0.CreatedEvents) {
+		t.Fatalf("Round[0].CreatedEvents should be %v, not %v", expectedRounds[0].CreatedEvents, round0.CreatedEvents)
 	}
 
 	round1, err := h.Store.GetRound(1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if l := len(round1.Witnesses()); l != 1 {
-		t.Fatalf("round 1 should have 1 witness, not %d", l)
-	}
-	if !contains(round1.Witnesses(), index["f1"]) {
-		t.Fatalf("round 1 witnesses should contain f1")
+	if !reflect.DeepEqual(expectedRounds[1].CreatedEvents, round1.CreatedEvents) {
+		t.Fatalf("Round[1].CreatedEvents should be %v, not %v", expectedRounds[1].CreatedEvents, round1.CreatedEvents)
 	}
 
 	expectedPendingRounds := []pendingRound{
@@ -920,7 +930,7 @@ func initDentedHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
 	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
 	round0Witnesses[index["e12"]] = RoundEvent{Witness: true, Famous: Undefined}
 	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
-	h.Store.SetRound(0, &RoundInfo{Events: round0Witnesses, PeerSet: participants})
+	h.Store.SetRound(0, &RoundInfo{CreatedEvents: round0Witnesses, PeerSet: participants})
 
 	return h, index
 }
@@ -1226,6 +1236,60 @@ func TestDivideRoundsBis(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	expectedCreatedEvents := map[int]map[string]RoundEvent{
+		0: map[string]RoundEvent{
+			index["e0"]:   RoundEvent{Witness: true, Famous: Undefined},
+			index["e1"]:   RoundEvent{Witness: true, Famous: Undefined},
+			index["e2"]:   RoundEvent{Witness: true, Famous: Undefined},
+			index["e10"]:  RoundEvent{Witness: false, Famous: Undefined},
+			index["e21"]:  RoundEvent{Witness: false, Famous: Undefined},
+			index["e21b"]: RoundEvent{Witness: false, Famous: Undefined},
+			index["e02"]:  RoundEvent{Witness: false, Famous: Undefined},
+		},
+		1: map[string]RoundEvent{
+			index["f1"]:   RoundEvent{Witness: true, Famous: Undefined},
+			index["f1b"]:  RoundEvent{Witness: false, Famous: Undefined},
+			index["f0"]:   RoundEvent{Witness: true, Famous: Undefined},
+			index["f2"]:   RoundEvent{Witness: true, Famous: Undefined},
+			index["f10"]:  RoundEvent{Witness: false, Famous: Undefined},
+			index["f21"]:  RoundEvent{Witness: false, Famous: Undefined},
+			index["f0x"]:  RoundEvent{Witness: false, Famous: Undefined},
+			index["f02"]:  RoundEvent{Witness: false, Famous: Undefined},
+			index["f02b"]: RoundEvent{Witness: false, Famous: Undefined},
+		},
+		2: map[string]RoundEvent{
+			index["g1"]:  RoundEvent{Witness: true, Famous: Undefined},
+			index["g0"]:  RoundEvent{Witness: true, Famous: Undefined},
+			index["g2"]:  RoundEvent{Witness: true, Famous: Undefined},
+			index["g10"]: RoundEvent{Witness: false, Famous: Undefined},
+			index["g21"]: RoundEvent{Witness: false, Famous: Undefined},
+			index["g02"]: RoundEvent{Witness: false, Famous: Undefined},
+		},
+		3: map[string]RoundEvent{
+			index["h1"]:  RoundEvent{Witness: true, Famous: Undefined},
+			index["h0"]:  RoundEvent{Witness: true, Famous: Undefined},
+			index["h2"]:  RoundEvent{Witness: true, Famous: Undefined},
+			index["h10"]: RoundEvent{Witness: false, Famous: Undefined},
+			index["h21"]: RoundEvent{Witness: false, Famous: Undefined},
+			index["h02"]: RoundEvent{Witness: false, Famous: Undefined},
+		},
+		4: map[string]RoundEvent{
+			index["i1"]: RoundEvent{Witness: true, Famous: Undefined},
+			index["i0"]: RoundEvent{Witness: true, Famous: Undefined},
+			index["i2"]: RoundEvent{Witness: true, Famous: Undefined},
+		},
+	}
+
+	for i := 0; i < 5; i++ {
+		round, err := h.Store.GetRound(i)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(expectedCreatedEvents[i], round.CreatedEvents) {
+			t.Fatalf("Round[%d].CreatedEvents should be %v, not %v", i, expectedCreatedEvents[i], round.CreatedEvents)
+		}
+	}
+
 	//[event] => {lamportTimestamp, round}
 	type tr struct {
 		t, r int
@@ -1287,46 +1351,58 @@ func TestDecideFame(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	round0, err := h.Store.GetRound(0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if f := round0.Events[index["e0"]]; !(f.Witness && f.Famous == True) {
-		t.Fatalf("e0 should be famous; got %v", f)
-	}
-	if f := round0.Events[index["e1"]]; !(f.Witness && f.Famous == True) {
-		t.Fatalf("e1 should be famous; got %v", f)
-	}
-	if f := round0.Events[index["e2"]]; !(f.Witness && f.Famous == True) {
-		t.Fatalf("e2 should be famous; got %v", f)
+	expectedCreatedEvents := map[int]map[string]RoundEvent{
+		0: map[string]RoundEvent{
+			index["e0"]:   RoundEvent{Witness: true, Famous: True},
+			index["e1"]:   RoundEvent{Witness: true, Famous: True},
+			index["e2"]:   RoundEvent{Witness: true, Famous: True},
+			index["e10"]:  RoundEvent{Witness: false, Famous: Undefined},
+			index["e21"]:  RoundEvent{Witness: false, Famous: Undefined},
+			index["e21b"]: RoundEvent{Witness: false, Famous: Undefined},
+			index["e02"]:  RoundEvent{Witness: false, Famous: Undefined},
+		},
+		1: map[string]RoundEvent{
+			index["f1"]:   RoundEvent{Witness: true, Famous: True},
+			index["f1b"]:  RoundEvent{Witness: false, Famous: Undefined},
+			index["f0"]:   RoundEvent{Witness: true, Famous: True},
+			index["f2"]:   RoundEvent{Witness: true, Famous: True},
+			index["f10"]:  RoundEvent{Witness: false, Famous: Undefined},
+			index["f21"]:  RoundEvent{Witness: false, Famous: Undefined},
+			index["f0x"]:  RoundEvent{Witness: false, Famous: Undefined},
+			index["f02"]:  RoundEvent{Witness: false, Famous: Undefined},
+			index["f02b"]: RoundEvent{Witness: false, Famous: Undefined},
+		},
+		2: map[string]RoundEvent{
+			index["g1"]:  RoundEvent{Witness: true, Famous: True},
+			index["g0"]:  RoundEvent{Witness: true, Famous: True},
+			index["g2"]:  RoundEvent{Witness: true, Famous: True},
+			index["g10"]: RoundEvent{Witness: false, Famous: Undefined},
+			index["g21"]: RoundEvent{Witness: false, Famous: Undefined},
+			index["g02"]: RoundEvent{Witness: false, Famous: Undefined},
+		},
+		3: map[string]RoundEvent{
+			index["h1"]:  RoundEvent{Witness: true, Famous: Undefined},
+			index["h0"]:  RoundEvent{Witness: true, Famous: Undefined},
+			index["h2"]:  RoundEvent{Witness: true, Famous: Undefined},
+			index["h10"]: RoundEvent{Witness: false, Famous: Undefined},
+			index["h21"]: RoundEvent{Witness: false, Famous: Undefined},
+			index["h02"]: RoundEvent{Witness: false, Famous: Undefined},
+		},
+		4: map[string]RoundEvent{
+			index["i1"]: RoundEvent{Witness: true, Famous: Undefined},
+			index["i0"]: RoundEvent{Witness: true, Famous: Undefined},
+			index["i2"]: RoundEvent{Witness: true, Famous: Undefined},
+		},
 	}
 
-	round1, err := h.Store.GetRound(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if f := round1.Events[index["f0"]]; !(f.Witness && f.Famous == True) {
-		t.Fatalf("f0 should be famous; got %v", f)
-	}
-	if f := round1.Events[index["f1"]]; !(f.Witness && f.Famous == True) {
-		t.Fatalf("f1 should be famous; got %v", f)
-	}
-	if f := round1.Events[index["f2"]]; !(f.Witness && f.Famous == True) {
-		t.Fatalf("f2 should be famous; got %v", f)
-	}
-
-	round2, err := h.Store.GetRound(2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if f := round2.Events[index["g0"]]; !(f.Witness && f.Famous == True) {
-		t.Fatalf("g0 should be famous; got %v", f)
-	}
-	if f := round2.Events[index["g1"]]; !(f.Witness && f.Famous == True) {
-		t.Fatalf("g1 should be famous; got %v", f)
-	}
-	if f := round2.Events[index["g2"]]; !(f.Witness && f.Famous == True) {
-		t.Fatalf("g2 should be famous; got %v", f)
+	for i := 0; i < 5; i++ {
+		round, err := h.Store.GetRound(i)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(expectedCreatedEvents[i], round.CreatedEvents) {
+			t.Fatalf("Round[%d].CreatedEvents should be %v, not %v", i, expectedCreatedEvents[i], round.CreatedEvents)
+		}
 	}
 
 	expectedpendingRounds := []pendingRound{
@@ -1367,6 +1443,24 @@ func TestDecideRoundReceived(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	expectedReceivedEvents := map[int][]string{
+		0: []string{},
+		1: []string{index["e0"], index["e1"], index["e2"], index["e10"], index["e21"], index["e21b"], index["e02"]},
+		2: []string{index["f1"], index["f1b"], index["f0"], index["f2"], index["f10"], index["f0x"], index["f21"], index["f02"], index["f02b"]},
+		3: []string{},
+		4: []string{},
+	}
+
+	for i := 0; i < 5; i++ {
+		round, err := h.Store.GetRound(i)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(expectedReceivedEvents[i], round.ReceivedEvents) {
+			t.Fatalf("Round[%d].ReceivedEvents should be %v, not %v", i, expectedReceivedEvents[i], round.ReceivedEvents)
+		}
+	}
+
 	for name, hash := range index {
 		e, _ := h.Store.GetEvent(hash)
 		if rune(name[0]) == rune('e') {
@@ -1380,30 +1474,6 @@ func TestDecideRoundReceived(t *testing.T) {
 		} else if e.roundReceived != nil {
 			t.Fatalf("%s round received should be nil not %d", name, *e.roundReceived)
 		}
-	}
-
-	round0, err := h.Store.GetRound(0)
-	if err != nil {
-		t.Fatalf("Could not retrieve Round 0. %s", err)
-	}
-	if ce := len(round0.ConsensusEvents()); ce != 0 {
-		t.Fatalf("Round 0 should contain 0 ConsensusEvents, not %d", ce)
-	}
-
-	round1, err := h.Store.GetRound(1)
-	if err != nil {
-		t.Fatalf("Could not retrieve Round 1. %s", err)
-	}
-	if ce := len(round1.ConsensusEvents()); ce != 7 {
-		t.Fatalf("Round 1 should contain 7 ConsensusEvents, not %d", ce)
-	}
-
-	round2, err := h.Store.GetRound(2)
-	if err != nil {
-		t.Fatalf("Could not retrieve Round 2. %s", err)
-	}
-	if ce := len(round2.ConsensusEvents()); ce != 9 {
-		t.Fatalf("Round 2 should contain 9 ConsensusEvents, not %d", ce)
 	}
 
 	expectedUndeterminedEvents := []string{
@@ -1871,7 +1941,7 @@ func TestResetFromFrame(t *testing.T) {
 		}
 
 		events := []*Event{}
-		for _, e := range round.RoundEvents() {
+		for e := range round.CreatedEvents {
 			ev, err := h.Store.GetEvent(e)
 			if err != nil {
 				t.Fatal(err)
