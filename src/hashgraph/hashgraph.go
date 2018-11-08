@@ -230,7 +230,7 @@ func (h *Hashgraph) _round(x string) (int, error) {
 	}
 	if ex.OtherParent() != "" {
 		var opRound int
-		//XXX
+
 		if other, ok := root.Others[ex.Hex()]; ok && other.Hash == ex.OtherParent() {
 			opRound = root.NextRound
 		} else {
@@ -245,9 +245,13 @@ func (h *Hashgraph) _round(x string) (int, error) {
 		}
 	}
 
-	//XXX
+	/*
+		Retrieve the ParentRound's PeerSet and count strongly-seen witnesses
+		based on this PeerSet. If the ParentRound is not found, we just assume
+		that the Round should not be incremented (this situation occurs with a
+		Reset hashgraph).
+	*/
 	parentRoundObj, err := h.Store.GetRound(parentRound)
-
 	if err != nil {
 		if common.Is(err, common.KeyNotFound) {
 			return parentRound, nil
@@ -266,6 +270,7 @@ func (h *Hashgraph) _round(x string) (int, error) {
 			c++
 		}
 	}
+
 	if c >= parentRoundObj.PeerSet.SuperMajority() {
 		parentRound++
 	}
@@ -292,7 +297,6 @@ func (h *Hashgraph) witness(x string) (bool, error) {
 }
 
 func (h *Hashgraph) roundReceived(x string) (int, error) {
-
 	ex, err := h.Store.GetEvent(x)
 	if err != nil {
 		return -1, err
@@ -376,7 +380,6 @@ func (h *Hashgraph) _lamportTimestamp(x string) (int, error) {
 
 //round(x) - round(y)
 func (h *Hashgraph) roundDiff(x, y string) (int, error) {
-
 	xRound, err := h.round(x)
 	if err != nil {
 		return math.MinInt32, fmt.Errorf("event %s has negative round", x)
@@ -514,7 +517,6 @@ func (h *Hashgraph) updateAncestorFirstDescendant(event *Event) error {
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -585,17 +587,13 @@ func (h *Hashgraph) createRoot(ev *Event) (*Root, error) {
 		return nil, err
 	}
 
-	/*
-		SelfParent
-	*/
+	//SelfParent
 	selfParentRootEvent, err := h.createSelfParentRootEvent(ev)
 	if err != nil {
 		return nil, err
 	}
 
-	/*
-		OtherParent
-	*/
+	//OtherParent
 	var otherParentRootEvent *RootEvent
 	if ev.OtherParent() != "" {
 		opre, err := h.createOtherParentRootEvent(ev)
@@ -657,6 +655,8 @@ func (h *Hashgraph) setWireInfo(event *Event) error {
 			if err != nil {
 				return err
 			}
+			//XXX What if it needs a peer that is not in LastPeerSet - should use
+			//a list of all IDs ever used
 			otherParentCreatorID = lastPeerSet.ByPubKey[otherParent.Creator()].ID
 			otherParentIndex = otherParent.Index()
 		}
@@ -775,7 +775,6 @@ func (h *Hashgraph) DivideRounds() error {
 				if !common.Is(err, common.KeyNotFound) {
 					return err
 				}
-
 				peerSet, err := h.Store.GetPeerSet(roundNumber)
 				if err != nil {
 					return err
@@ -789,7 +788,7 @@ func (h *Hashgraph) DivideRounds() error {
 				new Events from a previous Round to be inserted; the lower bound
 				appears redundant. This is the case when the hashgraph grows
 				linearly, without jumps, which is what we intend by 'Normally'.
-				But the Reset function introduces a dicontinuity  by jumping
+				But the Reset function introduces a discontinuity  by jumping
 				straight to a specific place in the hashgraph. This technique relies
 				on a base layer of Events (the corresponding Frame's Events) for
 				other Events to be added on top, but the base layer must not be
@@ -816,15 +815,12 @@ func (h *Hashgraph) DivideRounds() error {
 			}
 		}
 
-		/*
-			Compute the Event's LamportTimestamp
-		*/
+		//Compute the Event's LamportTimestamp
 		if ev.lamportTimestamp == nil {
 			lamportTimestamp, err := h.lamportTimestamp(hash)
 			if err != nil {
 				return err
 			}
-
 			ev.SetLamportTimestamp(lamportTimestamp)
 			updateEvent = true
 		}
@@ -852,17 +848,21 @@ func (h *Hashgraph) DecideFame() error {
 
 	for pos, r := range h.PendingRounds {
 		roundIndex := r.Index
-		roundInfo, err := h.Store.GetRound(roundIndex)
+		rRoundInfo, err := h.Store.GetRound(roundIndex)
 		if err != nil {
 			return err
 		}
-		for _, x := range roundInfo.Witnesses() {
-			if roundInfo.IsDecided(x) {
+		for _, x := range rRoundInfo.Witnesses() {
+			if rRoundInfo.IsDecided(x) {
 				continue
 			}
 		VOTE_LOOP:
 			for j := roundIndex + 1; j <= h.Store.LastRound(); j++ {
-				for _, y := range h.Store.RoundWitnesses(j) {
+				jRoundInfo, err := h.Store.GetRound(j)
+				if err != nil {
+					return err
+				}
+				for _, y := range jRoundInfo.Witnesses() {
 					diff := j - roundIndex
 					if diff == 1 {
 						ycx, err := h.see(y, x)
@@ -871,10 +871,16 @@ func (h *Hashgraph) DecideFame() error {
 						}
 						setVote(votes, y, x, ycx)
 					} else {
-						//count votes
+						jPrevRoundInfo, err := h.Store.GetRound(j - 1)
+						if err != nil {
+							return err
+						}
+
+						//collection of witnesses from round j-1 that are
+						//strongly seen by y, based on round j-1 PeerSet.
 						ssWitnesses := []string{}
-						for _, w := range h.Store.RoundWitnesses(j - 1) {
-							ss, err := h.stronglySee(y, w, roundInfo.PeerSet) //XXX use peers from j, or j-1, Round instead?
+						for _, w := range jPrevRoundInfo.Witnesses() {
+							ss, err := h.stronglySee(y, w, jPrevRoundInfo.PeerSet)
 							if err != nil {
 								return err
 							}
@@ -882,6 +888,8 @@ func (h *Hashgraph) DecideFame() error {
 								ssWitnesses = append(ssWitnesses, w)
 							}
 						}
+
+						//Collect votes from these witnesses.
 						yays := 0
 						nays := 0
 						for _, w := range ssWitnesses {
@@ -898,17 +906,20 @@ func (h *Hashgraph) DecideFame() error {
 							t = yays
 						}
 
+						//In what follows, the choice of coin-round frequency is
+						//completely arbitrary.
+
 						//normal round
-						if math.Mod(float64(diff), float64(roundInfo.PeerSet.Len())) > 0 {
-							if t >= roundInfo.PeerSet.SuperMajority() { //XXX which majority? (from which round?)
-								roundInfo.SetFame(x, v)
+						if math.Mod(float64(diff), float64(rRoundInfo.PeerSet.Len())) > 0 {
+							if t >= jRoundInfo.PeerSet.SuperMajority() { //XXX which majority? (from which round?)
+								rRoundInfo.SetFame(x, v)
 								setVote(votes, y, x, v)
 								break VOTE_LOOP //break out of j loop
 							} else {
 								setVote(votes, y, x, v)
 							}
 						} else { //coin round
-							if t >= roundInfo.PeerSet.SuperMajority() { //XXX which majority?
+							if t >= jRoundInfo.PeerSet.SuperMajority() { //XXX which majority?
 								setVote(votes, y, x, v)
 							} else {
 								setVote(votes, y, x, middleBit(y)) //middle bit of y's hash
@@ -919,12 +930,12 @@ func (h *Hashgraph) DecideFame() error {
 			}
 		}
 
-		err = h.Store.SetRound(roundIndex, roundInfo)
+		err = h.Store.SetRound(roundIndex, rRoundInfo)
 		if err != nil {
 			return err
 		}
 
-		if roundInfo.WitnessesDecided() {
+		if rRoundInfo.WitnessesDecided() {
 			decidedRounds[roundIndex] = pos
 		}
 

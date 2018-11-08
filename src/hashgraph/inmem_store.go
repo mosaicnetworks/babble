@@ -98,7 +98,6 @@ func (s *InmemStore) SetPeerSet(round int, peerSet *peers.PeerSet) error {
 		}
 	}
 
-	//XXX Do the same for removing Peers
 	return nil
 }
 
