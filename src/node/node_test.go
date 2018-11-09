@@ -2,6 +2,7 @@ package node
 
 import (
 	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -742,6 +743,19 @@ func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
 }
 
 func checkGossip(nodes []*Node, fromBlock int, t *testing.T) {
+
+	//XXX
+	os.RemoveAll("test_data")
+	os.Mkdir("test_data", os.ModeDir|0777)
+	for _, n := range nodes {
+		graph := NewGraph(n)
+		info := graph.GetInfos()
+		jinfo, err := json.Marshal(info)
+		err = ioutil.WriteFile(fmt.Sprintf("test_data/info%d", n.ID()), jinfo, 0644)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	nodeBlocks := map[int][]*hg.Block{}
 	for _, n := range nodes {

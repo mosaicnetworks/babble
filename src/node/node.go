@@ -150,6 +150,9 @@ func (n *Node) Run(gossip bool) {
 }
 
 func (n *Node) resetTimer() {
+	n.coreLock.Lock()
+	defer n.coreLock.Unlock()
+
 	if !n.controlTimer.set {
 		ts := n.conf.HeartbeatTimeout
 

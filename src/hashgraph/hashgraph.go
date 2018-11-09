@@ -913,7 +913,7 @@ func (h *Hashgraph) DecideFame() error {
 
 						//normal round
 						if math.Mod(float64(diff), float64(rRoundInfo.PeerSet.Len())) > 0 {
-							if t >= jRoundInfo.PeerSet.SuperMajority() { //XXX which majority? (from which round?)
+							if t >= jRoundInfo.PeerSet.SuperMajority() {
 								rRoundInfo.SetFame(x, v)
 								setVote(votes, y, x, v)
 								break VOTE_LOOP //break out of j loop
@@ -921,7 +921,7 @@ func (h *Hashgraph) DecideFame() error {
 								setVote(votes, y, x, v)
 							}
 						} else { //coin round
-							if t >= jRoundInfo.PeerSet.SuperMajority() { //XXX which majority?
+							if t >= jRoundInfo.PeerSet.SuperMajority() {
 								setVote(votes, y, x, v)
 							} else {
 								setVote(votes, y, x, middleBit(y)) //middle bit of y's hash
@@ -996,7 +996,8 @@ func (h *Hashgraph) DecideRoundReceived() error {
 				}
 			}
 
-			if len(s) == len(fws) && len(s) > 0 {
+			//XXX
+			if len(s) == len(fws) && len(s) >= tr.PeerSet.SuperMajority() {
 				received = true
 
 				ex, err := h.Store.GetEvent(x)
@@ -1068,6 +1069,14 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 		if err != nil {
 			return err
 		}
+
+		//XXX
+		h.logger.WithFields(logrus.Fields{
+			"round":           r.Index,
+			"created_events":  fmt.Sprintf("%v", round.CreatedEvents),
+			"received_events": fmt.Sprintf("%v", round.ReceivedEvents),
+		}).Debugf("Logging Round")
+
 		h.logger.WithFields(logrus.Fields{
 			"round_received": r.Index,
 			"witnesses":      round.FamousWitnesses(),
