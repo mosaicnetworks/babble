@@ -846,7 +846,7 @@ func (h *Hashgraph) DecideFame() error {
 		votes[x][y] = vote
 	}
 
-	decidedRounds := map[int]int{} // [round number] => index in h.PendingRounds
+	decidedRounds := map[int]int{} //[round number] => index in h.PendingRounds
 
 	for pos, r := range h.PendingRounds {
 		roundIndex := r.Index
@@ -913,7 +913,7 @@ func (h *Hashgraph) DecideFame() error {
 
 						//normal round
 						if math.Mod(float64(diff), float64(rRoundInfo.PeerSet.Len())) > 0 {
-							if t >= jRoundInfo.PeerSet.SuperMajority() { //XXX which majority? (from which round?)
+							if t >= jRoundInfo.PeerSet.SuperMajority() {
 								rRoundInfo.SetFame(x, v)
 								setVote(votes, y, x, v)
 								break VOTE_LOOP //break out of j loop
@@ -921,7 +921,7 @@ func (h *Hashgraph) DecideFame() error {
 								setVote(votes, y, x, v)
 							}
 						} else { //coin round
-							if t >= jRoundInfo.PeerSet.SuperMajority() { //XXX which majority?
+							if t >= jRoundInfo.PeerSet.SuperMajority() {
 								setVote(votes, y, x, v)
 							} else {
 								setVote(votes, y, x, middleBit(y)) //middle bit of y's hash
@@ -965,14 +965,15 @@ func (h *Hashgraph) DecideRoundReceived() error {
 		}
 
 		for i := r + 1; i <= h.Store.LastRound(); i++ {
+			//Can happen after a Reset/FastSync
+			if h.LastConsensusRound != nil &&
+				i < *h.LastConsensusRound {
+				received = true
+				break
+			}
+
 			tr, err := h.Store.GetRound(i)
 			if err != nil {
-				//Can happen after a Reset/FastSync
-				if h.LastConsensusRound != nil &&
-					r < *h.LastConsensusRound {
-					received = true
-					break
-				}
 				return err
 			}
 
@@ -996,7 +997,7 @@ func (h *Hashgraph) DecideRoundReceived() error {
 				}
 			}
 
-			if len(s) == len(fws) && len(s) > 0 {
+			if len(s) == len(fws) && len(s) >= tr.PeerSet.SuperMajority() {
 				received = true
 
 				ex, err := h.Store.GetEvent(x)
@@ -1068,6 +1069,7 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 		if err != nil {
 			return err
 		}
+
 		h.logger.WithFields(logrus.Fields{
 			"round_received": r.Index,
 			"witnesses":      round.FamousWitnesses(),
