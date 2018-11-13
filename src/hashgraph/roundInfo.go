@@ -78,12 +78,13 @@ func (r *RoundInfo) SetFame(x string, f bool) {
 
 //return true if no witnesses' fame is left undefined
 func (r *RoundInfo) WitnessesDecided() bool {
+	c := 0
 	for _, e := range r.CreatedEvents {
-		if e.Witness && e.Famous == Undefined {
-			return false
+		if e.Witness && e.Famous != Undefined {
+			c++
 		}
 	}
-	return true
+	return c >= r.PeerSet.SuperMajority()
 }
 
 //return witnesses

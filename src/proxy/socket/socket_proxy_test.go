@@ -129,10 +129,7 @@ func TestSocketProxyClient(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	handler.blocks[0].PeerSet = nil
-	block.PeerSet = nil
-
-	if !reflect.DeepEqual(*block, handler.blocks[0]) {
+	if !reflect.DeepEqual(block.Body, handler.blocks[0].Body) {
 		t.Fatalf("block should be \n%#v\n, not \n%#v\n", *block, handler.blocks[0])
 	}
 
