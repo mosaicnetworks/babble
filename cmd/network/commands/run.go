@@ -95,7 +95,7 @@ func sendTxs(babbleNode *exec.Cmd, i int) {
 			break
 		}
 
-		network := exec.Command("network", "proxy", "--node="+nb, "--submit=COUCOU_"+nb+"_"+strconv.Itoa(txNb))
+		network := exec.Command("network", "proxy", "--node="+nb, "--submit="+nb+"_"+strconv.Itoa(txNb))
 
 		err := network.Run()
 		if err != nil {
@@ -133,7 +133,7 @@ func runBabbles(cmd *cobra.Command, args []string) error {
 
 			defer wg.Done()
 
-			babbleNode := exec.Command("babble", "run", "-l=127.0.0.1:"+babblePortStr, "--datadir=/tmp/babble_configs/.babble"+nb, "--proxy-listen=127.0.0.1:"+proxyServPortStr, "--client-connect=127.0.0.1:"+proxyCliPortStr, "-s=127.0.0.1:"+servicePort, "--heartbeat=1s")
+			babbleNode := exec.Command("babble", "run", "-l=127.0.0.1:"+babblePortStr, "--datadir=/tmp/babble_configs/.babble"+nb, "--proxy-listen=127.0.0.1:"+proxyServPortStr, "--client-connect=127.0.0.1:"+proxyCliPortStr, "-s=127.0.0.1:"+servicePort, "--heartbeat="+config.Babble.NodeConfig.HeartbeatTimeout.String())
 			err := babbleNode.Start()
 
 			if err != nil {
@@ -181,8 +181,8 @@ func AddRunFlags(cmd *cobra.Command) {
 	cmd.Flags().Int("nodes", config.NbNodes, "Amount of nodes to spawn")
 	cmd.Flags().String("datadir", config.Babble.DataDir, "Top-level directory for configuration and data")
 	cmd.Flags().String("log", config.Babble.LogLevel, "debug, info, warn, error, fatal, panic")
-
 	cmd.Flags().Duration("heartbeat", config.Babble.NodeConfig.HeartbeatTimeout, "Time between gossips")
+
 	cmd.Flags().Int("sync-limit", config.Babble.NodeConfig.SyncLimit, "Max number of events for sync")
 	cmd.Flags().Int("send-txs", config.SendTxs, "Send some random transactions")
 }
@@ -201,20 +201,6 @@ func loadConfig(cmd *cobra.Command, args []string) error {
 
 	config.Babble.Logger.Level = babble.LogLevel(config.Babble.LogLevel)
 	config.Babble.NodeConfig.Logger = config.Babble.Logger
-
-	config.Babble.Logger.WithFields(logrus.Fields{
-		"babble.DataDir":               config.Babble.DataDir,
-		"babble.BindAddr":              config.Babble.BindAddr,
-		"babble.ServiceAddr":           config.Babble.ServiceAddr,
-		"babble.MaxPool":               config.Babble.MaxPool,
-		"babble.Store":                 config.Babble.Store,
-		"babble.LoadPeers":             config.Babble.LoadPeers,
-		"babble.LogLevel":              config.Babble.LogLevel,
-		"babble.Node.HeartbeatTimeout": config.Babble.NodeConfig.HeartbeatTimeout,
-		"babble.Node.TCPTimeout":       config.Babble.NodeConfig.TCPTimeout,
-		"babble.node.CacheSize":        config.Babble.NodeConfig.CacheSize,
-		"babble.node.SyncLimit":        config.Babble.NodeConfig.SyncLimit,
-	}).Debug("RUN")
 
 	return nil
 }
