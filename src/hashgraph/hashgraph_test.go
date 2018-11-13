@@ -646,7 +646,6 @@ func TestStronglySee(t *testing.T) {
 		ancestryItem{"s11", "", false, true},
 	}
 
-	//XXX should use Round PeerSet
 	lastPeerSet, err := h.Store.GetLastPeerSet()
 	if err != nil {
 		t.Fatal(err)
@@ -2064,9 +2063,7 @@ func TestBootstrap(t *testing.T) {
 
 /*
 
-	This example demonstrates that a Round can be 'decided' before an earlier
-	round. Here, rounds 1 and 2 are decided before round 0 because the fame of
-	witness w00 is only decided at round 5.
+	The fame of witness w00 is only decided at round 5.
 
 --------------------------------------------------------------------------------
 	|   w51   |    | This section is only added in 'full' mode
@@ -2200,11 +2197,10 @@ func TestFunkyHashgraphFame(t *testing.T) {
 		t.Logf("Round %d witnesses: %v", r, witnessNames)
 	}
 
-	//Rounds 1 and 2 should get decided BEFORE round 0
 	expectedpendingRounds := []pendingRound{
 		pendingRound{
 			Index:   0,
-			Decided: false,
+			Decided: true,
 		},
 		pendingRound{
 			Index:   1,
@@ -2223,23 +2219,6 @@ func TestFunkyHashgraphFame(t *testing.T) {
 			Decided: false,
 		},
 	}
-
-	for i, pd := range h.PendingRounds {
-		if !reflect.DeepEqual(*pd, expectedpendingRounds[i]) {
-			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedpendingRounds[i], *pd)
-		}
-	}
-
-	if err := h.DecideRoundReceived(); err != nil {
-		t.Fatal(err)
-	}
-	if err := h.ProcessDecidedRounds(); err != nil {
-		t.Fatal(err)
-	}
-
-	//But a dicided round should never be processed until all previous rounds
-	//are decided. So the PendingQueue should remain the same after calling
-	//ProcessDecidedRounds()
 
 	for i, pd := range h.PendingRounds {
 		if !reflect.DeepEqual(*pd, expectedpendingRounds[i]) {

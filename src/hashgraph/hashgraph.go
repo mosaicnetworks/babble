@@ -846,7 +846,7 @@ func (h *Hashgraph) DecideFame() error {
 		votes[x][y] = vote
 	}
 
-	decidedRounds := map[int]int{} // [round number] => index in h.PendingRounds
+	decidedRounds := map[int]int{} //[round number] => index in h.PendingRounds
 
 	for pos, r := range h.PendingRounds {
 		roundIndex := r.Index
@@ -965,14 +965,15 @@ func (h *Hashgraph) DecideRoundReceived() error {
 		}
 
 		for i := r + 1; i <= h.Store.LastRound(); i++ {
+			//Can happen after a Reset/FastSync
+			if h.LastConsensusRound != nil &&
+				i < *h.LastConsensusRound {
+				received = true
+				break
+			}
+
 			tr, err := h.Store.GetRound(i)
 			if err != nil {
-				//Can happen after a Reset/FastSync
-				if h.LastConsensusRound != nil &&
-					r < *h.LastConsensusRound {
-					received = true
-					break
-				}
 				return err
 			}
 
@@ -996,7 +997,6 @@ func (h *Hashgraph) DecideRoundReceived() error {
 				}
 			}
 
-			//XXX
 			if len(s) == len(fws) && len(s) >= tr.PeerSet.SuperMajority() {
 				received = true
 
@@ -1069,13 +1069,6 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 		if err != nil {
 			return err
 		}
-
-		//XXX
-		h.logger.WithFields(logrus.Fields{
-			"round":           r.Index,
-			"created_events":  fmt.Sprintf("%v", round.CreatedEvents),
-			"received_events": fmt.Sprintf("%v", round.ReceivedEvents),
-		}).Debugf("Logging Round")
 
 		h.logger.WithFields(logrus.Fields{
 			"round_received": r.Index,

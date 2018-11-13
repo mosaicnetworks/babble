@@ -59,7 +59,6 @@ func NewNode(conf *Config,
 ) *Node {
 	localAddr := trans.LocalAddr()
 
-	// pmap, _ := store.PeerSet()
 	pmap := peers
 
 	commitCh := make(chan hg.Block, 400)
