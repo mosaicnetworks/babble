@@ -138,10 +138,8 @@ func (n *Node) Run(gossip bool) {
 		switch state {
 		case Babbling:
 			n.babble(gossip)
-
 		case CatchingUp:
 			n.fastForward()
-
 		case Shutdown:
 			return
 		}
@@ -171,12 +169,10 @@ func (n *Node) doBackgroundWork() {
 		select {
 		case t := <-n.submitCh:
 			n.logger.Debug("Adding Transaction")
-
 			n.addTransaction(t)
 			n.resetTimer()
 		case t := <-n.submitInternalCh:
 			n.logger.Debug("Adding Internal Transaction")
-
 			n.addInternalTransaction(t)
 			n.resetTimer()
 		case block := <-n.commitCh:
@@ -185,11 +181,9 @@ func (n *Node) doBackgroundWork() {
 				"round_received": block.RoundReceived(),
 				"txs":            len(block.Transactions()),
 			}).Debug("Committing Block")
-
 			if err := n.commit(&block); err != nil {
 				n.logger.WithField("error", err).Error("Committing Block")
 			}
-
 		case <-n.shutdownCh:
 			return
 		}
@@ -219,7 +213,6 @@ func (n *Node) babble(gossip bool) {
 			n.resetTimer()
 		case <-returnCh:
 			return
-
 		case <-n.shutdownCh:
 			return
 		}
@@ -227,20 +220,15 @@ func (n *Node) babble(gossip bool) {
 }
 
 func (n *Node) processRPC(rpc net.RPC) {
-
 	switch cmd := rpc.Command.(type) {
 	case *net.SyncRequest:
 		n.processSyncRequest(rpc, cmd)
-
 	case *net.EagerSyncRequest:
 		n.processEagerSyncRequest(rpc, cmd)
-
 	case *net.FastForwardRequest:
 		n.processFastForwardRequest(rpc, cmd)
-
 	default:
 		n.logger.WithField("cmd", rpc.Command).Error("Unexpected RPC command")
-
 		rpc.Respond(nil, fmt.Errorf("unexpected command"))
 	}
 }
