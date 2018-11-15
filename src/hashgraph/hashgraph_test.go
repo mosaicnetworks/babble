@@ -75,6 +75,10 @@ func testLogger(t testing.TB) *logrus.Entry {
 	return common.NewTestLogger(t).WithField("id", "test")
 }
 
+func testCommitCallback(block *Block) error {
+	return nil
+}
+
 /* Initialisation functions */
 
 func initHashgraphNodes(n int) ([]TestNode, map[string]string, *[]*Event, *peers.PeerSet) {
@@ -122,7 +126,7 @@ func createHashgraph(db bool, orderedEvents *[]*Event, peerSet *peers.PeerSet, l
 		store = NewInmemStore(peerSet, cacheSize)
 	}
 
-	hashgraph := NewHashgraph(peerSet, store, nil, logger)
+	hashgraph := NewHashgraph(peerSet, store, testCommitCallback, logger)
 
 	for i, ev := range *orderedEvents {
 		if err := hashgraph.InsertEvent(ev, true); err != nil {
@@ -355,7 +359,7 @@ func TestFork(t *testing.T) {
 	peerSet := peers.NewPeerSet(pirs)
 
 	store := NewInmemStore(peerSet, cacheSize)
-	hashgraph := NewHashgraph(peerSet, store, nil, testLogger(t))
+	hashgraph := NewHashgraph(peerSet, store, testCommitCallback, testLogger(t))
 
 	for i, node := range nodes {
 		event := NewEvent(nil, nil, nil, []string{"", ""}, node.Pub, 0)
@@ -977,7 +981,7 @@ func initBlockHashgraph(t *testing.T) (*Hashgraph, []TestNode, map[string]string
 		nodes[i].signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
 	}
 
-	hashgraph := NewHashgraph(peerSet, NewInmemStore(peerSet, cacheSize), nil, testLogger(t))
+	hashgraph := NewHashgraph(peerSet, NewInmemStore(peerSet, cacheSize), testCommitCallback, testLogger(t))
 
 	//create a block and signatures manually
 	block := NewBlock(0, 1, []byte("framehash"), peerSet.Peers, [][]byte{[]byte("block tx")})
@@ -1820,7 +1824,7 @@ func TestResetFromFrame(t *testing.T) {
 
 	h2 := NewHashgraph(peerSet,
 		NewInmemStore(peerSet, cacheSize),
-		nil,
+		testCommitCallback,
 		testLogger(t))
 	err = h2.Reset(block, unmarshalledFrame)
 	if err != nil {
@@ -2019,7 +2023,7 @@ func TestBootstrap(t *testing.T) {
 	}
 	nh := NewHashgraph(peerSet,
 		recycledStore,
-		nil,
+		testCommitCallback,
 		logrus.New().WithField("id", "bootstrapped"))
 	err = nh.Bootstrap()
 	if err != nil {
@@ -2452,7 +2456,7 @@ func TestFunkyHashgraphReset(t *testing.T) {
 
 		h2 := NewHashgraph(peerSet,
 			NewInmemStore(peerSet, cacheSize),
-			nil,
+			testCommitCallback,
 			testLogger(t))
 		err = h2.Reset(block, unmarshalledFrame)
 		if err != nil {
@@ -2763,7 +2767,7 @@ func TestSparseHashgraphReset(t *testing.T) {
 
 		h2 := NewHashgraph(peerSet,
 			NewInmemStore(peerSet, cacheSize),
-			nil,
+			testCommitCallback,
 			testLogger(t))
 		err = h2.Reset(block, unmarshalledFrame)
 		if err != nil {

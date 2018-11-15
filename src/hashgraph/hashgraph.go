@@ -12,6 +12,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+//CommitCallback is called by the Hashgraph to commit a Block
+type CommitCallback func(*Block) error
+
 //Hashgraph is a DAG of Events. It also contains methods to extract a consensus
 //order of Events and map them onto a blockchain.
 type Hashgraph struct {
@@ -25,7 +28,7 @@ type Hashgraph struct {
 	SigPool                 []BlockSignature //Pool of Block signatures that need to be processed
 	ConsensusTransactions   int              //number of consensus transactions
 	PendingLoadedEvents     int              //number of loaded events that are not yet committed
-	commitCh                chan Block       //channel for committing Blocks
+	commitCallback          CommitCallback   //commit block callback
 	topologicalIndex        int              //counter used to order events in topological order (only local)
 
 	ancestorCache     *common.LRU
@@ -39,7 +42,7 @@ type Hashgraph struct {
 
 //NewHashgraph instantiates a Hashgraph from a list of participants, underlying
 //data store and commit channel
-func NewHashgraph(participants *peers.PeerSet, store Store, commitCh chan Block, logger *logrus.Entry) *Hashgraph {
+func NewHashgraph(participants *peers.PeerSet, store Store, commitCallback CommitCallback, logger *logrus.Entry) *Hashgraph {
 	if logger == nil {
 		log := logrus.New()
 		log.Level = logrus.DebugLevel
@@ -49,7 +52,7 @@ func NewHashgraph(participants *peers.PeerSet, store Store, commitCh chan Block,
 	cacheSize := store.CacheSize()
 	hashgraph := Hashgraph{
 		Store:             store,
-		commitCh:          commitCh,
+		commitCallback:    commitCallback,
 		ancestorCache:     common.NewLRU(cacheSize, nil),
 		selfAncestorCache: common.NewLRU(cacheSize, nil),
 		stronglySeeCache:  common.NewLRU(cacheSize, nil),
@@ -1020,7 +1023,6 @@ func (h *Hashgraph) DecideRoundReceived() error {
 				//break out of i loop
 				break
 			}
-
 		}
 
 		if !received {
@@ -1100,8 +1102,8 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 					return err
 				}
 
-				if h.commitCh != nil {
-					h.commitCh <- *block
+				if err := h.commitCallback(block); err != nil {
+					h.logger.Warningf("Failed to commit block %d", block.Index)
 				}
 			}
 		} else {
@@ -1326,7 +1328,6 @@ func (h *Hashgraph) GetAnchorBlockWithFrame() (*Block, *Frame, error) {
 
 //Reset clears the Hashgraph and resets it from a new base.
 func (h *Hashgraph) Reset(block *Block, frame *Frame) error {
-
 	//Clear all state
 	h.LastConsensusRound = nil
 	h.FirstConsensusRound = nil

@@ -13,10 +13,14 @@ import (
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
-func initCores(n int, t *testing.T) ([]Core, map[int]*ecdsa.PrivateKey, map[string]string) {
+func testCommitCallback(block *hg.Block) error {
+	return nil
+}
+
+func initCores(n int, t *testing.T) ([]*Core, map[int]*ecdsa.PrivateKey, map[string]string) {
 	cacheSize := 1000
 
-	cores := []Core{}
+	cores := []*Core{}
 	index := make(map[string]string)
 	participantKeys := map[int]*ecdsa.PrivateKey{}
 	pirs := []*peers.Peer{}
@@ -36,7 +40,7 @@ func initCores(n int, t *testing.T) ([]Core, map[int]*ecdsa.PrivateKey, map[stri
 			participantKeys[peer.ID],
 			peerSet,
 			hg.NewInmemStore(peerSet, cacheSize),
-			nil,
+			testCommitCallback,
 			common.NewTestLogger(t))
 
 		//Create and save the first Event
@@ -70,7 +74,7 @@ e01 |   |
 e0  e1  e2
 0   1   2
 */
-func initHashgraph(cores []Core, keys map[int]*ecdsa.PrivateKey, index map[string]string, participant int) {
+func initHashgraph(cores []*Core, keys map[int]*ecdsa.PrivateKey, index map[string]string, participant int) {
 	for i := 0; i < len(cores); i++ {
 		if i != participant {
 			event, _ := cores[i].GetEvent(index[fmt.Sprintf("e%d", i)])
@@ -108,7 +112,7 @@ func initHashgraph(cores []Core, keys map[int]*ecdsa.PrivateKey, index map[strin
 	}
 }
 
-func insertEvent(cores []Core, keys map[int]*ecdsa.PrivateKey, index map[string]string,
+func insertEvent(cores []*Core, keys map[int]*ecdsa.PrivateKey, index map[string]string,
 	event *hg.Event, name string, particant int, creator int) error {
 
 	if particant == creator {
@@ -165,6 +169,7 @@ func TestEventDiff(t *testing.T) {
 	}
 
 }
+
 func TestSync(t *testing.T) {
 	cores, _, index := initCores(3, t)
 
@@ -334,7 +339,7 @@ type play struct {
 	payload [][]byte
 }
 
-func initConsensusHashgraph(t *testing.T) []Core {
+func initConsensusHashgraph(t *testing.T) []*Core {
 	cores, _, _ := initCores(3, t)
 	playbook := []play{
 		play{from: 0, to: 1, payload: [][]byte{[]byte("e10")}},
@@ -467,7 +472,7 @@ func TestOverSyncLimit(t *testing.T) {
     |   e1  e2  e3
     0	1	2	3
 */
-func initFFHashgraph(cores []Core, t *testing.T) {
+func initFFHashgraph(cores []*Core, t *testing.T) {
 	playbook := []play{
 		play{from: 1, to: 2, payload: [][]byte{[]byte("e21")}},
 		play{from: 2, to: 3, payload: [][]byte{[]byte("e32")}},
@@ -638,7 +643,7 @@ func TestCoreFastForward(t *testing.T) {
 	})
 }
 
-func synchronizeCores(cores []Core, from int, to int, payload [][]byte) error {
+func synchronizeCores(cores []*Core, from int, to int, payload [][]byte) error {
 	knownByTo := cores[to].KnownEvents()
 	unknownByTo, err := cores[from].EventDiff(knownByTo)
 	if err != nil {
@@ -655,7 +660,7 @@ func synchronizeCores(cores []Core, from int, to int, payload [][]byte) error {
 	return cores[to].Sync(unknownWire)
 }
 
-func syncAndRunConsensus(cores []Core, from int, to int, payload [][]byte) error {
+func syncAndRunConsensus(cores []*Core, from int, to int, payload [][]byte) error {
 	if err := synchronizeCores(cores, from, to, payload); err != nil {
 		return err
 	}

@@ -36,8 +36,6 @@ type Node struct {
 	submitCh         chan []byte
 	submitInternalCh chan hg.InternalTransaction
 
-	commitCh chan hg.Block
-
 	shutdownCh chan struct{}
 
 	controlTimer *ControlTimer
@@ -61,16 +59,11 @@ func NewNode(conf *Config,
 
 	pmap := peers
 
-	commitCh := make(chan hg.Block, 400)
-
-	core := NewCore(id, key, pmap, store, commitCh, conf.Logger)
-
 	peerSelector := NewRandomPeerSelector(peers, localAddr)
 
 	node := Node{
 		id:               id,
 		conf:             conf,
-		core:             &core,
 		localAddr:        localAddr,
 		logger:           conf.Logger.WithField("this_id", id),
 		peerSelector:     peerSelector,
@@ -79,10 +72,11 @@ func NewNode(conf *Config,
 		proxy:            proxy,
 		submitCh:         proxy.SubmitCh(),
 		submitInternalCh: proxy.SubmitInternalCh(),
-		commitCh:         commitCh,
 		shutdownCh:       make(chan struct{}),
 		controlTimer:     NewRandomControlTimer(),
 	}
+
+	node.core = NewCore(id, key, pmap, store, node.commit, conf.Logger)
 
 	node.needBoostrap = store.NeedBoostrap()
 
@@ -125,7 +119,6 @@ func (n *Node) Run(gossip bool) {
 	go n.controlTimer.Run(n.conf.HeartbeatTimeout)
 
 	//Execute some background work regardless of the state of the node.
-	//Process SumbitTx and CommitBlock requests
 	go n.doBackgroundWork()
 
 	//Execute Node State Machine
@@ -175,15 +168,6 @@ func (n *Node) doBackgroundWork() {
 			n.logger.Debug("Adding Internal Transaction")
 			n.addInternalTransaction(t)
 			n.resetTimer()
-		case block := <-n.commitCh:
-			n.logger.WithFields(logrus.Fields{
-				"index":          block.Index(),
-				"round_received": block.RoundReceived(),
-				"txs":            len(block.Transactions()),
-			}).Debug("Committing Block")
-			if err := n.commit(&block); err != nil {
-				n.logger.WithField("error", err).Error("Committing Block")
-			}
 		case <-n.shutdownCh:
 			return
 		}
@@ -675,10 +659,6 @@ func (n *Node) commit(block *hg.Block) error {
 	//There is no point in using the stateHash if we know it is wrong
 	if err == nil {
 		block.Body.StateHash = stateHash
-
-		n.coreLock.Lock()
-
-		defer n.coreLock.Unlock()
 
 		sig, err := n.core.SignBlock(block)
 
