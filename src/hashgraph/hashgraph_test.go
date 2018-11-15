@@ -75,10 +75,6 @@ func testLogger(t testing.TB) *logrus.Entry {
 	return common.NewTestLogger(t).WithField("id", "test")
 }
 
-func testCommitCallback(block *Block) error {
-	return nil
-}
-
 /* Initialisation functions */
 
 func initHashgraphNodes(n int) ([]TestNode, map[string]string, *[]*Event, *peers.PeerSet) {
@@ -126,7 +122,7 @@ func createHashgraph(db bool, orderedEvents *[]*Event, peerSet *peers.PeerSet, l
 		store = NewInmemStore(peerSet, cacheSize)
 	}
 
-	hashgraph := NewHashgraph(peerSet, store, testCommitCallback, logger)
+	hashgraph := NewHashgraph(peerSet, store, DummyInternalCommitCallback, logger)
 
 	for i, ev := range *orderedEvents {
 		if err := hashgraph.InsertEvent(ev, true); err != nil {
@@ -359,7 +355,7 @@ func TestFork(t *testing.T) {
 	peerSet := peers.NewPeerSet(pirs)
 
 	store := NewInmemStore(peerSet, cacheSize)
-	hashgraph := NewHashgraph(peerSet, store, testCommitCallback, testLogger(t))
+	hashgraph := NewHashgraph(peerSet, store, DummyInternalCommitCallback, testLogger(t))
 
 	for i, node := range nodes {
 		event := NewEvent(nil, nil, nil, []string{"", ""}, node.Pub, 0)
@@ -981,10 +977,18 @@ func initBlockHashgraph(t *testing.T) (*Hashgraph, []TestNode, map[string]string
 		nodes[i].signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
 	}
 
-	hashgraph := NewHashgraph(peerSet, NewInmemStore(peerSet, cacheSize), testCommitCallback, testLogger(t))
+	hashgraph := NewHashgraph(peerSet, NewInmemStore(peerSet, cacheSize), DummyInternalCommitCallback, testLogger(t))
 
 	//create a block and signatures manually
-	block := NewBlock(0, 1, []byte("framehash"), peerSet.Peers, [][]byte{[]byte("block tx")})
+	block := NewBlock(0, 1,
+		[]byte("framehash"),
+		peerSet.Peers,
+		[][]byte{[]byte("block tx")},
+		[]InternalTransaction{
+			NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1", "paris")),
+			NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2", "london")),
+		})
+
 	err := hashgraph.Store.SetBlock(block)
 	if err != nil {
 		t.Fatalf("Error setting block. Err: %s", err)
@@ -1072,7 +1076,7 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		block1 := NewBlock(1, 2, []byte("framehash"), peerSet.Peers, [][]byte{})
+		block1 := NewBlock(1, 2, []byte("framehash"), peerSet.Peers, [][]byte{}, []InternalTransaction{})
 		sig, _ := block1.Sign(nodes[2].Key)
 
 		//unknown block
@@ -1824,7 +1828,7 @@ func TestResetFromFrame(t *testing.T) {
 
 	h2 := NewHashgraph(peerSet,
 		NewInmemStore(peerSet, cacheSize),
-		testCommitCallback,
+		DummyInternalCommitCallback,
 		testLogger(t))
 	err = h2.Reset(block, unmarshalledFrame)
 	if err != nil {
@@ -2023,7 +2027,7 @@ func TestBootstrap(t *testing.T) {
 	}
 	nh := NewHashgraph(peerSet,
 		recycledStore,
-		testCommitCallback,
+		DummyInternalCommitCallback,
 		logrus.New().WithField("id", "bootstrapped"))
 	err = nh.Bootstrap()
 	if err != nil {
@@ -2456,7 +2460,7 @@ func TestFunkyHashgraphReset(t *testing.T) {
 
 		h2 := NewHashgraph(peerSet,
 			NewInmemStore(peerSet, cacheSize),
-			testCommitCallback,
+			DummyInternalCommitCallback,
 			testLogger(t))
 		err = h2.Reset(block, unmarshalledFrame)
 		if err != nil {
@@ -2767,7 +2771,7 @@ func TestSparseHashgraphReset(t *testing.T) {
 
 		h2 := NewHashgraph(peerSet,
 			NewInmemStore(peerSet, cacheSize),
-			testCommitCallback,
+			DummyInternalCommitCallback,
 			testLogger(t))
 		err = h2.Reset(block, unmarshalledFrame)
 		if err != nil {

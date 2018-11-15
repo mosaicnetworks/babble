@@ -11,11 +11,8 @@ import (
 	"github.com/mosaicnetworks/babble/src/crypto"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/peers"
+	"github.com/mosaicnetworks/babble/src/proxy"
 )
-
-func testCommitCallback(block *hg.Block) error {
-	return nil
-}
 
 func initCores(n int, t *testing.T) ([]*Core, map[int]*ecdsa.PrivateKey, map[string]string) {
 	cacheSize := 1000
@@ -40,7 +37,7 @@ func initCores(n int, t *testing.T) ([]*Core, map[int]*ecdsa.PrivateKey, map[str
 			participantKeys[peer.ID],
 			peerSet,
 			hg.NewInmemStore(peerSet, cacheSize),
-			testCommitCallback,
+			proxy.DummyCommitCallback,
 			common.NewTestLogger(t))
 
 		//Create and save the first Event

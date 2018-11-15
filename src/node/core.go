@@ -10,6 +10,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/crypto"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/peers"
+	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/sirupsen/logrus"
 )
 
@@ -28,6 +29,8 @@ type Core struct {
 	internalTransactionPool []hg.InternalTransaction
 	blockSignaturePool      []hg.BlockSignature
 
+	proxyCommitCallback proxy.CommitCallback
+
 	logger *logrus.Entry
 }
 
@@ -36,7 +39,7 @@ func NewCore(
 	key *ecdsa.PrivateKey,
 	peers *peers.PeerSet,
 	store hg.Store,
-	commitCallback hg.CommitCallback,
+	proxyCommitCallback proxy.CommitCallback,
 	logger *logrus.Logger) *Core {
 
 	if logger == nil {
@@ -48,7 +51,7 @@ func NewCore(
 	core := &Core{
 		id:                      id,
 		key:                     key,
-		hg:                      hg.NewHashgraph(peers, store, commitCallback, logEntry),
+		proxyCommitCallback:     proxyCommitCallback,
 		peers:                   peers,
 		transactionPool:         [][]byte{},
 		internalTransactionPool: []hg.InternalTransaction{},
@@ -57,6 +60,8 @@ func NewCore(
 		Head:                    "",
 		Seq:                     -1,
 	}
+
+	core.hg = hg.NewHashgraph(peers, store, core.Commit, logEntry)
 
 	return core
 }
@@ -147,6 +152,37 @@ func (c *Core) KnownEvents() map[int]int {
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+func (c *Core) Commit(block *hg.Block) error {
+	//Commit the Block to the App
+	commitResponse, err := c.proxyCommitCallback(*block)
+
+	c.logger.WithFields(logrus.Fields{
+		"block":                          block.Index(),
+		"state_hash":                     fmt.Sprintf("%X", commitResponse.StateHash),
+		"accepted_internal_transactions": commitResponse.AcceptedInternalTransactions,
+		"err": err,
+	}).Debug("CommitBlock Response")
+
+	//XXX Handle errors
+
+	//Handle the response to set Block StateHash and process accepted
+	//InternalTransactions which might update the PeerSet.
+	if err == nil {
+		block.Body.StateHash = commitResponse.StateHash
+
+		sig, err := c.SignBlock(block)
+		if err != nil {
+			return err
+		}
+
+		c.AddBlockSignature(sig)
+
+		//XXX Process AcceptedInternalTransactions
+	}
+
+	return err
+}
 
 func (c *Core) SignBlock(block *hg.Block) (hg.BlockSignature, error) {
 	sig, err := block.Sign(c.key)

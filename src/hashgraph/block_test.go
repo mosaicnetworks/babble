@@ -18,6 +18,10 @@ func TestSignBlock(t *testing.T) {
 			[]byte("abc"),
 			[]byte("def"),
 			[]byte("ghi"),
+		},
+		[]InternalTransaction{
+			NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1", "paris")),
+			NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2", "london")),
 		})
 
 	sig, err := block.Sign(privateKey)
@@ -45,6 +49,10 @@ func TestAppendSignature(t *testing.T) {
 			[]byte("abc"),
 			[]byte("def"),
 			[]byte("ghi"),
+		},
+		[]InternalTransaction{
+			NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1", "paris")),
+			NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2", "london")),
 		})
 
 	sig, err := block.Sign(privateKey)

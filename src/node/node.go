@@ -66,6 +66,7 @@ func NewNode(conf *Config,
 		conf:             conf,
 		localAddr:        localAddr,
 		logger:           conf.Logger.WithField("this_id", id),
+		core:             NewCore(id, key, pmap, store, proxy.CommitBlock, conf.Logger),
 		peerSelector:     peerSelector,
 		trans:            trans,
 		netCh:            trans.Consumer(),
@@ -75,8 +76,6 @@ func NewNode(conf *Config,
 		shutdownCh:       make(chan struct{}),
 		controlTimer:     NewRandomControlTimer(),
 	}
-
-	node.core = NewCore(id, key, pmap, store, node.commit, conf.Logger)
 
 	node.needBoostrap = store.NeedBoostrap()
 
@@ -642,34 +641,6 @@ func (n *Node) sync(events []hg.WireEvent) error {
 	}
 
 	return nil
-}
-
-func (n *Node) commit(block *hg.Block) error {
-	stateHash, err := n.proxy.CommitBlock(*block)
-
-	n.logger.WithFields(logrus.Fields{
-		"block":      block.Index(),
-		"state_hash": fmt.Sprintf("%X", stateHash),
-		"err":        err,
-	}).Debug("CommitBlock Response")
-
-	//XXX what do we do in case of error. Retry? This has to do with the
-	//Babble <-> App interface. Think about it.
-
-	//There is no point in using the stateHash if we know it is wrong
-	if err == nil {
-		block.Body.StateHash = stateHash
-
-		sig, err := n.core.SignBlock(block)
-
-		if err != nil {
-			return err
-		}
-
-		n.core.AddBlockSignature(sig)
-	}
-
-	return err
 }
 
 func (n *Node) addTransaction(tx []byte) {

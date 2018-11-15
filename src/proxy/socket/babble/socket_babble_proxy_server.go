@@ -68,18 +68,14 @@ func (p *SocketBabbleProxyServer) listen() error {
 	}
 }
 
-func (p *SocketBabbleProxyServer) CommitBlock(block hashgraph.Block, stateH *[]byte) (err error) {
-	*stateH, err = p.handler.CommitHandler(block)
+func (p *SocketBabbleProxyServer) CommitBlock(block hashgraph.Block, response *proxy.CommitResponse) (err error) {
+	*response, err = p.handler.CommitHandler(block)
 
 	p.logger.WithFields(logrus.Fields{
-		"block":      block.Index(),
-		"state_hash": stateH,
-		"err":        err,
+		"block":    block.Index(),
+		"response": response,
+		"err":      err,
 	}).Debug("BabbleProxyServer.CommitBlock")
-
-	if err != nil {
-		return err
-	}
 
 	return
 }
