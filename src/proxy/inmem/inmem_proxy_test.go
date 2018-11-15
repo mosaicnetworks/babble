@@ -93,14 +93,14 @@ func TestInmemProxyBabbleSide(t *testing.T) {
 	/***************************************************************************
 	Commit
 	***************************************************************************/
-	stateHash, err := proxy.CommitBlock(*block)
+	commitResponse, err := proxy.CommitBlock(*block)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	expectedStateHash := []byte("statehash")
-	if !reflect.DeepEqual(stateHash, expectedStateHash) {
-		t.Fatalf("StateHash should be %v, not %v", expectedStateHash, stateHash)
+	if !reflect.DeepEqual(commitResponse.StateHash, expectedStateHash) {
+		t.Fatalf("StateHash should be %v, not %v", expectedStateHash, commitResponse.StateHash)
 	}
 
 	if !reflect.DeepEqual(transactions, proxy.transactions) {
