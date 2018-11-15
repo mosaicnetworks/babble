@@ -36,8 +36,8 @@ func NewCore(
 	key *ecdsa.PrivateKey,
 	peers *peers.PeerSet,
 	store hg.Store,
-	commitCh chan hg.Block,
-	logger *logrus.Logger) Core {
+	commitCallback hg.CommitCallback,
+	logger *logrus.Logger) *Core {
 
 	if logger == nil {
 		logger = logrus.New()
@@ -45,10 +45,10 @@ func NewCore(
 	}
 	logEntry := logger.WithField("id", id)
 
-	core := Core{
+	core := &Core{
 		id:                      id,
 		key:                     key,
-		hg:                      hg.NewHashgraph(peers, store, commitCh, logEntry),
+		hg:                      hg.NewHashgraph(peers, store, commitCallback, logEntry),
 		peers:                   peers,
 		transactionPool:         [][]byte{},
 		internalTransactionPool: []hg.InternalTransaction{},
@@ -57,6 +57,7 @@ func NewCore(
 		Head:                    "",
 		Seq:                     -1,
 	}
+
 	return core
 }
 
