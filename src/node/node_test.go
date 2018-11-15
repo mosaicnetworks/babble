@@ -362,7 +362,7 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 	conf := oldNode.conf
 	id := oldNode.id
 	key := oldNode.core.key
-	peers := oldNode.peerSelector.Peers()
+	peers := oldNode.core.peers
 
 	var store hg.Store
 	var err error
@@ -375,7 +375,7 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 		store = hg.NewInmemStore(oldNode.core.peers, conf.CacheSize)
 	}
 
-	trans, err := net.NewTCPTransport(oldNode.localAddr,
+	trans, err := net.NewTCPTransport(oldNode.trans.LocalAddr(),
 		nil, 2, time.Second, logger)
 	if err != nil {
 		t.Fatal(err)
@@ -505,7 +505,7 @@ func TestSyncLimit(t *testing.T) {
 	}
 
 	var out net.SyncResponse
-	if err := nodes[0].trans.Sync(nodes[1].localAddr, &args, &out); err != nil {
+	if err := nodes[0].trans.Sync(nodes[1].trans.LocalAddr(), &args, &out); err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
@@ -675,7 +675,7 @@ func TestShutdown(t *testing.T) {
 
 	nodes[0].Shutdown()
 
-	err := nodes[1].gossip(nodes[0].localAddr, nil)
+	err := nodes[1].gossip(peers.Peers[0], nil)
 	if err == nil {
 		t.Fatal("Expected Timeout Error")
 	}

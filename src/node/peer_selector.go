@@ -6,9 +6,11 @@ import (
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
+//XXX PeerSelector needs major refactoring
+
 type PeerSelector interface {
 	Peers() *peers.PeerSet
-	UpdateLast(peer string)
+	UpdateLast(peer int)
 	Next() *peers.Peer
 }
 
@@ -16,15 +18,15 @@ type PeerSelector interface {
 //RANDOM
 
 type RandomPeerSelector struct {
-	peers     *peers.PeerSet
-	localAddr string
-	last      string
+	peers  *peers.PeerSet
+	selfID int
+	last   int
 }
 
-func NewRandomPeerSelector(peerSet *peers.PeerSet, localAddr string) *RandomPeerSelector {
+func NewRandomPeerSelector(peerSet *peers.PeerSet, selfID int) *RandomPeerSelector {
 	return &RandomPeerSelector{
-		localAddr: localAddr,
-		peers:     peerSet,
+		selfID: selfID,
+		peers:  peerSet,
 	}
 }
 
@@ -32,7 +34,7 @@ func (ps *RandomPeerSelector) Peers() *peers.PeerSet {
 	return ps.peers
 }
 
-func (ps *RandomPeerSelector) UpdateLast(peer string) {
+func (ps *RandomPeerSelector) UpdateLast(peer int) {
 	ps.last = peer
 }
 
@@ -40,7 +42,7 @@ func (ps *RandomPeerSelector) Next() *peers.Peer {
 	selectablePeers := ps.peers.Peers
 
 	if len(selectablePeers) > 1 {
-		_, selectablePeers = peers.ExcludePeer(selectablePeers, ps.localAddr)
+		_, selectablePeers = peers.ExcludePeer(selectablePeers, ps.selfID)
 
 		if len(selectablePeers) > 1 {
 			_, selectablePeers = peers.ExcludePeer(selectablePeers, ps.last)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/crypto"
@@ -21,9 +22,14 @@ type Core struct {
 	hexID  string
 	hg     *hg.Hashgraph
 
-	peers *peers.PeerSet //[PubKey] => id
-	Head  string
-	Seq   int
+	//XXX this needs major refactoring. Be careful with race conditions and
+	//deadlocks
+	peers        *peers.PeerSet //[PubKey] => id
+	peerSelector PeerSelector
+	selectorLock sync.Mutex
+
+	Head string
+	Seq  int
 
 	transactionPool         [][]byte
 	internalTransactionPool []hg.InternalTransaction
@@ -48,11 +54,14 @@ func NewCore(
 	}
 	logEntry := logger.WithField("id", id)
 
+	peerSelector := NewRandomPeerSelector(peers, id)
+
 	core := &Core{
 		id:                      id,
 		key:                     key,
 		proxyCommitCallback:     proxyCommitCallback,
 		peers:                   peers,
+		peerSelector:            peerSelector,
 		transactionPool:         [][]byte{},
 		internalTransactionPool: []hg.InternalTransaction{},
 		blockSignaturePool:      []hg.BlockSignature{},
@@ -178,7 +187,10 @@ func (c *Core) Commit(block *hg.Block) error {
 
 		c.AddBlockSignature(sig)
 
-		//XXX Process AcceptedInternalTransactions
+		err = c.ProcessAcceptedInternalTransactions(block.RoundReceived(), commitResponse.AcceptedInternalTransactions)
+		if err != nil {
+			return err
+		}
 	}
 
 	return err
@@ -193,6 +205,36 @@ func (c *Core) SignBlock(block *hg.Block) (hg.BlockSignature, error) {
 		return hg.BlockSignature{}, err
 	}
 	return sig, c.hg.Store.SetBlock(block)
+}
+
+func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.InternalTransaction) error {
+	peers := c.peers
+
+	for _, tx := range txs {
+		switch tx.Type {
+		case hg.PEER_ADD:
+			c.logger.WithField("peer", tx.Peer).Debug("adding peer")
+			peers = peers.WithNewPeer(&tx.Peer)
+		case hg.PEER_REMOVE:
+			c.logger.WithField("peer", tx.Peer).Debug("removing peer")
+			peers = peers.WithRemovedPeer(&tx.Peer)
+		default:
+		}
+	}
+
+	//XXX  +4 is arbitrary. Should be RoundDecided, ie. the round of the first
+	//witness that can decide the fame of a SuperMajority of witnesses from
+	//roundReceived
+	err := c.hg.Store.SetPeerSet(roundReceived+4, peers)
+	if err != nil {
+		return fmt.Errorf("Udpating Store PeerSet: %s", err)
+	}
+
+	c.peers = peers
+
+	c.peerSelector = NewRandomPeerSelector(peers, c.id)
+
+	return nil
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
