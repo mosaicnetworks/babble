@@ -853,7 +853,7 @@ func TestPeerJoinRequest(t *testing.T) {
 
 	runNodes(nodes, true)
 
-	target := 50
+	target := 20
 
 	err := bombardAndWait(nodes, target, 3*time.Second)
 	if err != nil {
@@ -877,8 +877,6 @@ func TestPeerJoinRequest(t *testing.T) {
 
 	nodes[0].addInternalTransaction(hg.NewInternalTransactionJoin(*peer))
 
-	target = 50
-
 	err = bombardAndWait(nodes, target, 3*time.Second)
 	if err != nil {
 		t.Fatal("Error bombarding: ", err)
@@ -891,7 +889,6 @@ func TestPeerJoinRequest(t *testing.T) {
 	}
 
 	checkGossip(nodes, 0, t)
-
 }
 
 // func TestPeerLeaveRequest(t *testing.T) {

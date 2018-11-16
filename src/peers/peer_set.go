@@ -33,7 +33,7 @@ func NewPeerSet(peers []*Peer) *PeerSet {
 
 	for _, peer := range peers {
 		if peer.ID == 0 {
-			peer.computeID()
+			peer.ComputeID()
 		}
 
 		peerSet.ByPubKey[peer.PubKeyHex] = peer

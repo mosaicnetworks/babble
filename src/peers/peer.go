@@ -18,7 +18,7 @@ func NewPeer(pubKeyHex, netAddr string) *Peer {
 		NetAddr:   netAddr,
 	}
 
-	peer.computeID()
+	peer.ComputeID()
 
 	return peer
 }
@@ -27,7 +27,7 @@ func (p *Peer) PubKeyBytes() ([]byte, error) {
 	return hex.DecodeString(p.PubKeyHex[2:])
 }
 
-func (p *Peer) computeID() error {
+func (p *Peer) ComputeID() error {
 	// TODO: Use the decoded bytes from hex
 	pubKey, err := p.PubKeyBytes()
 

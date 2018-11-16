@@ -1130,6 +1130,8 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 }
 
 func (h *Hashgraph) ProcessInternalTransactions(tx *InternalTransaction, roundReceived int) error {
+	tx.Peer.ComputeID()
+
 	for i := roundReceived + 4; i < h.Store.LastRound(); i++ {
 		round, err := h.Store.GetRound(i)
 
