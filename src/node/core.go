@@ -186,7 +186,12 @@ func (c *Core) EventDiff(known map[int]int) (events []*hg.Event, err error) {
 	//compare this to our view of events and fill unknown with events that we know of
 	// and the other doesnt
 	for id, ct := range known {
-		peer := c.peers.ByID[id]
+		peer, ok := c.peers.ByID[id]
+
+		if !ok {
+			continue
+		}
+
 		//get participant Events with index > ct
 		participantEvents, err := c.hg.Store.ParticipantEvents(peer.PubKeyHex, ct)
 		if err != nil {

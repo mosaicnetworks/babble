@@ -293,6 +293,58 @@ func TestAddTransaction(t *testing.T) {
 	node1.Shutdown()
 }
 
+func new_node(k *ecdsa.PrivateKey,
+	peers *peers.PeerSet,
+	cacheSize,
+	syncLimit int,
+	storeType string,
+	logger *logrus.Logger,
+	t testing.TB) *Node {
+
+	key := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&k.PublicKey))
+	peer := peers.ByPubKey[key]
+	id := peer.ID
+
+	conf := NewConfig(
+		5*time.Millisecond,
+		time.Second,
+		cacheSize,
+		syncLimit,
+		logger,
+	)
+
+	trans, err := net.NewTCPTransport(peer.NetAddr,
+		nil, 2, time.Second, logger)
+	if err != nil {
+		t.Fatalf("failed to create transport for peer %d: %s", id, err)
+	}
+	var store hg.Store
+	switch storeType {
+	case "badger":
+		path, _ := ioutil.TempDir("", "badger")
+		store, err = hg.NewBadgerStore(peers, conf.CacheSize, path)
+		if err != nil {
+			t.Fatalf("failed to create BadgerStore for peer %d: %s", id, err)
+		}
+	case "inmem":
+		store = hg.NewInmemStore(peers, conf.CacheSize)
+	}
+	prox := dummy.NewInmemDummyClient(logger)
+	node := NewNode(conf,
+		id,
+		k,
+		peers,
+		store,
+		trans,
+		prox)
+
+	if err := node.Init(); err != nil {
+		t.Fatalf("failed to initialize node%d: %s", id, err)
+	}
+
+	return node
+}
+
 func initNodes(keys []*ecdsa.PrivateKey,
 	peers *peers.PeerSet,
 	cacheSize,
@@ -829,4 +881,52 @@ func BenchmarkGossip(b *testing.B) {
 		nodes := initNodes(keys, peers, 1000, 1000, "inmem", logger, b)
 		gossip(nodes, 50, true, 3*time.Second)
 	}
+}
+
+func TestPeerJoinRequest(t *testing.T) {
+	logger := common.NewTestLogger(t)
+
+	keys, peerSet := initPeers(4)
+	nodes := initNodes(keys, peerSet, 1000, 1000, "inmem", logger, t)
+
+	runNodes(nodes, true)
+
+	target := 50
+
+	err := bombardAndWait(nodes, target, 3*time.Second)
+	if err != nil {
+		t.Fatal("Error bombarding: ", err)
+	}
+	// go func() {
+	// 	for block := range nodes[0].commitCh {
+	// 		fmt.Println(block.PeerSet.Len())
+	// 	}
+	// }()
+
+	key, _ := crypto.GenerateECDSAKey()
+	peer := peers.NewPeer(
+		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
+		fmt.Sprint("127.0.0.1:4242"),
+	)
+
+	peerSet = peerSet.WithNewPeer(peer)
+
+	node := new_node(key, peerSet, 1000, 1000, "inmem", logger, t)
+	go func() {
+		node.Run(true)
+	}()
+
+	nodes = append(nodes, node)
+
+	nodes[0].addInternalTransaction(hg.NewInternalTransaction(hg.PEER_ADD, *peer))
+
+	target = 100
+
+	err = bombardAndWait(nodes, target, 10*time.Second)
+	if err != nil {
+		t.Fatal("Error bombarding: ", err)
+	}
+
+	fmt.Println(nodes[0].core.peers.Len())
+
 }

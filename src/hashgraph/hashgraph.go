@@ -1080,12 +1080,17 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 		}).Debugf("Processing Decided Round")
 
 		if len(frame.Events) > 0 {
+			peerTxs := []InternalTransaction{}
+
 			for _, e := range frame.Events {
 				err := h.Store.AddConsensusEvent(e)
 				if err != nil {
 					return err
 				}
 				h.ConsensusTransactions += len(e.Transactions())
+
+				peerTxs = append(peerTxs, e.InternalTransactions()...)
+
 				if e.IsLoaded() {
 					h.PendingLoadedEvents--
 				}
@@ -1105,7 +1110,14 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 				if err := h.commitCallback(block); err != nil {
 					h.logger.Warningf("Failed to commit block %d", block.Index)
 				}
+
 			}
+
+			// if len(block.InternalTransactions()) > 0 {
+			for _, tx := range peerTxs {
+				h.ProcessInternalTransactions(&tx, r.Index)
+			}
+			// }
 		} else {
 			h.logger.Debugf("No Events to commit for ConsensusRound %d", r.Index)
 		}
@@ -1116,6 +1128,28 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 			h.setLastConsensusRound(r.Index)
 		}
 
+	}
+
+	return nil
+}
+
+func (h *Hashgraph) ProcessInternalTransactions(tx *InternalTransaction, roundReceived int) error {
+	for i := roundReceived + 4; i < h.Store.LastRound(); i++ {
+		round, err := h.Store.GetRound(i)
+
+		if err != nil {
+			h.logger.Error("ProcessInternalTransaction: ", err)
+
+			continue
+		}
+
+		if tx.Type == PEER_ADD {
+			round.PeerSet = round.PeerSet.WithNewPeer(&tx.Peer)
+		}
+
+		if tx.Type == PEER_REMOVE {
+			round.PeerSet = round.PeerSet.WithRemovedPeer(&tx.Peer)
+		}
 	}
 
 	return nil
