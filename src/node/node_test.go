@@ -851,6 +851,8 @@ func TestPeerJoinRequest(t *testing.T) {
 	keys, peerSet := initPeers(4)
 	nodes := initNodes(keys, peerSet, 1000, 1000, "inmem", logger, t)
 
+	defer drawGraphs(nodes, t)
+
 	runNodes(nodes, true)
 
 	target := 20

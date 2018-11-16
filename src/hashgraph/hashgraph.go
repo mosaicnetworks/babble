@@ -1099,7 +1099,9 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 				return err
 			}
 
-			if len(block.Transactions()) > 0 {
+			if len(block.Transactions()) > 0 ||
+				len(block.InternalTransactions()) > 0 {
+
 				if err := h.Store.SetBlock(block); err != nil {
 					return err
 				}
