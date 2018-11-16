@@ -1106,16 +1106,14 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 
 				err := h.commitCallback(block)
 				if err != nil {
-					h.logger.Warningf("Failed to commit block %d", block.Index)
+					h.logger.Warningf("Failed to commit block %d", block.Index())
 				}
 
 			}
 
-			// if len(block.InternalTransactions()) > 0 {
-			for _, tx := range peerTxs {
+			for _, tx := range block.InternalTransactions() {
 				h.ProcessInternalTransactions(&tx, r.Index)
 			}
-			// }
 		} else {
 			h.logger.Debugf("No Events to commit for ConsensusRound %d", r.Index)
 		}

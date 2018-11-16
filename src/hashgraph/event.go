@@ -33,6 +33,14 @@ func NewInternalTransaction(tType TransactionType, peer peers.Peer) InternalTran
 	}
 }
 
+func NewInternalTransactionJoin(peer peers.Peer) InternalTransaction {
+	return NewInternalTransaction(PEER_ADD, peer)
+}
+
+func NewInternalTransactionLeave(peer peers.Peer) InternalTransaction {
+	return NewInternalTransaction(PEER_REMOVE, peer)
+}
+
 //json encoding of body only
 func (t *InternalTransaction) Marshal() ([]byte, error) {
 	var b bytes.Buffer

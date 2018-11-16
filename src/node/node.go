@@ -353,6 +353,8 @@ func (n *Node) gossip(peer *peers.Peer, parentReturnCh chan struct{}) error {
 	syncLimit, otherKnownEvents, err := n.pull(peer)
 
 	if err != nil {
+		// n.addInternalTransaction(hg.NewInternalTransactionLeave(*peer))
+
 		return err
 	}
 
