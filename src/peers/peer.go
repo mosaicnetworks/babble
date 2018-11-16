@@ -41,11 +41,11 @@ func (p *Peer) computeID() error {
 }
 
 // ExcludePeer is used to exclude a single peer from a list of peers.
-func ExcludePeer(peers []*Peer, peer string) (int, []*Peer) {
+func ExcludePeer(peers []*Peer, peer int) (int, []*Peer) {
 	index := -1
 	otherPeers := make([]*Peer, 0, len(peers))
 	for i, p := range peers {
-		if p.NetAddr != peer {
+		if p.ID != peer {
 			otherPeers = append(otherPeers, p)
 		} else {
 			index = i

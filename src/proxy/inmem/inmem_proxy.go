@@ -72,17 +72,17 @@ func (p *InmemProxy) SubmitInternalCh() chan hg.InternalTransaction {
 }
 
 //CommitBlock calls the commitHandler
-func (p *InmemProxy) CommitBlock(block hg.Block) ([]byte, error) {
-	stateHash, err := p.handler.CommitHandler(block)
+func (p *InmemProxy) CommitBlock(block hg.Block) (proxy.CommitResponse, error) {
+	commitResponse, err := p.handler.CommitHandler(block)
 
 	p.logger.WithFields(logrus.Fields{
 		"round_received": block.RoundReceived(),
 		"txs":            len(block.Transactions()),
-		"state_hash":     stateHash,
+		"response":       commitResponse,
 		"err":            err,
 	}).Debug("InmemProxy.CommitBlock")
 
-	return stateHash, err
+	return commitResponse, err
 }
 
 //GetSnapshot calls the snapshotHandler

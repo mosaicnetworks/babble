@@ -12,24 +12,21 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-//CommitCallback is called by the Hashgraph to commit a Block
-type CommitCallback func(*Block) error
-
 //Hashgraph is a DAG of Events. It also contains methods to extract a consensus
 //order of Events and map them onto a blockchain.
 type Hashgraph struct {
-	Store                   Store            //store of Events, Rounds, and Blocks
-	UndeterminedEvents      []string         //[index] => hash . FIFO queue of Events whose consensus order is not yet determined
-	PendingRounds           []*pendingRound  //FIFO queue of Rounds which have not attained consensus yet
-	LastConsensusRound      *int             //index of last consensus round
-	FirstConsensusRound     *int             //index of first consensus round (only used in tests)
-	AnchorBlock             *int             //index of last block with enough signatures
-	LastCommitedRoundEvents int              //number of events in round before LastConsensusRound
-	SigPool                 []BlockSignature //Pool of Block signatures that need to be processed
-	ConsensusTransactions   int              //number of consensus transactions
-	PendingLoadedEvents     int              //number of loaded events that are not yet committed
-	commitCallback          CommitCallback   //commit block callback
-	topologicalIndex        int              //counter used to order events in topological order (only local)
+	Store                   Store                  //store of Events, Rounds, and Blocks
+	UndeterminedEvents      []string               //[index] => hash . FIFO queue of Events whose consensus order is not yet determined
+	PendingRounds           []*pendingRound        //FIFO queue of Rounds which have not attained consensus yet
+	LastConsensusRound      *int                   //index of last consensus round
+	FirstConsensusRound     *int                   //index of first consensus round (only used in tests)
+	AnchorBlock             *int                   //index of last block with enough signatures
+	LastCommitedRoundEvents int                    //number of events in round before LastConsensusRound
+	SigPool                 []BlockSignature       //Pool of Block signatures that need to be processed
+	ConsensusTransactions   int                    //number of consensus transactions
+	PendingLoadedEvents     int                    //number of loaded events that are not yet committed
+	commitCallback          InternalCommitCallback //commit block callback
+	topologicalIndex        int                    //counter used to order events in topological order (only local)
 
 	ancestorCache     *common.LRU
 	selfAncestorCache *common.LRU
@@ -42,7 +39,7 @@ type Hashgraph struct {
 
 //NewHashgraph instantiates a Hashgraph from a list of participants, underlying
 //data store and commit channel
-func NewHashgraph(participants *peers.PeerSet, store Store, commitCallback CommitCallback, logger *logrus.Entry) *Hashgraph {
+func NewHashgraph(participants *peers.PeerSet, store Store, commitCallback InternalCommitCallback, logger *logrus.Entry) *Hashgraph {
 	if logger == nil {
 		log := logrus.New()
 		log.Level = logrus.DebugLevel
@@ -1107,7 +1104,8 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 					return err
 				}
 
-				if err := h.commitCallback(block); err != nil {
+				err := h.commitCallback(block)
+				if err != nil {
 					h.logger.Warningf("Failed to commit block %d", block.Index)
 				}
 
@@ -1582,4 +1580,20 @@ func middleBit(ehex string) bool {
 		return false
 	}
 	return true
+}
+
+/*******************************************************************************
+InternalCommitCallback
+*******************************************************************************/
+
+//InternalCommitCallback is called by the Hashgraph to commit a Block. The
+//InternalCommitCallback will likely itself call the ProxyCommitCallback. We add
+//a layer of indirection because processing the CommitResponse should be handled
+//by the Core object, not the hashgraph; the hashgraph only known if there was
+//an error or not.
+type InternalCommitCallback func(*Block) error
+
+//DummyInternalCommitCallback is used for testing
+func DummyInternalCommitCallback(b *Block) error {
+	return nil
 }

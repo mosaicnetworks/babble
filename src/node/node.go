@@ -24,11 +24,6 @@ type Node struct {
 	core     *Core
 	coreLock sync.Mutex
 
-	localAddr string
-
-	peerSelector PeerSelector
-	selectorLock sync.Mutex
-
 	trans net.Transport
 	netCh <-chan net.RPC
 
@@ -55,18 +50,12 @@ func NewNode(conf *Config,
 	trans net.Transport,
 	proxy proxy.AppProxy,
 ) *Node {
-	localAddr := trans.LocalAddr()
-
-	pmap := peers
-
-	peerSelector := NewRandomPeerSelector(peers, localAddr)
 
 	node := Node{
 		id:               id,
 		conf:             conf,
-		localAddr:        localAddr,
 		logger:           conf.Logger.WithField("this_id", id),
-		peerSelector:     peerSelector,
+		core:             NewCore(id, key, peers, store, proxy.CommitBlock, conf.Logger),
 		trans:            trans,
 		netCh:            trans.Consumer(),
 		proxy:            proxy,
@@ -75,8 +64,6 @@ func NewNode(conf *Config,
 		shutdownCh:       make(chan struct{}),
 		controlTimer:     NewRandomControlTimer(),
 	}
-
-	node.core = NewCore(id, key, pmap, store, node.commit, conf.Logger)
 
 	node.needBoostrap = store.NeedBoostrap()
 
@@ -87,14 +74,6 @@ func NewNode(conf *Config,
 }
 
 func (n *Node) Init() error {
-	peerAddresses := []string{}
-
-	for _, p := range n.peerSelector.Peers().Peers {
-		peerAddresses = append(peerAddresses, p.NetAddr)
-	}
-
-	n.logger.WithField("peers", peerAddresses).Debug("Init Node")
-
 	if n.needBoostrap {
 		n.logger.Debug("Bootstrap")
 
@@ -191,8 +170,8 @@ func (n *Node) babble(gossip bool) {
 		case <-n.controlTimer.tickCh:
 			if gossip {
 				n.logger.Debug("Time to gossip!")
-				peer := n.peerSelector.Next()
-				n.goFunc(func() { n.gossip(peer.NetAddr, returnCh) })
+				peer := n.core.peerSelector.Next()
+				n.goFunc(func() { n.gossip(peer, returnCh) })
 			}
 			n.resetTimer()
 		case <-returnCh:
@@ -369,9 +348,9 @@ func (n *Node) processFastForwardRequest(rpc net.RPC, cmd *net.FastForwardReques
 //This function is usually called in a go-routine and needs to inform the
 //calling routine (usually the babble routine) when it is time to exit the
 //Babbling state and return.
-func (n *Node) gossip(peerAddr string, parentReturnCh chan struct{}) error {
+func (n *Node) gossip(peer *peers.Peer, parentReturnCh chan struct{}) error {
 	//pull
-	syncLimit, otherKnownEvents, err := n.pull(peerAddr)
+	syncLimit, otherKnownEvents, err := n.pull(peer)
 
 	if err != nil {
 		return err
@@ -379,7 +358,7 @@ func (n *Node) gossip(peerAddr string, parentReturnCh chan struct{}) error {
 
 	//check and handle syncLimit
 	if syncLimit {
-		n.logger.WithField("from", peerAddr).Debug("SyncLimit")
+		n.logger.WithField("from", peer.ID).Debug("SyncLimit")
 		n.setState(CatchingUp) //
 		parentReturnCh <- struct{}{}
 
@@ -387,25 +366,25 @@ func (n *Node) gossip(peerAddr string, parentReturnCh chan struct{}) error {
 	}
 
 	//push
-	err = n.push(peerAddr, otherKnownEvents)
+	err = n.push(peer, otherKnownEvents)
 
 	if err != nil {
 		return err
 	}
 
 	//update peer selector
-	n.selectorLock.Lock()
+	n.core.selectorLock.Lock()
 
-	n.peerSelector.UpdateLast(peerAddr)
+	n.core.peerSelector.UpdateLast(peer.ID)
 
-	n.selectorLock.Unlock()
+	n.core.selectorLock.Unlock()
 
 	n.logStats()
 
 	return nil
 }
 
-func (n *Node) pull(peerAddr string) (syncLimit bool, otherKnownEvents map[int]int, err error) {
+func (n *Node) pull(peer *peers.Peer) (syncLimit bool, otherKnownEvents map[int]int, err error) {
 	//Compute Known
 	n.coreLock.Lock()
 
@@ -416,7 +395,7 @@ func (n *Node) pull(peerAddr string) (syncLimit bool, otherKnownEvents map[int]i
 	//Send SyncRequest
 	start := time.Now()
 
-	resp, err := n.requestSync(peerAddr, knownEvents)
+	resp, err := n.requestSync(peer.NetAddr, knownEvents)
 
 	elapsed := time.Since(start)
 
@@ -451,7 +430,7 @@ func (n *Node) pull(peerAddr string) (syncLimit bool, otherKnownEvents map[int]i
 	return false, resp.Known, nil
 }
 
-func (n *Node) push(peerAddr string, knownEvents map[int]int) error {
+func (n *Node) push(peer *peers.Peer, knownEvents map[int]int) error {
 
 	//Check SyncLimit
 	n.coreLock.Lock()
@@ -495,7 +474,7 @@ func (n *Node) push(peerAddr string, knownEvents map[int]int) error {
 
 		//Create and Send EagerSyncRequest
 		start = time.Now()
-		resp2, err := n.requestEagerSync(peerAddr, wireEvents)
+		resp2, err := n.requestEagerSync(peer.NetAddr, wireEvents)
 		elapsed = time.Since(start)
 		n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestEagerSync()")
 		if err != nil {
@@ -518,7 +497,7 @@ func (n *Node) fastForward() error {
 	n.waitRoutines()
 
 	//fastForwardRequest
-	peer := n.peerSelector.Next()
+	peer := n.core.peerSelector.Next()
 
 	start := time.Now()
 
@@ -644,34 +623,6 @@ func (n *Node) sync(events []hg.WireEvent) error {
 	return nil
 }
 
-func (n *Node) commit(block *hg.Block) error {
-	stateHash, err := n.proxy.CommitBlock(*block)
-
-	n.logger.WithFields(logrus.Fields{
-		"block":      block.Index(),
-		"state_hash": fmt.Sprintf("%X", stateHash),
-		"err":        err,
-	}).Debug("CommitBlock Response")
-
-	//XXX what do we do in case of error. Retry? This has to do with the
-	//Babble <-> App interface. Think about it.
-
-	//There is no point in using the stateHash if we know it is wrong
-	if err == nil {
-		block.Body.StateHash = stateHash
-
-		sig, err := n.core.SignBlock(block)
-
-		if err != nil {
-			return err
-		}
-
-		n.core.AddBlockSignature(sig)
-	}
-
-	return err
-}
-
 func (n *Node) addTransaction(tx []byte) {
 	n.coreLock.Lock()
 
@@ -742,7 +693,7 @@ func (n *Node) GetStats() map[string]string {
 		"consensus_transactions": strconv.Itoa(n.core.GetConsensusTransactionsCount()),
 		"undetermined_events":    strconv.Itoa(len(n.core.GetUndeterminedEvents())),
 		"transaction_pool":       strconv.Itoa(len(n.core.transactionPool)),
-		"num_peers":              strconv.Itoa(n.peerSelector.Peers().Len()),
+		"num_peers":              strconv.Itoa(n.core.peerSelector.Peers().Len()),
 		"sync_rate":              strconv.FormatFloat(n.SyncRate(), 'f', 2, 64),
 		"events_per_second":      strconv.FormatFloat(consensusEventsPerSecond, 'f', 2, 64),
 		"rounds_per_second":      strconv.FormatFloat(consensusRoundsPerSecond, 'f', 2, 64),

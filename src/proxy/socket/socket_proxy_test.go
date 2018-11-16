@@ -8,6 +8,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/peers"
+	"github.com/mosaicnetworks/babble/src/proxy"
 	aproxy "github.com/mosaicnetworks/babble/src/proxy/socket/app"
 	bproxy "github.com/mosaicnetworks/babble/src/proxy/socket/babble"
 	"github.com/sirupsen/logrus"
@@ -20,12 +21,17 @@ type TestHandler struct {
 	logger     *logrus.Logger
 }
 
-func (p *TestHandler) CommitHandler(block hashgraph.Block) ([]byte, error) {
+func (p *TestHandler) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, error) {
 	p.logger.Debug("CommitBlock")
 
 	p.blocks = append(p.blocks, block)
 
-	return []byte("statehash"), nil
+	response := proxy.CommitResponse{
+		StateHash:                    []byte("statehash"),
+		AcceptedInternalTransactions: block.InternalTransactions(),
+	}
+
+	return response, nil
 }
 
 func (p *TestHandler) SnapshotHandler(blockIndex int) ([]byte, error) {
@@ -54,6 +60,7 @@ func NewTestHandler(t *testing.T) *TestHandler {
 		logger:     logger,
 	}
 }
+
 func TestSocketProxyServer(t *testing.T) {
 	clientAddr := "127.0.0.1:9990"
 	proxyAddr := "127.0.0.1:9991"
@@ -120,11 +127,17 @@ func TestSocketProxyClient(t *testing.T) {
 		[]byte("tx 3"),
 	}
 
-	block := hashgraph.NewBlock(0, 1, []byte{}, []*peers.Peer{}, transactions)
+	internalTransactions := []hashgraph.InternalTransaction{
+		hashgraph.NewInternalTransaction(hashgraph.PEER_ADD, *peers.NewPeer("node0", "paris")),
+		hashgraph.NewInternalTransaction(hashgraph.PEER_REMOVE, *peers.NewPeer("node1", "london")),
+	}
+
+	block := hashgraph.NewBlock(0, 1, []byte{}, []*peers.Peer{}, transactions, internalTransactions)
+
 	expectedStateHash := []byte("statehash")
 	expectedSnapshot := []byte("snapshot")
 
-	stateHash, err := appProxy.CommitBlock(*block)
+	commitResponse, err := appProxy.CommitBlock(*block)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,8 +146,8 @@ func TestSocketProxyClient(t *testing.T) {
 		t.Fatalf("block should be \n%#v\n, not \n%#v\n", *block, handler.blocks[0])
 	}
 
-	if !reflect.DeepEqual(stateHash, expectedStateHash) {
-		t.Fatalf("StateHash should be %v, not %v", expectedStateHash, stateHash)
+	if !reflect.DeepEqual(commitResponse.StateHash, expectedStateHash) {
+		t.Fatalf("StateHash should be %v, not %v", expectedStateHash, commitResponse.StateHash)
 	}
 
 	snapshot, err := appProxy.GetSnapshot(block.Index())

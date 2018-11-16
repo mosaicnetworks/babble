@@ -185,9 +185,13 @@ func TestInmemBlocks(t *testing.T) {
 		[]byte("tx4"),
 		[]byte("tx5"),
 	}
+	internalTransactions := []InternalTransaction{
+		NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1", "paris")),
+		NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2", "london")),
+	}
 	frameHash := []byte("this is the frame hash")
 
-	block := NewBlock(index, roundReceived, frameHash, []*peers.Peer{}, transactions)
+	block := NewBlock(index, roundReceived, frameHash, []*peers.Peer{}, transactions, internalTransactions)
 
 	sig1, err := block.Sign(participants[0].privKey)
 	if err != nil {
