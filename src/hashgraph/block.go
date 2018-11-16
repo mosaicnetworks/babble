@@ -11,13 +11,18 @@ import (
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
+/*******************************************************************************
+BlockBody
+*******************************************************************************/
+
 type BlockBody struct {
-	Index         int
-	RoundReceived int
-	StateHash     []byte
-	FrameHash     []byte
-	PeersHash     []byte
-	Transactions  [][]byte
+	Index                int
+	RoundReceived        int
+	StateHash            []byte
+	FrameHash            []byte
+	PeersHash            []byte
+	Transactions         [][]byte
+	InternalTransactions []InternalTransaction
 }
 
 //json encoding of body only
@@ -47,7 +52,9 @@ func (bb *BlockBody) Hash() ([]byte, error) {
 	return crypto.SHA256(hashBytes), nil
 }
 
-//------------------------------------------------------------------------------
+/*******************************************************************************
+BlockSignature
+*******************************************************************************/
 
 type BlockSignature struct {
 	Validator []byte
@@ -89,7 +96,9 @@ type WireBlockSignature struct {
 	Signature string
 }
 
-//------------------------------------------------------------------------------
+/*******************************************************************************
+Block
+*******************************************************************************/
 
 type Block struct {
 	Body       BlockBody
@@ -107,18 +116,21 @@ func NewBlockFromFrame(blockIndex int, frame *Frame) (*Block, error) {
 	}
 
 	transactions := [][]byte{}
+	internalTransactions := []InternalTransaction{}
 	for _, e := range frame.Events {
 		transactions = append(transactions, e.Transactions()...)
+		internalTransactions = append(internalTransactions, e.InternalTransactions()...)
 	}
 
-	return NewBlock(blockIndex, frame.Round, frameHash, frame.Peers, transactions), nil
+	return NewBlock(blockIndex, frame.Round, frameHash, frame.Peers, transactions, internalTransactions), nil
 }
 
 func NewBlock(blockIndex,
 	roundReceived int,
 	frameHash []byte,
 	peerSlice []*peers.Peer,
-	txs [][]byte) *Block {
+	txs [][]byte,
+	itxs []InternalTransaction) *Block {
 
 	peerSet := peers.NewPeerSet(peerSlice)
 
@@ -128,11 +140,12 @@ func NewBlock(blockIndex,
 	}
 
 	body := BlockBody{
-		Index:         blockIndex,
-		RoundReceived: roundReceived,
-		FrameHash:     frameHash,
-		PeersHash:     peersHash,
-		Transactions:  txs,
+		Index:                blockIndex,
+		RoundReceived:        roundReceived,
+		FrameHash:            frameHash,
+		PeersHash:            peersHash,
+		Transactions:         txs,
+		InternalTransactions: itxs,
 	}
 
 	return &Block{
@@ -148,6 +161,10 @@ func (b *Block) Index() int {
 
 func (b *Block) Transactions() [][]byte {
 	return b.Body.Transactions
+}
+
+func (b *Block) InternalTransactions() []InternalTransaction {
+	return b.Body.InternalTransactions
 }
 
 func (b *Block) RoundReceived() int {

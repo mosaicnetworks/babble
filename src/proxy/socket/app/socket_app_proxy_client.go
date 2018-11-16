@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/sirupsen/logrus"
 )
 
@@ -39,25 +40,25 @@ func (p *SocketAppProxyClient) getConnection() error {
 	return nil
 }
 
-func (p *SocketAppProxyClient) CommitBlock(block hashgraph.Block) ([]byte, error) {
+func (p *SocketAppProxyClient) CommitBlock(block hashgraph.Block) (proxy.CommitResponse, error) {
 	if err := p.getConnection(); err != nil {
-		return []byte{}, err
+		return proxy.CommitResponse{}, err
 	}
 
-	var stateHash []byte
+	var commitResponse proxy.CommitResponse
 
-	if err := p.rpc.Call("State.CommitBlock", block, &stateHash); err != nil {
+	if err := p.rpc.Call("State.CommitBlock", block, &commitResponse); err != nil {
 		p.rpc = nil
 
-		return []byte{}, err
+		return commitResponse, err
 	}
 
 	p.logger.WithFields(logrus.Fields{
-		"block":      block.Index(),
-		"state_hash": stateHash,
+		"block":           block.Index(),
+		"commit_response": commitResponse,
 	}).Debug("AppProxyClient.CommitBlock")
 
-	return stateHash, nil
+	return commitResponse, nil
 }
 
 func (p *SocketAppProxyClient) GetSnapshot(blockIndex int) ([]byte, error) {

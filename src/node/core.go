@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/crypto"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/peers"
+	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/sirupsen/logrus"
 )
 
@@ -20,13 +22,20 @@ type Core struct {
 	hexID  string
 	hg     *hg.Hashgraph
 
-	peers *peers.PeerSet //[PubKey] => id
-	Head  string
-	Seq   int
+	//XXX this needs major refactoring. Be careful with race conditions and
+	//deadlocks
+	peers        *peers.PeerSet //[PubKey] => id
+	peerSelector PeerSelector
+	selectorLock sync.Mutex
+
+	Head string
+	Seq  int
 
 	transactionPool         [][]byte
 	internalTransactionPool []hg.InternalTransaction
 	blockSignaturePool      []hg.BlockSignature
+
+	proxyCommitCallback proxy.CommitCallback
 
 	logger *logrus.Entry
 }
@@ -36,7 +45,7 @@ func NewCore(
 	key *ecdsa.PrivateKey,
 	peers *peers.PeerSet,
 	store hg.Store,
-	commitCallback hg.CommitCallback,
+	proxyCommitCallback proxy.CommitCallback,
 	logger *logrus.Logger) *Core {
 
 	if logger == nil {
@@ -45,11 +54,14 @@ func NewCore(
 	}
 	logEntry := logger.WithField("id", id)
 
+	peerSelector := NewRandomPeerSelector(peers, id)
+
 	core := &Core{
 		id:                      id,
 		key:                     key,
-		hg:                      hg.NewHashgraph(peers, store, commitCallback, logEntry),
+		proxyCommitCallback:     proxyCommitCallback,
 		peers:                   peers,
+		peerSelector:            peerSelector,
 		transactionPool:         [][]byte{},
 		internalTransactionPool: []hg.InternalTransaction{},
 		blockSignaturePool:      []hg.BlockSignature{},
@@ -57,6 +69,8 @@ func NewCore(
 		Head:                    "",
 		Seq:                     -1,
 	}
+
+	core.hg = hg.NewHashgraph(peers, store, core.Commit, logEntry)
 
 	return core
 }
@@ -148,6 +162,40 @@ func (c *Core) KnownEvents() map[int]int {
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+func (c *Core) Commit(block *hg.Block) error {
+	//Commit the Block to the App
+	commitResponse, err := c.proxyCommitCallback(*block)
+
+	c.logger.WithFields(logrus.Fields{
+		"block":                          block.Index(),
+		"state_hash":                     fmt.Sprintf("%X", commitResponse.StateHash),
+		"accepted_internal_transactions": commitResponse.AcceptedInternalTransactions,
+		"err": err,
+	}).Debug("CommitBlock Response")
+
+	//XXX Handle errors
+
+	//Handle the response to set Block StateHash and process accepted
+	//InternalTransactions which might update the PeerSet.
+	if err == nil {
+		block.Body.StateHash = commitResponse.StateHash
+
+		sig, err := c.SignBlock(block)
+		if err != nil {
+			return err
+		}
+
+		c.AddBlockSignature(sig)
+
+		err = c.ProcessAcceptedInternalTransactions(block.RoundReceived(), commitResponse.AcceptedInternalTransactions)
+		if err != nil {
+			return err
+		}
+	}
+
+	return err
+}
+
 func (c *Core) SignBlock(block *hg.Block) (hg.BlockSignature, error) {
 	sig, err := block.Sign(c.key)
 	if err != nil {
@@ -157,6 +205,36 @@ func (c *Core) SignBlock(block *hg.Block) (hg.BlockSignature, error) {
 		return hg.BlockSignature{}, err
 	}
 	return sig, c.hg.Store.SetBlock(block)
+}
+
+func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.InternalTransaction) error {
+	peers := c.peers
+
+	for _, tx := range txs {
+		switch tx.Type {
+		case hg.PEER_ADD:
+			c.logger.WithField("peer", tx.Peer).Debug("adding peer")
+			peers = peers.WithNewPeer(&tx.Peer)
+		case hg.PEER_REMOVE:
+			c.logger.WithField("peer", tx.Peer).Debug("removing peer")
+			peers = peers.WithRemovedPeer(&tx.Peer)
+		default:
+		}
+	}
+
+	//XXX  +4 is arbitrary. Should be RoundDecided, ie. the round of the first
+	//witness that can decide the fame of a SuperMajority of witnesses from
+	//roundReceived
+	err := c.hg.Store.SetPeerSet(roundReceived+4, peers)
+	if err != nil {
+		return fmt.Errorf("Udpating Store PeerSet: %s", err)
+	}
+
+	c.peers = peers
+
+	c.peerSelector = NewRandomPeerSelector(peers, c.id)
+
+	return nil
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -186,7 +264,12 @@ func (c *Core) EventDiff(known map[int]int) (events []*hg.Event, err error) {
 	//compare this to our view of events and fill unknown with events that we know of
 	// and the other doesnt
 	for id, ct := range known {
-		peer := c.peers.ByID[id]
+		peer, ok := c.peers.ByID[id]
+
+		if !ok {
+			continue
+		}
+
 		//get participant Events with index > ct
 		participantEvents, err := c.hg.Store.ParticipantEvents(peer.PubKeyHex, ct)
 		if err != nil {

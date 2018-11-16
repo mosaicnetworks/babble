@@ -293,6 +293,58 @@ func TestAddTransaction(t *testing.T) {
 	node1.Shutdown()
 }
 
+func new_node(k *ecdsa.PrivateKey,
+	peers *peers.PeerSet,
+	cacheSize,
+	syncLimit int,
+	storeType string,
+	logger *logrus.Logger,
+	t testing.TB) *Node {
+
+	key := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&k.PublicKey))
+	peer := peers.ByPubKey[key]
+	id := peer.ID
+
+	conf := NewConfig(
+		5*time.Millisecond,
+		time.Second,
+		cacheSize,
+		syncLimit,
+		logger,
+	)
+
+	trans, err := net.NewTCPTransport(peer.NetAddr,
+		nil, 2, time.Second, logger)
+	if err != nil {
+		t.Fatalf("failed to create transport for peer %d: %s", id, err)
+	}
+	var store hg.Store
+	switch storeType {
+	case "badger":
+		path, _ := ioutil.TempDir("", "badger")
+		store, err = hg.NewBadgerStore(peers, conf.CacheSize, path)
+		if err != nil {
+			t.Fatalf("failed to create BadgerStore for peer %d: %s", id, err)
+		}
+	case "inmem":
+		store = hg.NewInmemStore(peers, conf.CacheSize)
+	}
+	prox := dummy.NewInmemDummyClient(logger)
+	node := NewNode(conf,
+		id,
+		k,
+		peers,
+		store,
+		trans,
+		prox)
+
+	if err := node.Init(); err != nil {
+		t.Fatalf("failed to initialize node%d: %s", id, err)
+	}
+
+	return node
+}
+
 func initNodes(keys []*ecdsa.PrivateKey,
 	peers *peers.PeerSet,
 	cacheSize,
@@ -304,46 +356,8 @@ func initNodes(keys []*ecdsa.PrivateKey,
 	nodes := []*Node{}
 
 	for _, k := range keys {
-		key := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&k.PublicKey))
-		peer := peers.ByPubKey[key]
-		id := peer.ID
+		node := new_node(k, peers, cacheSize, syncLimit, storeType, logger, t)
 
-		conf := NewConfig(
-			5*time.Millisecond,
-			time.Second,
-			cacheSize,
-			syncLimit,
-			logger,
-		)
-
-		trans, err := net.NewTCPTransport(peer.NetAddr,
-			nil, 2, time.Second, logger)
-		if err != nil {
-			t.Fatalf("failed to create transport for peer %d: %s", id, err)
-		}
-		var store hg.Store
-		switch storeType {
-		case "badger":
-			path, _ := ioutil.TempDir("", "badger")
-			store, err = hg.NewBadgerStore(peers, conf.CacheSize, path)
-			if err != nil {
-				t.Fatalf("failed to create BadgerStore for peer %d: %s", id, err)
-			}
-		case "inmem":
-			store = hg.NewInmemStore(peers, conf.CacheSize)
-		}
-		prox := dummy.NewInmemDummyClient(logger)
-		node := NewNode(conf,
-			id,
-			k,
-			peers,
-			store,
-			trans,
-			prox)
-
-		if err := node.Init(); err != nil {
-			t.Fatalf("failed to initialize node%d: %s", id, err)
-		}
 		nodes = append(nodes, node)
 	}
 	return nodes
@@ -362,7 +376,7 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 	conf := oldNode.conf
 	id := oldNode.id
 	key := oldNode.core.key
-	peers := oldNode.peerSelector.Peers()
+	peers := oldNode.core.peers
 
 	var store hg.Store
 	var err error
@@ -375,7 +389,7 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 		store = hg.NewInmemStore(oldNode.core.peers, conf.CacheSize)
 	}
 
-	trans, err := net.NewTCPTransport(oldNode.localAddr,
+	trans, err := net.NewTCPTransport(oldNode.trans.LocalAddr(),
 		nil, 2, time.Second, logger)
 	if err != nil {
 		t.Fatal(err)
@@ -505,7 +519,7 @@ func TestSyncLimit(t *testing.T) {
 	}
 
 	var out net.SyncResponse
-	if err := nodes[0].trans.Sync(nodes[1].localAddr, &args, &out); err != nil {
+	if err := nodes[0].trans.Sync(nodes[1].trans.LocalAddr(), &args, &out); err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
@@ -675,7 +689,7 @@ func TestShutdown(t *testing.T) {
 
 	nodes[0].Shutdown()
 
-	err := nodes[1].gossip(nodes[0].localAddr, nil)
+	err := nodes[1].gossip(peers.Peers[0], nil)
 	if err == nil {
 		t.Fatal("Expected Timeout Error")
 	}
@@ -830,3 +844,81 @@ func BenchmarkGossip(b *testing.B) {
 		gossip(nodes, 50, true, 3*time.Second)
 	}
 }
+
+func TestPeerJoinRequest(t *testing.T) {
+	logger := common.NewTestLogger(t)
+
+	keys, peerSet := initPeers(4)
+	nodes := initNodes(keys, peerSet, 1000, 1000, "inmem", logger, t)
+
+	runNodes(nodes, true)
+
+	target := 20
+
+	err := bombardAndWait(nodes, target, 3*time.Second)
+	if err != nil {
+		t.Fatal("Error bombarding: ", err)
+	}
+
+	key, _ := crypto.GenerateECDSAKey()
+	peer := peers.NewPeer(
+		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
+		fmt.Sprint("127.0.0.1:4242"),
+	)
+
+	peerSet = peerSet.WithNewPeer(peer)
+
+	node := new_node(key, peerSet, 1000, 1000, "inmem", logger, t)
+	go func() {
+		node.Run(true)
+	}()
+
+	nodes = append(nodes, node)
+
+	nodes[0].addInternalTransaction(hg.NewInternalTransactionJoin(*peer))
+
+	err = bombardAndWait(nodes, target, 3*time.Second)
+	if err != nil {
+		t.Fatal("Error bombarding: ", err)
+	}
+
+	for i := range nodes {
+		if nodes[i].core.peers.Len() != 5 {
+			t.Errorf("Node %d should have %d peers, not %d", i, 5, nodes[i].core.peers.Len())
+		}
+	}
+
+	checkGossip(nodes, 0, t)
+}
+
+// func TestPeerLeaveRequest(t *testing.T) {
+// 	logger := common.NewTestLogger(t)
+
+// 	keys, peerSet := initPeers(4)
+// 	nodes := initNodes(keys, peerSet, 1000, 1000, "inmem", logger, t)
+
+// 	runNodes(nodes, true)
+
+// 	target := 50
+
+// 	err := bombardAndWait(nodes, target, 3*time.Second)
+// 	if err != nil {
+// 		t.Fatal("Error bombarding: ", err)
+// 	}
+
+// 	nodes[1].Shutdown()
+// 	nodes = append([]*Node{nodes[0]}, nodes[2:]...)
+
+// 	target = 50
+
+// 	err = bombardAndWait(nodes, target, 3*time.Second)
+// 	if err != nil {
+// 		t.Fatal("Error bombarding: ", err)
+// 	}
+
+// 	for i := range nodes {
+// 		if nodes[i].core.peers.Len() != 3 {
+// 			t.Errorf("Node %d should have %d peers, not %d", i, 3, nodes[i].core.peers.Len())
+// 		}
+// 	}
+// }

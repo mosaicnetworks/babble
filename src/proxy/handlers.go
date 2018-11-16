@@ -11,7 +11,7 @@ type ProxyHandler interface {
 	//CommitHandler is called when Babble commits a block to the application. It
 	//returns the state hash resulting from applying the block's transactions to the
 	//state
-	CommitHandler(block hashgraph.Block) (stateHash []byte, err error)
+	CommitHandler(block hashgraph.Block) (response CommitResponse, err error)
 
 	//SnapshotHandler is called by Babble to retrieve a snapshot corresponding to a
 	//particular block
