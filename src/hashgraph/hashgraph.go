@@ -1126,6 +1126,10 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 
 			if len(block.Transactions()) > 0 ||
 				len(block.InternalTransactions()) > 0 {
+<<<<<<< HEAD
+=======
+
+>>>>>>> Test adding a Peer via InternalTransaction in core.
 				if err := h.Store.SetBlock(block); err != nil {
 					return err
 				}

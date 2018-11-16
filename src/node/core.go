@@ -95,7 +95,6 @@ func (c *Core) HexID() string {
 }
 
 func (c *Core) SetHeadAndSeq() error {
-
 	var head string
 	var seq int
 
