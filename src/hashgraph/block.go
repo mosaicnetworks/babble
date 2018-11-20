@@ -142,6 +142,7 @@ func NewBlock(blockIndex,
 	body := BlockBody{
 		Index:                blockIndex,
 		RoundReceived:        roundReceived,
+		StateHash:            []byte{},
 		FrameHash:            frameHash,
 		PeersHash:            peersHash,
 		Transactions:         txs,

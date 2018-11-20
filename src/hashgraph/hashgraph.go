@@ -21,6 +21,7 @@ type Hashgraph struct {
 	LastConsensusRound      *int                   //index of last consensus round
 	FirstConsensusRound     *int                   //index of first consensus round (only used in tests)
 	AnchorBlock             *int                   //index of last block with enough signatures
+	roundLowerBound         *int                   //rounds and events below this lower bound have a special treatement (cf fastsync)
 	LastCommitedRoundEvents int                    //number of events in round before LastConsensusRound
 	SigPool                 []BlockSignature       //Pool of Block signatures that need to be processed
 	ConsensusTransactions   int                    //number of consensus transactions
@@ -792,20 +793,18 @@ func (h *Hashgraph) DivideRounds() error {
 
 			/*
 				Why the lower bound?
-				Normally, once a Round has attained consensus, it is impossible for
-				new Events from a previous Round to be inserted; the lower bound
-				appears redundant. This is the case when the hashgraph grows
-				linearly, without jumps, which is what we intend by 'Normally'.
-				But the Reset function introduces a discontinuity  by jumping
-				straight to a specific place in the hashgraph. This technique relies
-				on a base layer of Events (the corresponding Frame's Events) for
-				other Events to be added on top, but the base layer must not be
-				reprocessed.
+				Normally, once a Round has attained consensus, all the previous
+				Rounds are also committed and need not be reprocessed. This is
+				the case when the hashgraph grows linearly, without jumps, but
+				the Reset function introduces a discontinuity by jumping
+				straight to a specific place in the hashgraph. This technique
+				relies on initializing a base layer of Events (the corresponding
+				Frame's Events) for other Events to be added on top, but the
+				the Round of these base layer Events should not be re-committed.
 			*/
 			if !roundInfo.queued &&
-				(h.LastConsensusRound == nil ||
-					roundNumber >= *h.LastConsensusRound) {
-
+				(h.roundLowerBound == nil ||
+					roundNumber >= *h.roundLowerBound) {
 				h.PendingRounds = append(h.PendingRounds, &pendingRound{roundNumber, false})
 				roundInfo.queued = true
 			}
@@ -988,15 +987,17 @@ func (h *Hashgraph) DecideRoundReceived() error {
 		}
 
 		for i := r + 1; i <= h.Store.LastRound(); i++ {
+			//Events below the lower bound come from the Frame that was used in
+			//Reset/FastSync. We dont want to reprocess them.
+			if h.roundLowerBound != nil &&
+				i <= *h.roundLowerBound {
+				received = true
+				break
+			}
+
 			tr, err := h.Store.GetRound(i)
 			if err != nil {
-				//XXX
-				//TODO something more intelligent here
-				//to catch events that predate the RESET frame round
-				if common.Is(err, common.KeyNotFound) {
-					received = true
-					break
-				}
+				return err
 			}
 
 			tPeers, err := h.Store.GetPeerSet(i)
@@ -1079,10 +1080,11 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 
 		//This is similar to the lower bound introduced in DivideRounds; it is
 		//redundant in normal operations, but becomes necessary after a Reset.
-		//Indeed, after a Reset, LastConsensusRound is added to PendingRounds,
-		//but its ConsensusEvents (which are necessarily 'under' this Round) are
-		//already deemed committed. Hence, skip this Round after a Reset.
-		if h.LastConsensusRound != nil && r.Index == *h.LastConsensusRound {
+		//Indeed, after a Reset, roundLowerBound (=LastConsensusRound) is added
+		//to PendingRounds, but its ConsensusEvents (which are necessarily
+		// 'under' this Round) are already deemed committed. Hence, skip this
+		//Round after a Reset.
+		if h.roundLowerBound != nil && r.Index == *h.roundLowerBound {
 			continue
 		}
 
@@ -1389,6 +1391,8 @@ func (h *Hashgraph) Reset(block *Block, frame *Frame) error {
 
 	h.setLastConsensusRound(block.RoundReceived())
 
+	h.setRoundLowerBound(block.RoundReceived())
+
 	//Insert Frame Events
 	for _, ev := range frame.Events {
 		if err := h.InsertEvent(ev, false); err != nil {
@@ -1562,6 +1566,13 @@ func (h *Hashgraph) setLastConsensusRound(i int) {
 		h.FirstConsensusRound = new(int)
 		*h.FirstConsensusRound = i
 	}
+}
+
+func (h *Hashgraph) setRoundLowerBound(i int) {
+	if h.roundLowerBound == nil {
+		h.roundLowerBound = new(int)
+	}
+	*h.roundLowerBound = i
 }
 
 func (h *Hashgraph) setAnchorBlock(i int) {
