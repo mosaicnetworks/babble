@@ -47,6 +47,7 @@ func NewPeerSet(peers []*Peer) *PeerSet {
 
 //WithNewPeer returns a new PeerSet with a list of peers including the new one.
 func (peerSet *PeerSet) WithNewPeer(peer *Peer) *PeerSet {
+	peer.ComputeID()
 	peers := append(peerSet.Peers, peer)
 	newPeerSet := NewPeerSet(peers)
 	return newPeerSet

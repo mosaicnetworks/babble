@@ -932,13 +932,13 @@ func (h *Hashgraph) DecideFame() error {
 			}
 		}
 
+		if rRoundInfo.WitnessesDecided() {
+			decidedRounds[roundIndex] = pos
+		}
+
 		err = h.Store.SetRound(roundIndex, rRoundInfo)
 		if err != nil {
 			return err
-		}
-
-		if rRoundInfo.WitnessesDecided() {
-			decidedRounds[roundIndex] = pos
 		}
 
 	}
@@ -965,16 +965,15 @@ func (h *Hashgraph) DecideRoundReceived() error {
 		}
 
 		for i := r + 1; i <= h.Store.LastRound(); i++ {
-			//Can happen after a Reset/FastSync
-			if h.LastConsensusRound != nil &&
-				i < *h.LastConsensusRound {
-				received = true
-				break
-			}
-
 			tr, err := h.Store.GetRound(i)
 			if err != nil {
-				return err
+				//XXX
+				//TODO something more intelligent here
+				//to catch events that predate the RESET frame round
+				if common.Is(err, common.KeyNotFound) {
+					received = true
+					break
+				}
 			}
 
 			//We are looping from earlier to later rounds; so if we encounter
@@ -997,7 +996,7 @@ func (h *Hashgraph) DecideRoundReceived() error {
 				}
 			}
 
-			if len(s) == len(fws) && len(s) >= tr.PeerSet.SuperMajority() {
+			if len(s) == len(fws) && len(s) > 0 {
 				received = true
 
 				ex, err := h.Store.GetEvent(x)
@@ -1077,16 +1076,13 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 		}).Debugf("Processing Decided Round")
 
 		if len(frame.Events) > 0 {
-			peerTxs := []InternalTransaction{}
-
 			for _, e := range frame.Events {
 				err := h.Store.AddConsensusEvent(e)
 				if err != nil {
 					return err
 				}
-				h.ConsensusTransactions += len(e.Transactions())
 
-				peerTxs = append(peerTxs, e.InternalTransactions()...)
+				h.ConsensusTransactions += len(e.Transactions())
 
 				if e.IsLoaded() {
 					h.PendingLoadedEvents--
@@ -1112,10 +1108,6 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 				}
 
 			}
-
-			for _, tx := range block.InternalTransactions() {
-				h.ProcessInternalTransactions(&tx, r.Index)
-			}
 		} else {
 			h.logger.Debugf("No Events to commit for ConsensusRound %d", r.Index)
 		}
@@ -1126,30 +1118,6 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 			h.setLastConsensusRound(r.Index)
 		}
 
-	}
-
-	return nil
-}
-
-func (h *Hashgraph) ProcessInternalTransactions(tx *InternalTransaction, roundReceived int) error {
-	tx.Peer.ComputeID()
-
-	for i := roundReceived + 4; i < h.Store.LastRound(); i++ {
-		round, err := h.Store.GetRound(i)
-
-		if err != nil {
-			h.logger.Error("ProcessInternalTransaction: ", err)
-
-			continue
-		}
-
-		if tx.Type == PEER_ADD {
-			round.PeerSet = round.PeerSet.WithNewPeer(&tx.Peer)
-		}
-
-		if tx.Type == PEER_REMOVE {
-			round.PeerSet = round.PeerSet.WithRemovedPeer(&tx.Peer)
-		}
 	}
 
 	return nil
@@ -1461,7 +1429,10 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 		}
 	}
 	if wevent.Body.OtherParentIndex >= 0 {
-		otherParentCreator := h.Store.RepertoireByID()[wevent.Body.OtherParentCreatorID]
+		otherParentCreator, ok := h.Store.RepertoireByID()[wevent.Body.OtherParentCreatorID]
+		if !ok {
+			return nil, fmt.Errorf("Participant %d not found", wevent.Body.OtherParentCreatorID)
+		}
 		otherParent, err = h.Store.ParticipantEvent(otherParentCreator.PubKeyHex, wevent.Body.OtherParentIndex)
 		if err != nil {
 			//PROBLEM Check if other parent can be found in the root
