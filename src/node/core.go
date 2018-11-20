@@ -301,9 +301,9 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 		ev, err := c.hg.ReadWireInfo(we)
 		if err != nil {
 			c.logger.WithField("WireEvent", we).Errorf("ReadingWireInfo")
-
 			return err
 		}
+
 		if err := c.InsertEvent(ev, false); err != nil {
 			return err
 		}

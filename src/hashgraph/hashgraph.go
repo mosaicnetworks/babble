@@ -956,15 +956,14 @@ func (h *Hashgraph) DecideFame() error {
 			}
 		}
 
-		err = h.Store.SetRound(roundIndex, rRoundInfo)
-		if err != nil {
-			return err
-		}
-
 		if rRoundInfo.WitnessesDecided(rPeerSet) {
 			decidedRounds[roundIndex] = pos
 		}
 
+		err = h.Store.SetRound(roundIndex, rRoundInfo)
+		if err != nil {
+			return err
+		}
 	}
 
 	h.updatePendingRounds(decidedRounds)
@@ -989,16 +988,15 @@ func (h *Hashgraph) DecideRoundReceived() error {
 		}
 
 		for i := r + 1; i <= h.Store.LastRound(); i++ {
-			//Can happen after a Reset/FastSync
-			if h.LastConsensusRound != nil &&
-				i < *h.LastConsensusRound {
-				received = true
-				break
-			}
-
 			tr, err := h.Store.GetRound(i)
 			if err != nil {
-				return err
+				//XXX
+				//TODO something more intelligent here
+				//to catch events that predate the RESET frame round
+				if common.Is(err, common.KeyNotFound) {
+					received = true
+					break
+				}
 			}
 
 			tPeers, err := h.Store.GetPeerSet(i)
@@ -1111,6 +1109,7 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 				if err != nil {
 					return err
 				}
+
 				h.ConsensusTransactions += len(e.Transactions())
 
 				if e.IsLoaded() {
@@ -1126,10 +1125,7 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 
 			if len(block.Transactions()) > 0 ||
 				len(block.InternalTransactions()) > 0 {
-<<<<<<< HEAD
-=======
 
->>>>>>> Test adding a Peer via InternalTransaction in core.
 				if err := h.Store.SetBlock(block); err != nil {
 					return err
 				}
@@ -1138,7 +1134,6 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 				if err != nil {
 					h.logger.Warningf("Failed to commit block %d", block.Index())
 				}
-
 			}
 		} else {
 			h.logger.Debugf("No Events to commit for ConsensusRound %d", r.Index)
@@ -1149,7 +1144,6 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 		if h.LastConsensusRound == nil || r.Index > *h.LastConsensusRound {
 			h.setLastConsensusRound(r.Index)
 		}
-
 	}
 
 	return nil
@@ -1466,7 +1460,10 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 		}
 	}
 	if wevent.Body.OtherParentIndex >= 0 {
-		otherParentCreator := h.Store.RepertoireByID()[wevent.Body.OtherParentCreatorID]
+		otherParentCreator, ok := h.Store.RepertoireByID()[wevent.Body.OtherParentCreatorID]
+		if !ok {
+			return nil, fmt.Errorf("Participant %d not found", wevent.Body.OtherParentCreatorID)
+		}
 		otherParent, err = h.Store.ParticipantEvent(otherParentCreator.PubKeyHex, wevent.Body.OtherParentIndex)
 		if err != nil {
 			//PROBLEM Check if other parent can be found in the root
