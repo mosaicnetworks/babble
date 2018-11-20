@@ -2205,10 +2205,11 @@ func TestFunkyHashgraphFame(t *testing.T) {
 		t.Logf("Round %d witnesses: %v", r, witnessNames)
 	}
 
+	//Rounds 1 and 2 should get decided BEFORE round 0
 	expectedpendingRounds := []pendingRound{
 		pendingRound{
 			Index:   0,
-			Decided: true,
+			Decided: false,
 		},
 		pendingRound{
 			Index:   1,
@@ -2227,6 +2228,23 @@ func TestFunkyHashgraphFame(t *testing.T) {
 			Decided: false,
 		},
 	}
+
+	for i, pd := range h.PendingRounds {
+		if !reflect.DeepEqual(*pd, expectedpendingRounds[i]) {
+			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedpendingRounds[i], *pd)
+		}
+	}
+
+	if err := h.DecideRoundReceived(); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.ProcessDecidedRounds(); err != nil {
+		t.Fatal(err)
+	}
+
+	//But a dicided round should never be processed until all previous rounds
+	//are decided. So the PendingQueue should remain the same after calling
+	//ProcessDecidedRounds()
 
 	for i, pd := range h.PendingRounds {
 		if !reflect.DeepEqual(*pd, expectedpendingRounds[i]) {
