@@ -425,12 +425,18 @@ func drawGraphs(nodes []*Node, t *testing.T) {
 	os.Mkdir("test_data", os.ModeDir|0777)
 	for _, n := range nodes {
 		graph := NewGraph(n)
+
+		n.coreLock.Lock()
 		info, err := graph.GetInfos()
+		n.coreLock.Unlock()
+
 		if err != nil {
 			t.Logf("ERROR drawing graph: %s", err)
 			continue
 		}
+
 		jinfo, err := json.Marshal(info)
+
 		err = ioutil.WriteFile(fmt.Sprintf("test_data/info%d", n.ID()), jinfo, 0644)
 		if err != nil {
 			t.Log(err)
@@ -577,6 +583,8 @@ func TestCatchUp(t *testing.T) {
 	normalNodes := initNodes(keys[0:3], peers, 1000, 400, "inmem", logger, t)
 	defer shutdownNodes(normalNodes)
 
+	//defer drawGraphs(normalNodes, t)
+
 	target := 50
 
 	err := gossip(normalNodes, target, false, 6*time.Second)
@@ -622,14 +630,12 @@ func TestFastSync(t *testing.T) {
 
 	//Create  config for 4 nodes
 	keys, peers := initPeers(4)
-	nodes := initNodes(keys, peers, 1000, 400, "inmem", logger, t)
 
+	nodes := initNodes(keys, peers, 100000, 400, "inmem", logger, t)
 	defer shutdownNodes(nodes)
-
 	defer drawGraphs(nodes, t)
 
 	target := 50
-
 	err := gossip(nodes, target, false, 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
@@ -665,9 +671,9 @@ func TestFastSync(t *testing.T) {
 	}()
 
 	node4.RunAsync(true)
-	defer node4.Shutdown()
 
 	nodes[3] = node4
+	defer node4.Shutdown()
 
 	//Gossip some more
 	thirdTarget := secondTarget + 20
@@ -763,7 +769,10 @@ func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
 			} else {
 				//wait until the target block has retrieved a state hash from
 				//the app
-				targetBlock, _ := n.core.hg.Store.GetBlock(target)
+				targetBlock, err := n.core.hg.Store.GetBlock(target)
+				if err != nil {
+					return fmt.Errorf("Couldn't find target block: %v, ce: %d", err, ce)
+				}
 				if len(targetBlock.StateHash()) == 0 {
 					done = false
 					break
@@ -780,7 +789,7 @@ func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
 
 func checkGossip(nodes []*Node, fromBlock int, t *testing.T) {
 	nodeBlocks := map[int][]*hg.Block{}
-	for _, n := range nodes {
+	for index, n := range nodes {
 		blocks := []*hg.Block{}
 		for i := fromBlock; i < n.core.hg.Store.LastBlockIndex(); i++ {
 			block, err := n.core.hg.Store.GetBlock(i)
@@ -789,7 +798,7 @@ func checkGossip(nodes []*Node, fromBlock int, t *testing.T) {
 			}
 			blocks = append(blocks, block)
 		}
-		nodeBlocks[n.id] = blocks
+		nodeBlocks[index] = blocks
 	}
 
 	minB := len(nodeBlocks[0])
