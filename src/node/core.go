@@ -296,11 +296,13 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 	}).Debug("Sync")
 
 	otherHead := ""
-	//add unknown events
 	for k, we := range unknownEvents {
 		ev, err := c.hg.ReadWireInfo(we)
 		if err != nil {
-			c.logger.WithField("WireEvent", we).Errorf("ReadingWireInfo")
+			c.logger.WithFields(logrus.Fields{
+				"wire_event": we,
+				"error":      err,
+			}).Error("Reading WireEvent")
 			return err
 		}
 
@@ -308,13 +310,13 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 			return err
 		}
 
-		//assume last event corresponds to other-head
+		//Assume last event corresponds to other-head
 		if k == len(unknownEvents)-1 {
 			otherHead = ev.Hex()
 		}
 	}
 
-	//create new event with self head and other head only if there are pending
+	//Create new event with self head and other head only if there are pending
 	//loaded events or the pools are not empty
 	if c.hg.PendingLoadedEvents > 0 ||
 		len(c.transactionPool) > 0 ||

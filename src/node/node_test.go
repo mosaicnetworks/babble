@@ -424,11 +424,11 @@ func drawGraphs(nodes []*Node, t *testing.T) {
 	os.RemoveAll("test_data")
 	os.Mkdir("test_data", os.ModeDir|0777)
 	for _, n := range nodes {
+		n.coreLock.Lock()
+
 		graph := NewGraph(n)
 
-		n.coreLock.Lock()
 		info, err := graph.GetInfos()
-		n.coreLock.Unlock()
 
 		if err != nil {
 			t.Logf("ERROR drawing graph: %s", err)
@@ -441,6 +441,8 @@ func drawGraphs(nodes []*Node, t *testing.T) {
 		if err != nil {
 			t.Log(err)
 		}
+
+		n.coreLock.Unlock()
 	}
 }
 
@@ -583,7 +585,7 @@ func TestCatchUp(t *testing.T) {
 	normalNodes := initNodes(keys[0:3], peers, 1000, 400, "inmem", logger, t)
 	defer shutdownNodes(normalNodes)
 
-	//defer drawGraphs(normalNodes, t)
+	defer drawGraphs(normalNodes, t)
 
 	target := 50
 

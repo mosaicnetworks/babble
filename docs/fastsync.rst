@@ -110,13 +110,12 @@ corresponding participant - and *Others* - a map of Event hashes to the
 corresponding Other-Parents. These parents are instances of the **RootEvent** 
 object, which is a minimal version of the Hashgraph Event. RootEvents contain
 information about the Index, Round, and LamportTimestamp of the corresponding 
-Events. The Root itself contains a NextRound field, which helps in calculating 
-the Round of its direct descendant.
+Events. RootEvents also contain a NextRound field which helps in calculating the
+rounds of direct descendants.
 
 ::
 
   type Root struct {
-    NextRound  int
     SelfParent RootEvent
     Others     map[string]RootEvent
   }
@@ -127,6 +126,7 @@ the Round of its direct descendant.
     Index            int
     LamportTimestamp int
     Round            int
+    NextRound        int
   }
 
 Algorithm Updates
@@ -149,18 +149,18 @@ creator's Root.
 | A        | The Event is a Root       | Root.SelfParent.Round                 | Root.SelfParent.LamportTimestamp           |
 |          | itself                    |                                       |                                            |
 +----------+---------------------------+---------------------------------------+--------------------------------------------+ 
-| B        | The Event is directly     | Root.NextRound                        | Root.SelfParent.LamportTimestamp + 1       |
+| B        | The Event is directly     | Root.SelfParent.NextRound             | Root.SelfParent.LamportTimestamp + 1       |
 |          | attached to the Root,     |                                       |                                            |
 |          | and its OtherParent is    |                                       |                                            |
 |          | empty                     |                                       |                                            |
 +----------+---------------------------+---------------------------------------+--------------------------------------------+ 
-| C        | The Event is directly     | Root.NextRound                        | Max(Root.SelfParent.LamportTimestamp,      | 
+| C        | The Event is directly     | Root.SelfParent.NextRound             | Max(Root.SelfParent.LamportTimestamp,      | 
 |          | attached to the Root,     |                                       | Root.Others[AAA].LamportTimestamp) +1      |
 |          | and its OtherParent is    |                                       |                                            |
 |          | referenced in Root.Others |                                       |                                            |
 +----------+---------------------------+---------------------------------------+--------------------------------------------+ 
-| D        | The Event is not directly | Max(Event.SelfParent.Round,           | Max(Event.SelfParent.LamportTimestamp,     | 
-|          | attached to the Root,     | Root.Others[AAA].Round) + RoundInc()  | Root.Others[AAA].LamportTimestamp) +1      |
+| D        | The Event is not directly | Root.Others[AAA].NextRound            | Max(Event.SelfParent.LamportTimestamp,     | 
+|          | attached to the Root,     |                                       | Root.Others[AAA].LamportTimestamp) +1      |
 |          | but its OtherParent is    |                                       |                                            |
 |          | referenced in Root.Others |                                       |                                            |
 +----------+---------------------------+---------------------------------------+--------------------------------------------+

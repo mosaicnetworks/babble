@@ -217,7 +217,7 @@ func (h *Hashgraph) _round(x string) (int, error) {
 		if other, ok := root.Others[ex.Hex()]; (ex.OtherParent() == "") ||
 			(ok && other.Hash == ex.OtherParent()) {
 
-			return root.NextRound, nil
+			return root.SelfParent.NextRound, nil
 		}
 	}
 
@@ -233,7 +233,7 @@ func (h *Hashgraph) _round(x string) (int, error) {
 		var opRound int
 
 		if other, ok := root.Others[ex.Hex()]; ok && other.Hash == ex.OtherParent() {
-			opRound = root.NextRound
+			opRound = other.NextRound
 		} else {
 			opRound, err = h.round(ex.OtherParent())
 			if err != nil {
@@ -533,12 +533,12 @@ func (h *Hashgraph) updateAncestorFirstDescendant(event *Event) error {
 func (h *Hashgraph) createSelfParentRootEvent(ev *Event) (RootEvent, error) {
 	sp := ev.SelfParent()
 
-	spLT, err := h.lamportTimestamp(sp)
+	spRound, err := h.round(sp)
 	if err != nil {
 		return RootEvent{}, err
 	}
 
-	spRound, err := h.round(sp)
+	spLT, err := h.lamportTimestamp(sp)
 	if err != nil {
 		return RootEvent{}, err
 	}
@@ -553,13 +553,20 @@ func (h *Hashgraph) createSelfParentRootEvent(ev *Event) (RootEvent, error) {
 		ev.Body.creatorID = creator.ID
 	}
 
+	evRound, err := h.round(ev.Hex())
+	if err != nil {
+		return RootEvent{}, err
+	}
+
 	selfParentRootEvent := RootEvent{
 		Hash:             sp,
 		CreatorID:        ev.Body.creatorID,
 		Index:            ev.Index() - 1,
 		LamportTimestamp: spLT,
 		Round:            spRound,
+		NextRound:        evRound,
 	}
+
 	return selfParentRootEvent, nil
 }
 
@@ -600,22 +607,24 @@ func (h *Hashgraph) createOtherParentRootEvent(ev *Event) (RootEvent, error) {
 		otherParent.Body.creatorID = creator.ID
 	}
 
+	evRound, err := h.round(ev.Hex())
+	if err != nil {
+		return RootEvent{}, err
+	}
+
 	otherParentRootEvent := RootEvent{
 		Hash:             op,
 		CreatorID:        otherParent.Body.creatorID,
 		Index:            otherParent.Index(),
 		LamportTimestamp: opLT,
 		Round:            opRound,
+		NextRound:        evRound,
 	}
 
 	return otherParentRootEvent, nil
 }
 
 func (h *Hashgraph) createRoot(ev *Event) (*Root, error) {
-	evRound, err := h.round(ev.Hex())
-	if err != nil {
-		return nil, err
-	}
 
 	//SelfParent
 	selfParentRootEvent, err := h.createSelfParentRootEvent(ev)
@@ -634,7 +643,6 @@ func (h *Hashgraph) createRoot(ev *Event) (*Root, error) {
 	}
 
 	root := &Root{
-		NextRound:  evRound,
 		SelfParent: selfParentRootEvent,
 		Others:     map[string]RootEvent{},
 	}
@@ -1086,9 +1094,7 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 	}()
 
 	for _, r := range h.PendingRounds {
-		//This is similar to the lower bound introduced in DivideRounds; it is
-		//redundant in normal operations, but becomes necessary after a Reset.
-		//Indeed, after a Reset, roundLowerBound (=LastConsensusRound) is added
+		//After a Reset, round roundLowerBound (=LastConsensusRound) is added
 		//to PendingRounds, but its ConsensusEvents (which are necessarily
 		// 'under' this Round) are already deemed committed. Hence, skip this
 		//Round after a Reset.
@@ -1121,8 +1127,10 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 		}
 
 		rootHashes := []string{}
+		rootValues := []Root{}
 		for _, r := range frame.Roots {
 			rootHashes = append(rootHashes, r.SelfParent.Hash[2:8])
+			rootValues = append(rootValues, *r)
 		}
 
 		//jsonFrame, _ := frame.Marshal()
@@ -1133,6 +1141,7 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 			"events":         len(frame.Events),
 			"events_hashes":  eventHashes,
 			"root_hashes":    rootHashes,
+			"roots":          rootValues,
 			//"json":           string(jsonFrame),
 		}).Debugf("Processing Decided Round")
 

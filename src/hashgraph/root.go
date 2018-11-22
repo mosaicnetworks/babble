@@ -68,6 +68,7 @@ type RootEvent struct {
 	Index            int
 	LamportTimestamp int
 	Round            int
+	NextRound        int
 }
 
 //NewBaseRootEvent creates a RootEvent corresponding to the the very beginning
@@ -90,7 +91,6 @@ func NewBaseRootEvent(creatorID int) RootEvent {
 //Round; it is only used if the child's OtherParent is empty or NOT in the
 //Root's Others.
 type Root struct {
-	NextRound  int
 	SelfParent RootEvent
 	Others     map[string]RootEvent
 }
@@ -98,7 +98,6 @@ type Root struct {
 //NewBaseRoot initializes a Root object for a fresh Hashgraph.
 func NewBaseRoot(creatorID int) *Root {
 	res := &Root{
-		NextRound:  0,
 		SelfParent: NewBaseRootEvent(creatorID),
 		Others:     map[string]RootEvent{},
 	}
