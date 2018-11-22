@@ -126,7 +126,7 @@ func TestInmemEvents(t *testing.T) {
 func TestInmemRounds(t *testing.T) {
 	store, participants := initInmemStore(10)
 
-	round := NewRoundInfo(nil) //XXX
+	round := NewRoundInfo() //XXX
 	events := make(map[string]*Event)
 	for _, p := range participants {
 		event := NewEvent([][]byte{},

@@ -34,15 +34,13 @@ type RoundEvent struct {
 type RoundInfo struct {
 	CreatedEvents  map[string]RoundEvent
 	ReceivedEvents []string
-	PeerSet        *peers.PeerSet
 	queued         bool
 }
 
-func NewRoundInfo(peers *peers.PeerSet) *RoundInfo {
+func NewRoundInfo() *RoundInfo {
 	return &RoundInfo{
 		CreatedEvents:  make(map[string]RoundEvent),
 		ReceivedEvents: []string{},
-		PeerSet:        peers,
 	}
 }
 
@@ -77,14 +75,14 @@ func (r *RoundInfo) SetFame(x string, f bool) {
 }
 
 //return true if no witnesses' fame is left undefined
-func (r *RoundInfo) WitnessesDecided() bool {
+func (r *RoundInfo) WitnessesDecided(peerSet *peers.PeerSet) bool {
 	c := 0
 	for _, e := range r.CreatedEvents {
 		if e.Witness && e.Famous != Undefined {
 			c++
 		}
 	}
-	return c >= r.PeerSet.SuperMajority()
+	return c >= peerSet.SuperMajority()
 }
 
 //return witnesses

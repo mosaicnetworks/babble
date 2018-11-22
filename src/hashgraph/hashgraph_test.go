@@ -434,11 +434,13 @@ func initRoundHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
 	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
 	round0Witnesses[index["e1"]] = RoundEvent{Witness: true, Famous: Undefined}
 	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
-	h.Store.SetRound(0, &RoundInfo{CreatedEvents: round0Witnesses, PeerSet: lastPeerSet})
+	h.Store.SetRound(0, &RoundInfo{CreatedEvents: round0Witnesses})
+	h.Store.SetPeerSet(0, lastPeerSet)
 
 	round1Witnesses := make(map[string]RoundEvent)
 	round1Witnesses[index["f1"]] = RoundEvent{Witness: true, Famous: Undefined}
-	h.Store.SetRound(1, &RoundInfo{CreatedEvents: round1Witnesses, PeerSet: lastPeerSet})
+	h.Store.SetRound(1, &RoundInfo{CreatedEvents: round1Witnesses})
+	h.Store.SetPeerSet(1, lastPeerSet)
 
 	return h, index
 }
@@ -929,7 +931,8 @@ func initDentedHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
 	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
 	round0Witnesses[index["e12"]] = RoundEvent{Witness: true, Famous: Undefined}
 	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
-	h.Store.SetRound(0, &RoundInfo{CreatedEvents: round0Witnesses, PeerSet: participants})
+	h.Store.SetRound(0, &RoundInfo{CreatedEvents: round0Witnesses})
+	h.Store.SetPeerSet(1, participants)
 
 	return h, index
 }
