@@ -635,7 +635,7 @@ func TestFastSync(t *testing.T) {
 
 	nodes := initNodes(keys, peers, 100000, 400, "inmem", logger, t)
 	defer shutdownNodes(nodes)
-	defer drawGraphs(nodes, t)
+	//defer drawGraphs(nodes, t)
 
 	target := 50
 	err := gossip(nodes, target, false, 3*time.Second)

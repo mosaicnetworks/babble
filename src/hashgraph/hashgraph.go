@@ -1120,29 +1120,10 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 			return err
 		}
 
-		//XXX
-		eventHashes := []string{}
-		for _, ev := range frame.Events {
-			eventHashes = append(eventHashes, ev.Hex()[2:8])
-		}
-
-		rootHashes := []string{}
-		rootValues := []Root{}
-		for _, r := range frame.Roots {
-			rootHashes = append(rootHashes, r.SelfParent.Hash[2:8])
-			rootValues = append(rootValues, *r)
-		}
-
-		//jsonFrame, _ := frame.Marshal()
-
 		h.logger.WithFields(logrus.Fields{
 			"round_received": r.Index,
 			"witnesses":      round.FamousWitnesses(),
 			"events":         len(frame.Events),
-			"events_hashes":  eventHashes,
-			"root_hashes":    rootHashes,
-			"roots":          rootValues,
-			//"json":           string(jsonFrame),
 		}).Debugf("Processing Decided Round")
 
 		if len(frame.Events) > 0 {
@@ -1331,8 +1312,6 @@ func (h *Hashgraph) ProcessSigPool() error {
 			}).Warning("Verifying Block signature. No PeerSet for Block's Round ")
 			continue
 		}
-
-		//XXX Check PeerSet Hashes
 
 		//check if validator belongs to list of participants
 		validatorHex := fmt.Sprintf("0x%X", bs.Validator)
