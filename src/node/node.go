@@ -219,7 +219,7 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 		n.logger.Debug("SyncLimit")
 
 		resp.SyncLimit = true
-	} else {		
+	} else {
 		//Compute Diff
 		start := time.Now()
 		n.coreLock.Lock()
@@ -623,7 +623,6 @@ func (n *Node) addTransaction(tx []byte) {
 
 func (n *Node) addInternalTransaction(tx hg.InternalTransaction) {
 	n.coreLock.Lock()
-
 	defer n.coreLock.Unlock()
 
 	n.core.AddInternalTransactions([]hg.InternalTransaction{tx})
