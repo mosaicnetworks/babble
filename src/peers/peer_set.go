@@ -7,8 +7,6 @@ import (
 	"github.com/mosaicnetworks/babble/src/crypto"
 )
 
-//XXX exclude peers should be in here
-
 //PeerSet is a set of Peers forming a consensus network
 type PeerSet struct {
 	Peers    []*Peer          `json:"peers"`
@@ -16,10 +14,10 @@ type PeerSet struct {
 	ByID     map[int]*Peer    `json:"by_id"`
 
 	//cached values
-	hash          []byte `json:"hash"`
-	hex           string `json:"hex"`
-	superMajority *int   `json:"super_majority"`
-	trustCount    *int   `json:"trust_count"`
+	hash          []byte
+	hex           string
+	superMajority *int
+	trustCount    *int
 }
 
 /* Constructors */
@@ -47,6 +45,7 @@ func NewPeerSet(peers []*Peer) *PeerSet {
 
 //WithNewPeer returns a new PeerSet with a list of peers including the new one.
 func (peerSet *PeerSet) WithNewPeer(peer *Peer) *PeerSet {
+	peer.ComputeID()
 	peers := append(peerSet.Peers, peer)
 	newPeerSet := NewPeerSet(peers)
 	return newPeerSet

@@ -35,6 +35,7 @@ type RoundInfo struct {
 	CreatedEvents  map[string]RoundEvent
 	ReceivedEvents []string
 	queued         bool
+	decided        bool
 }
 
 func NewRoundInfo() *RoundInfo {
@@ -74,15 +75,29 @@ func (r *RoundInfo) SetFame(x string, f bool) {
 	r.CreatedEvents[x] = e
 }
 
-//return true if no witnesses' fame is left undefined
+//WitnessesDecided returns true if a super-majority of witnesses are decided,
+//and there are no undecided witnesses. Our algorithm relies on the fact that a
+//witness that is not yet known when a super-majority of witnesses are already
+//decided, has no chance of ever being famous. Once a Round is decided it stays
+//decided, even if new witnesses are added after it was first decided.
 func (r *RoundInfo) WitnessesDecided(peerSet *peers.PeerSet) bool {
+	//if the round was already decided, it stays decided no matter what.
+	if r.decided {
+		return true
+	}
+
 	c := 0
 	for _, e := range r.CreatedEvents {
 		if e.Witness && e.Famous != Undefined {
 			c++
+		} else if e.Witness && e.Famous == Undefined {
+			return false
 		}
 	}
-	return c >= peerSet.SuperMajority()
+
+	r.decided = c >= peerSet.SuperMajority()
+
+	return r.decided
 }
 
 //return witnesses

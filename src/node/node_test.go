@@ -425,12 +425,18 @@ func drawGraphs(nodes []*Node, t *testing.T) {
 	os.Mkdir("test_data", os.ModeDir|0777)
 	for _, n := range nodes {
 		graph := NewGraph(n)
+
+		n.coreLock.Lock()
 		info, err := graph.GetInfos()
+		n.coreLock.Unlock()
+
 		if err != nil {
 			t.Logf("ERROR drawing graph: %s", err)
 			continue
 		}
+
 		jinfo, err := json.Marshal(info)
+
 		err = ioutil.WriteFile(fmt.Sprintf("test_data/info%d", n.ID()), jinfo, 0644)
 		if err != nil {
 			t.Log(err)
@@ -458,13 +464,13 @@ func getCommittedTransactions(n *Node) ([][]byte, error) {
 func TestGossip(t *testing.T) {
 	logger := common.NewTestLogger(t)
 
-	keys, peers := initPeers(4)
-	nodes := initNodes(keys, peers, 1000, 1000, "inmem", logger, t)
+	keys, peers := initPeers(7)
+	nodes := initNodes(keys, peers, 100000, 1000, "inmem", logger, t)
 
 	defer drawGraphs(nodes, t)
 
 	target := 50
-	err := gossip(nodes, target, true, 3*time.Second)
+	err := gossip(nodes, target, true, 6*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -577,6 +583,8 @@ func TestCatchUp(t *testing.T) {
 	normalNodes := initNodes(keys[0:3], peers, 1000, 400, "inmem", logger, t)
 	defer shutdownNodes(normalNodes)
 
+	defer drawGraphs(normalNodes, t)
+
 	target := 50
 
 	err := gossip(normalNodes, target, false, 6*time.Second)
@@ -622,14 +630,12 @@ func TestFastSync(t *testing.T) {
 
 	//Create  config for 4 nodes
 	keys, peers := initPeers(4)
-	nodes := initNodes(keys, peers, 1000, 400, "inmem", logger, t)
 
+	nodes := initNodes(keys, peers, 100000, 400, "inmem", logger, t)
 	defer shutdownNodes(nodes)
-
-	defer drawGraphs(nodes, t)
+	//defer drawGraphs(nodes, t)
 
 	target := 50
-
 	err := gossip(nodes, target, false, 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
@@ -665,9 +671,9 @@ func TestFastSync(t *testing.T) {
 	}()
 
 	node4.RunAsync(true)
-	defer node4.Shutdown()
 
 	nodes[3] = node4
+	defer node4.Shutdown()
 
 	//Gossip some more
 	thirdTarget := secondTarget + 20
@@ -728,6 +734,52 @@ func TestBootstrapAllNodes(t *testing.T) {
 	checkGossip([]*Node{nodes[0], newNodes[0]}, 0, t)
 }
 
+func TestAddPeer(t *testing.T) {
+	logger := common.NewTestLogger(t)
+
+	keys, peerSet := initPeers(4)
+	nodes := initNodes(keys, peerSet, 1000, 1000, "inmem", logger, t)
+
+	defer shutdownNodes(nodes)
+
+	//defer drawGraphs(nodes, t)
+
+	runNodes(nodes, true)
+
+	target := 20
+	err := bombardAndWait(nodes, target, 3*time.Second)
+	if err != nil {
+		t.Fatal("Error bombarding: ", err)
+	}
+
+	key, _ := crypto.GenerateECDSAKey()
+	peer := peers.NewPeer(
+		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
+		fmt.Sprint("127.0.0.1:4242"),
+	)
+
+	//XXX
+	//The id field is not serialized in JSON
+	//Do smarter handling of the ID thing
+	peer.ID = 0
+
+	nodes[0].addInternalTransaction(hg.NewInternalTransactionJoin(*peer))
+
+	target2 := target + 20
+	err = bombardAndWait(nodes, target2, 6*time.Second)
+	if err != nil {
+		t.Fatal("Error bombarding: ", err)
+	}
+
+	for i := range nodes {
+		if nodes[i].core.peers.Len() != 5 {
+			t.Errorf("Node %d should have %d peers, not %d", i, 5, nodes[i].core.peers.Len())
+		}
+	}
+
+	checkGossip(nodes, 0, t)
+}
+
 func gossip(nodes []*Node, target int, shutdown bool, timeout time.Duration) error {
 	runNodes(nodes, true)
 	err := bombardAndWait(nodes, target, timeout)
@@ -763,7 +815,10 @@ func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
 			} else {
 				//wait until the target block has retrieved a state hash from
 				//the app
-				targetBlock, _ := n.core.hg.Store.GetBlock(target)
+				targetBlock, err := n.core.hg.Store.GetBlock(target)
+				if err != nil {
+					return fmt.Errorf("Couldn't find target block: %v, ce: %d", err, ce)
+				}
 				if len(targetBlock.StateHash()) == 0 {
 					done = false
 					break
@@ -780,7 +835,7 @@ func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
 
 func checkGossip(nodes []*Node, fromBlock int, t *testing.T) {
 	nodeBlocks := map[int][]*hg.Block{}
-	for _, n := range nodes {
+	for index, n := range nodes {
 		blocks := []*hg.Block{}
 		for i := fromBlock; i < n.core.hg.Store.LastBlockIndex(); i++ {
 			block, err := n.core.hg.Store.GetBlock(i)
@@ -789,7 +844,7 @@ func checkGossip(nodes []*Node, fromBlock int, t *testing.T) {
 			}
 			blocks = append(blocks, block)
 		}
-		nodeBlocks[n.id] = blocks
+		nodeBlocks[index] = blocks
 	}
 
 	minB := len(nodeBlocks[0])
@@ -843,52 +898,6 @@ func BenchmarkGossip(b *testing.B) {
 		nodes := initNodes(keys, peers, 1000, 1000, "inmem", logger, b)
 		gossip(nodes, 50, true, 3*time.Second)
 	}
-}
-
-func TestPeerJoinRequest(t *testing.T) {
-	logger := common.NewTestLogger(t)
-
-	keys, peerSet := initPeers(4)
-	nodes := initNodes(keys, peerSet, 1000, 1000, "inmem", logger, t)
-
-	runNodes(nodes, true)
-
-	target := 20
-
-	err := bombardAndWait(nodes, target, 3*time.Second)
-	if err != nil {
-		t.Fatal("Error bombarding: ", err)
-	}
-
-	key, _ := crypto.GenerateECDSAKey()
-	peer := peers.NewPeer(
-		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
-		fmt.Sprint("127.0.0.1:4242"),
-	)
-
-	peerSet = peerSet.WithNewPeer(peer)
-
-	node := new_node(key, peerSet, 1000, 1000, "inmem", logger, t)
-	go func() {
-		node.Run(true)
-	}()
-
-	nodes = append(nodes, node)
-
-	nodes[0].addInternalTransaction(hg.NewInternalTransactionJoin(*peer))
-
-	err = bombardAndWait(nodes, target, 3*time.Second)
-	if err != nil {
-		t.Fatal("Error bombarding: ", err)
-	}
-
-	for i := range nodes {
-		if nodes[i].core.peers.Len() != 5 {
-			t.Errorf("Node %d should have %d peers, not %d", i, 5, nodes[i].core.peers.Len())
-		}
-	}
-
-	checkGossip(nodes, 0, t)
 }
 
 // func TestPeerLeaveRequest(t *testing.T) {

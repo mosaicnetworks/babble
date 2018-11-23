@@ -47,6 +47,7 @@ func initCores(n int, t *testing.T) ([]*Core, map[int]*ecdsa.PrivateKey, map[str
 			[]string{fmt.Sprintf("Root%d", peer.ID), ""},
 			core.PubKey(),
 			0)
+
 		err := core.SignAndInsertSelfEvent(initialEvent)
 		if err != nil {
 			t.Fatal(err)
@@ -178,7 +179,7 @@ func TestSync(t *testing.T) {
 	*/
 
 	//core 1 is going to tell core 0 everything it knows
-	if err := synchronizeCores(cores, 1, 0, [][]byte{}); err != nil {
+	if err := synchronizeCores(cores, 1, 0, [][]byte{}, []hg.InternalTransaction{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -211,7 +212,7 @@ func TestSync(t *testing.T) {
 	index["e01"] = core0Head.Hex()
 
 	//core 0 is going to tell core 2 everything it knows
-	if err := synchronizeCores(cores, 0, 2, [][]byte{}); err != nil {
+	if err := synchronizeCores(cores, 0, 2, [][]byte{}, []hg.InternalTransaction{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -249,7 +250,7 @@ func TestSync(t *testing.T) {
 	index["e20"] = core2Head.Hex()
 
 	//core 2 is going to tell core 1 everything it knows
-	if err := synchronizeCores(cores, 2, 1, [][]byte{}); err != nil {
+	if err := synchronizeCores(cores, 2, 1, [][]byte{}, []hg.InternalTransaction{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -331,9 +332,10 @@ e0  e1  e2
 0   1    2
 */
 type play struct {
-	from    int
-	to      int
-	payload [][]byte
+	from        int
+	to          int
+	payload     [][]byte
+	internalTxs []hg.InternalTransaction
 }
 
 func initConsensusHashgraph(t *testing.T) []*Core {
@@ -362,7 +364,7 @@ func initConsensusHashgraph(t *testing.T) []*Core {
 	}
 
 	for _, play := range playbook {
-		if err := syncAndRunConsensus(cores, play.from, play.to, play.payload); err != nil {
+		if err := syncAndRunConsensus(cores, play.from, play.to, play.payload, play.internalTxs); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -488,7 +490,7 @@ func initFFHashgraph(cores []*Core, t *testing.T) {
 	}
 
 	for k, play := range playbook {
-		if err := syncAndRunConsensus(cores, play.from, play.to, play.payload); err != nil {
+		if err := syncAndRunConsensus(cores, play.from, play.to, play.payload, play.internalTxs); err != nil {
 			t.Fatalf("play %d: %s", k, err)
 		}
 	}
@@ -640,7 +642,135 @@ func TestCoreFastForward(t *testing.T) {
 	})
 }
 
-func synchronizeCores(cores []*Core, from int, to int, payload [][]byte) error {
+/*
+We introduce a JoinRequest at round 0, which is received at round 1, and updates
+the PeerSet at round 5 (1 + 4)
+r
+
+	     -------------------------
+		    |    |    |   w53
+            |    |    | /  |
+Round 5     |    |   w52   |
+P:[0,1,2,3] |    | /  |    |
+            |   w51   |    |
+            |  / |    |    |
+            w50  |    |    |
+        -------\------------------
+		    |   i12   |    R3
+            |    | \  |
+Round 4     |    |   w42
+P:[0,1,2]   |    | /  |
+            |   w41   |
+            |  / |    |
+            w40  |    |
+        -------\----------
+		    |   h12   |
+Round 3		|    | \  |
+P:[0,1,2]   |    |   w32
+            |    |  / |
+			|   w31   |
+			| /  |    |
+		   w30   |    |
+		    |  \ |    |
+		------------------
+Round 2		|    |  \ |
+P:[0,1,2]	|    |   g21
+			|    | /  |
+			|   w21   |
+			| /  |    |
+		   w20   |    |
+		    |  \ |    |
+		    |    | \  |
+			|    |   w22
+		-----------/------
+Round 1		|   f10   |
+P:[0,1,2]	| /  |    |
+		   w10   |    |
+		    |  \ |    |
+		    |    | \  |
+		    |    |   w12
+		    |    |  / |
+		    |   w11   |
+		 -----/------------
+Round 0	   e12   |    |
+P:[0,1,2]   |  \ |    |
+		    |    | \  |
+		    |    |   e21*
+		    |    | /  |
+		    |   e10   |
+		    |  / |    |
+		   w00  w01  w02
+			|    |    |
+		    R0   R1   R2
+			0	 1	  2
+*/
+func initR2DynHashgraph(t *testing.T) (cores []*Core) {
+	//Initialize first 3 cores. They will have the same PeerSet of 3.
+	cores, participantKeys, _ := initCores(3, t)
+
+	//Initialize the joining Peer (bob)
+	bobKey, _ := crypto.GenerateECDSAKey()
+	bobPubHex := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&bobKey.PublicKey))
+	bob := peers.NewPeer(bobPubHex, "")
+	participantKeys[bob.ID] = bobKey
+	newPeerSet := cores[0].peers.WithNewPeer(bob)
+	bobCore := NewCore(bob.ID,
+		bobKey,
+		newPeerSet,
+		hg.NewInmemStore(newPeerSet, 1000),
+		proxy.DummyCommitCallback,
+		common.NewTestLogger(t))
+	bobCore.SetHeadAndSeq()
+	cores = append(cores, bobCore)
+
+	//Insert a JoinRequest in a Round0 Event
+	playbook := []play{
+		play{from: 0, to: 1, payload: [][]byte{[]byte("e10")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("e21")},
+			internalTxs: []hg.InternalTransaction{hg.NewInternalTransaction(hg.PEER_ADD, *bob)}},
+		play{from: 2, to: 0, payload: [][]byte{[]byte("e12")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("w11")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("w12")}},
+		play{from: 2, to: 0, payload: [][]byte{[]byte("w10")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("f10")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("w22")}},
+		play{from: 2, to: 0, payload: [][]byte{[]byte("w20")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("w21")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("g21")}},
+		play{from: 2, to: 0, payload: [][]byte{[]byte("w30")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("w31")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("w32")}},
+		play{from: 2, to: 1, payload: [][]byte{[]byte("h12")}},
+		play{from: 1, to: 0, payload: [][]byte{[]byte("w40")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("w41")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("w42")}},
+		play{from: 2, to: 1, payload: [][]byte{[]byte("i12")}},
+		play{from: 1, to: 0, payload: [][]byte{[]byte("w50")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("w51")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("w52")}},
+		play{from: 2, to: 3, payload: [][]byte{[]byte("w53")}},
+	}
+
+	for k, play := range playbook {
+		if err := syncAndRunConsensus(cores, play.from, play.to, play.payload, play.internalTxs); err != nil {
+			t.Fatalf("play %d: %s", k, err)
+		}
+	}
+
+	return cores
+}
+
+func TestR2DynConsensus(t *testing.T) {
+	cores := initR2DynHashgraph(t)
+
+	for i, c := range cores {
+		if ps, _ := c.hg.Store.GetPeerSet(5); ps.Len() != 4 {
+			t.Fatalf("cores[%d] PeerSet(5) should contain 4 peers, not %d", i, ps.Len())
+		}
+	}
+}
+
+func synchronizeCores(cores []*Core, from int, to int, payload [][]byte, internalTxs []hg.InternalTransaction) error {
 	knownByTo := cores[to].KnownEvents()
 	unknownByTo, err := cores[from].EventDiff(knownByTo)
 	if err != nil {
@@ -654,11 +784,13 @@ func synchronizeCores(cores []*Core, from int, to int, payload [][]byte) error {
 
 	cores[to].AddTransactions(payload)
 
+	cores[to].AddInternalTransactions(internalTxs)
+
 	return cores[to].Sync(unknownWire)
 }
 
-func syncAndRunConsensus(cores []*Core, from int, to int, payload [][]byte) error {
-	if err := synchronizeCores(cores, from, to, payload); err != nil {
+func syncAndRunConsensus(cores []*Core, from int, to int, payload [][]byte, internalTxs []hg.InternalTransaction) error {
+	if err := synchronizeCores(cores, from, to, payload, internalTxs); err != nil {
 		return err
 	}
 	cores[to].RunConsensus()

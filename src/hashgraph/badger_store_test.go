@@ -262,7 +262,7 @@ func TestDBRoundMethods(t *testing.T) {
 	store, participants := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
 
-	round := NewRoundInfo() //XXX something better here
+	round := NewRoundInfo()
 	events := make(map[string]*Event)
 	for _, p := range participants {
 		event := NewEvent([][]byte{},
@@ -557,7 +557,7 @@ func TestBadgerRounds(t *testing.T) {
 	store, participants := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
 
-	round := NewRoundInfo() //XXX
+	round := NewRoundInfo()
 	events := make(map[string]*Event)
 	for _, p := range participants {
 		event := NewEvent([][]byte{},

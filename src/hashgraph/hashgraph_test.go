@@ -850,22 +850,19 @@ func TestCreateRoot(t *testing.T) {
 	expected := map[string]*Root{
 		"e0": NewBaseRoot(peerSet.Peers[0].ID),
 		"e02": &Root{
-			NextRound:  0,
-			SelfParent: RootEvent{index["s00"], peerSet.Peers[0].ID, 1, 1, 0},
+			SelfParent: RootEvent{index["s00"], peerSet.Peers[0].ID, 1, 1, 0, 0},
 			Others: map[string]RootEvent{
-				index["e02"]: RootEvent{index["e21"], peerSet.Peers[2].ID, 2, 2, 0},
+				index["e02"]: RootEvent{index["e21"], peerSet.Peers[2].ID, 2, 2, 0, 0},
 			},
 		},
 		"s10": &Root{
-			NextRound:  0,
-			SelfParent: RootEvent{index["e10"], peerSet.Peers[1].ID, 1, 1, 0},
+			SelfParent: RootEvent{index["e10"], peerSet.Peers[1].ID, 1, 1, 0, 0},
 			Others:     map[string]RootEvent{},
 		},
 		"f1": &Root{
-			NextRound:  1,
-			SelfParent: RootEvent{index["s10"], peerSet.Peers[1].ID, 2, 2, 0},
+			SelfParent: RootEvent{index["s10"], peerSet.Peers[1].ID, 2, 2, 0, 1},
 			Others: map[string]RootEvent{
-				index["f1"]: RootEvent{index["e02"], peerSet.Peers[0].ID, 2, 3, 0},
+				index["f1"]: RootEvent{index["e02"], peerSet.Peers[0].ID, 2, 3, 0, 1},
 			},
 		},
 	}
@@ -944,10 +941,9 @@ func TestCreateRootBis(t *testing.T) {
 
 	expected := map[string]*Root{
 		"e12": &Root{
-			NextRound:  0,
 			SelfParent: NewBaseRootEvent(peerSet.Peers[1].ID),
 			Others: map[string]RootEvent{
-				index["e12"]: RootEvent{index["e2"], peerSet.Peers[2].ID, 0, 0, 0},
+				index["e12"]: RootEvent{index["e2"], peerSet.Peers[2].ID, 0, 0, 0, 0},
 			},
 		},
 	}
@@ -1715,8 +1711,7 @@ func TestGetFrame(t *testing.T) {
 	t.Run("Round 2", func(t *testing.T) {
 		expectedRoots := make(map[string]*Root, n)
 		expectedRoots[peerSet.PubKeys()[0]] = &Root{
-			NextRound:  1,
-			SelfParent: RootEvent{index["e02"], peerSet.IDs()[0], 1, 4, 0},
+			SelfParent: RootEvent{index["e02"], peerSet.IDs()[0], 1, 4, 0, 1},
 			Others: map[string]RootEvent{
 				index["f0"]: RootEvent{
 					Hash:             index["f1b"],
@@ -1724,6 +1719,7 @@ func TestGetFrame(t *testing.T) {
 					Index:            3,
 					LamportTimestamp: 6,
 					Round:            1,
+					NextRound:        1,
 				},
 				index["f0x"]: RootEvent{
 					Hash:             index["e21"],
@@ -1731,12 +1727,12 @@ func TestGetFrame(t *testing.T) {
 					Index:            1,
 					LamportTimestamp: 2,
 					Round:            0,
+					NextRound:        1,
 				},
 			},
 		}
 		expectedRoots[peerSet.PubKeys()[1]] = &Root{
-			NextRound:  1,
-			SelfParent: RootEvent{index["e10"], peerSet.IDs()[1], 1, 1, 0},
+			SelfParent: RootEvent{index["e10"], peerSet.IDs()[1], 1, 1, 0, 1},
 			Others: map[string]RootEvent{
 				index["f1"]: RootEvent{
 					Hash:             index["e02"],
@@ -1744,12 +1740,12 @@ func TestGetFrame(t *testing.T) {
 					Index:            1,
 					LamportTimestamp: 4,
 					Round:            0,
+					NextRound:        1,
 				},
 			},
 		}
 		expectedRoots[peerSet.PubKeys()[2]] = &Root{
-			NextRound:  1,
-			SelfParent: RootEvent{index["e21b"], peerSet.IDs()[2], 2, 3, 0},
+			SelfParent: RootEvent{index["e21b"], peerSet.IDs()[2], 2, 3, 0, 1},
 			Others: map[string]RootEvent{
 				index["f2"]: RootEvent{
 					Hash:             index["f1b"],
@@ -1757,6 +1753,7 @@ func TestGetFrame(t *testing.T) {
 					Index:            3,
 					LamportTimestamp: 6,
 					Round:            1,
+					NextRound:        1,
 				},
 			},
 		}
@@ -2208,10 +2205,11 @@ func TestFunkyHashgraphFame(t *testing.T) {
 		t.Logf("Round %d witnesses: %v", r, witnessNames)
 	}
 
+	//Rounds 1 and 2 should get decided BEFORE round 0
 	expectedpendingRounds := []pendingRound{
 		pendingRound{
 			Index:   0,
-			Decided: true,
+			Decided: false,
 		},
 		pendingRound{
 			Index:   1,
@@ -2230,6 +2228,23 @@ func TestFunkyHashgraphFame(t *testing.T) {
 			Decided: false,
 		},
 	}
+
+	for i, pd := range h.PendingRounds {
+		if !reflect.DeepEqual(*pd, expectedpendingRounds[i]) {
+			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedpendingRounds[i], *pd)
+		}
+	}
+
+	if err := h.DecideRoundReceived(); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.ProcessDecidedRounds(); err != nil {
+		t.Fatal(err)
+	}
+
+	//But a dicided round should never be processed until all previous rounds
+	//are decided. So the PendingQueue should remain the same after calling
+	//ProcessDecidedRounds()
 
 	for i, pd := range h.PendingRounds {
 		if !reflect.DeepEqual(*pd, expectedpendingRounds[i]) {
@@ -2358,54 +2373,47 @@ func TestFunkyHashgraphFrames(t *testing.T) {
 		2: map[string]*Root{
 			peerSet.PubKeys()[0]: NewBaseRoot(peerSet.IDs()[0]),
 			peerSet.PubKeys()[1]: &Root{
-				NextRound:  0,
-				SelfParent: RootEvent{index["a12"], peerSet.IDs()[1], 1, 2, 0},
+				SelfParent: RootEvent{index["a12"], peerSet.IDs()[1], 1, 2, 0, 0},
 				Others: map[string]RootEvent{
-					index["a10"]: RootEvent{index["a00"], peerSet.IDs()[0], 1, 1, 0},
+					index["a10"]: RootEvent{index["a00"], peerSet.IDs()[0], 1, 1, 0, 0},
 				},
 			},
 			peerSet.PubKeys()[2]: &Root{
-				NextRound:  1,
-				SelfParent: RootEvent{index["a21"], peerSet.IDs()[2], 2, 3, 0},
+				SelfParent: RootEvent{index["a21"], peerSet.IDs()[2], 2, 3, 0, 1},
 				Others: map[string]RootEvent{
-					index["w12"]: RootEvent{index["w13"], peerSet.IDs()[3], 1, 4, 1},
+					index["w12"]: RootEvent{index["w13"], peerSet.IDs()[3], 1, 4, 1, 1},
 				},
 			},
 			peerSet.PubKeys()[3]: &Root{
-				NextRound:  1,
-				SelfParent: RootEvent{index["w03"], peerSet.IDs()[3], 0, 0, 0},
+				SelfParent: RootEvent{index["w03"], peerSet.IDs()[3], 0, 0, 0, 1},
 				Others: map[string]RootEvent{
-					index["w13"]: RootEvent{index["a21"], peerSet.IDs()[2], 2, 3, 0},
+					index["w13"]: RootEvent{index["a21"], peerSet.IDs()[2], 2, 3, 0, 1},
 				},
 			},
 		},
 		3: map[string]*Root{
 			peerSet.PubKeys()[0]: &Root{
-				NextRound:  1,
-				SelfParent: RootEvent{index["a00"], peerSet.IDs()[0], 1, 1, 0},
+				SelfParent: RootEvent{index["a00"], peerSet.IDs()[0], 1, 1, 0, 1},
 				Others: map[string]RootEvent{
-					index["w10"]: RootEvent{index["w11"], peerSet.IDs()[1], 3, 6, 1},
+					index["w10"]: RootEvent{index["w11"], peerSet.IDs()[1], 3, 6, 1, 1},
 				},
 			},
 			peerSet.PubKeys()[1]: &Root{
-				NextRound:  2,
-				SelfParent: RootEvent{index["w11"], peerSet.IDs()[1], 3, 6, 1},
+				SelfParent: RootEvent{index["w11"], peerSet.IDs()[1], 3, 6, 1, 2},
 				Others: map[string]RootEvent{
-					index["w21"]: RootEvent{index["w23"], peerSet.IDs()[3], 2, 8, 2},
+					index["w21"]: RootEvent{index["w23"], peerSet.IDs()[3], 2, 8, 2, 2},
 				},
 			},
 			peerSet.PubKeys()[2]: &Root{
-				NextRound:  2,
-				SelfParent: RootEvent{index["b21"], peerSet.IDs()[2], 4, 7, 1},
+				SelfParent: RootEvent{index["b21"], peerSet.IDs()[2], 4, 7, 1, 2},
 				Others: map[string]RootEvent{
-					index["w22"]: RootEvent{index["c10"], peerSet.IDs()[1], 5, 10, 2},
+					index["w22"]: RootEvent{index["c10"], peerSet.IDs()[1], 5, 10, 2, 2},
 				},
 			},
 			peerSet.PubKeys()[3]: &Root{
-				NextRound:  2,
-				SelfParent: RootEvent{index["w13"], peerSet.IDs()[3], 1, 4, 1},
+				SelfParent: RootEvent{index["w13"], peerSet.IDs()[3], 1, 4, 1, 2},
 				Others: map[string]RootEvent{
-					index["w23"]: RootEvent{index["b21"], peerSet.IDs()[2], 4, 7, 1},
+					index["w23"]: RootEvent{index["b21"], peerSet.IDs()[2], 4, 7, 1, 2},
 				},
 			},
 		},
@@ -2659,61 +2667,53 @@ func TestSparseHashgraphFrames(t *testing.T) {
 		},
 		2: map[string]*Root{
 			peerSet.PubKeys()[0]: &Root{
-				NextRound:  1,
-				SelfParent: RootEvent{index["w00"], peerSet.IDs()[0], 0, 0, 0},
+				SelfParent: RootEvent{index["w00"], peerSet.IDs()[0], 0, 0, 0, 1},
 				Others: map[string]RootEvent{
-					index["w10"]: RootEvent{index["e32"], peerSet.IDs()[3], 1, 3, 0},
+					index["w10"]: RootEvent{index["e32"], peerSet.IDs()[3], 1, 3, 0, 1},
 				},
 			},
 			peerSet.PubKeys()[1]: &Root{
-				NextRound:  1,
-				SelfParent: RootEvent{index["e10"], peerSet.IDs()[1], 1, 1, 0},
+				SelfParent: RootEvent{index["e10"], peerSet.IDs()[1], 1, 1, 0, 1},
 				Others: map[string]RootEvent{
-					index["w11"]: RootEvent{index["w10"], peerSet.IDs()[0], 1, 4, 1},
+					index["w11"]: RootEvent{index["w10"], peerSet.IDs()[0], 1, 4, 1, 1},
 				},
 			},
 			peerSet.PubKeys()[2]: &Root{
-				NextRound:  1,
-				SelfParent: RootEvent{index["e21"], peerSet.IDs()[2], 1, 2, 0},
+				SelfParent: RootEvent{index["e21"], peerSet.IDs()[2], 1, 2, 0, 1},
 				Others: map[string]RootEvent{
-					index["w12"]: RootEvent{index["f01"], peerSet.IDs()[0], 2, 6, 1},
+					index["w12"]: RootEvent{index["f01"], peerSet.IDs()[0], 2, 6, 1, 1},
 				},
 			},
 			peerSet.PubKeys()[3]: &Root{
-				NextRound:  1,
-				SelfParent: RootEvent{index["e32"], peerSet.IDs()[3], 1, 3, 0},
+				SelfParent: RootEvent{index["e32"], peerSet.IDs()[3], 1, 3, 0, 1},
 				Others: map[string]RootEvent{
-					index["w13"]: RootEvent{index["w12"], peerSet.IDs()[2], 2, 7, 1},
+					index["w13"]: RootEvent{index["w12"], peerSet.IDs()[2], 2, 7, 1, 1},
 				},
 			},
 		},
 		3: map[string]*Root{
 			peerSet.PubKeys()[0]: &Root{
-				NextRound:  1,
-				SelfParent: RootEvent{index["w10"], peerSet.IDs()[0], 1, 4, 1},
+				SelfParent: RootEvent{index["w10"], peerSet.IDs()[0], 1, 4, 1, 1},
 				Others: map[string]RootEvent{
-					index["f01"]: RootEvent{index["w11"], peerSet.IDs()[1], 2, 5, 1},
+					index["f01"]: RootEvent{index["w11"], peerSet.IDs()[1], 2, 5, 1, 1},
 				},
 			},
 			peerSet.PubKeys()[1]: &Root{
-				NextRound:  2,
-				SelfParent: RootEvent{index["w11"], peerSet.IDs()[1], 2, 5, 1},
+				SelfParent: RootEvent{index["w11"], peerSet.IDs()[1], 2, 5, 1, 2},
 				Others: map[string]RootEvent{
-					index["w21"]: RootEvent{index["w13"], peerSet.IDs()[3], 2, 8, 1},
+					index["w21"]: RootEvent{index["w13"], peerSet.IDs()[3], 2, 8, 1, 2},
 				},
 			},
 			peerSet.PubKeys()[2]: &Root{
-				NextRound:  2,
-				SelfParent: RootEvent{index["w12"], peerSet.IDs()[2], 2, 7, 1},
+				SelfParent: RootEvent{index["w12"], peerSet.IDs()[2], 2, 7, 1, 2},
 				Others: map[string]RootEvent{
-					index["w22"]: RootEvent{index["w21"], peerSet.IDs()[1], 3, 9, 2},
+					index["w22"]: RootEvent{index["w21"], peerSet.IDs()[1], 3, 9, 2, 2},
 				},
 			},
 			peerSet.PubKeys()[3]: &Root{
-				NextRound:  2,
-				SelfParent: RootEvent{index["w13"], peerSet.IDs()[3], 2, 8, 1},
+				SelfParent: RootEvent{index["w13"], peerSet.IDs()[3], 2, 8, 1, 2},
 				Others: map[string]RootEvent{
-					index["w23"]: RootEvent{index["w22"], peerSet.IDs()[2], 3, 10, 2},
+					index["w23"]: RootEvent{index["w22"], peerSet.IDs()[2], 3, 10, 2, 2},
 				},
 			},
 		},
