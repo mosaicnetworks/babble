@@ -23,7 +23,7 @@ var (
 )
 
 type TestNode struct {
-	ID     int
+	ID     uint32
 	Pub    []byte
 	PubHex string
 	Key    *ecdsa.PrivateKey
@@ -462,7 +462,7 @@ func TestInsertEvent(t *testing.T) {
 		}
 
 		if !(e0.Body.selfParentIndex == -1 &&
-			e0.Body.otherParentCreatorID == -1 &&
+			e0.Body.otherParentCreatorID == 0 &&
 			e0.Body.otherParentIndex == -1 &&
 			e0.Body.creatorID == lastPeerSet.ByPubKey[e0.Creator()].ID) {
 			t.Fatalf("Invalid wire info on e0")
@@ -1629,16 +1629,16 @@ func TestKnown(t *testing.T) {
 
 	peerSet, _ := h.Store.GetLastPeerSet()
 
-	expectedKnown := map[int]int{
+	expectedKnown := map[uint32]int{
 		peerSet.IDs()[0]: 10,
 		peerSet.IDs()[1]: 9,
 		peerSet.IDs()[2]: 9,
 	}
 
 	known := h.Store.KnownEvents()
-	for i := range peerSet.IDs() {
-		if l := known[i]; l != expectedKnown[i] {
-			t.Fatalf("Known[%d] should be %d, not %d", i, expectedKnown[i], l)
+	for _, id := range peerSet.IDs() {
+		if l := known[id]; l != expectedKnown[id] {
+			t.Fatalf("Known[%d] should be %d, not %d", id, expectedKnown[id], l)
 		}
 	}
 }
@@ -1858,7 +1858,7 @@ func TestResetFromFrame(t *testing.T) {
 	*/
 
 	//Test Known
-	expectedKnown := map[int]int{
+	expectedKnown := map[uint32]int{
 		peerSet.IDs()[0]: 5,
 		peerSet.IDs()[1]: 4,
 		peerSet.IDs()[2]: 4,
@@ -2863,7 +2863,7 @@ func compareRoundWitnesses(h, h2 *Hashgraph, index map[string]string, round int,
 
 }
 
-func getDiff(h *Hashgraph, known map[int]int, t *testing.T) []*Event {
+func getDiff(h *Hashgraph, known map[uint32]int, t *testing.T) []*Event {
 	peerSet, _ := h.Store.GetLastPeerSet()
 	diff := []*Event{}
 	for id, ct := range known {

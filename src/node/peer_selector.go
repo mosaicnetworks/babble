@@ -10,7 +10,7 @@ import (
 
 type PeerSelector interface {
 	Peers() *peers.PeerSet
-	UpdateLast(peer int)
+	UpdateLast(peer uint32)
 	Next() *peers.Peer
 }
 
@@ -19,11 +19,11 @@ type PeerSelector interface {
 
 type RandomPeerSelector struct {
 	peers  *peers.PeerSet
-	selfID int
-	last   int
+	selfID uint32
+	last   uint32
 }
 
-func NewRandomPeerSelector(peerSet *peers.PeerSet, selfID int) *RandomPeerSelector {
+func NewRandomPeerSelector(peerSet *peers.PeerSet, selfID uint32) *RandomPeerSelector {
 	return &RandomPeerSelector{
 		selfID: selfID,
 		peers:  peerSet,
@@ -34,7 +34,7 @@ func (ps *RandomPeerSelector) Peers() *peers.PeerSet {
 	return ps.peers
 }
 
-func (ps *RandomPeerSelector) UpdateLast(peer int) {
+func (ps *RandomPeerSelector) UpdateLast(peer uint32) {
 	ps.last = peer
 }
 

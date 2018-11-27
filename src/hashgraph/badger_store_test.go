@@ -426,7 +426,7 @@ func TestDBFrameMethods(t *testing.T) {
 		event.Sign(p.privKey)
 		events = append(events, event)
 
-		roots[p.hex] = NewBaseRoot(id)
+		roots[p.hex] = NewBaseRoot(uint32(id))
 	}
 
 	frame := &Frame{
@@ -532,7 +532,7 @@ func TestBadgerEvents(t *testing.T) {
 		}
 	}
 
-	expectedKnown := make(map[int]int)
+	expectedKnown := make(map[uint32]int)
 	for _, p := range participants {
 		expectedKnown[p.id] = testSize - 1
 	}
@@ -694,7 +694,7 @@ func TestBadgerFrames(t *testing.T) {
 		event.Sign(p.privKey)
 		events = append(events, event)
 
-		roots[p.hex] = NewBaseRoot(id)
+		roots[p.hex] = NewBaseRoot(uint32(id))
 	}
 
 	frame := &Frame{

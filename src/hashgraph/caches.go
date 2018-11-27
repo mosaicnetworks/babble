@@ -44,11 +44,11 @@ func (pec *ParticipantEventsCache) AddPeer(peer *peers.Peer) error {
 	return pec.rim.AddKey(peer.ID)
 }
 
-func (pec *ParticipantEventsCache) participantID(participant string) (int, error) {
+func (pec *ParticipantEventsCache) participantID(participant string) (uint32, error) {
 	peer, ok := pec.participants.ByPubKey[participant]
 
 	if !ok {
-		return -1, cm.NewStoreErr("ParticipantEvents", cm.UnknownParticipant, participant)
+		return 0, cm.NewStoreErr("ParticipantEvents", cm.UnknownParticipant, participant)
 	}
 
 	return peer.ID, nil
@@ -108,7 +108,7 @@ func (pec *ParticipantEventsCache) Set(participant string, hash string, index in
 }
 
 //returns [participant id] => lastKnownIndex
-func (pec *ParticipantEventsCache) Known() map[int]int {
+func (pec *ParticipantEventsCache) Known() map[uint32]int {
 	return pec.rim.Known()
 }
 

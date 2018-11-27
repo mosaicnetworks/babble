@@ -131,8 +131,8 @@ func (b *Babble) initNode() error {
 	key := b.Config.Key
 
 	nodePub := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey))
-	n, ok := b.Peers.ByPubKey[nodePub]
 
+	n, ok := b.Peers.ByPubKey[nodePub]
 	if !ok {
 		return fmt.Errorf("Cannot find self pubkey in peers.json")
 	}

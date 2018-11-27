@@ -7,7 +7,7 @@ import (
 )
 
 type Peer struct {
-	ID        int `json:"-"`
+	ID        uint32 `json:"-"`
 	NetAddr   string
 	PubKeyHex string
 }
@@ -41,7 +41,7 @@ func (p *Peer) ComputeID() error {
 }
 
 // ExcludePeer is used to exclude a single peer from a list of peers.
-func ExcludePeer(peers []*Peer, peer int) (int, []*Peer) {
+func ExcludePeer(peers []*Peer, peer uint32) (int, []*Peer) {
 	index := -1
 	otherPeers := make([]*Peer, 0, len(peers))
 	for i, p := range peers {
