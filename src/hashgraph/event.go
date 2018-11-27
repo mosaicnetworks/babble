@@ -78,12 +78,11 @@ type EventBody struct {
 	Index                int                   //index in the sequence of events created by Creator
 	BlockSignatures      []BlockSignature      //list of Block signatures signed by the Event's Creator ONLY
 
-	//wire
-	//It is cheaper to send ints than hashes over the wire
+	//These fields are not serialized
+	creatorID            uint32
+	otherParentCreatorID uint32
 	selfParentIndex      int
-	otherParentCreatorID int
 	otherParentIndex     int
-	creatorID            int
 }
 
 //json encoding of body only
@@ -326,10 +325,10 @@ func (e *Event) SetRoundReceived(rr int) {
 	*e.roundReceived = rr
 }
 
-func (e *Event) SetWireInfo(selfParentIndex,
-	otherParentCreatorID,
-	otherParentIndex,
-	creatorID int) {
+func (e *Event) SetWireInfo(selfParentIndex int,
+	otherParentCreatorID uint32,
+	otherParentIndex int,
+	creatorID uint32) {
 	e.Body.selfParentIndex = selfParentIndex
 	e.Body.otherParentCreatorID = otherParentCreatorID
 	e.Body.otherParentIndex = otherParentIndex
@@ -366,7 +365,7 @@ func (e *Event) ToWire() WireEvent {
 	}
 }
 
-func rootSelfParent(participantID int) string {
+func rootSelfParent(participantID uint32) string {
 	return fmt.Sprintf("Root%d", participantID)
 }
 
@@ -418,12 +417,11 @@ type WireBody struct {
 	InternalTransactions []InternalTransaction
 	BlockSignatures      []WireBlockSignature
 
+	CreatorID            uint32
+	OtherParentCreatorID uint32
+	Index                int
 	SelfParentIndex      int
-	OtherParentCreatorID int
 	OtherParentIndex     int
-	CreatorID            int
-
-	Index int
 }
 
 type WireEvent struct {

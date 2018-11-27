@@ -656,7 +656,7 @@ func (h *Hashgraph) createRoot(ev *Event) (*Root, error) {
 
 func (h *Hashgraph) setWireInfo(event *Event) error {
 	selfParentIndex := -1
-	otherParentCreatorID := -1
+	otherParentCreatorID := uint32(0)
 	otherParentIndex := -1
 
 	creator, ok := h.Store.RepertoireByPubKey()[event.Creator()]

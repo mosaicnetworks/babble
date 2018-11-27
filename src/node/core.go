@@ -16,7 +16,7 @@ import (
 )
 
 type Core struct {
-	id     int
+	id     uint32
 	key    *ecdsa.PrivateKey
 	pubKey []byte
 	hexID  string
@@ -49,7 +49,7 @@ type Core struct {
 }
 
 func NewCore(
-	id int,
+	id uint32,
 	key *ecdsa.PrivateKey,
 	peers *peers.PeerSet,
 	store hg.Store,
@@ -84,7 +84,7 @@ func NewCore(
 	return core
 }
 
-func (c *Core) ID() int {
+func (c *Core) ID() uint32 {
 	return c.id
 }
 
@@ -164,7 +164,7 @@ func (c *Core) InsertEvent(event *hg.Event, setWireInfo bool) error {
 	return nil
 }
 
-func (c *Core) KnownEvents() map[int]int {
+func (c *Core) KnownEvents() map[uint32]int {
 	return c.hg.Store.KnownEvents()
 }
 
@@ -247,7 +247,7 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-func (c *Core) OverSyncLimit(knownEvents map[int]int, syncLimit int) bool {
+func (c *Core) OverSyncLimit(knownEvents map[uint32]int, syncLimit int) bool {
 	totUnknown := 0
 	myKnownEvents := c.KnownEvents()
 	for i, li := range myKnownEvents {
@@ -266,7 +266,7 @@ func (c *Core) GetAnchorBlockWithFrame() (*hg.Block, *hg.Frame, error) {
 }
 
 //returns events that c knowns about and are not in 'known'
-func (c *Core) EventDiff(known map[int]int) (events []*hg.Event, err error) {
+func (c *Core) EventDiff(known map[uint32]int) (events []*hg.Event, err error) {
 	unknown := []*hg.Event{}
 	//known represents the index of the last event known for every participant
 	//compare this to our view of events and fill unknown with events that we know of

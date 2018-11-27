@@ -11,7 +11,7 @@ import (
 type PeerSet struct {
 	Peers    []*Peer          `json:"peers"`
 	ByPubKey map[string]*Peer `json:"by_pub_key"`
-	ByID     map[int]*Peer    `json:"by_id"`
+	ByID     map[uint32]*Peer `json:"by_id"`
 
 	//cached values
 	hash          []byte
@@ -26,7 +26,7 @@ type PeerSet struct {
 func NewPeerSet(peers []*Peer) *PeerSet {
 	peerSet := &PeerSet{
 		ByPubKey: make(map[string]*Peer),
-		ByID:     make(map[int]*Peer),
+		ByID:     make(map[uint32]*Peer),
 	}
 
 	for _, peer := range peers {
@@ -78,8 +78,8 @@ func (c *PeerSet) PubKeys() []string {
 }
 
 //IDs returns the PeerSet's slice of IDs
-func (c *PeerSet) IDs() []int {
-	res := []int{}
+func (c *PeerSet) IDs() []uint32 {
+	res := []uint32{}
 
 	for _, peer := range c.Peers {
 		res = append(res, peer.ID)

@@ -14,12 +14,12 @@ import (
 	"github.com/mosaicnetworks/babble/src/proxy"
 )
 
-func initCores(n int, t *testing.T) ([]*Core, map[int]*ecdsa.PrivateKey, map[string]string) {
+func initCores(n int, t *testing.T) ([]*Core, map[uint32]*ecdsa.PrivateKey, map[string]string) {
 	cacheSize := 1000
 
 	cores := []*Core{}
 	index := make(map[string]string)
-	participantKeys := map[int]*ecdsa.PrivateKey{}
+	participantKeys := map[uint32]*ecdsa.PrivateKey{}
 	pirs := []*peers.Peer{}
 
 	for i := 0; i < n; i++ {
@@ -72,9 +72,9 @@ e01 |   |
 e0  e1  e2
 0   1   2
 */
-func initHashgraph(cores []*Core, keys map[int]*ecdsa.PrivateKey, index map[string]string, participant int) {
+func initHashgraph(cores []*Core, keys map[uint32]*ecdsa.PrivateKey, index map[string]string, participant uint32) {
 	for i := 0; i < len(cores); i++ {
-		if i != participant {
+		if uint32(i) != participant {
 			event, _ := cores[i].GetEvent(index[fmt.Sprintf("e%d", i)])
 			if err := cores[participant].InsertEvent(event, true); err != nil {
 				fmt.Printf("error inserting %s: %s\n", getName(index, event.Hex()), err)
@@ -110,8 +110,8 @@ func initHashgraph(cores []*Core, keys map[int]*ecdsa.PrivateKey, index map[stri
 	}
 }
 
-func insertEvent(cores []*Core, keys map[int]*ecdsa.PrivateKey, index map[string]string,
-	event *hg.Event, name string, particant int, creator int) error {
+func insertEvent(cores []*Core, keys map[uint32]*ecdsa.PrivateKey, index map[string]string,
+	event *hg.Event, name string, particant uint32, creator uint32) error {
 
 	if particant == creator {
 		if err := cores[particant].SignAndInsertSelfEvent(event); err != nil {
@@ -396,7 +396,7 @@ func TestOverSyncLimit(t *testing.T) {
 	cores := initConsensusHashgraph(t)
 
 	//positive
-	known := map[int]int{
+	known := map[uint32]int{
 		common.Hash32(cores[0].pubKey): 1,
 		common.Hash32(cores[1].pubKey): 1,
 		common.Hash32(cores[2].pubKey): 1,
@@ -409,7 +409,7 @@ func TestOverSyncLimit(t *testing.T) {
 	}
 
 	//negative
-	known = map[int]int{
+	known = map[uint32]int{
 		common.Hash32(cores[0].pubKey): 6,
 		common.Hash32(cores[1].pubKey): 6,
 		common.Hash32(cores[2].pubKey): 6,
@@ -420,7 +420,7 @@ func TestOverSyncLimit(t *testing.T) {
 	}
 
 	//edge
-	known = map[int]int{
+	known = map[uint32]int{
 		common.Hash32(cores[0].pubKey): 2,
 		common.Hash32(cores[1].pubKey): 3,
 		common.Hash32(cores[2].pubKey): 3,
@@ -613,7 +613,7 @@ func TestCoreFastForward(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		expectedKnown := map[int]int{
+		expectedKnown := map[uint32]int{
 			common.Hash32(cores[0].pubKey): -1,
 			common.Hash32(cores[1].pubKey): 1,
 			common.Hash32(cores[2].pubKey): 1,

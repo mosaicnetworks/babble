@@ -3,7 +3,6 @@ package hashgraph
 import (
 	"fmt"
 	"os"
-	"strconv"
 
 	"github.com/dgraph-io/badger"
 	cm "github.com/mosaicnetworks/babble/src/common"
@@ -176,7 +175,7 @@ func (s *BadgerStore) RepertoireByPubKey() map[string]*peers.Peer {
 	return s.inmemStore.RepertoireByPubKey()
 }
 
-func (s *BadgerStore) RepertoireByID() map[int]*peers.Peer {
+func (s *BadgerStore) RepertoireByID() map[uint32]*peers.Peer {
 	return s.inmemStore.RepertoireByID()
 }
 
@@ -227,8 +226,8 @@ func (s *BadgerStore) LastConsensusEventFrom(participant string) (last string, i
 	return s.inmemStore.LastConsensusEventFrom(participant)
 }
 
-func (s *BadgerStore) KnownEvents() map[int]int {
-	known := make(map[int]int)
+func (s *BadgerStore) KnownEvents() map[uint32]int {
+	known := make(map[uint32]int)
 	peers, _ := s.GetLastPeerSet()
 	for p, pid := range peers.ByPubKey {
 		index := -1
@@ -621,9 +620,9 @@ func (s *BadgerStore) dbSetPeerSet(peerSet *peers.PeerSet) error {
 	tx := s.db.NewTransaction(true)
 	defer tx.Discard()
 
-	for participant, id := range peerSet.ByPubKey {
+	for participant, peer := range peerSet.ByPubKey {
 		key := participantKey(participant)
-		val := []byte(strconv.Itoa(id.ID))
+		val := []byte(fmt.Sprint(peer.ID))
 		//insert [participant_participant] => [id]
 		if err := tx.Set(key, val); err != nil {
 			return err
