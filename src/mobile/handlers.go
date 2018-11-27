@@ -1,7 +1,5 @@
 package mobile
 
-import "github.com/mosaicnetworks/babble/src/proxy"
-
 /*
 These types are exported and need to be implemented and used by the mobile
 application.
@@ -10,7 +8,7 @@ application.
 //------------------------------------------------------------------------------
 
 type CommitHandler interface {
-	OnCommit([]byte) proxy.CommitResponse
+	OnCommit([]byte) (stateHash []byte)
 }
 
 type ExceptionHandler interface {
