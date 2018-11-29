@@ -22,198 +22,6 @@ import (
 
 var ip = 9990
 
-func initPeers(n int) ([]*ecdsa.PrivateKey, *peers.PeerSet) {
-	keys := []*ecdsa.PrivateKey{}
-	pirs := []*peers.Peer{}
-
-	for i := 0; i < n; i++ {
-		key, _ := crypto.GenerateECDSAKey()
-		keys = append(keys, key)
-		peer := peers.NewPeer(
-			fmt.Sprintf("0x%X", crypto.FromECDSAPub(&keys[i].PublicKey)),
-			fmt.Sprintf("127.0.0.1:%d", ip),
-		)
-		pirs = append(pirs, peer)
-		ip++
-	}
-
-	peerSet := peers.NewPeerSet(pirs)
-
-	return keys, peerSet
-}
-
-func TestProcessSync(t *testing.T) {
-	keys, p := initPeers(2)
-	testLogger := common.NewTestLogger(t)
-	config := TestConfig(t)
-
-	//Start two nodes
-
-	peers := p.Peers
-
-	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, testLogger)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	defer peer0Trans.Close()
-
-	node0 := NewNode(config, peers[0].ID, keys[0], p,
-		hg.NewInmemStore(p, config.CacheSize),
-		peer0Trans,
-		dummy.NewInmemDummyClient(testLogger))
-	node0.Init()
-
-	node0.RunAsync(false)
-
-	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, testLogger)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	defer peer1Trans.Close()
-
-	node1 := NewNode(config, peers[1].ID, keys[1], p,
-		hg.NewInmemStore(p, config.CacheSize),
-		peer1Trans,
-		dummy.NewInmemDummyClient(testLogger))
-	node1.Init()
-
-	node1.RunAsync(false)
-
-	//Manually prepare SyncRequest and expected SyncResponse
-
-	node0KnownEvents := node0.core.KnownEvents()
-	node1KnownEvents := node1.core.KnownEvents()
-
-	unknownEvents, err := node1.core.EventDiff(node0KnownEvents)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	unknownWireEvents, err := node1.core.ToWire(unknownEvents)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	args := net.SyncRequest{
-		FromID: node0.id,
-		Known:  node0KnownEvents,
-	}
-	expectedResp := net.SyncResponse{
-		FromID: node1.id,
-		Events: unknownWireEvents,
-		Known:  node1KnownEvents,
-	}
-
-	//Make actual SyncRequest and check SyncResponse
-
-	var out net.SyncResponse
-	if err := peer0Trans.Sync(peers[1].NetAddr, &args, &out); err != nil {
-		t.Fatalf("err: %v", err)
-	}
-
-	// Verify the response
-	if expectedResp.FromID != out.FromID {
-		t.Fatalf("SyncResponse.FromID should be %d, not %d", expectedResp.FromID, out.FromID)
-	}
-
-	if l := len(out.Events); l != len(expectedResp.Events) {
-		t.Fatalf("SyncResponse.Events should contain %d items, not %d",
-			len(expectedResp.Events), l)
-	}
-
-	for i, e := range expectedResp.Events {
-		ex := out.Events[i]
-		if !reflect.DeepEqual(e.Body, ex.Body) {
-			t.Fatalf("SyncResponse.Events[%d] should be %v, not %v", i, e.Body,
-				ex.Body)
-		}
-	}
-
-	if !reflect.DeepEqual(expectedResp.Known, out.Known) {
-		t.Fatalf("SyncResponse.KnownEvents should be %#v, not %#v",
-			expectedResp.Known, out.Known)
-	}
-
-	node0.Shutdown()
-	node1.Shutdown()
-}
-
-func TestProcessEagerSync(t *testing.T) {
-	keys, p := initPeers(2)
-	testLogger := common.NewTestLogger(t)
-	config := TestConfig(t)
-
-	//Start two nodes
-
-	peers := p.Peers
-
-	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, testLogger)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	defer peer0Trans.Close()
-
-	node0 := NewNode(config, peers[0].ID, keys[0], p,
-		hg.NewInmemStore(p, config.CacheSize),
-		peer0Trans,
-		dummy.NewInmemDummyClient(testLogger))
-	node0.Init()
-
-	node0.RunAsync(false)
-
-	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, testLogger)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	defer peer1Trans.Close()
-
-	node1 := NewNode(config, peers[1].ID, keys[1], p,
-		hg.NewInmemStore(p, config.CacheSize),
-		peer1Trans,
-		dummy.NewInmemDummyClient(testLogger))
-	node1.Init()
-
-	node1.RunAsync(false)
-
-	//Manually prepare EagerSyncRequest and expected EagerSyncResponse
-
-	node1KnownEvents := node1.core.KnownEvents()
-
-	unknownEvents, err := node0.core.EventDiff(node1KnownEvents)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	unknownWireEvents, err := node0.core.ToWire(unknownEvents)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	args := net.EagerSyncRequest{
-		FromID: node0.id,
-		Events: unknownWireEvents,
-	}
-	expectedResp := net.EagerSyncResponse{
-		FromID:  node1.id,
-		Success: true,
-	}
-
-	//Make actual EagerSyncRequest and check EagerSyncResponse
-
-	var out net.EagerSyncResponse
-	if err := peer0Trans.EagerSync(peers[1].NetAddr, &args, &out); err != nil {
-		t.Fatalf("err: %v", err)
-	}
-
-	// Verify the response
-	if expectedResp.Success != out.Success {
-		t.Fatalf("EagerSyncResponse.Sucess should be %v, not %v", expectedResp.Success, out.Success)
-	}
-
-	node0.Shutdown()
-	node1.Shutdown()
-}
-
 func TestAddTransaction(t *testing.T) {
 	keys, p := initPeers(2)
 	testLogger := common.NewTestLogger(t)
@@ -236,7 +44,7 @@ func TestAddTransaction(t *testing.T) {
 		peer0Proxy)
 	node0.Init()
 
-	node0.RunAsync(false)
+	node0.RunAsync("", false)
 
 	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
 	if err != nil {
@@ -251,7 +59,7 @@ func TestAddTransaction(t *testing.T) {
 		peer1Proxy)
 	node1.Init()
 
-	node1.RunAsync(false)
+	node1.RunAsync("", false)
 	//Submit a Tx to node0
 
 	message := "Hello World!"
@@ -291,174 +99,6 @@ func TestAddTransaction(t *testing.T) {
 
 	node0.Shutdown()
 	node1.Shutdown()
-}
-
-func new_node(k *ecdsa.PrivateKey,
-	peers *peers.PeerSet,
-	cacheSize,
-	syncLimit int,
-	storeType string,
-	logger *logrus.Logger,
-	t testing.TB) *Node {
-
-	key := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&k.PublicKey))
-	peer := peers.ByPubKey[key]
-	id := peer.ID
-
-	conf := NewConfig(
-		5*time.Millisecond,
-		time.Second,
-		cacheSize,
-		syncLimit,
-		logger,
-	)
-
-	trans, err := net.NewTCPTransport(peer.NetAddr,
-		nil, 2, time.Second, logger)
-	if err != nil {
-		t.Fatalf("failed to create transport for peer %d: %s", id, err)
-	}
-	var store hg.Store
-	switch storeType {
-	case "badger":
-		path, _ := ioutil.TempDir("", "badger")
-		store, err = hg.NewBadgerStore(peers, conf.CacheSize, path)
-		if err != nil {
-			t.Fatalf("failed to create BadgerStore for peer %d: %s", id, err)
-		}
-	case "inmem":
-		store = hg.NewInmemStore(peers, conf.CacheSize)
-	}
-	prox := dummy.NewInmemDummyClient(logger)
-	node := NewNode(conf,
-		id,
-		k,
-		peers,
-		store,
-		trans,
-		prox)
-
-	if err := node.Init(); err != nil {
-		t.Fatalf("failed to initialize node%d: %s", id, err)
-	}
-
-	return node
-}
-
-func initNodes(keys []*ecdsa.PrivateKey,
-	peers *peers.PeerSet,
-	cacheSize,
-	syncLimit int,
-	storeType string,
-	logger *logrus.Logger,
-	t testing.TB) []*Node {
-
-	nodes := []*Node{}
-
-	for _, k := range keys {
-		node := new_node(k, peers, cacheSize, syncLimit, storeType, logger, t)
-
-		nodes = append(nodes, node)
-	}
-	return nodes
-}
-
-func recycleNodes(oldNodes []*Node, logger *logrus.Logger, t *testing.T) []*Node {
-	newNodes := []*Node{}
-	for _, oldNode := range oldNodes {
-		newNode := recycleNode(oldNode, logger, t)
-		newNodes = append(newNodes, newNode)
-	}
-	return newNodes
-}
-
-func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
-	conf := oldNode.conf
-	id := oldNode.id
-	key := oldNode.core.key
-	peers := oldNode.core.peers
-
-	var store hg.Store
-	var err error
-	if _, ok := oldNode.core.hg.Store.(*hg.BadgerStore); ok {
-		store, err = hg.LoadBadgerStore(conf.CacheSize, oldNode.core.hg.Store.StorePath())
-		if err != nil {
-			t.Fatal(err)
-		}
-	} else {
-		store = hg.NewInmemStore(oldNode.core.peers, conf.CacheSize)
-	}
-
-	trans, err := net.NewTCPTransport(oldNode.trans.LocalAddr(),
-		nil, 2, time.Second, logger)
-	if err != nil {
-		t.Fatal(err)
-	}
-	prox := dummy.NewInmemDummyClient(logger)
-
-	newNode := NewNode(conf, id, key, peers, store, trans, prox)
-
-	if err := newNode.Init(); err != nil {
-		t.Fatal(err)
-	}
-
-	return newNode
-}
-
-func runNodes(nodes []*Node, gossip bool) {
-	for _, n := range nodes {
-		node := n
-		go func() {
-			node.Run(gossip)
-		}()
-	}
-}
-
-func shutdownNodes(nodes []*Node) {
-	for _, n := range nodes {
-		n.Shutdown()
-	}
-}
-
-func drawGraphs(nodes []*Node, t *testing.T) {
-	os.RemoveAll("test_data")
-	os.Mkdir("test_data", os.ModeDir|0777)
-	for _, n := range nodes {
-		graph := NewGraph(n)
-
-		n.coreLock.Lock()
-		info, err := graph.GetInfos()
-		n.coreLock.Unlock()
-
-		if err != nil {
-			t.Logf("ERROR drawing graph: %s", err)
-			continue
-		}
-
-		jinfo, err := json.Marshal(info)
-
-		err = ioutil.WriteFile(fmt.Sprintf("test_data/info%d", n.ID()), jinfo, 0644)
-		if err != nil {
-			t.Log(err)
-		}
-	}
-}
-
-func deleteStores(nodes []*Node, t *testing.T) {
-	for _, n := range nodes {
-		if err := os.RemoveAll(n.core.hg.Store.StorePath()); err != nil {
-			t.Fatal(err)
-		}
-	}
-}
-
-func getCommittedTransactions(n *Node) ([][]byte, error) {
-	InmemAppProxy, ok := n.proxy.(*dummy.InmemDummyClient)
-	if !ok {
-		return nil, fmt.Errorf("Error casting to InmemProp")
-	}
-	res := InmemAppProxy.GetCommittedTransactions()
-	return res, nil
 }
 
 func TestGossip(t *testing.T) {
@@ -610,7 +250,7 @@ func TestCatchUp(t *testing.T) {
 		}
 	}()
 
-	node4.RunAsync(true)
+	node4.RunAsync("", true)
 	defer node4.Shutdown()
 
 	//Gossip some more
@@ -670,7 +310,7 @@ func TestFastSync(t *testing.T) {
 		}
 	}()
 
-	node4.RunAsync(true)
+	node4.RunAsync("", true)
 
 	nodes[3] = node4
 	defer node4.Shutdown()
@@ -780,6 +420,192 @@ func TestAddPeer(t *testing.T) {
 	checkGossip(nodes, 0, t)
 }
 
+func BenchmarkGossip(b *testing.B) {
+	logger := common.NewTestLogger(b)
+	for n := 0; n < b.N; n++ {
+		keys, peers := initPeers(4)
+		nodes := initNodes(keys, peers, 1000, 1000, "inmem", logger, b)
+		gossip(nodes, 50, true, 3*time.Second)
+	}
+}
+
+// func TestPeerLeaveRequest(t *testing.T) {
+// 	logger := common.NewTestLogger(t)
+
+// 	keys, peerSet := initPeers(4)
+// 	nodes := initNodes(keys, peerSet, 1000, 1000, "inmem", logger, t)
+
+// 	runNodes(nodes, true)
+
+// 	target := 50
+
+// 	err := bombardAndWait(nodes, target, 3*time.Second)
+// 	if err != nil {
+// 		t.Fatal("Error bombarding: ", err)
+// 	}
+
+// 	nodes[1].Shutdown()
+// 	nodes = append([]*Node{nodes[0]}, nodes[2:]...)
+
+// 	target = 50
+
+// 	err = bombardAndWait(nodes, target, 3*time.Second)
+// 	if err != nil {
+// 		t.Fatal("Error bombarding: ", err)
+// 	}
+
+// 	for i := range nodes {
+// 		if nodes[i].core.peers.Len() != 3 {
+// 			t.Errorf("Node %d should have %d peers, not %d", i, 3, nodes[i].core.peers.Len())
+// 		}
+// 	}
+// }
+
+/*******************************************************************************
+HELPERS
+*******************************************************************************/
+
+func initPeers(n int) ([]*ecdsa.PrivateKey, *peers.PeerSet) {
+	keys := []*ecdsa.PrivateKey{}
+	pirs := []*peers.Peer{}
+
+	for i := 0; i < n; i++ {
+		key, _ := crypto.GenerateECDSAKey()
+		keys = append(keys, key)
+		peer := peers.NewPeer(
+			fmt.Sprintf("0x%X", crypto.FromECDSAPub(&keys[i].PublicKey)),
+			fmt.Sprintf("127.0.0.1:%d", ip),
+		)
+		pirs = append(pirs, peer)
+		ip++
+	}
+
+	peerSet := peers.NewPeerSet(pirs)
+
+	return keys, peerSet
+}
+
+func new_node(k *ecdsa.PrivateKey,
+	peers *peers.PeerSet,
+	cacheSize,
+	syncLimit int,
+	storeType string,
+	logger *logrus.Logger,
+	t testing.TB) *Node {
+
+	key := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&k.PublicKey))
+	peer := peers.ByPubKey[key]
+	id := peer.ID
+
+	conf := NewConfig(
+		5*time.Millisecond,
+		time.Second,
+		cacheSize,
+		syncLimit,
+		logger,
+	)
+
+	trans, err := net.NewTCPTransport(peer.NetAddr,
+		nil, 2, time.Second, logger)
+	if err != nil {
+		t.Fatalf("failed to create transport for peer %d: %s", id, err)
+	}
+	var store hg.Store
+	switch storeType {
+	case "badger":
+		path, _ := ioutil.TempDir("", "badger")
+		store, err = hg.NewBadgerStore(peers, conf.CacheSize, path)
+		if err != nil {
+			t.Fatalf("failed to create BadgerStore for peer %d: %s", id, err)
+		}
+	case "inmem":
+		store = hg.NewInmemStore(peers, conf.CacheSize)
+	}
+	prox := dummy.NewInmemDummyClient(logger)
+	node := NewNode(conf,
+		id,
+		k,
+		peers,
+		store,
+		trans,
+		prox)
+
+	if err := node.Init(); err != nil {
+		t.Fatalf("failed to initialize node%d: %s", id, err)
+	}
+
+	return node
+}
+
+func initNodes(keys []*ecdsa.PrivateKey,
+	peers *peers.PeerSet,
+	cacheSize,
+	syncLimit int,
+	storeType string,
+	logger *logrus.Logger,
+	t testing.TB) []*Node {
+
+	nodes := []*Node{}
+
+	for _, k := range keys {
+		node := new_node(k, peers, cacheSize, syncLimit, storeType, logger, t)
+
+		nodes = append(nodes, node)
+	}
+	return nodes
+}
+
+func recycleNodes(oldNodes []*Node, logger *logrus.Logger, t *testing.T) []*Node {
+	newNodes := []*Node{}
+	for _, oldNode := range oldNodes {
+		newNode := recycleNode(oldNode, logger, t)
+		newNodes = append(newNodes, newNode)
+	}
+	return newNodes
+}
+
+func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
+	conf := oldNode.conf
+	id := oldNode.id
+	key := oldNode.core.key
+	peers := oldNode.core.peers
+
+	var store hg.Store
+	var err error
+	if _, ok := oldNode.core.hg.Store.(*hg.BadgerStore); ok {
+		store, err = hg.LoadBadgerStore(conf.CacheSize, oldNode.core.hg.Store.StorePath())
+		if err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		store = hg.NewInmemStore(oldNode.core.peers, conf.CacheSize)
+	}
+
+	trans, err := net.NewTCPTransport(oldNode.trans.LocalAddr(),
+		nil, 2, time.Second, logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prox := dummy.NewInmemDummyClient(logger)
+
+	newNode := NewNode(conf, id, key, peers, store, trans, prox)
+
+	if err := newNode.Init(); err != nil {
+		t.Fatal(err)
+	}
+
+	return newNode
+}
+
+func runNodes(nodes []*Node, gossip bool) {
+	for _, n := range nodes {
+		node := n
+		go func() {
+			node.Run("", gossip)
+		}()
+	}
+}
+
 func gossip(nodes []*Node, target int, shutdown bool, timeout time.Duration) error {
 	runNodes(nodes, true)
 	err := bombardAndWait(nodes, target, timeout)
@@ -833,6 +659,39 @@ func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
 	return nil
 }
 
+func makeRandomTransactions(nodes []*Node, quit chan struct{}) {
+	go func() {
+		seq := make(map[int]int)
+		for {
+			select {
+			case <-quit:
+				return
+			default:
+				n := rand.Intn(len(nodes))
+				node := nodes[n]
+				submitTransaction(node, []byte(fmt.Sprintf("node%d transaction %d", n, seq[n])))
+				seq[n] = seq[n] + 1
+				time.Sleep(3 * time.Millisecond)
+			}
+		}
+	}()
+}
+
+func submitTransaction(n *Node, tx []byte) error {
+	prox, ok := n.proxy.(*dummy.InmemDummyClient)
+	if !ok {
+		return fmt.Errorf("Error casting to InmemProp")
+	}
+	prox.SubmitTx([]byte(tx))
+	return nil
+}
+
+func shutdownNodes(nodes []*Node) {
+	for _, n := range nodes {
+		n.Shutdown()
+	}
+}
+
 func checkGossip(nodes []*Node, fromBlock int, t *testing.T) {
 	nodeBlocks := map[int][]*hg.Block{}
 	for index, n := range nodes {
@@ -864,70 +723,43 @@ func checkGossip(nodes []*Node, fromBlock int, t *testing.T) {
 	}
 }
 
-func makeRandomTransactions(nodes []*Node, quit chan struct{}) {
-	go func() {
-		seq := make(map[int]int)
-		for {
-			select {
-			case <-quit:
-				return
-			default:
-				n := rand.Intn(len(nodes))
-				node := nodes[n]
-				submitTransaction(node, []byte(fmt.Sprintf("node%d transaction %d", n, seq[n])))
-				seq[n] = seq[n] + 1
-				time.Sleep(3 * time.Millisecond)
-			}
+func drawGraphs(nodes []*Node, t *testing.T) {
+	os.RemoveAll("test_data")
+	os.Mkdir("test_data", os.ModeDir|0777)
+	for _, n := range nodes {
+		graph := NewGraph(n)
+
+		n.coreLock.Lock()
+		info, err := graph.GetInfos()
+		n.coreLock.Unlock()
+
+		if err != nil {
+			t.Logf("ERROR drawing graph: %s", err)
+			continue
 		}
-	}()
+
+		jinfo, err := json.Marshal(info)
+
+		err = ioutil.WriteFile(fmt.Sprintf("test_data/info%d", n.ID()), jinfo, 0644)
+		if err != nil {
+			t.Log(err)
+		}
+	}
 }
 
-func submitTransaction(n *Node, tx []byte) error {
-	prox, ok := n.proxy.(*dummy.InmemDummyClient)
+func deleteStores(nodes []*Node, t *testing.T) {
+	for _, n := range nodes {
+		if err := os.RemoveAll(n.core.hg.Store.StorePath()); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func getCommittedTransactions(n *Node) ([][]byte, error) {
+	InmemAppProxy, ok := n.proxy.(*dummy.InmemDummyClient)
 	if !ok {
-		return fmt.Errorf("Error casting to InmemProp")
+		return nil, fmt.Errorf("Error casting to InmemProp")
 	}
-	prox.SubmitTx([]byte(tx))
-	return nil
+	res := InmemAppProxy.GetCommittedTransactions()
+	return res, nil
 }
-
-func BenchmarkGossip(b *testing.B) {
-	logger := common.NewTestLogger(b)
-	for n := 0; n < b.N; n++ {
-		keys, peers := initPeers(4)
-		nodes := initNodes(keys, peers, 1000, 1000, "inmem", logger, b)
-		gossip(nodes, 50, true, 3*time.Second)
-	}
-}
-
-// func TestPeerLeaveRequest(t *testing.T) {
-// 	logger := common.NewTestLogger(t)
-
-// 	keys, peerSet := initPeers(4)
-// 	nodes := initNodes(keys, peerSet, 1000, 1000, "inmem", logger, t)
-
-// 	runNodes(nodes, true)
-
-// 	target := 50
-
-// 	err := bombardAndWait(nodes, target, 3*time.Second)
-// 	if err != nil {
-// 		t.Fatal("Error bombarding: ", err)
-// 	}
-
-// 	nodes[1].Shutdown()
-// 	nodes = append([]*Node{nodes[0]}, nodes[2:]...)
-
-// 	target = 50
-
-// 	err = bombardAndWait(nodes, target, 3*time.Second)
-// 	if err != nil {
-// 		t.Fatal("Error bombarding: ", err)
-// 	}
-
-// 	for i := range nodes {
-// 		if nodes[i].core.peers.Len() != 3 {
-// 			t.Errorf("Node %d should have %d peers, not %d", i, 3, nodes[i].core.peers.Len())
-// 		}
-// 	}
-// }

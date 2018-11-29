@@ -5,7 +5,8 @@ import (
 	"sync/atomic"
 )
 
-// NodeState captures the state of a Babble node: Babbling, CatchingUp or Shutdown
+// NodeState captures the state of a Babble node: Babbling, CatchingUp, Joining,
+// or Shutdown
 type NodeState uint32
 
 const (
@@ -13,6 +14,8 @@ const (
 	Babbling NodeState = iota
 
 	CatchingUp
+
+	Joining
 
 	Shutdown
 )
@@ -23,6 +26,8 @@ func (s NodeState) String() string {
 		return "Babbling"
 	case CatchingUp:
 		return "CatchingUp"
+	case Joining:
+		return "Joining"
 	case Shutdown:
 		return "Shutdown"
 	default:
