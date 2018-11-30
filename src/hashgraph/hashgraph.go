@@ -39,8 +39,8 @@ type Hashgraph struct {
 }
 
 //NewHashgraph instantiates a Hashgraph from a list of participants, underlying
-//data store and commit channel
-func NewHashgraph(participants *peers.PeerSet, store Store, commitCallback InternalCommitCallback, logger *logrus.Entry) *Hashgraph {
+//data store and commit callback
+func NewHashgraph(store Store, commitCallback InternalCommitCallback, logger *logrus.Entry) *Hashgraph {
 	if logger == nil {
 		log := logrus.New()
 		log.Level = logrus.DebugLevel
@@ -60,6 +60,18 @@ func NewHashgraph(participants *peers.PeerSet, store Store, commitCallback Inter
 	}
 
 	return &hashgraph
+}
+
+func (h *Hashgraph) Init(peerSet *peers.PeerSet) error {
+	//Set the initial PeerSet. This also creates a base Root for each Peer and
+	//populates the Repertoire.
+	if err := h.Store.SetPeerSet(0, peerSet); err != nil {
+		return fmt.Errorf("Error setting PeerSet: %v", err)
+	}
+
+	//XXX Do something else? Genesis Block?
+
+	return nil
 }
 
 /*******************************************************************************
@@ -189,7 +201,6 @@ func (h *Hashgraph) round(x string) (int, error) {
 }
 
 func (h *Hashgraph) _round(x string) (int, error) {
-
 	/*
 		x is the Root
 		Use Root.SelfParent.Round
@@ -1436,6 +1447,16 @@ func (h *Hashgraph) Reset(block *Block, frame *Frame) error {
 //Hashgraph
 func (h *Hashgraph) Bootstrap() error {
 	if badgerStore, ok := h.Store.(*BadgerStore); ok {
+		//Load Genesis PeerSet
+		peerSet, err := badgerStore.dbGetPeerSet(0)
+		if err != nil {
+			return fmt.Errorf("No Genesis PeerSet: %v", err)
+		}
+
+		//Initialize the InmemStore with Genesis PeerSet. This has side-effects:
+		//It will create the corresponding Roots and populate the Repertoires.
+		badgerStore.inmemStore.SetPeerSet(0, peerSet)
+
 		//Retreive the Events from the underlying DB. They come out in topological
 		//order
 		topologicalEvents, err := badgerStore.dbTopologicalEvents()

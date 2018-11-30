@@ -60,7 +60,13 @@ func (p *Peer) Unmarshal(data []byte) error {
 
 	dec := json.NewDecoder(b) //will read from b
 
-	return dec.Decode(p)
+	if err := dec.Decode(p); err != nil {
+		return err
+	}
+
+	p.ComputeID()
+
+	return nil
 }
 
 // ExcludePeer is used to exclude a single peer from a list of peers.

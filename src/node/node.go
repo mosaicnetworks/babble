@@ -110,7 +110,7 @@ func (n *Node) Run(connectNode string, gossip bool) {
 
 	//Execute Node State Machine
 	for {
-		// Run different routines depending on node state
+		//Run different routines depending on node state
 		state := n.getState()
 
 		n.logger.WithField("state", state.String()).Debug("Run loop")

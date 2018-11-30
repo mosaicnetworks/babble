@@ -1,6 +1,8 @@
 package peers
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"math"
 
@@ -10,8 +12,8 @@ import (
 //PeerSet is a set of Peers forming a consensus network
 type PeerSet struct {
 	Peers    []*Peer          `json:"peers"`
-	ByPubKey map[string]*Peer `json:"by_pub_key"`
-	ByID     map[uint32]*Peer `json:"by_id"`
+	ByPubKey map[string]*Peer `json:"-"`
+	ByID     map[uint32]*Peer `json:"-"`
 
 	//cached values
 	hash          []byte
@@ -41,6 +43,21 @@ func NewPeerSet(peers []*Peer) *PeerSet {
 	peerSet.Peers = peers
 
 	return peerSet
+}
+
+func NewPeerSetFromPeerSliceBytes(peerSliceBytes []byte) (*PeerSet, error) {
+	//Decode Peer slice
+	peers := []*Peer{}
+
+	b := bytes.NewBuffer(peerSliceBytes)
+	dec := json.NewDecoder(b) //will read from b
+
+	err := dec.Decode(&peers)
+	if err != nil {
+		return nil, err
+	}
+	//create new PeerSet
+	return NewPeerSet(peers), nil
 }
 
 //WithNewPeer returns a new PeerSet with a list of peers including the new one.
@@ -116,6 +133,15 @@ func (c *PeerSet) Hex() string {
 		c.hex = fmt.Sprintf("0x%X", hash)
 	}
 	return c.hex
+}
+
+func (c *PeerSet) Marshal() ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	if err := enc.Encode(c.Peers); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 //SuperMajority return the number of peers that forms a strong majortiy (+2/3)

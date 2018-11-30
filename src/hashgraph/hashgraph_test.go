@@ -114,15 +114,19 @@ func createHashgraph(db bool, orderedEvents *[]*Event, peerSet *peers.PeerSet, l
 	var store Store
 	if db {
 		var err error
-		store, err = NewBadgerStore(peerSet, cacheSize, badgerDir)
+		store, err = NewBadgerStore(cacheSize, badgerDir)
 		if err != nil {
 			logger.Fatal(err)
 		}
 	} else {
-		store = NewInmemStore(peerSet, cacheSize)
+		store = NewInmemStore(cacheSize)
 	}
 
-	hashgraph := NewHashgraph(peerSet, store, DummyInternalCommitCallback, logger)
+	hashgraph := NewHashgraph(store, DummyInternalCommitCallback, logger)
+
+	if err := hashgraph.Init(peerSet); err != nil {
+		fmt.Printf("ERROR initializing Hashgraph: %s\n", err)
+	}
 
 	for i, ev := range *orderedEvents {
 		if err := hashgraph.InsertEvent(ev, true); err != nil {
@@ -354,8 +358,9 @@ func TestFork(t *testing.T) {
 
 	peerSet := peers.NewPeerSet(pirs)
 
-	store := NewInmemStore(peerSet, cacheSize)
-	hashgraph := NewHashgraph(peerSet, store, DummyInternalCommitCallback, testLogger(t))
+	hashgraph := NewHashgraph(NewInmemStore(cacheSize), DummyInternalCommitCallback, testLogger(t))
+
+	hashgraph.Init(peerSet)
 
 	for i, node := range nodes {
 		event := NewEvent(nil, nil, nil, []string{"", ""}, node.Pub, 0)
@@ -976,7 +981,9 @@ func initBlockHashgraph(t *testing.T) (*Hashgraph, []TestNode, map[string]string
 		nodes[i].signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
 	}
 
-	hashgraph := NewHashgraph(peerSet, NewInmemStore(peerSet, cacheSize), DummyInternalCommitCallback, testLogger(t))
+	hashgraph := NewHashgraph(NewInmemStore(cacheSize), DummyInternalCommitCallback, testLogger(t))
+
+	hashgraph.Init(peerSet)
 
 	//create a block and signatures manually
 	block := NewBlock(0, 1,
@@ -1820,16 +1827,16 @@ func TestResetFromFrame(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	//This operation clears the private fields which need to be recomputed
-	//in the Events (round, roundReceived,etc)
+	//This operation clears the Events' private fields, which need to be
+	//recomputed (round, roundReceived, etc).
 	marshalledFrame, _ := frame.Marshal()
 	unmarshalledFrame := new(Frame)
 	unmarshalledFrame.Unmarshal(marshalledFrame)
 
-	h2 := NewHashgraph(peerSet,
-		NewInmemStore(peerSet, cacheSize),
-		DummyInternalCommitCallback,
-		testLogger(t))
+	store := NewInmemStore(cacheSize)
+
+	h2 := NewHashgraph(store, DummyInternalCommitCallback, testLogger(t))
+
 	err = h2.Reset(block, unmarshalledFrame)
 	if err != nil {
 		t.Fatal(err)
@@ -1989,6 +1996,7 @@ func TestResetFromFrame(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		h2Round, err := h2.Store.GetRound(r)
 		if err != nil {
 			t.Fatal(err)
@@ -2020,15 +2028,10 @@ func TestBootstrap(t *testing.T) {
 
 	//Now we want to create a new Hashgraph based on the database of the previous
 	//Hashgraph and see if we can boostrap it to the same state.
-	recycledStore, err := LoadBadgerStore(cacheSize, badgerDir)
-	peerSet, err := recycledStore.GetLastPeerSet()
-	if err != nil {
-		t.Fatal(err)
-	}
-	nh := NewHashgraph(peerSet,
-		recycledStore,
-		DummyInternalCommitCallback,
-		logrus.New().WithField("id", "bootstrapped"))
+	recycledStore, err := NewBadgerStore(cacheSize, badgerDir)
+
+	nh := NewHashgraph(recycledStore, DummyInternalCommitCallback, logrus.New().WithField("id", "bootstrapped"))
+
 	err = nh.Bootstrap()
 	if err != nil {
 		t.Fatal(err)
@@ -2467,12 +2470,10 @@ func TestFunkyHashgraphReset(t *testing.T) {
 		unmarshalledFrame := new(Frame)
 		unmarshalledFrame.Unmarshal(marshalledFrame)
 
-		peerSet := peers.NewPeerSet(frame.Peers)
-
-		h2 := NewHashgraph(peerSet,
-			NewInmemStore(peerSet, cacheSize),
+		h2 := NewHashgraph(NewInmemStore(cacheSize),
 			DummyInternalCommitCallback,
 			testLogger(t))
+
 		err = h2.Reset(block, unmarshalledFrame)
 		if err != nil {
 			t.Fatal(err)
@@ -2741,11 +2742,6 @@ func TestSparseHashgraphFrames(t *testing.T) {
 func TestSparseHashgraphReset(t *testing.T) {
 	h, index := initSparseHashgraph(common.NewTestLogger(t))
 
-	peerSet, err := h.Store.GetLastPeerSet()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	h.DivideRounds()
 	h.DecideFame()
 	h.DecideRoundReceived()
@@ -2772,10 +2768,10 @@ func TestSparseHashgraphReset(t *testing.T) {
 		unmarshalledFrame := new(Frame)
 		unmarshalledFrame.Unmarshal(marshalledFrame)
 
-		h2 := NewHashgraph(peerSet,
-			NewInmemStore(peerSet, cacheSize),
+		h2 := NewHashgraph(NewInmemStore(cacheSize),
 			DummyInternalCommitCallback,
 			testLogger(t))
+
 		err = h2.Reset(block, unmarshalledFrame)
 		if err != nil {
 			t.Fatal(err)

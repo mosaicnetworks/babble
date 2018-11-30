@@ -35,7 +35,15 @@ func (f *Frame) Unmarshal(data []byte) error {
 	jh.Canonical = true
 	dec := codec.NewDecoder(b, jh)
 
-	return dec.Decode(f)
+	if err := dec.Decode(f); err != nil {
+		return err
+	}
+
+	for _, p := range f.Peers {
+		p.ComputeID()
+	}
+
+	return nil
 }
 
 func (f *Frame) Hash() ([]byte, error) {
