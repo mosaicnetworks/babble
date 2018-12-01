@@ -138,7 +138,7 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 		"events":     len(resp.Events),
 		"known":      resp.Known,
 		"sync_limit": resp.SyncLimit,
-		"error":      respErr,
+		"rpc_err":    respErr,
 	}).Debug("Responding to SyncRequest")
 
 	rpc.Respond(resp, respErr)
@@ -153,7 +153,7 @@ func (n *Node) processEagerSyncRequest(rpc net.RPC, cmd *net.EagerSyncRequest) {
 	success := true
 
 	n.coreLock.Lock()
-	err := n.sync(cmd.Events)
+	err := n.sync(cmd.FromID, cmd.Events)
 	n.coreLock.Unlock()
 
 	if err != nil {
@@ -191,26 +191,25 @@ func (n *Node) processFastForwardRequest(rpc net.RPC, cmd *net.FastForwardReques
 		n.logger.WithField("error", err).Error("Getting Frame")
 
 		respErr = err
+	} else {
+		resp.Block = *block
+
+		resp.Frame = *frame
+
+		//Get snapshot
+		snapshot, err := n.proxy.GetSnapshot(block.Index())
+
+		if err != nil {
+			n.logger.WithField("error", err).Error("Getting Snapshot")
+			respErr = err
+		} else {
+			resp.Snapshot = snapshot
+		}
 	}
-
-	resp.Block = *block
-
-	resp.Frame = *frame
-
-	//Get snapshot
-	snapshot, err := n.proxy.GetSnapshot(block.Index())
-
-	if err != nil {
-		n.logger.WithField("error", err).Error("Getting Snapshot")
-
-		respErr = err
-	}
-
-	resp.Snapshot = snapshot
 
 	n.logger.WithFields(logrus.Fields{
-		"Events": len(resp.Frame.Events),
-		"Error":  respErr,
+		"events":  len(resp.Frame.Events),
+		"rpc_err": respErr,
 	}).Debug("Responding to FastForwardRequest")
 
 	rpc.Respond(resp, respErr)

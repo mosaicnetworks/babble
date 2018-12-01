@@ -291,10 +291,7 @@ func (n *Node) connect(addr string) error {
 func (n *Node) gossip(peer *peers.Peer, parentReturnCh chan struct{}) error {
 	//pull
 	syncLimit, otherKnownEvents, err := n.pull(peer)
-
 	if err != nil {
-		// n.addInternalTransaction(hg.NewInternalTransactionLeave(*peer))
-
 		return err
 	}
 
@@ -316,9 +313,7 @@ func (n *Node) gossip(peer *peers.Peer, parentReturnCh chan struct{}) error {
 
 	//update peer selector
 	n.core.selectorLock.Lock()
-
-	n.core.peerSelector.UpdateLast(peer.ID)
-
+	n.core.peerSelector.UpdateLast(peer.ID())
 	n.core.selectorLock.Unlock()
 
 	n.logStats()
@@ -329,23 +324,17 @@ func (n *Node) gossip(peer *peers.Peer, parentReturnCh chan struct{}) error {
 func (n *Node) pull(peer *peers.Peer) (syncLimit bool, otherKnownEvents map[uint32]int, err error) {
 	//Compute Known
 	n.coreLock.Lock()
-
 	knownEvents := n.core.KnownEvents()
-
 	n.coreLock.Unlock()
 
 	//Send SyncRequest
 	start := time.Now()
-
 	resp, err := n.requestSync(peer.NetAddr, knownEvents)
-
 	elapsed := time.Since(start)
-
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestSync()")
 
 	if err != nil {
 		n.logger.WithField("error", err).Error("requestSync()")
-
 		return false, nil, err
 	}
 
@@ -362,8 +351,9 @@ func (n *Node) pull(peer *peers.Peer) (syncLimit bool, otherKnownEvents map[uint
 
 	//Add Events to Hashgraph and create new Head if necessary
 	n.coreLock.Lock()
-	err = n.sync(resp.Events)
+	err = n.sync(peer.ID(), resp.Events)
 	n.coreLock.Unlock()
+
 	if err != nil {
 		n.logger.WithField("error", err).Error("sync()")
 		return false, nil, err
@@ -432,14 +422,11 @@ func (n *Node) push(peer *peers.Peer, knownEvents map[uint32]int) error {
 	return nil
 }
 
-func (n *Node) sync(events []hg.WireEvent) error {
+func (n *Node) sync(fromID uint32, events []hg.WireEvent) error {
 	//Insert Events in Hashgraph and create new Head if necessary
 	start := time.Now()
-
-	err := n.core.Sync(events)
-
+	err := n.core.Sync(fromID, events)
 	elapsed := time.Since(start)
-
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed Sync()")
 
 	if err != nil {
@@ -448,11 +435,8 @@ func (n *Node) sync(events []hg.WireEvent) error {
 
 	//Run consensus methods
 	start = time.Now()
-
 	err = n.core.RunConsensus()
-
 	elapsed = time.Since(start)
-
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed RunConsensus()")
 
 	if err != nil {

@@ -26,8 +26,8 @@ func TestProcessSync(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
-	node0 := NewNode(config, peers[0].ID, keys[0], p,
-		hg.NewInmemStore(p, config.CacheSize),
+	node0 := NewNode(config, peers[0].ID(), keys[0], p,
+		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
 		dummy.NewInmemDummyClient(testLogger))
 	node0.Init()
@@ -40,8 +40,8 @@ func TestProcessSync(t *testing.T) {
 	}
 	defer peer1Trans.Close()
 
-	node1 := NewNode(config, peers[1].ID, keys[1], p,
-		hg.NewInmemStore(p, config.CacheSize),
+	node1 := NewNode(config, peers[1].ID(), keys[1], p,
+		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
 		dummy.NewInmemDummyClient(testLogger))
 	node1.Init()
@@ -122,8 +122,8 @@ func TestProcessEagerSync(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
-	node0 := NewNode(config, peers[0].ID, keys[0], p,
-		hg.NewInmemStore(p, config.CacheSize),
+	node0 := NewNode(config, peers[0].ID(), keys[0], p,
+		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
 		dummy.NewInmemDummyClient(testLogger))
 	node0.Init()
@@ -136,8 +136,8 @@ func TestProcessEagerSync(t *testing.T) {
 	}
 	defer peer1Trans.Close()
 
-	node1 := NewNode(config, peers[1].ID, keys[1], p,
-		hg.NewInmemStore(p, config.CacheSize),
+	node1 := NewNode(config, peers[1].ID(), keys[1], p,
+		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
 		dummy.NewInmemDummyClient(testLogger))
 	node1.Init()
@@ -177,6 +177,62 @@ func TestProcessEagerSync(t *testing.T) {
 	// Verify the response
 	if expectedResp.Success != out.Success {
 		t.Fatalf("EagerSyncResponse.Sucess should be %v, not %v", expectedResp.Success, out.Success)
+	}
+
+	node0.Shutdown()
+	node1.Shutdown()
+}
+
+func TestProcessFastForward(t *testing.T) {
+	keys, p := initPeers(2)
+	testLogger := common.NewTestLogger(t)
+	config := TestConfig(t)
+
+	//Start two nodes
+
+	peers := p.Peers
+
+	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, testLogger)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	defer peer0Trans.Close()
+
+	node0 := NewNode(config, peers[0].ID(), keys[0], p,
+		hg.NewInmemStore(config.CacheSize),
+		peer0Trans,
+		dummy.NewInmemDummyClient(testLogger))
+	node0.Init()
+
+	node0.RunAsync("", false)
+
+	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, testLogger)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	defer peer1Trans.Close()
+
+	node1 := NewNode(config, peers[1].ID(), keys[1], p,
+		hg.NewInmemStore(config.CacheSize),
+		peer1Trans,
+		dummy.NewInmemDummyClient(testLogger))
+	node1.Init()
+
+	node1.RunAsync("", false)
+
+	//Manually prepare FastForwardRequest. We expect a 'No Anchor Block' error
+
+	args := net.FastForwardRequest{
+		FromID: node0.id,
+	}
+
+	//Make actual FastForwardRequest and check FastForwardResponse
+
+	var out net.FastForwardResponse
+
+	err = peer0Trans.FastForward(peers[1].NetAddr, &args, &out)
+	if err == nil {
+		t.Fatalf("FastForward request should yield 'No Anchor Block' error")
 	}
 
 	node0.Shutdown()

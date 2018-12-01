@@ -38,8 +38,8 @@ func TestAddTransaction(t *testing.T) {
 	peer0Proxy := dummy.NewInmemDummyClient(testLogger)
 	defer peer0Trans.Close()
 
-	node0 := NewNode(TestConfig(t), peers[0].ID, keys[0], p,
-		hg.NewInmemStore(p, config.CacheSize),
+	node0 := NewNode(TestConfig(t), peers[0].ID(), keys[0], p,
+		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
 		peer0Proxy)
 	node0.Init()
@@ -53,8 +53,8 @@ func TestAddTransaction(t *testing.T) {
 	peer1Proxy := dummy.NewInmemDummyClient(testLogger)
 	defer peer1Trans.Close()
 
-	node1 := NewNode(TestConfig(t), peers[1].ID, keys[1], p,
-		hg.NewInmemStore(p, config.CacheSize),
+	node1 := NewNode(TestConfig(t), peers[1].ID(), keys[1], p,
+		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
 		peer1Proxy)
 	node1.Init()
@@ -78,7 +78,7 @@ func TestAddTransaction(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := node0.sync(out.Events); err != nil {
+	if err := node0.sync(peers[1].ID(), out.Events); err != nil {
 		t.Fatal(err)
 	}
 
@@ -104,13 +104,13 @@ func TestAddTransaction(t *testing.T) {
 func TestGossip(t *testing.T) {
 	logger := common.NewTestLogger(t)
 
-	keys, peers := initPeers(7)
+	keys, peers := initPeers(4)
 	nodes := initNodes(keys, peers, 100000, 1000, "inmem", logger, t)
 
-	defer drawGraphs(nodes, t)
+	//defer drawGraphs(nodes, t)
 
 	target := 50
-	err := gossip(nodes, target, true, 6*time.Second)
+	err := gossip(nodes, target, true, 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +126,7 @@ func TestMissingNodeGossip(t *testing.T) {
 
 	defer shutdownNodes(nodes)
 
-	defer drawGraphs(nodes, t)
+	//defer drawGraphs(nodes, t)
 
 	err := gossip(nodes[1:], 10, true, 6*time.Second)
 	if err != nil {
@@ -147,6 +147,7 @@ func TestSyncLimit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	defer shutdownNodes(nodes)
 
 	//create fake node[0] known to artificially reach SyncLimit
@@ -200,14 +201,17 @@ func TestFastForward(t *testing.T) {
 	if lbi <= 0 {
 		t.Fatalf("LastBlockIndex is too low: %d", lbi)
 	}
+
 	sBlock, err := nodes[0].GetBlock(lbi)
 	if err != nil {
 		t.Fatalf("Error retrieving latest Block from reset hashgraph: %v", err)
 	}
+
 	expectedBlock, err := nodes[1].GetBlock(lbi)
 	if err != nil {
 		t.Fatalf("Failed to retrieve block %d from node1: %v", lbi, err)
 	}
+
 	if !reflect.DeepEqual(sBlock.Body, expectedBlock.Body) {
 		t.Fatalf("Blocks defer")
 	}
@@ -223,7 +227,7 @@ func TestCatchUp(t *testing.T) {
 	normalNodes := initNodes(keys[0:3], peers, 1000, 400, "inmem", logger, t)
 	defer shutdownNodes(normalNodes)
 
-	defer drawGraphs(normalNodes, t)
+	//defer drawGraphs(normalNodes, t)
 
 	target := 50
 
@@ -271,9 +275,10 @@ func TestFastSync(t *testing.T) {
 	//Create  config for 4 nodes
 	keys, peers := initPeers(4)
 
-	nodes := initNodes(keys, peers, 100000, 400, "inmem", logger, t)
+	nodes := initNodes(keys, peers, 1000, 400, "inmem", logger, t)
 	defer shutdownNodes(nodes)
-	//defer drawGraphs(nodes, t)
+
+	defer drawGraphs(nodes, t)
 
 	target := 50
 	err := gossip(nodes, target, false, 3*time.Second)
@@ -349,25 +354,30 @@ func TestBootstrapAllNodes(t *testing.T) {
 	os.RemoveAll("test_data")
 	os.Mkdir("test_data", os.ModeDir|0777)
 
-	//create a first network with BadgerStore and wait till it reaches 10 consensus
-	//rounds before shutting it down
+	//create a first network with BadgerStore and wait till it reaches 10 blocks
+	//before shutting it down
 	keys, peers := initPeers(4)
+
 	nodes := initNodes(keys, peers, 1000, 1000, "badger", logger, t)
+
 	err := gossip(nodes, 10, false, 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
 	checkGossip(nodes, 0, t)
+
 	shutdownNodes(nodes)
 
 	//Now try to recreate a network from the databases created in the first step
-	//and advance it to 20 consensus rounds
+	//and advance it to 20 blocks
 	newNodes := recycleNodes(nodes, logger, t)
+
 	err = gossip(newNodes, 20, false, 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
 	checkGossip(newNodes, 0, t)
+
 	shutdownNodes(newNodes)
 
 	//Check that both networks did not have completely different consensus events
@@ -397,11 +407,6 @@ func TestAddPeer(t *testing.T) {
 		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
 		fmt.Sprint("127.0.0.1:4242"),
 	)
-
-	//XXX
-	//The id field is not serialized in JSON
-	//Do smarter handling of the ID thing
-	peer.ID = 0
 
 	nodes[0].addInternalTransaction(hg.NewInternalTransactionJoin(*peer))
 
@@ -495,7 +500,7 @@ func new_node(k *ecdsa.PrivateKey,
 
 	key := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&k.PublicKey))
 	peer := peers.ByPubKey[key]
-	id := peer.ID
+	id := peer.ID()
 
 	conf := NewConfig(
 		5*time.Millisecond,
@@ -514,12 +519,12 @@ func new_node(k *ecdsa.PrivateKey,
 	switch storeType {
 	case "badger":
 		path, _ := ioutil.TempDir("", "badger")
-		store, err = hg.NewBadgerStore(peers, conf.CacheSize, path)
+		store, err = hg.NewBadgerStore(conf.CacheSize, path)
 		if err != nil {
 			t.Fatalf("failed to create BadgerStore for peer %d: %s", id, err)
 		}
 	case "inmem":
-		store = hg.NewInmemStore(peers, conf.CacheSize)
+		store = hg.NewInmemStore(conf.CacheSize)
 	}
 	prox := dummy.NewInmemDummyClient(logger)
 	node := NewNode(conf,
@@ -573,12 +578,12 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 	var store hg.Store
 	var err error
 	if _, ok := oldNode.core.hg.Store.(*hg.BadgerStore); ok {
-		store, err = hg.LoadBadgerStore(conf.CacheSize, oldNode.core.hg.Store.StorePath())
+		store, err = hg.NewBadgerStore(conf.CacheSize, oldNode.core.hg.Store.StorePath())
 		if err != nil {
 			t.Fatal(err)
 		}
 	} else {
-		store = hg.NewInmemStore(oldNode.core.peers, conf.CacheSize)
+		store = hg.NewInmemStore(conf.CacheSize)
 	}
 
 	trans, err := net.NewTCPTransport(oldNode.trans.LocalAddr(),

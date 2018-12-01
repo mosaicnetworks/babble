@@ -27,16 +27,16 @@ func initCores(n int, t *testing.T) ([]*Core, map[uint32]*ecdsa.PrivateKey, map[
 		pubHex := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey))
 		peer := peers.NewPeer(pubHex, "")
 		pirs = append(pirs, peer)
-		participantKeys[peer.ID] = key
+		participantKeys[peer.ID()] = key
 	}
 
 	peerSet := peers.NewPeerSet(pirs)
 
 	for i, peer := range peerSet.Peers {
-		core := NewCore(peer.ID,
-			participantKeys[peer.ID],
+		core := NewCore(peer.ID(),
+			participantKeys[peer.ID()],
 			peerSet,
-			hg.NewInmemStore(peerSet, cacheSize),
+			hg.NewInmemStore(cacheSize),
 			proxy.DummyCommitCallback,
 			common.NewTestLogger(t))
 
@@ -44,7 +44,7 @@ func initCores(n int, t *testing.T) ([]*Core, map[uint32]*ecdsa.PrivateKey, map[
 		initialEvent := hg.NewEvent([][]byte(nil),
 			[]hg.InternalTransaction{},
 			nil,
-			[]string{fmt.Sprintf("Root%d", peer.ID), ""},
+			[]string{fmt.Sprintf("Root%d", peer.ID()), ""},
 			core.PubKey(),
 			0)
 
@@ -712,12 +712,12 @@ func initR2DynHashgraph(t *testing.T) (cores []*Core) {
 	bobKey, _ := crypto.GenerateECDSAKey()
 	bobPubHex := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&bobKey.PublicKey))
 	bob := peers.NewPeer(bobPubHex, "")
-	participantKeys[bob.ID] = bobKey
+	participantKeys[bob.ID()] = bobKey
 	newPeerSet := cores[0].peers.WithNewPeer(bob)
-	bobCore := NewCore(bob.ID,
+	bobCore := NewCore(bob.ID(),
 		bobKey,
 		newPeerSet,
-		hg.NewInmemStore(newPeerSet, 1000),
+		hg.NewInmemStore(1000),
 		proxy.DummyCommitCallback,
 		common.NewTestLogger(t))
 	bobCore.SetHeadAndSeq()
@@ -786,7 +786,7 @@ func synchronizeCores(cores []*Core, from int, to int, payload [][]byte, interna
 
 	cores[to].AddInternalTransactions(internalTxs)
 
-	return cores[to].Sync(unknownWire)
+	return cores[to].Sync(cores[from].ID(), unknownWire)
 }
 
 func syncAndRunConsensus(cores []*Core, from int, to int, payload [][]byte, internalTxs []hg.InternalTransaction) error {

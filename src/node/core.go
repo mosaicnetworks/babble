@@ -79,7 +79,10 @@ func NewCore(
 		Seq:                     -1,
 	}
 
-	core.hg = hg.NewHashgraph(peers, store, core.Commit, logEntry)
+	core.hg = hg.NewHashgraph(store, core.Commit, logEntry)
+
+	//XXX
+	core.hg.Init(peers)
 
 	return core
 }
@@ -296,7 +299,9 @@ func (c *Core) EventDiff(known map[uint32]int) (events []*hg.Event, err error) {
 	return unknown, nil
 }
 
-func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
+//Sync decodes and inserts new Events into the Hashgraph. UnknownEvents are
+//expected to be in topoligical order.
+func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 	c.logger.WithFields(logrus.Fields{
 		"unknown_events":            len(unknownEvents),
 		"transaction_pool":          len(c.transactionPool),
@@ -305,7 +310,7 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 	}).Debug("Sync")
 
 	otherHead := ""
-	for k, we := range unknownEvents {
+	for _, we := range unknownEvents {
 		ev, err := c.hg.ReadWireInfo(we)
 		if err != nil {
 			c.logger.WithFields(logrus.Fields{
@@ -319,8 +324,7 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 			return err
 		}
 
-		//Assume last event corresponds to other-head
-		if k == len(unknownEvents)-1 {
+		if we.Body.CreatorID == fromID {
 			otherHead = ev.Hex()
 		}
 	}
