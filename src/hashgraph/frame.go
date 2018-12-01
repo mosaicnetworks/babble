@@ -39,10 +39,6 @@ func (f *Frame) Unmarshal(data []byte) error {
 		return err
 	}
 
-	for _, p := range f.Peers {
-		p.ComputeID()
-	}
-
 	return nil
 }
 

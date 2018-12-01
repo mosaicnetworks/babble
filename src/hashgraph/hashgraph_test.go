@@ -469,7 +469,7 @@ func TestInsertEvent(t *testing.T) {
 		if !(e0.Body.selfParentIndex == -1 &&
 			e0.Body.otherParentCreatorID == 0 &&
 			e0.Body.otherParentIndex == -1 &&
-			e0.Body.creatorID == lastPeerSet.ByPubKey[e0.Creator()].ID) {
+			e0.Body.creatorID == lastPeerSet.ByPubKey[e0.Creator()].ID()) {
 			t.Fatalf("Invalid wire info on e0")
 		}
 
@@ -506,9 +506,9 @@ func TestInsertEvent(t *testing.T) {
 		}
 
 		if !(e21.Body.selfParentIndex == 1 &&
-			e21.Body.otherParentCreatorID == lastPeerSet.ByPubKey[e10.Creator()].ID &&
+			e21.Body.otherParentCreatorID == lastPeerSet.ByPubKey[e10.Creator()].ID() &&
 			e21.Body.otherParentIndex == 1 &&
-			e21.Body.creatorID == lastPeerSet.ByPubKey[e21.Creator()].ID) {
+			e21.Body.creatorID == lastPeerSet.ByPubKey[e21.Creator()].ID()) {
 			t.Fatalf("Invalid wire info on e21")
 		}
 
@@ -538,9 +538,9 @@ func TestInsertEvent(t *testing.T) {
 		}
 
 		if !(f1.Body.selfParentIndex == 2 &&
-			f1.Body.otherParentCreatorID == lastPeerSet.ByPubKey[e0.Creator()].ID &&
+			f1.Body.otherParentCreatorID == lastPeerSet.ByPubKey[e0.Creator()].ID() &&
 			f1.Body.otherParentIndex == 2 &&
-			f1.Body.creatorID == lastPeerSet.ByPubKey[f1.Creator()].ID) {
+			f1.Body.creatorID == lastPeerSet.ByPubKey[f1.Creator()].ID()) {
 			t.Fatalf("Invalid wire info on f1")
 		}
 
@@ -853,21 +853,21 @@ func TestCreateRoot(t *testing.T) {
 	}
 
 	expected := map[string]*Root{
-		"e0": NewBaseRoot(peerSet.Peers[0].ID),
+		"e0": NewBaseRoot(peerSet.Peers[0].ID()),
 		"e02": &Root{
-			SelfParent: RootEvent{index["s00"], peerSet.Peers[0].ID, 1, 1, 0, 0},
+			SelfParent: RootEvent{index["s00"], peerSet.Peers[0].ID(), 1, 1, 0, 0},
 			Others: map[string]RootEvent{
-				index["e02"]: RootEvent{index["e21"], peerSet.Peers[2].ID, 2, 2, 0, 0},
+				index["e02"]: RootEvent{index["e21"], peerSet.Peers[2].ID(), 2, 2, 0, 0},
 			},
 		},
 		"s10": &Root{
-			SelfParent: RootEvent{index["e10"], peerSet.Peers[1].ID, 1, 1, 0, 0},
+			SelfParent: RootEvent{index["e10"], peerSet.Peers[1].ID(), 1, 1, 0, 0},
 			Others:     map[string]RootEvent{},
 		},
 		"f1": &Root{
-			SelfParent: RootEvent{index["s10"], peerSet.Peers[1].ID, 2, 2, 0, 1},
+			SelfParent: RootEvent{index["s10"], peerSet.Peers[1].ID(), 2, 2, 0, 1},
 			Others: map[string]RootEvent{
-				index["f1"]: RootEvent{index["e02"], peerSet.Peers[0].ID, 2, 3, 0, 1},
+				index["f1"]: RootEvent{index["e02"], peerSet.Peers[0].ID(), 2, 3, 0, 1},
 			},
 		},
 	}
@@ -914,14 +914,14 @@ func initDentedHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
 	orderedPeers := participants.Peers
 
 	for _, peer := range orderedPeers {
-		index[rootSelfParent(peer.ID)] = rootSelfParent(peer.ID)
+		index[rootSelfParent(peer.ID())] = rootSelfParent(peer.ID())
 	}
 
 	plays := []play{
-		play{0, 0, rootSelfParent(orderedPeers[0].ID), "", "e0", nil, nil},
-		play{2, 0, rootSelfParent(orderedPeers[2].ID), "", "e2", nil, nil},
+		play{0, 0, rootSelfParent(orderedPeers[0].ID()), "", "e0", nil, nil},
+		play{2, 0, rootSelfParent(orderedPeers[2].ID()), "", "e2", nil, nil},
 		play{0, 1, "e0", "", "e01", nil, nil},
-		play{1, 0, rootSelfParent(orderedPeers[1].ID), "e2", "e12", nil, nil},
+		play{1, 0, rootSelfParent(orderedPeers[1].ID()), "e2", "e12", nil, nil},
 	}
 
 	playEvents(plays, nodes, index, orderedEvents)
@@ -946,9 +946,9 @@ func TestCreateRootBis(t *testing.T) {
 
 	expected := map[string]*Root{
 		"e12": &Root{
-			SelfParent: NewBaseRootEvent(peerSet.Peers[1].ID),
+			SelfParent: NewBaseRootEvent(peerSet.Peers[1].ID()),
 			Others: map[string]RootEvent{
-				index["e12"]: RootEvent{index["e2"], peerSet.Peers[2].ID, 0, 0, 0, 0},
+				index["e12"]: RootEvent{index["e2"], peerSet.Peers[2].ID(), 0, 0, 0, 0},
 			},
 		},
 	}
@@ -977,7 +977,7 @@ func initBlockHashgraph(t *testing.T) (*Hashgraph, []TestNode, map[string]string
 	nodes, index, orderedEvents, peerSet := initHashgraphNodes(n)
 
 	for i, peer := range peerSet.Peers {
-		event := NewEvent(nil, nil, nil, []string{rootSelfParent(peer.ID), ""}, nodes[i].Pub, 0)
+		event := NewEvent(nil, nil, nil, []string{rootSelfParent(peer.ID()), ""}, nodes[i].Pub, 0)
 		nodes[i].signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
 	}
 
@@ -1873,8 +1873,8 @@ func TestResetFromFrame(t *testing.T) {
 
 	known := h2.Store.KnownEvents()
 	for _, peer := range peerSet.ByID {
-		if l := known[peer.ID]; l != expectedKnown[peer.ID] {
-			t.Fatalf("Known[%d] should be %d, not %d", peer.ID, expectedKnown[peer.ID], l)
+		if l := known[peer.ID()]; l != expectedKnown[peer.ID()] {
+			t.Fatalf("Known[%d] should be %d, not %d", peer.ID(), expectedKnown[peer.ID()], l)
 		}
 	}
 
@@ -2136,7 +2136,7 @@ func initFunkyHashgraph(logger *logrus.Logger, full bool) (*Hashgraph, map[strin
 
 	for i, peer := range participants.Peers {
 		name := fmt.Sprintf("w0%d", i)
-		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{rootSelfParent(peer.ID), ""}, nodes[i].Pub, 0)
+		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{rootSelfParent(peer.ID()), ""}, nodes[i].Pub, 0)
 		nodes[i].signAndAddEvent(event, name, index, orderedEvents)
 	}
 
@@ -2584,7 +2584,7 @@ func initSparseHashgraph(logger *logrus.Logger) (*Hashgraph, map[string]string) 
 
 	for i, peer := range participants.Peers {
 		name := fmt.Sprintf("w0%d", i)
-		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{rootSelfParent(peer.ID), ""}, nodes[i].Pub, 0)
+		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{rootSelfParent(peer.ID()), ""}, nodes[i].Pub, 0)
 		nodes[i].signAndAddEvent(event, name, index, orderedEvents)
 	}
 

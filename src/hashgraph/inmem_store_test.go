@@ -26,7 +26,7 @@ func initPeers(n int) (*peers.PeerSet, []participant) {
 		pubKey := crypto.FromECDSAPub(&key.PublicKey)
 		peer := peers.NewPeer(fmt.Sprintf("0x%X", pubKey), "")
 		pirs = append(pirs, peer)
-		participants = append(participants, participant{peer.ID, key, pubKey, peer.PubKeyHex})
+		participants = append(participants, participant{peer.ID(), key, pubKey, peer.PubKeyHex})
 	}
 
 	peerSet := peers.NewPeerSet(pirs)

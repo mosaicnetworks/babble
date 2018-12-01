@@ -74,6 +74,11 @@ func TestDBRepertoireMethods(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	//force computation of id field, otherwise DeepEquals will fail.
+	for _, p := range repertoire {
+		p.ID()
+	}
+
 	if !reflect.DeepEqual(peerSet.ByPubKey, repertoire) {
 		t.Fatalf("Repertoire should be %#v, not %#v", peerSet.ByPubKey, repertoire)
 	}
@@ -361,6 +366,11 @@ func TestDBFrameMethods(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		//force computing of IDs for DeepEqual
+		for _, p := range storedFrame.Peers {
+			p.ID()
+		}
+
 		if !reflect.DeepEqual(storedFrame, frame) {
 			t.Fatalf("Frame and StoredFrame do not match")
 		}
@@ -416,6 +426,9 @@ func TestBadgerPeerSets(t *testing.T) {
 		if !ok {
 			t.Fatalf("Repertoire[%s] not found", pub)
 		}
+
+		//force ID
+		p.ID()
 
 		if !reflect.DeepEqual(p, peer) {
 			t.Fatalf("repertoire[%s] should be %#v, not %#v", pub, peer, p)

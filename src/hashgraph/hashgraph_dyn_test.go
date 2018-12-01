@@ -89,7 +89,7 @@ func initR2DynHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 
 	for i, peer := range peerSet.Peers {
 		name := fmt.Sprintf("w0%d", i)
-		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{rootSelfParent(peer.ID), ""}, nodes[i].Pub, 0)
+		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{rootSelfParent(peer.ID()), ""}, nodes[i].Pub, 0)
 		nodes[i].signAndAddEvent(event, name, index, orderedEvents)
 	}
 
@@ -120,7 +120,7 @@ func initR2DynHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 	node3 := NewTestNode(key3)
 	nodes = append(nodes, node3)
 	peer3 := peers.NewPeer(node3.PubHex, "")
-	index["R3"] = rootSelfParent(peer3.ID)
+	index["R3"] = rootSelfParent(peer3.ID())
 	newPeerSet := peerSet.WithNewPeer(peer3)
 
 	//Set Round 2 PeerSet

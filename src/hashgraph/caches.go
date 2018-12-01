@@ -41,7 +41,7 @@ func NewParticipantEventsCache(size int) *ParticipantEventsCache {
 
 func (pec *ParticipantEventsCache) AddPeer(peer *peers.Peer) error {
 	pec.participants = pec.participants.WithNewPeer(peer)
-	return pec.rim.AddKey(peer.ID)
+	return pec.rim.AddKey(peer.ID())
 }
 
 func (pec *ParticipantEventsCache) participantID(participant string) (uint32, error) {
@@ -51,7 +51,7 @@ func (pec *ParticipantEventsCache) participantID(participant string) (uint32, er
 		return 0, cm.NewStoreErr("ParticipantEvents", cm.UnknownParticipant, participant)
 	}
 
-	return peer.ID, nil
+	return peer.ID(), nil
 }
 
 //Get returns participant events with index > skip

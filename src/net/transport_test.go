@@ -211,8 +211,8 @@ func TestTransport_FastForward(t *testing.T) {
 			Round: 10,
 			Peers: framePeers,
 			Roots: map[string]*hashgraph.Root{
-				"pub1": hashgraph.NewBaseRoot(framePeers[0].ID),
-				"pub2": hashgraph.NewBaseRoot(framePeers[1].ID),
+				"pub1": hashgraph.NewBaseRoot(framePeers[0].ID()),
+				"pub2": hashgraph.NewBaseRoot(framePeers[1].ID()),
 			},
 			Events: []*hashgraph.Event{
 				hashgraph.NewEvent(
@@ -314,7 +314,7 @@ func TestTransport_FastForward(t *testing.T) {
 
 		// Verify the response
 		if !reflect.DeepEqual(resp, out) {
-			t.Fatalf("command mismatch: %#v %#v", resp, out)
+			t.Fatalf("ttype %d. Response mismatch: %#v %#v", ttype, resp, out)
 		}
 	}
 }

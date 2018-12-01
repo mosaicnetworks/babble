@@ -32,12 +32,8 @@ func NewPeerSet(peers []*Peer) *PeerSet {
 	}
 
 	for _, peer := range peers {
-		if peer.ID == 0 {
-			peer.ComputeID()
-		}
-
 		peerSet.ByPubKey[peer.PubKeyHex] = peer
-		peerSet.ByID[peer.ID] = peer
+		peerSet.ByID[peer.ID()] = peer
 	}
 
 	peerSet.Peers = peers
@@ -62,7 +58,6 @@ func NewPeerSetFromPeerSliceBytes(peerSliceBytes []byte) (*PeerSet, error) {
 
 //WithNewPeer returns a new PeerSet with a list of peers including the new one.
 func (peerSet *PeerSet) WithNewPeer(peer *Peer) *PeerSet {
-	peer.ComputeID()
 	peers := append(peerSet.Peers, peer)
 	newPeerSet := NewPeerSet(peers)
 	return newPeerSet
@@ -99,7 +94,7 @@ func (c *PeerSet) IDs() []uint32 {
 	res := []uint32{}
 
 	for _, peer := range c.Peers {
-		res = append(res, peer.ID)
+		res = append(res, peer.ID())
 	}
 
 	return res
@@ -118,7 +113,7 @@ func (c *PeerSet) Hash() ([]byte, error) {
 	if len(c.hash) == 0 {
 		hash := []byte{}
 		for _, p := range c.Peers {
-			pk, _ := p.PubKeyBytes()
+			pk := p.PubKeyBytes()
 			hash = crypto.SimpleHashFromTwoHashes(hash, pk)
 		}
 		c.hash = hash

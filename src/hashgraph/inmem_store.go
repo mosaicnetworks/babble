@@ -77,13 +77,13 @@ func (s *InmemStore) SetPeerSet(round int, peerSet *peers.PeerSet) error {
 		}
 
 		if _, ok := s.rootsByParticipant[p.PubKeyHex]; !ok {
-			root := NewBaseRoot(p.ID)
+			root := NewBaseRoot(p.ID())
 			s.rootsByParticipant[p.PubKeyHex] = root
 			s.rootsBySelfParent[root.SelfParent.Hash] = root
 		}
 
 		s.repertoireByPubKey[p.PubKeyHex] = p
-		s.repertoireByID[p.ID] = p
+		s.repertoireByID[p.ID()] = p
 	}
 
 	return nil
@@ -183,10 +183,10 @@ func (s *InmemStore) KnownEvents() map[uint32]int {
 	lastPeerSet, _ := s.GetLastPeerSet()
 	if lastPeerSet != nil {
 		for p, pid := range lastPeerSet.ByPubKey {
-			if known[pid.ID] == -1 {
+			if known[pid.ID()] == -1 {
 				root, ok := s.rootsByParticipant[p]
 				if ok {
-					known[pid.ID] = root.SelfParent.Index
+					known[pid.ID()] = root.SelfParent.Index
 				}
 			}
 		}

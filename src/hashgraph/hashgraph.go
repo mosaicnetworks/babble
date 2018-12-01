@@ -38,8 +38,8 @@ type Hashgraph struct {
 	logger *logrus.Entry
 }
 
-//NewHashgraph instantiates a Hashgraph from a list of participants, underlying
-//data store and commit callback
+//NewHashgraph instantiates a Hashgraph with an underlying data store and a
+//commit callback
 func NewHashgraph(store Store, commitCallback InternalCommitCallback, logger *logrus.Entry) *Hashgraph {
 	if logger == nil {
 		log := logrus.New()
@@ -62,9 +62,9 @@ func NewHashgraph(store Store, commitCallback InternalCommitCallback, logger *lo
 	return &hashgraph
 }
 
+//Init sets the initial PeerSet, which also creates the corresponding Roots and
+//updates the Repertoire.
 func (h *Hashgraph) Init(peerSet *peers.PeerSet) error {
-	//Set the initial PeerSet. This also creates a base Root for each Peer and
-	//populates the Repertoire.
 	if err := h.Store.SetPeerSet(0, peerSet); err != nil {
 		return fmt.Errorf("Error setting PeerSet: %v", err)
 	}
@@ -560,8 +560,7 @@ func (h *Hashgraph) createSelfParentRootEvent(ev *Event) (RootEvent, error) {
 			h.logger.WithField("creator", ev.Creator()).Errorf("Could not find creator")
 			return RootEvent{}, err
 		}
-		creator.ComputeID()
-		ev.Body.creatorID = creator.ID
+		ev.Body.creatorID = creator.ID()
 	}
 
 	evRound, err := h.round(ev.Hex())
@@ -614,8 +613,7 @@ func (h *Hashgraph) createOtherParentRootEvent(ev *Event) (RootEvent, error) {
 			h.logger.WithField("creator", otherParent.Creator()).Errorf("Could not find creator")
 			return RootEvent{}, err
 		}
-		creator.ComputeID()
-		otherParent.Body.creatorID = creator.ID
+		otherParent.Body.creatorID = creator.ID()
 	}
 
 	evRound, err := h.round(ev.Hex())
@@ -708,7 +706,7 @@ func (h *Hashgraph) setWireInfo(event *Event) error {
 			if !ok {
 				return fmt.Errorf("Creator %s not found", otherParent.Creator())
 			}
-			otherParentCreatorID = otherParentCreator.ID
+			otherParentCreatorID = otherParentCreator.ID()
 			otherParentIndex = otherParent.Index()
 		}
 	}
@@ -716,7 +714,7 @@ func (h *Hashgraph) setWireInfo(event *Event) error {
 	event.SetWireInfo(selfParentIndex,
 		otherParentCreatorID,
 		otherParentIndex,
-		creator.ID)
+		creator.ID())
 
 	return nil
 }

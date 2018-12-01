@@ -9,9 +9,10 @@ import (
 )
 
 type Peer struct {
-	ID        uint32 `json:"-"`
 	NetAddr   string
 	PubKeyHex string
+
+	id uint32
 }
 
 func NewPeer(pubKeyHex, netAddr string) *Peer {
@@ -19,27 +20,20 @@ func NewPeer(pubKeyHex, netAddr string) *Peer {
 		PubKeyHex: pubKeyHex,
 		NetAddr:   netAddr,
 	}
-
-	peer.ComputeID()
-
 	return peer
 }
 
-func (p *Peer) PubKeyBytes() ([]byte, error) {
-	return hex.DecodeString(p.PubKeyHex[2:])
+func (p *Peer) ID() uint32 {
+	if p.id == 0 {
+		pubKeyBytes := p.PubKeyBytes()
+		p.id = common.Hash32(pubKeyBytes)
+	}
+	return p.id
 }
 
-func (p *Peer) ComputeID() error {
-	// TODO: Use the decoded bytes from hex
-	pubKey, err := p.PubKeyBytes()
-
-	if err != nil {
-		return err
-	}
-
-	p.ID = common.Hash32(pubKey)
-
-	return nil
+func (p *Peer) PubKeyBytes() []byte {
+	res, _ := hex.DecodeString(p.PubKeyHex[2:])
+	return res
 }
 
 //json encoding excludes the ID field
@@ -64,8 +58,6 @@ func (p *Peer) Unmarshal(data []byte) error {
 		return err
 	}
 
-	p.ComputeID()
-
 	return nil
 }
 
@@ -74,7 +66,7 @@ func ExcludePeer(peers []*Peer, peer uint32) (int, []*Peer) {
 	index := -1
 	otherPeers := make([]*Peer, 0, len(peers))
 	for i, p := range peers {
-		if p.ID != peer {
+		if p.ID() != peer {
 			otherPeers = append(otherPeers, p)
 		} else {
 			index = i
