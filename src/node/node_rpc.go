@@ -93,14 +93,11 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 
 	//Check sync limit
 	n.coreLock.Lock()
-
 	overSyncLimit := n.core.OverSyncLimit(cmd.Known, n.conf.SyncLimit)
-
 	n.coreLock.Unlock()
 
 	if overSyncLimit {
 		n.logger.Debug("SyncLimit")
-
 		resp.SyncLimit = true
 	} else {
 		//Compute Diff
@@ -182,18 +179,14 @@ func (n *Node) processFastForwardRequest(rpc net.RPC, cmd *net.FastForwardReques
 
 	//Get latest Frame
 	n.coreLock.Lock()
-
 	block, frame, err := n.core.GetAnchorBlockWithFrame()
-
 	n.coreLock.Unlock()
 
 	if err != nil {
 		n.logger.WithField("error", err).Error("Getting Frame")
-
 		respErr = err
 	} else {
 		resp.Block = *block
-
 		resp.Frame = *frame
 
 		//Get snapshot
@@ -220,52 +213,30 @@ func (n *Node) processJoinRequest(rpc net.RPC, cmd *net.JoinRequest) {
 		"peer": cmd.Peer,
 	}).Debug("process JoinRequest")
 
-	resp := &net.JoinResponse{
-		Peer: *n.core.peers.ByID[n.id],
-	}
-
 	var respErr error
+	var success bool
 
-	// n.coreLock.Lock()
+	//XXX run this by the App first
 
-	//XXX: pass through the proxy to validate the new peer before adding it
-	n.addInternalTransaction(hg.NewInternalTransactionJoin(cmd.Peer))
+	//Dispatch the InternalTransaction
+	n.coreLock.Lock()
+	promise := n.core.AddInternalTransaction(hg.NewInternalTransaction(hg.PEER_ADD, cmd.Peer))
+	n.coreLock.Unlock()
 
-	if n.core.peers.Len() == 1 {
-		//force consensus
-		for i := 0; i < 10; i++ {
-			if err := n.core.AddSelfEvent(""); err != nil {
-				respErr = err
-
-				break
-			}
-		}
-		if err := n.core.RunConsensus(); err != nil {
-			respErr = err
-
-			// break
-		}
-	}
-	//XXX
-	//else gossip for a while and wait for the InternalTransaction to be
-	//committed
-
-	if n.core.hg.AnchorBlock == nil {
-		anchor := n.core.hg.Store.LastBlockIndex()
-		n.core.hg.AnchorBlock = &anchor
+	//Wait for the InternalTransaction to go through consensus
+	timeout := time.After(1 * time.Second)
+	select {
+	case resp := <-promise.RespCh:
+		success = resp
+	case <-timeout:
+		respErr = fmt.Errorf("Timeout waiting for JoinRequest to go through consensus")
+		break
 	}
 
-	n.logger.Error("ANCHOR ", n.core.hg.Store.LastBlockIndex(), n.core.hg.Store.LastRound())
-
-	// if respErr != nil {
-	// 	rpc.Respond(&net.FastForwardResponse{}, respErr)
-
-	// 	return
-	// }
-
-	// n.coreLock.Unlock()
-
-	// n.processFastForwardRequest(rpc, &net.FastForwardRequest{cmd.FromID})
+	resp := &net.JoinResponse{
+		FromID:  n.id,
+		Success: success,
+	}
 
 	rpc.Respond(resp, respErr)
 }

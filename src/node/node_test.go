@@ -44,7 +44,7 @@ func TestAddTransaction(t *testing.T) {
 		peer0Proxy)
 	node0.Init()
 
-	node0.RunAsync("", false)
+	node0.RunAsync(false)
 
 	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
 	if err != nil {
@@ -59,7 +59,7 @@ func TestAddTransaction(t *testing.T) {
 		peer1Proxy)
 	node1.Init()
 
-	node1.RunAsync("", false)
+	node1.RunAsync(false)
 	//Submit a Tx to node0
 
 	message := "Hello World!"
@@ -254,7 +254,7 @@ func TestCatchUp(t *testing.T) {
 		}
 	}()
 
-	node4.RunAsync("", true)
+	node4.RunAsync(true)
 	defer node4.Shutdown()
 
 	//Gossip some more
@@ -316,7 +316,7 @@ func TestFastSync(t *testing.T) {
 		}
 	}()
 
-	node4.RunAsync("", true)
+	node4.RunAsync(true)
 
 	nodes[3] = node4
 	defer node4.Shutdown()
@@ -330,6 +330,67 @@ func TestFastSync(t *testing.T) {
 
 	start := node4.core.hg.FirstConsensusRound
 	checkGossip(nodes, *start, t)
+}
+
+func TestJoin(t *testing.T) {
+	logger := common.NewTestLogger(t)
+
+	keys, peerSet := initPeers(4)
+	nodes := initNodes(keys, peerSet, 1000, 1000, "inmem", logger, t)
+
+	defer shutdownNodes(nodes)
+
+	//defer drawGraphs(nodes, t)
+
+	target := 50
+	err := gossip(nodes, target, false, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes, 0, t)
+
+	key, _ := crypto.GenerateECDSAKey()
+	peer := peers.NewPeer(
+		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
+		fmt.Sprint("127.0.0.1:4242"),
+	)
+	newNode := newNode(peer, key, peerSet, 1000, 1000, "inmem", logger, t)
+
+	//Run parallel routine to check node4 eventually reaches CatchingUp state.
+	timeout := time.After(6 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-timeout:
+				t.Fatalf("Timeout waiting for newNode to enter CatchingUp state")
+			default:
+			}
+			if newNode.getState() == CatchingUp {
+				break
+			}
+		}
+	}()
+
+	newNode.RunAsync(true)
+	defer newNode.Shutdown()
+
+	// nodes = append(nodes, newNode)
+
+	//Gossip some more
+	secondTarget := target + 20
+	err = bombardAndWait(nodes, secondTarget, 6*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// start := newNode.core.hg.FirstConsensusRound
+	checkGossip(nodes, 0, t)
+
+	for i := range nodes {
+		if nodes[i].core.peers.Len() != 5 {
+			t.Errorf("Node %d should have %d peers, not %d", i, 5, nodes[i].core.peers.Len())
+		}
+	}
 }
 
 func TestShutdown(t *testing.T) {
@@ -383,47 +444,6 @@ func TestBootstrapAllNodes(t *testing.T) {
 
 	//Check that both networks did not have completely different consensus events
 	checkGossip([]*Node{nodes[0], newNodes[0]}, 0, t)
-}
-
-func TestAddPeer(t *testing.T) {
-	logger := common.NewTestLogger(t)
-
-	keys, peerSet := initPeers(4)
-	nodes := initNodes(keys, peerSet, 1000, 1000, "inmem", logger, t)
-
-	defer shutdownNodes(nodes)
-
-	//defer drawGraphs(nodes, t)
-
-	runNodes(nodes, true)
-
-	target := 20
-	err := bombardAndWait(nodes, target, 3*time.Second)
-	if err != nil {
-		t.Fatal("Error bombarding: ", err)
-	}
-
-	key, _ := crypto.GenerateECDSAKey()
-	peer := peers.NewPeer(
-		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
-		fmt.Sprint("127.0.0.1:4242"),
-	)
-
-	nodes[0].addInternalTransaction(hg.NewInternalTransactionJoin(*peer))
-
-	target2 := target + 20
-	err = bombardAndWait(nodes, target2, 6*time.Second)
-	if err != nil {
-		t.Fatal("Error bombarding: ", err)
-	}
-
-	for i := range nodes {
-		if nodes[i].core.peers.Len() != 5 {
-			t.Errorf("Node %d should have %d peers, not %d", i, 5, nodes[i].core.peers.Len())
-		}
-	}
-
-	checkGossip(nodes, 0, t)
 }
 
 func BenchmarkGossip(b *testing.B) {
@@ -491,17 +511,14 @@ func initPeers(n int) ([]*ecdsa.PrivateKey, *peers.PeerSet) {
 	return keys, peerSet
 }
 
-func new_node(k *ecdsa.PrivateKey,
+func newNode(peer *peers.Peer,
+	k *ecdsa.PrivateKey,
 	peers *peers.PeerSet,
 	cacheSize,
 	syncLimit int,
 	storeType string,
 	logger *logrus.Logger,
 	t testing.TB) *Node {
-
-	key := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&k.PublicKey))
-	peer := peers.ByPubKey[key]
-	id := peer.ID()
 
 	conf := NewConfig(
 		5*time.Millisecond,
@@ -514,22 +531,24 @@ func new_node(k *ecdsa.PrivateKey,
 	trans, err := net.NewTCPTransport(peer.NetAddr,
 		nil, 2, time.Second, logger)
 	if err != nil {
-		t.Fatalf("failed to create transport for peer %d: %s", id, err)
+		t.Fatalf("failed to create transport for peer %d: %s", peer.ID(), err)
 	}
+
 	var store hg.Store
 	switch storeType {
 	case "badger":
 		path, _ := ioutil.TempDir("", "badger")
 		store, err = hg.NewBadgerStore(conf.CacheSize, path)
 		if err != nil {
-			t.Fatalf("failed to create BadgerStore for peer %d: %s", id, err)
+			t.Fatalf("failed to create BadgerStore for peer %d: %s", peer.ID(), err)
 		}
 	case "inmem":
 		store = hg.NewInmemStore(conf.CacheSize)
 	}
+
 	prox := dummy.NewInmemDummyClient(logger)
 	node := NewNode(conf,
-		id,
+		peer.ID(),
 		k,
 		peers,
 		store,
@@ -537,7 +556,7 @@ func new_node(k *ecdsa.PrivateKey,
 		prox)
 
 	if err := node.Init(); err != nil {
-		t.Fatalf("failed to initialize node%d: %s", id, err)
+		t.Fatalf("failed to initialize node%d: %s", peer.ID(), err)
 	}
 
 	return node
@@ -554,7 +573,14 @@ func initNodes(keys []*ecdsa.PrivateKey,
 	nodes := []*Node{}
 
 	for _, k := range keys {
-		node := new_node(k, peers, cacheSize, syncLimit, storeType, logger, t)
+		pubKey := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&k.PublicKey))
+
+		peer, ok := peers.ByPubKey[pubKey]
+		if !ok {
+			t.Fatalf("Peer not found")
+		}
+
+		node := newNode(peer, k, peers, cacheSize, syncLimit, storeType, logger, t)
 
 		nodes = append(nodes, node)
 	}
@@ -607,7 +633,7 @@ func runNodes(nodes []*Node, gossip bool) {
 	for _, n := range nodes {
 		node := n
 		go func() {
-			node.Run("", gossip)
+			node.Run(gossip)
 		}()
 	}
 }

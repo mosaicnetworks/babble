@@ -51,5 +51,6 @@ type JoinRequest struct {
 }
 
 type JoinResponse struct {
-	Peer peers.Peer // peer to fastforward from
+	FromID  uint32
+	Success bool
 }

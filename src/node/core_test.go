@@ -784,7 +784,9 @@ func synchronizeCores(cores []*Core, from int, to int, payload [][]byte, interna
 
 	cores[to].AddTransactions(payload)
 
-	cores[to].AddInternalTransactions(internalTxs)
+	for _, it := range internalTxs {
+		cores[to].AddInternalTransaction(it)
+	}
 
 	return cores[to].Sync(cores[from].ID(), unknownWire)
 }

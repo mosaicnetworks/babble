@@ -45,6 +45,8 @@ type Core struct {
 
 	proxyCommitCallback proxy.CommitCallback
 
+	promises map[string]*JoinPromise
+
 	logger *logrus.Entry
 }
 
@@ -73,6 +75,7 @@ func NewCore(
 		transactionPool:         [][]byte{},
 		internalTransactionPool: []hg.InternalTransaction{},
 		blockSignaturePool:      []hg.BlockSignature{},
+		promises:                make(map[string]*JoinPromise),
 		heads:                   []string{},
 		logger:                  logEntry,
 		Head:                    "",
@@ -221,7 +224,9 @@ func (c *Core) SignBlock(block *hg.Block) (hg.BlockSignature, error) {
 func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.InternalTransaction) error {
 	peers := c.peers
 
+	changed := false
 	for _, tx := range txs {
+		//update the PeerSet placholder
 		switch tx.Type {
 		case hg.PEER_ADD:
 			c.logger.WithField("peer", tx.Peer).Debug("adding peer")
@@ -231,19 +236,29 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 			peers = peers.WithRemovedPeer(&tx.Peer)
 		default:
 		}
+
+		//respond to the corresponding promise
+		if p, ok := c.promises[tx.Hash()]; ok {
+			p.Respond(true)
+			//XXX remove promise
+		}
+
+		changed = true
 	}
 
-	//XXX  +4 is arbitrary. Should be RoundDecided, ie. the round of the first
-	//witness that can decide the fame of a SuperMajority of witnesses from
-	//roundReceived
-	err := c.hg.Store.SetPeerSet(roundReceived+4, peers)
-	if err != nil {
-		return fmt.Errorf("Udpating Store PeerSet: %s", err)
+	if changed {
+		//XXX  +4 is arbitrary. Should be RoundDecided, ie. the round of the first
+		//witness that can decide the fame of a SuperMajority of witnesses from
+		//roundReceived.
+		err := c.hg.Store.SetPeerSet(roundReceived+4, peers)
+		if err != nil {
+			return fmt.Errorf("Udpating Store PeerSet: %s", err)
+		}
+
+		c.peers = peers
+
+		c.peerSelector = NewRandomPeerSelector(peers, c.id)
 	}
-
-	c.peers = peers
-
-	c.peerSelector = NewRandomPeerSelector(peers, c.id)
 
 	return nil
 }
@@ -517,8 +532,19 @@ func (c *Core) AddTransactions(txs [][]byte) {
 	c.transactionPool = append(c.transactionPool, txs...)
 }
 
-func (c *Core) AddInternalTransactions(txs []hg.InternalTransaction) {
-	c.internalTransactionPool = append(c.internalTransactionPool, txs...)
+func (c *Core) AddInternalTransaction(tx hg.InternalTransaction) *JoinPromise {
+	//create promise
+	promise := NewJoinPromise(tx)
+
+	//save it to promise store, for later use by the Commit callback
+	c.promises[tx.Hash()] = promise
+
+	//submit the internal tx, it will be processed asynchronously by the gossip
+	//routines
+	c.internalTransactionPool = append(c.internalTransactionPool, tx)
+
+	//return the promise
+	return promise
 }
 
 func (c *Core) AddBlockSignature(bs hg.BlockSignature) {

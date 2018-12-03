@@ -27,9 +27,8 @@ type Node struct {
 	trans net.Transport
 	netCh <-chan net.RPC
 
-	proxy            proxy.AppProxy
-	submitCh         chan []byte
-	submitInternalCh chan hg.InternalTransaction
+	proxy    proxy.AppProxy
+	submitCh chan []byte
 
 	shutdownCh chan struct{}
 
@@ -52,23 +51,28 @@ func NewNode(conf *Config,
 ) *Node {
 
 	node := Node{
-		id:               id,
-		conf:             conf,
-		logger:           conf.Logger.WithField("this_id", id),
-		core:             NewCore(id, key, peers, store, proxy.CommitBlock, conf.Logger),
-		trans:            trans,
-		netCh:            trans.Consumer(),
-		proxy:            proxy,
-		submitCh:         proxy.SubmitCh(),
-		submitInternalCh: proxy.SubmitInternalCh(),
-		shutdownCh:       make(chan struct{}),
-		controlTimer:     NewRandomControlTimer(),
+		id:           id,
+		conf:         conf,
+		logger:       conf.Logger.WithField("this_id", id),
+		core:         NewCore(id, key, peers, store, proxy.CommitBlock, conf.Logger),
+		trans:        trans,
+		netCh:        trans.Consumer(),
+		proxy:        proxy,
+		submitCh:     proxy.SubmitCh(),
+		shutdownCh:   make(chan struct{}),
+		controlTimer: NewRandomControlTimer(),
 	}
 
 	node.needBoostrap = store.NeedBoostrap()
 
-	//Initialize as Babbling
-	node.setState(Babbling)
+	_, ok := peers.ByID[id]
+	if ok {
+		node.logger.Debug("Node belongs to PeerSet => Babbling")
+		node.setState(Babbling)
+	} else {
+		node.logger.Debug("Node does not belong to PeerSet => Joining")
+		node.setState(Joining)
+	}
 
 	return &node
 }
@@ -81,25 +85,16 @@ func (n *Node) Init() error {
 			return err
 		}
 	}
-
 	return n.core.SetHeadAndSeq()
 }
 
-func (n *Node) RunAsync(connectNode string, gossip bool) {
-	n.logger.WithFields(logrus.Fields{
-		"connect_node": connectNode,
-		"gossip":       gossip,
-	}).Debug("runasync")
+func (n *Node) RunAsync(gossip bool) {
+	n.logger.WithField("gossip", gossip).Debug("runasync")
 
-	go n.Run(connectNode, gossip)
+	go n.Run(gossip)
 }
 
-func (n *Node) Run(connectNode string, gossip bool) {
-
-	if len(connectNode) > 0 {
-		n.setState(Joining)
-	}
-
+func (n *Node) Run(gossip bool) {
 	//The ControlTimer allows the background routines to control the
 	//heartbeat timer when the node is in the Babbling state. The timer should
 	//only be running when there are uncommitted transactions in the system.
@@ -121,7 +116,7 @@ func (n *Node) Run(connectNode string, gossip bool) {
 		case CatchingUp:
 			n.fastForward()
 		case Joining:
-			n.connect(connectNode)
+			n.join()
 		case Shutdown:
 			return
 		}
@@ -153,10 +148,6 @@ func (n *Node) doBackgroundWork() {
 			n.logger.Debug("Adding Transaction")
 			n.addTransaction(t)
 			n.resetTimer()
-		case t := <-n.submitInternalCh:
-			n.logger.Debug("Adding Internal Transaction")
-			n.addInternalTransaction(t)
-			n.resetTimer()
 		case <-n.shutdownCh:
 			return
 		}
@@ -168,6 +159,8 @@ func (n *Node) doBackgroundWork() {
 //Otherwise, it processes RPC requests, periodicaly initiates gossip while there
 //is something to gossip about, or waits.
 func (n *Node) babble(gossip bool) {
+	n.logger.Debug("BABBLING")
+
 	returnCh := make(chan struct{}, 100)
 	for {
 		select {
@@ -193,7 +186,7 @@ func (n *Node) babble(gossip bool) {
 }
 
 func (n *Node) fastForward() error {
-	n.logger.Debug("IN CATCHING-UP STATE")
+	n.logger.Debug("CATCHING-UP")
 
 	//wait until sync routines finish
 	n.waitRoutines()
@@ -245,35 +238,30 @@ func (n *Node) fastForward() error {
 	return nil
 }
 
-func (n *Node) connect(addr string) error {
-	n.logger.Debug("IN JOINING STATE")
+func (n *Node) join() error {
+	n.logger.Debug("JOINING")
+
+	peer := n.core.peerSelector.Next()
 
 	start := time.Now()
-	resp, err := n.requestJoin(addr)
+	resp, err := n.requestJoin(peer.NetAddr)
 	elapsed := time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestJoin()")
 
 	if err != nil {
-		n.logger.Error("Cannot join:", addr, err)
+		n.logger.Error("Cannot join:", peer.NetAddr, err)
 		n.setState(Shutdown)
 		return err
 	}
 
 	n.logger.WithFields(logrus.Fields{
-		"resp_peer": resp.Peer,
+		"from_id": resp.FromID,
+		"success": resp.Success,
 	}).Debug("JoinResponse")
 
-	n.core.peers = n.core.peers.WithNewPeer(&resp.Peer)
-	n.core.peerSelector = NewRandomPeerSelector(n.core.peers, n.id)
-
-	//XXX not necessarily round 1
-	if err := n.core.hg.Store.SetPeerSet(1, n.core.peers); err != nil {
-		n.logger.Error("WHAT", err, n.core.hg.Store.RepertoireByID())
-
+	if resp.Success {
+		n.setState(CatchingUp)
 	}
-	n.logger.Error("WHAT", n.core.hg.Store.RepertoireByID())
-
-	n.setState(CatchingUp)
 
 	return nil
 }
@@ -441,17 +429,9 @@ func (n *Node) sync(fromID uint32, events []hg.WireEvent) error {
 
 func (n *Node) addTransaction(tx []byte) {
 	n.coreLock.Lock()
-
 	defer n.coreLock.Unlock()
 
 	n.core.AddTransactions([][]byte{tx})
-}
-
-func (n *Node) addInternalTransaction(tx hg.InternalTransaction) {
-	n.coreLock.Lock()
-	defer n.coreLock.Unlock()
-
-	n.core.AddInternalTransactions([]hg.InternalTransaction{tx})
 }
 
 func (n *Node) Shutdown() {
