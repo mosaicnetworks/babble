@@ -275,7 +275,8 @@ func TestFastSync(t *testing.T) {
 	//Create  config for 4 nodes
 	keys, peers := initPeers(4)
 
-	nodes := initNodes(keys, peers, 1000, 400, "inmem", logger, t)
+	//make cache high to draw graphs
+	nodes := initNodes(keys, peers, 100000, 400, "inmem", logger, t)
 	defer shutdownNodes(nodes)
 
 	defer drawGraphs(nodes, t)

@@ -202,16 +202,12 @@ func (n *Node) fastForward() error {
 	peer := n.core.peerSelector.Next()
 
 	start := time.Now()
-
 	resp, err := n.requestFastForward(peer.NetAddr)
-
 	elapsed := time.Since(start)
-
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestFastForward()")
 
 	if err != nil {
 		n.logger.WithField("error", err).Error("requestFastForward()")
-
 		return err
 	}
 
@@ -226,14 +222,11 @@ func (n *Node) fastForward() error {
 
 	//prepare core. ie: fresh hashgraph
 	n.coreLock.Lock()
-
 	err = n.core.FastForward(peer.PubKeyHex, &resp.Block, &resp.Frame)
-
 	n.coreLock.Unlock()
 
 	if err != nil {
 		n.logger.WithField("error", err).Error("Fast Forwarding Hashgraph")
-
 		return err
 	}
 
@@ -242,7 +235,6 @@ func (n *Node) fastForward() error {
 
 	if err != nil {
 		n.logger.WithField("error", err).Error("Restoring App from Snapshot")
-
 		return err
 	}
 
@@ -254,23 +246,24 @@ func (n *Node) fastForward() error {
 }
 
 func (n *Node) connect(addr string) error {
-	var res net.JoinResponse
+	n.logger.Debug("IN JOINING STATE")
 
-	if len(addr) > 0 {
-		response, err := n.requestJoin(addr)
+	start := time.Now()
+	resp, err := n.requestJoin(addr)
+	elapsed := time.Since(start)
+	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestJoin()")
 
-		if err != nil {
-			n.logger.Error("Cannot join:", addr, err)
-
-			n.setState(Shutdown)
-
-			return err
-		}
-
-		res = response
+	if err != nil {
+		n.logger.Error("Cannot join:", addr, err)
+		n.setState(Shutdown)
+		return err
 	}
 
-	n.core.peers = n.core.peers.WithNewPeer(&res.Peer)
+	n.logger.WithFields(logrus.Fields{
+		"resp_peer": resp.Peer,
+	}).Debug("JoinResponse")
+
+	n.core.peers = n.core.peers.WithNewPeer(&resp.Peer)
 	n.core.peerSelector = NewRandomPeerSelector(n.core.peers, n.id)
 
 	//XXX not necessarily round 1
@@ -297,7 +290,7 @@ func (n *Node) gossip(peer *peers.Peer, parentReturnCh chan struct{}) error {
 
 	//check and handle syncLimit
 	if syncLimit {
-		n.logger.WithField("from", peer.ID).Debug("SyncLimit")
+		n.logger.WithField("from", peer.ID()).Debug("SyncLimit")
 		n.setState(CatchingUp) //
 		parentReturnCh <- struct{}{}
 
