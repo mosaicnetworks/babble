@@ -336,11 +336,11 @@ func TestJoin(t *testing.T) {
 	logger := common.NewTestLogger(t)
 
 	keys, peerSet := initPeers(4)
-	nodes := initNodes(keys, peerSet, 1000, 1000, "inmem", logger, t)
+	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", logger, t)
 
 	defer shutdownNodes(nodes)
 
-	//defer drawGraphs(nodes, t)
+	defer drawGraphs(nodes, t)
 
 	target := 50
 	err := gossip(nodes, target, false, 3*time.Second)
@@ -374,7 +374,7 @@ func TestJoin(t *testing.T) {
 	newNode.RunAsync(true)
 	defer newNode.Shutdown()
 
-	// nodes = append(nodes, newNode)
+	nodes = append(nodes, newNode)
 
 	//Gossip some more
 	secondTarget := target + 20
@@ -383,14 +383,15 @@ func TestJoin(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// start := newNode.core.hg.FirstConsensusRound
-	checkGossip(nodes, 0, t)
+	start := newNode.core.hg.FirstConsensusRound
+	checkGossip(nodes, *start, t)
 
 	for i := range nodes {
 		if nodes[i].core.peers.Len() != 5 {
 			t.Errorf("Node %d should have %d peers, not %d", i, 5, nodes[i].core.peers.Len())
 		}
 	}
+
 }
 
 func TestShutdown(t *testing.T) {
@@ -651,11 +652,11 @@ func gossip(nodes []*Node, target int, shutdown bool, timeout time.Duration) err
 }
 
 func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
-
+	//send a lot of random transactions to the nodes
 	quit := make(chan struct{})
 	makeRandomTransactions(nodes, quit)
 
-	//wait until all nodes have at least 'target' blocks
+	//wait until all nodes reach at least block 'target'
 	stopper := time.After(timeout)
 	for {
 		select {

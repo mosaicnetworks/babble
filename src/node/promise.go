@@ -2,12 +2,17 @@ package node
 
 import (
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/peers"
 )
+
+type JoinPromiseResponse struct {
+	AcceptedRound int
+	Peers         []*peers.Peer
+}
 
 type JoinPromise struct {
 	Tx     hashgraph.InternalTransaction
-	RespCh chan bool
-	hash   string
+	RespCh chan JoinPromiseResponse
 }
 
 func NewJoinPromise(tx hashgraph.InternalTransaction) *JoinPromise {
@@ -15,10 +20,10 @@ func NewJoinPromise(tx hashgraph.InternalTransaction) *JoinPromise {
 		Tx: tx,
 		//XXX make buffered because we don't want to block if there is no
 		//listener. There might be something smarter to do here
-		RespCh: make(chan bool, 2),
+		RespCh: make(chan JoinPromiseResponse, 2),
 	}
 }
 
-func (p *JoinPromise) Respond(res bool) {
-	p.RespCh <- res
+func (p *JoinPromise) Respond(acceptedRound int, peers []*peers.Peer) {
+	p.RespCh <- JoinPromiseResponse{acceptedRound, peers}
 }

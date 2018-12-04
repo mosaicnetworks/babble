@@ -1113,7 +1113,7 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 		}
 
 		//Although it is possible for a Round to be 'decided' before a previous
-		//round, we should NEVER process a decided round before all the previous
+		//round, we should NEVER process a decided round before all the earlier
 		//rounds are processed.
 		if !r.Decided {
 			break
@@ -1497,7 +1497,11 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 	otherParent := ""
 	var err error
 
-	creator := h.Store.RepertoireByID()[wevent.Body.CreatorID]
+	creator, ok := h.Store.RepertoireByID()[wevent.Body.CreatorID]
+	if !ok {
+		return nil, fmt.Errorf("Creator %d not found", wevent.Body.CreatorID)
+	}
+
 	creatorBytes, err := hex.DecodeString(creator.PubKeyHex[2:])
 	if err != nil {
 		return nil, err

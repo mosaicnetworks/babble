@@ -188,17 +188,26 @@ func (s *BadgerStore) SetPeerSet(round int, peerSet *peers.PeerSet) error {
 	}
 
 	//Extend Repertoire and Roots
-	for id, p := range peerSet.ByID {
-		if err := s.dbSetRepertoire(p); err != nil {
+	for _, p := range peerSet.Peers {
+		err := s.AddParticipant(p)
+		if err != nil {
 			return err
 		}
+	}
 
-		root, err := s.dbGetRoot(p.PubKeyHex)
-		if err != nil {
-			root = NewBaseRoot(id)
-			if err := s.dbSetRoot(p.PubKeyHex, root); err != nil {
-				return err
-			}
+	return nil
+}
+
+func (s *BadgerStore) AddParticipant(p *peers.Peer) error {
+	if err := s.dbSetRepertoire(p); err != nil {
+		return err
+	}
+
+	root, err := s.dbGetRoot(p.PubKeyHex)
+	if err != nil {
+		root = NewBaseRoot(p.ID())
+		if err := s.dbSetRoot(p.PubKeyHex, root); err != nil {
+			return err
 		}
 	}
 

@@ -2,7 +2,7 @@
 
 for i in `seq 1 100`
 do
-    go test -run FastSync  > ~/gossip.logs
+    go test -run TestJoin  > ~/gossip.logs
     if grep "FAIL" ~/gossip.logs 
     then
         echo 'CHECK LOGS'

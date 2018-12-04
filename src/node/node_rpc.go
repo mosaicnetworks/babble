@@ -6,6 +6,7 @@ import (
 
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
+	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/sirupsen/logrus"
 )
 
@@ -53,7 +54,7 @@ func (n *Node) requestFastForward(target string) (net.FastForwardResponse, error
 
 func (n *Node) requestJoin(target string) (net.JoinResponse, error) {
 	args := net.JoinRequest{
-		Peer: *n.core.peers.ByID[n.id],
+		Peer: *peers.NewPeer(n.core.HexID(), n.trans.LocalAddr()),
 	}
 
 	var out net.JoinResponse
@@ -214,7 +215,7 @@ func (n *Node) processJoinRequest(rpc net.RPC, cmd *net.JoinRequest) {
 	}).Debug("process JoinRequest")
 
 	var respErr error
-	var success bool
+	var promiseResp JoinPromiseResponse
 
 	//XXX run this by the App first
 
@@ -227,15 +228,16 @@ func (n *Node) processJoinRequest(rpc net.RPC, cmd *net.JoinRequest) {
 	timeout := time.After(1 * time.Second)
 	select {
 	case resp := <-promise.RespCh:
-		success = resp
+		promiseResp = resp
 	case <-timeout:
 		respErr = fmt.Errorf("Timeout waiting for JoinRequest to go through consensus")
 		break
 	}
 
 	resp := &net.JoinResponse{
-		FromID:  n.id,
-		Success: success,
+		FromID:        n.id,
+		AcceptedRound: promiseResp.AcceptedRound,
+		Peers:         promiseResp.Peers,
 	}
 
 	rpc.Respond(resp, respErr)

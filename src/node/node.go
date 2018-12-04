@@ -65,15 +65,6 @@ func NewNode(conf *Config,
 
 	node.needBoostrap = store.NeedBoostrap()
 
-	_, ok := peers.ByID[id]
-	if ok {
-		node.logger.Debug("Node belongs to PeerSet => Babbling")
-		node.setState(Babbling)
-	} else {
-		node.logger.Debug("Node does not belong to PeerSet => Joining")
-		node.setState(Joining)
-	}
-
 	return &node
 }
 
@@ -85,7 +76,22 @@ func (n *Node) Init() error {
 			return err
 		}
 	}
-	return n.core.SetHeadAndSeq()
+
+	_, ok := n.core.peers.ByID[n.id]
+	if ok {
+		n.logger.Debug("Node belongs to PeerSet => Babbling")
+
+		if err := n.core.SetHeadAndSeq(); err != nil {
+			n.core.SetHeadAndSeq()
+		}
+
+		n.setState(Babbling)
+	} else {
+		n.logger.Debug("Node does not belong to PeerSet => Joining")
+		n.setState(Joining)
+	}
+
+	return nil
 }
 
 func (n *Node) RunAsync(gossip bool) {
@@ -255,13 +261,12 @@ func (n *Node) join() error {
 	}
 
 	n.logger.WithFields(logrus.Fields{
-		"from_id": resp.FromID,
-		"success": resp.Success,
+		"from_id":        resp.FromID,
+		"accepted_round": resp.AcceptedRound,
+		"peers":          len(resp.Peers),
 	}).Debug("JoinResponse")
 
-	if resp.Success {
-		n.setState(CatchingUp)
-	}
+	n.setState(CatchingUp)
 
 	return nil
 }

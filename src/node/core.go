@@ -84,7 +84,9 @@ func NewCore(
 
 	core.hg = hg.NewHashgraph(store, core.Commit, logEntry)
 
-	//XXX
+	//XXX This will create roots and set PeerSet for round 0, which is not
+	//necessarily correct; what if this is a node that only joins the cluster
+	//on the go? Doesnt really matter because it's going to get Reset.
 	core.hg.Init(peers)
 
 	return core
@@ -112,6 +114,16 @@ func (c *Core) HexID() string {
 func (c *Core) SetHeadAndSeq() error {
 	var head string
 	var seq int
+
+	//Add self if not in Repertoire yet
+	if _, ok := c.hg.Store.RepertoireByID()[c.ID()]; !ok {
+		c.logger.Debug("Not in repertoire yet.")
+		err := c.hg.Store.AddParticipant(peers.NewPeer(c.HexID(), ""))
+		if err != nil {
+			c.logger.WithError(err).Error("Error adding self to Store")
+			return err
+		}
+	}
 
 	last, isRoot, err := c.hg.Store.LastEventFrom(c.HexID())
 	if err != nil {
@@ -237,27 +249,30 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 		default:
 		}
 
-		//respond to the corresponding promise
-		if p, ok := c.promises[tx.Hash()]; ok {
-			p.Respond(true)
-			//XXX remove promise
-		}
-
 		changed = true
 	}
 
+	//Why +4? It is what we call the RoundDecided; the round of the first
+	//witness that can decide the fame of a SuperMajority of witnesses from
+	//roundReceived, also accounting for Coin rounds. Cf whitepaper proofs.
+	acceptedRound := roundReceived + 4
+
 	if changed {
-		//XXX  +4 is arbitrary. Should be RoundDecided, ie. the round of the first
-		//witness that can decide the fame of a SuperMajority of witnesses from
-		//roundReceived.
-		err := c.hg.Store.SetPeerSet(roundReceived+4, peers)
+		err := c.hg.Store.SetPeerSet(acceptedRound, peers)
 		if err != nil {
 			return fmt.Errorf("Udpating Store PeerSet: %s", err)
 		}
 
 		c.peers = peers
-
 		c.peerSelector = NewRandomPeerSelector(peers, c.id)
+	}
+
+	for _, tx := range txs {
+		//respond to the corresponding promise
+		if p, ok := c.promises[tx.Hash()]; ok {
+			p.Respond(acceptedRound, peers.Peers)
+			//XXX remove promise
+		}
 	}
 
 	return nil
