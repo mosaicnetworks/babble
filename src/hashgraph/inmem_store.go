@@ -55,10 +55,6 @@ func (s *InmemStore) GetPeerSet(round int) (*peers.PeerSet, error) {
 	return s.peerSetCache.Get(round)
 }
 
-func (s *InmemStore) GetLastPeerSet() (*peers.PeerSet, error) {
-	return s.peerSetCache.GetLast()
-}
-
 //SetPeerSet updates the peerSetCache, participantEventsCache, rootsCache, and
 //Repertoire.
 func (s *InmemStore) SetPeerSet(round int, peerSet *peers.PeerSet) error {
@@ -188,17 +184,16 @@ func (s *InmemStore) LastConsensusEventFrom(participant string) (last string, is
 
 func (s *InmemStore) KnownEvents() map[uint32]int {
 	known := s.participantEventsCache.Known()
-	lastPeerSet, _ := s.GetLastPeerSet()
-	if lastPeerSet != nil {
-		for p, pid := range lastPeerSet.ByPubKey {
-			if known[pid.ID()] == -1 {
-				root, ok := s.rootsByParticipant[p]
-				if ok {
-					known[pid.ID()] = root.SelfParent.Index
-				}
+
+	for p, pid := range s.repertoireByPubKey {
+		if known[pid.ID()] == -1 {
+			root, ok := s.rootsByParticipant[p]
+			if ok {
+				known[pid.ID()] = root.SelfParent.Index
 			}
 		}
 	}
+
 	return known
 }
 

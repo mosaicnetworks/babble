@@ -5,7 +5,6 @@ import "github.com/mosaicnetworks/babble/src/peers"
 type Store interface {
 	CacheSize() int
 	GetPeerSet(int) (*peers.PeerSet, error)
-	GetLastPeerSet() (*peers.PeerSet, error)
 	SetPeerSet(int, *peers.PeerSet) error
 	AddParticipant(*peers.Peer) error
 	RepertoireByPubKey() map[string]*peers.Peer

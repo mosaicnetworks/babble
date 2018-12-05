@@ -460,12 +460,9 @@ func (h *Hashgraph) initEventCoordinates(event *Event) error {
 	event.lastAncestors = NewCoordinatesMap()
 	event.firstDescendants = NewCoordinatesMap()
 
-	lastPeerSet, err := h.Store.GetLastPeerSet()
-	if err != nil {
-		return err
-	}
+	repertoire := h.Store.RepertoireByPubKey()
 
-	for p := range lastPeerSet.ByPubKey {
+	for p := range repertoire {
 		event.firstDescendants[p] = EventCoordinates{
 			index: math.MaxInt32,
 		}

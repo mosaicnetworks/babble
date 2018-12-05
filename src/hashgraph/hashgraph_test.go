@@ -429,23 +429,16 @@ func initRoundHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
 
 	h, index, _ := initHashgraphFull(plays, false, n, testLogger(t))
 
-	lastPeerSet, err := h.Store.GetLastPeerSet()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	//Set Rounds manually; this would normally be handled by DivideRounds()
 	round0Witnesses := make(map[string]RoundEvent)
 	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
 	round0Witnesses[index["e1"]] = RoundEvent{Witness: true, Famous: Undefined}
 	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
 	h.Store.SetRound(0, &RoundInfo{CreatedEvents: round0Witnesses})
-	h.Store.SetPeerSet(0, lastPeerSet)
 
 	round1Witnesses := make(map[string]RoundEvent)
 	round1Witnesses[index["f1"]] = RoundEvent{Witness: true, Famous: Undefined}
 	h.Store.SetRound(1, &RoundInfo{CreatedEvents: round1Witnesses})
-	h.Store.SetPeerSet(1, lastPeerSet)
 
 	return h, index
 }
@@ -455,7 +448,7 @@ func TestInsertEvent(t *testing.T) {
 
 	t.Run("Check Event Coordinates", func(t *testing.T) {
 
-		lastPeerSet, err := h.Store.GetLastPeerSet()
+		peerSet, err := h.Store.GetPeerSet(0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -469,20 +462,20 @@ func TestInsertEvent(t *testing.T) {
 		if !(e0.Body.selfParentIndex == -1 &&
 			e0.Body.otherParentCreatorID == 0 &&
 			e0.Body.otherParentIndex == -1 &&
-			e0.Body.creatorID == lastPeerSet.ByPubKey[e0.Creator()].ID()) {
+			e0.Body.creatorID == peerSet.ByPubKey[e0.Creator()].ID()) {
 			t.Fatalf("Invalid wire info on e0")
 		}
 
 		expectedFirstDescendants := CoordinatesMap{
-			lastPeerSet.PubKeys()[0]: EventCoordinates{index["e0"], 0},
-			lastPeerSet.PubKeys()[1]: EventCoordinates{index["e10"], 1},
-			lastPeerSet.PubKeys()[2]: EventCoordinates{index["e21"], 2},
+			peerSet.PubKeys()[0]: EventCoordinates{index["e0"], 0},
+			peerSet.PubKeys()[1]: EventCoordinates{index["e10"], 1},
+			peerSet.PubKeys()[2]: EventCoordinates{index["e21"], 2},
 		}
 
 		expectedLastAncestors := CoordinatesMap{
-			lastPeerSet.PubKeys()[0]: EventCoordinates{index["e0"], 0},
-			lastPeerSet.PubKeys()[1]: EventCoordinates{"", -1},
-			lastPeerSet.PubKeys()[2]: EventCoordinates{"", -1},
+			peerSet.PubKeys()[0]: EventCoordinates{index["e0"], 0},
+			peerSet.PubKeys()[1]: EventCoordinates{"", -1},
+			peerSet.PubKeys()[2]: EventCoordinates{"", -1},
 		}
 
 		if !reflect.DeepEqual(e0.firstDescendants, expectedFirstDescendants) {
@@ -506,22 +499,22 @@ func TestInsertEvent(t *testing.T) {
 		}
 
 		if !(e21.Body.selfParentIndex == 1 &&
-			e21.Body.otherParentCreatorID == lastPeerSet.ByPubKey[e10.Creator()].ID() &&
+			e21.Body.otherParentCreatorID == peerSet.ByPubKey[e10.Creator()].ID() &&
 			e21.Body.otherParentIndex == 1 &&
-			e21.Body.creatorID == lastPeerSet.ByPubKey[e21.Creator()].ID()) {
+			e21.Body.creatorID == peerSet.ByPubKey[e21.Creator()].ID()) {
 			t.Fatalf("Invalid wire info on e21")
 		}
 
 		expectedFirstDescendants = CoordinatesMap{
-			lastPeerSet.PubKeys()[0]: EventCoordinates{index["e02"], 2},
-			lastPeerSet.PubKeys()[1]: EventCoordinates{index["f1"], 3},
-			lastPeerSet.PubKeys()[2]: EventCoordinates{index["e21"], 2},
+			peerSet.PubKeys()[0]: EventCoordinates{index["e02"], 2},
+			peerSet.PubKeys()[1]: EventCoordinates{index["f1"], 3},
+			peerSet.PubKeys()[2]: EventCoordinates{index["e21"], 2},
 		}
 
 		expectedLastAncestors = CoordinatesMap{
-			lastPeerSet.PubKeys()[0]: EventCoordinates{index["e0"], 0},
-			lastPeerSet.PubKeys()[1]: EventCoordinates{index["e10"], 1},
-			lastPeerSet.PubKeys()[2]: EventCoordinates{index["e21"], 2},
+			peerSet.PubKeys()[0]: EventCoordinates{index["e0"], 0},
+			peerSet.PubKeys()[1]: EventCoordinates{index["e10"], 1},
+			peerSet.PubKeys()[2]: EventCoordinates{index["e21"], 2},
 		}
 
 		if !reflect.DeepEqual(e21.firstDescendants, expectedFirstDescendants) {
@@ -538,22 +531,22 @@ func TestInsertEvent(t *testing.T) {
 		}
 
 		if !(f1.Body.selfParentIndex == 2 &&
-			f1.Body.otherParentCreatorID == lastPeerSet.ByPubKey[e0.Creator()].ID() &&
+			f1.Body.otherParentCreatorID == peerSet.ByPubKey[e0.Creator()].ID() &&
 			f1.Body.otherParentIndex == 2 &&
-			f1.Body.creatorID == lastPeerSet.ByPubKey[f1.Creator()].ID()) {
+			f1.Body.creatorID == peerSet.ByPubKey[f1.Creator()].ID()) {
 			t.Fatalf("Invalid wire info on f1")
 		}
 
 		expectedFirstDescendants = CoordinatesMap{
-			lastPeerSet.PubKeys()[0]: EventCoordinates{"", math.MaxInt32},
-			lastPeerSet.PubKeys()[1]: EventCoordinates{index["f1"], 3},
-			lastPeerSet.PubKeys()[2]: EventCoordinates{"", math.MaxInt32},
+			peerSet.PubKeys()[0]: EventCoordinates{"", math.MaxInt32},
+			peerSet.PubKeys()[1]: EventCoordinates{index["f1"], 3},
+			peerSet.PubKeys()[2]: EventCoordinates{"", math.MaxInt32},
 		}
 
 		expectedLastAncestors = CoordinatesMap{
-			lastPeerSet.PubKeys()[0]: EventCoordinates{index["e02"], 2},
-			lastPeerSet.PubKeys()[1]: EventCoordinates{index["f1"], 3},
-			lastPeerSet.PubKeys()[2]: EventCoordinates{index["e21"], 2},
+			peerSet.PubKeys()[0]: EventCoordinates{index["e02"], 2},
+			peerSet.PubKeys()[1]: EventCoordinates{index["f1"], 3},
+			peerSet.PubKeys()[2]: EventCoordinates{index["e21"], 2},
 		}
 
 		if !reflect.DeepEqual(f1.firstDescendants, expectedFirstDescendants) {
@@ -653,13 +646,13 @@ func TestStronglySee(t *testing.T) {
 		ancestryItem{"s11", "", false, true},
 	}
 
-	lastPeerSet, err := h.Store.GetLastPeerSet()
+	peerSet, err := h.Store.GetPeerSet(0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for _, exp := range expected {
-		a, err := h.stronglySee(index[exp.descendant], index[exp.ancestor], lastPeerSet)
+		a, err := h.stronglySee(index[exp.descendant], index[exp.ancestor], peerSet)
 		if err != nil && !exp.err {
 			t.Fatalf("Error computing stronglySee(%s, %s). Err: %v", exp.descendant, exp.ancestor, err)
 		}
@@ -847,7 +840,7 @@ func TestCreateRoot(t *testing.T) {
 	h, index := initRoundHashgraph(t)
 	h.DivideRounds()
 
-	peerSet, err := h.Store.GetLastPeerSet()
+	peerSet, err := h.Store.GetPeerSet(0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -942,7 +935,7 @@ func initDentedHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
 func TestCreateRootBis(t *testing.T) {
 	h, index := initDentedHashgraph(t)
 
-	peerSet, _ := h.Store.GetLastPeerSet()
+	peerSet, _ := h.Store.GetPeerSet(0)
 
 	expected := map[string]*Root{
 		"e12": &Root{
@@ -1634,7 +1627,7 @@ func BenchmarkConsensus(b *testing.B) {
 func TestKnown(t *testing.T) {
 	h, _ := initConsensusHashgraph(false, t)
 
-	peerSet, _ := h.Store.GetLastPeerSet()
+	peerSet, _ := h.Store.GetPeerSet(0)
 
 	expectedKnown := map[uint32]int{
 		peerSet.IDs()[0]: 10,
@@ -1653,7 +1646,7 @@ func TestKnown(t *testing.T) {
 func TestGetFrame(t *testing.T) {
 	h, index := initConsensusHashgraph(false, t)
 
-	peerSet, _ := h.Store.GetLastPeerSet()
+	peerSet, _ := h.Store.GetPeerSet(0)
 
 	h.DivideRounds()
 	h.DecideFame()
@@ -1810,7 +1803,7 @@ func TestGetFrame(t *testing.T) {
 func TestResetFromFrame(t *testing.T) {
 	h, index := initConsensusHashgraph(false, t)
 
-	peerSet, _ := h.Store.GetLastPeerSet()
+	peerSet, _ := h.Store.GetPeerSet(0)
 
 	h.DivideRounds()
 	h.DecideFame()
@@ -2329,7 +2322,7 @@ func TestFunkyHashgraphBlocks(t *testing.T) {
 func TestFunkyHashgraphFrames(t *testing.T) {
 	h, index := initFunkyHashgraph(common.NewTestLogger(t), true)
 
-	peerSet, err := h.Store.GetLastPeerSet()
+	peerSet, err := h.Store.GetPeerSet(0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2622,7 +2615,7 @@ func initSparseHashgraph(logger *logrus.Logger) (*Hashgraph, map[string]string) 
 func TestSparseHashgraphFrames(t *testing.T) {
 	h, index := initSparseHashgraph(common.NewTestLogger(t))
 
-	peerSet, err := h.Store.GetLastPeerSet()
+	peerSet, err := h.Store.GetPeerSet(0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2860,7 +2853,7 @@ func compareRoundWitnesses(h, h2 *Hashgraph, index map[string]string, round int,
 }
 
 func getDiff(h *Hashgraph, known map[uint32]int, t *testing.T) []*Event {
-	peerSet, _ := h.Store.GetLastPeerSet()
+	peerSet, _ := h.Store.GetPeerSet(0)
 	diff := []*Event{}
 	for id, ct := range known {
 		pk := peerSet.ByID[id].PubKeyHex

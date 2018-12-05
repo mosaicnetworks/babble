@@ -238,16 +238,6 @@ func TestPeerSetCache(t *testing.T) {
 
 	/**************************************************************************/
 
-	psL, err := peerSetCache.GetLast()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(psL, peerSet3) {
-		t.Fatalf("Last PeerSet should be %v, not %v", peerSet3, psL)
-	}
-
-	/**************************************************************************/
-
 	err = peerSetCache.Set(2, peerSet2.WithNewPeer(peers.NewPeer("broken", "")))
 	if err == nil || !cm.Is(err, cm.KeyAlreadyExists) {
 		t.Fatalf("Resetting PeerSet 2 should throw a KeyAlreadyExists error")

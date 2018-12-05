@@ -171,10 +171,3 @@ func (c *PeerSetCache) Get(round int) (*peers.PeerSet, error) {
 	//return last PeerSet
 	return c.peerSets[c.rounds[len(c.rounds)-1]], nil
 }
-
-func (c *PeerSetCache) GetLast() (*peers.PeerSet, error) {
-	if len(c.rounds) == 0 {
-		return nil, cm.NewStoreErr("PeerSetCache", cm.NoPeerSet, "")
-	}
-	return c.peerSets[c.rounds[len(c.rounds)-1]], nil
-}

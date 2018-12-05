@@ -118,10 +118,6 @@ func (s *BadgerStore) GetPeerSet(round int) (peerSet *peers.PeerSet, err error) 
 	return s.inmemStore.GetPeerSet(round)
 }
 
-func (s *BadgerStore) GetLastPeerSet() (*peers.PeerSet, error) {
-	return s.inmemStore.GetLastPeerSet()
-}
-
 func (s *BadgerStore) RepertoireByPubKey() map[string]*peers.Peer {
 	return s.inmemStore.RepertoireByPubKey()
 }
