@@ -783,12 +783,16 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 
 	cores = append(cores, bobCore)
 
-	block0, err := cores[0].hg.Store.GetBlock(0)
+	/***************************************************************************
+		Manually FastForward Bob from cores[2]'s AnchorBlock (Block 2)
+	***************************************************************************/
+
+	block, frame, err := cores[2].hg.GetAnchorBlockWithFrame()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	marshalledBlock, err := block0.Marshal()
+	marshalledBlock, err := block.Marshal()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -799,12 +803,7 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	frame0, err := cores[0].hg.Store.GetFrame(block0.RoundReceived())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	marshalledFrame, err := frame0.Marshal()
+	marshalledFrame, err := frame.Marshal()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -815,7 +814,7 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = cores[3].FastForward(cores[0].hexID, &unmarshalledBlock, &unmarshalledFrame)
+	err = cores[3].FastForward(cores[2].hexID, &unmarshalledBlock, &unmarshalledFrame)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -850,9 +849,9 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 		Check Rounds
 	***************************************************************************/
 
-	//The fame of Round 0 witnesses is not reprocessed after Reset. No need to
-	//check Round 0
-	for i := 1; i <= 5; i++ {
+	//The fame of Rounds 0 and 1 witnesses are not reprocessed after Reset. No
+	//need to check Rounds 0 and 1
+	for i := 2; i <= 5; i++ {
 		c3RI, err := cores[3].hg.Store.GetRound(i)
 		if err != nil {
 			t.Fatal(err)
@@ -890,7 +889,7 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 		Check PeerSets
 	***************************************************************************/
 
-	for i := 0; i <= 5; i++ {
+	for i := 1; i <= 5; i++ {
 		c3PS, err := cores[3].hg.Store.GetPeerSet(i)
 		if err != nil {
 			t.Fatal(err)

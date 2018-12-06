@@ -1295,9 +1295,15 @@ func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 	return res, nil
 }
 
-//ProcessSigPool runs through the SignaturePool and tries to map a Signature to
-//a known Block. If a Signature is found to be valid for a known Block, it is
-//appended to the block and removed from the SignaturePool
+/*
+ProcessSigPool runs through the SignaturePool and tries to map a Signature to
+a known Block. If a Signature is valid, it is appended to the block and removed
+from the SignaturePool. When a Block gathers enough signatures, it becomes the
+new Anchor Block if:
+	- it is above the current anchor block
+   	- it is above the lowest round with undetermined Events
+   	- it doesn't contain InternalTransactions
+*/
 func (h *Hashgraph) ProcessSigPool() error {
 	processedSignatures := map[int]bool{} //index in SigPool => Processed?
 	defer h.removeProcessedSignatures(processedSignatures)
@@ -1367,7 +1373,8 @@ func (h *Hashgraph) ProcessSigPool() error {
 		if len(block.Signatures) > peerSet.TrustCount() &&
 			(h.AnchorBlock == nil ||
 				block.Index() > *h.AnchorBlock) &&
-			block.RoundReceived() > lowestRoundWithUndeterminedEvents {
+			(block.RoundReceived() > lowestRoundWithUndeterminedEvents) &&
+			len(block.InternalTransactions()) == 0 {
 
 			h.setAnchorBlock(block.Index())
 			h.logger.WithFields(logrus.Fields{

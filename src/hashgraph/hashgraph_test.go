@@ -1602,7 +1602,6 @@ func TestProcessDecidedRounds(t *testing.T) {
 	if v := h.AnchorBlock; v != nil {
 		t.Fatalf("AnchorBlock should be nil, not %v", v)
 	}
-
 }
 
 func BenchmarkConsensus(b *testing.B) {
