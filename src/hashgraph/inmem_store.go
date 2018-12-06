@@ -74,6 +74,10 @@ func (s *InmemStore) SetPeerSet(round int, peerSet *peers.PeerSet) error {
 	return nil
 }
 
+func (s *InmemStore) GetFuturePeerSets(baseRound int) (map[int][]*peers.Peer, error) {
+	return s.peerSetCache.GetFuture(baseRound)
+}
+
 func (s *InmemStore) AddParticipant(p *peers.Peer) error {
 	if _, ok := s.participantEventsCache.participants.ByID[p.ID()]; !ok {
 		if err := s.participantEventsCache.AddPeer(p); err != nil {
@@ -333,6 +337,12 @@ func (s *InmemStore) Reset(frame *Frame) error {
 
 	if err := s.SetPeerSet(frame.Round, peerSet); err != nil {
 		return err
+	}
+
+	for round, ps := range frame.FuturePeerSets {
+		if err := s.SetPeerSet(round, peers.NewPeerSet(ps)); err != nil {
+			return err
+		}
 	}
 
 	//Set Frame

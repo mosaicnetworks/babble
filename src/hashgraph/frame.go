@@ -9,10 +9,11 @@ import (
 )
 
 type Frame struct {
-	Round  int //RoundReceived
-	Peers  []*peers.Peer
-	Roots  map[string]*Root
-	Events []*Event //Event with RoundReceived = Round
+	Round          int //RoundReceived
+	Peers          []*peers.Peer
+	Roots          map[string]*Root
+	Events         []*Event              //Event with RoundReceived = Round
+	FuturePeerSets map[int][]*peers.Peer //[round] => Peers
 }
 
 //json encoding of Frame

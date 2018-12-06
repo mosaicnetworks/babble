@@ -6,6 +6,7 @@ type Store interface {
 	CacheSize() int
 	GetPeerSet(int) (*peers.PeerSet, error)
 	SetPeerSet(int, *peers.PeerSet) error
+	GetFuturePeerSets(int) (map[int][]*peers.Peer, error)
 	AddParticipant(*peers.Peer) error
 	RepertoireByPubKey() map[string]*peers.Peer
 	RepertoireByID() map[uint32]*peers.Peer

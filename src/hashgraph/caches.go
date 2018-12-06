@@ -172,3 +172,13 @@ func (c *PeerSetCache) Get(round int) (*peers.PeerSet, error) {
 	//return last PeerSet
 	return c.peerSets[c.rounds[len(c.rounds)-1]], nil
 }
+
+func (c *PeerSetCache) GetFuture(baseRound int) (map[int][]*peers.Peer, error) {
+	res := make(map[int][]*peers.Peer)
+	for _, r := range c.rounds {
+		if r > baseRound {
+			res[r] = c.peerSets[r].Peers
+		}
+	}
+	return res, nil
+}

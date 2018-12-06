@@ -1206,6 +1206,12 @@ func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 		return nil, err
 	}
 
+	//XXX Get Future PeerSets
+	futurePeerSets, err := h.Store.GetFuturePeerSets(roundReceived)
+	if err != nil {
+		return nil, err
+	}
+
 	events := []*Event{}
 	for _, eh := range round.ReceivedEvents {
 		e, err := h.Store.GetEvent(eh)
@@ -1282,10 +1288,11 @@ func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 	}
 
 	res := &Frame{
-		Round:  roundReceived,
-		Peers:  peerSet.Peers,
-		Roots:  roots,
-		Events: events,
+		Round:          roundReceived,
+		Peers:          peerSet.Peers,
+		Roots:          roots,
+		Events:         events,
+		FuturePeerSets: futurePeerSets,
 	}
 
 	if err := h.Store.SetFrame(res); err != nil {
