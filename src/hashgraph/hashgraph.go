@@ -310,10 +310,22 @@ func (h *Hashgraph) witness(x string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
+	// XXX does the creator belong to the PeerSet
+	peerSet, err := h.Store.GetPeerSet(xRound)
+	if err != nil {
+		return false, err
+	}
+
+	if _, ok := peerSet.ByPubKey[ex.Creator()]; !ok {
+		return false, nil
+	}
+
 	spRound, err := h.round(ex.SelfParent())
 	if err != nil {
 		return false, err
 	}
+
 	return xRound > spRound, nil
 }
 
@@ -460,28 +472,14 @@ func (h *Hashgraph) initEventCoordinates(event *Event) error {
 	event.lastAncestors = NewCoordinatesMap()
 	event.firstDescendants = NewCoordinatesMap()
 
-	repertoire := h.Store.RepertoireByPubKey()
-
-	for p := range repertoire {
-		event.firstDescendants[p] = EventCoordinates{
-			index: math.MaxInt32,
-		}
-	}
-
 	selfParent, selfParentError := h.Store.GetEvent(event.SelfParent())
 	otherParent, otherParentError := h.Store.GetEvent(event.OtherParent())
 
-	if selfParentError != nil && otherParentError != nil {
-		for p := range event.firstDescendants {
-			event.lastAncestors[p] = EventCoordinates{
-				index: -1,
-			}
-		}
-	} else if selfParentError != nil {
+	if selfParentError != nil && otherParentError == nil {
 		event.lastAncestors = otherParent.lastAncestors.Copy()
-	} else if otherParentError != nil {
+	} else if otherParentError != nil && selfParentError == nil {
 		event.lastAncestors = selfParent.lastAncestors.Copy()
-	} else {
+	} else if otherParentError == nil && selfParentError == nil {
 		selfParentLastAncestors := selfParent.lastAncestors
 		otherParentLastAncestors := otherParent.lastAncestors
 
@@ -520,8 +518,8 @@ func (h *Hashgraph) updateAncestorFirstDescendant(event *Event) error {
 				break
 			}
 
-			acfd, ok := a.firstDescendants[event.Creator()]
-			if !ok || acfd.index == math.MaxInt32 {
+			_, ok := a.firstDescendants[event.Creator()]
+			if !ok {
 				a.firstDescendants[event.Creator()] = EventCoordinates{
 					index: event.Index(),
 					hash:  event.Hex(),

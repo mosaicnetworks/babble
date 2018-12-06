@@ -3,7 +3,6 @@ package hashgraph
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"math"
 	"os"
 	"reflect"
 	"sort"
@@ -474,8 +473,6 @@ func TestInsertEvent(t *testing.T) {
 
 		expectedLastAncestors := CoordinatesMap{
 			peerSet.PubKeys()[0]: EventCoordinates{index["e0"], 0},
-			peerSet.PubKeys()[1]: EventCoordinates{"", -1},
-			peerSet.PubKeys()[2]: EventCoordinates{"", -1},
 		}
 
 		if !reflect.DeepEqual(e0.firstDescendants, expectedFirstDescendants) {
@@ -538,9 +535,7 @@ func TestInsertEvent(t *testing.T) {
 		}
 
 		expectedFirstDescendants = CoordinatesMap{
-			peerSet.PubKeys()[0]: EventCoordinates{"", math.MaxInt32},
 			peerSet.PubKeys()[1]: EventCoordinates{index["f1"], 3},
-			peerSet.PubKeys()[2]: EventCoordinates{"", math.MaxInt32},
 		}
 
 		expectedLastAncestors = CoordinatesMap{
