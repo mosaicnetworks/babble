@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 	"testing"
 
@@ -432,9 +433,6 @@ func TestOverSyncLimit(t *testing.T) {
 }
 
 /*
-
-
-
     |   |   |   |-----------------
 	|   w31 |   | R3
 	|	| \ |   |
@@ -645,18 +643,17 @@ func TestCoreFastForward(t *testing.T) {
 /*
 We introduce a JoinRequest at round 0, which is received at round 1, and updates
 the PeerSet at round 5 (1 + 4)
-r
 
-	     -------------------------
-		    |    |    |   w53
-            |    |    | /  |
-Round 5     |    |   w52   |
-P:[0,1,2,3] |    | /  |    |
-            |   w51   |    |
-            |  / |    |    |
-            w50  |    |    |
-        -------\------------------
-		    |   i12   |    R3
+	     ----------------
+		    |    |    |
+            |    |    |
+Round 5     |    |   w52
+P:[0,1,2,3] |    | /  |
+            |   w51   |
+            |  / |    |
+            w50  |    |
+        -------\----------
+		    |   i12   |
             |    | \  |
 Round 4     |    |   w42
 P:[0,1,2]   |    | /  |
@@ -704,30 +701,20 @@ P:[0,1,2]   |  \ |    |
 		    R0   R1   R2
 			0	 1	  2
 */
-func initR2DynHashgraph(t *testing.T) (cores []*Core) {
+func initR2DynHashgraph(t *testing.T) (cores []*Core, bobPeer *peers.Peer, bobKey *ecdsa.PrivateKey) {
 	//Initialize first 3 cores. They will have the same PeerSet of 3.
-	cores, participantKeys, _ := initCores(3, t)
+	cores, _, _ = initCores(3, t)
 
 	//Initialize the joining Peer (bob)
-	bobKey, _ := crypto.GenerateECDSAKey()
+	bobKey, _ = crypto.GenerateECDSAKey()
 	bobPubHex := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&bobKey.PublicKey))
-	bob := peers.NewPeer(bobPubHex, "")
-	participantKeys[bob.ID()] = bobKey
-	newPeerSet := cores[0].peers.WithNewPeer(bob)
-	bobCore := NewCore(bob.ID(),
-		bobKey,
-		newPeerSet,
-		hg.NewInmemStore(1000),
-		proxy.DummyCommitCallback,
-		common.NewTestLogger(t))
-	bobCore.SetHeadAndSeq()
-	cores = append(cores, bobCore)
+	bobPeer = peers.NewPeer(bobPubHex, "")
 
 	//Insert a JoinRequest in a Round0 Event
 	playbook := []play{
 		play{from: 0, to: 1, payload: [][]byte{[]byte("e10")}},
 		play{from: 1, to: 2, payload: [][]byte{[]byte("e21")},
-			internalTxs: []hg.InternalTransaction{hg.NewInternalTransaction(hg.PEER_ADD, *bob)}},
+			internalTxs: []hg.InternalTransaction{hg.NewInternalTransaction(hg.PEER_ADD, *bobPeer)}},
 		play{from: 2, to: 0, payload: [][]byte{[]byte("e12")}},
 		play{from: 0, to: 1, payload: [][]byte{[]byte("w11")}},
 		play{from: 1, to: 2, payload: [][]byte{[]byte("w12")}},
@@ -748,7 +735,6 @@ func initR2DynHashgraph(t *testing.T) (cores []*Core) {
 		play{from: 1, to: 0, payload: [][]byte{[]byte("w50")}},
 		play{from: 0, to: 1, payload: [][]byte{[]byte("w51")}},
 		play{from: 1, to: 2, payload: [][]byte{[]byte("w52")}},
-		play{from: 2, to: 3, payload: [][]byte{[]byte("w53")}},
 	}
 
 	for k, play := range playbook {
@@ -757,18 +743,183 @@ func initR2DynHashgraph(t *testing.T) (cores []*Core) {
 		}
 	}
 
-	return cores
+	return cores, bobPeer, bobKey
 }
 
 func TestR2DynConsensus(t *testing.T) {
-	cores := initR2DynHashgraph(t)
+	cores, _, _ := initR2DynHashgraph(t)
 
 	for i, c := range cores {
+		frame1, err := c.hg.Store.GetFrame(1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("frame1: %v", frame1)
+		if lcr := c.hg.LastConsensusRound; lcr == nil || *lcr != 3 {
+			t.Fatalf("cores[%d] LastConsensusRound should be 3, not %d", i, *lcr)
+		}
 		if ps, _ := c.hg.Store.GetPeerSet(5); ps.Len() != 4 {
 			t.Fatalf("cores[%d] PeerSet(5) should contain 4 peers, not %d", i, ps.Len())
 		}
 	}
 }
+
+func TestCoreFastForwardAfterJoin(t *testing.T) {
+	cores, bobPeer, bobKey := initR2DynHashgraph(t)
+
+	initPeerSet, err := cores[0].hg.Store.GetPeerSet(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bobCore := NewCore(bobPeer.ID(),
+		bobKey,
+		initPeerSet,
+		hg.NewInmemStore(1000),
+		proxy.DummyCommitCallback,
+		common.NewTestLogger(t))
+
+	bobCore.SetHeadAndSeq()
+
+	cores = append(cores, bobCore)
+
+	block0, err := cores[0].hg.Store.GetBlock(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	marshalledBlock, err := block0.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var unmarshalledBlock hg.Block
+	err = unmarshalledBlock.Unmarshal(marshalledBlock)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	frame0, err := cores[0].hg.Store.GetFrame(block0.RoundReceived())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	marshalledFrame, err := frame0.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var unmarshalledFrame hg.Frame
+	err = unmarshalledFrame.Unmarshal(marshalledFrame)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = cores[3].FastForward(cores[0].hexID, &unmarshalledBlock, &unmarshalledFrame)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	//continue after FastForward
+	err = syncAndRunConsensus(cores, 2, 3, [][]byte{}, []hg.InternalTransaction{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	/***************************************************************************
+		Check Known
+	***************************************************************************/
+
+	knownBy3 := cores[3].KnownEvents()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedKnown := map[uint32]int{
+		common.Hash32(cores[0].pubKey): 6,
+		common.Hash32(cores[1].pubKey): 9,
+		common.Hash32(cores[2].pubKey): 7,
+		common.Hash32(cores[3].pubKey): 0,
+	}
+
+	if !reflect.DeepEqual(knownBy3, expectedKnown) {
+		t.Fatalf("Cores[3].Known should be %v, not %v", expectedKnown, knownBy3)
+	}
+
+	/***************************************************************************
+		Check Rounds
+	***************************************************************************/
+
+	//The fame of Round 0 witnesses is not reprocessed after Reset. No need to
+	//check Round 0
+	for i := 1; i <= 5; i++ {
+		c3RI, err := cores[3].hg.Store.GetRound(i)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		c2RI, err := cores[2].hg.Store.GetRound(i)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		c3RIw := c3RI.Witnesses()
+		c2RIw := c2RI.Witnesses()
+		sort.Strings(c3RIw)
+		sort.Strings(c2RIw)
+
+		if !reflect.DeepEqual(c3RIw, c2RIw) {
+			t.Logf("Round(%d).Witnesses do not match", i)
+		}
+
+		if !reflect.DeepEqual(c3RI.CreatedEvents, c3RI.CreatedEvents) {
+			t.Logf("Round(%d).CreatedEvents do not match", i)
+		}
+
+		c3RIr := c3RI.ReceivedEvents
+		c2RIr := c2RI.ReceivedEvents
+		sort.Strings(c3RIr)
+		sort.Strings(c2RIr)
+
+		if !reflect.DeepEqual(c3RIw, c2RIw) {
+			t.Logf("Round(%d).ReceivedEvents do not match", i)
+		}
+	}
+
+	/***************************************************************************
+		Check PeerSets
+	***************************************************************************/
+
+	for i := 0; i <= 5; i++ {
+		c3PS, err := cores[3].hg.Store.GetPeerSet(i)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		c2PS, err := cores[2].hg.Store.GetPeerSet(i)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !reflect.DeepEqual(c3PS.Hex(), c2PS.Hex()) {
+			t.Logf("PeerSet(%d) does not match", i)
+		}
+	}
+
+	/***************************************************************************
+		Check Consensus Rounds and Blocks
+	***************************************************************************/
+
+	if r := cores[3].GetLastConsensusRoundIndex(); r == nil || *r != 3 {
+		t.Fatalf("Cores[3] last consensus Round should be 3, not %v", *r)
+	}
+
+	if lbi := cores[3].hg.Store.LastBlockIndex(); lbi != 2 {
+		t.Fatalf("Cores[3].hg.LastBlockIndex should be 2, not %d", lbi)
+	}
+}
+
+/******************************************************************************/
 
 func synchronizeCores(cores []*Core, from int, to int, payload [][]byte, internalTxs []hg.InternalTransaction) error {
 	knownByTo := cores[to].KnownEvents()

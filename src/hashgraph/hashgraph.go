@@ -1124,10 +1124,21 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 			return err
 		}
 
+		//XXX
+		eventHashes := []string{}
+		for _, e := range frame.Events {
+			eventHashes = append(eventHashes, e.Hex())
+		}
+
+		roundPeers, _ := h.Store.GetPeerSet(r.Index)
+
 		h.logger.WithFields(logrus.Fields{
 			"round_received": r.Index,
 			"witnesses":      round.FamousWitnesses(),
 			"events":         len(frame.Events),
+			"event_hashes":   eventHashes,
+			"frame_peers":    len(frame.Peers),
+			"round_peers":    len(roundPeers.Peers),
 		}).Debugf("Processing Decided Round")
 
 		if len(frame.Events) > 0 {
@@ -1532,7 +1543,7 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 			}
 
 			if !found {
-				return nil, fmt.Errorf("OtherParent not found")
+				return nil, fmt.Errorf("OtherParent (creator: %d, index: %d) not found", wevent.Body.OtherParentCreatorID, wevent.Body.OtherParentIndex)
 			}
 		}
 	}

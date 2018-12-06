@@ -417,7 +417,6 @@ func (c *Core) AddSelfEvent(otherHead string) error {
 }
 
 func (c *Core) FastForward(peer string, block *hg.Block, frame *hg.Frame) error {
-
 	peerSet := peers.NewPeerSet(frame.Peers)
 
 	//Check Block Signatures

@@ -149,16 +149,17 @@ func (c *PeerSetCache) Get(round int) (*peers.PeerSet, error) {
 		return nil, cm.NewStoreErr("PeerSetCache", cm.KeyNotFound, strconv.Itoa(round))
 	}
 
-	if len(c.rounds) == 1 {
-		//XXX should probably do something smarter here. Removing comments
-		//breaks tests. If the Frame has a different PeerSet than the round
-		//below, we have a problem because we wont be able to compute the rounds
-		//of events directly above the Frame.
-
-		// if round < c.rounds[0] {
-		// 	return nil, cm.NewStoreErr("PeerSetCache", cm.TooLate, strconv.Itoa(round))
-		// }
-
+	/*
+		XXX should probably do something smarter here, because this is wrong.
+		Ex: After a FastForward.
+		The Frame has a PeerSet that corresponds to its RoundReceived, BUT the
+		Frame may contain Events from previous Rounds which have different
+		PeerSets. Upon Reset(), only the PeerSet of the Frame will be stored.
+		When Getting the PeerSet for a Frame Event belonging to a earlier round
+		than the Frame RoundReceived, we fall in this case, and return a wrong
+		PeerSet.
+	*/
+	if round < c.rounds[0] {
 		return c.peerSets[c.rounds[0]], nil
 	}
 

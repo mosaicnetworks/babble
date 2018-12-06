@@ -306,15 +306,7 @@ func (s *InmemStore) SetFrame(frame *Frame) error {
 
 func (s *InmemStore) Reset(frame *Frame) error {
 	//Clear all caches
-
-	//XXX This is commented out to make the JoinTest pass but IT HAS TO
-	//ADDRESSED because it's going to break FastForward. The problem is that
-	//when a peer FastForwards to a block, there might be some InternalTransactions
-	//that it is not aware of (they were before the Anchor block). So it will
-	//not update the PeerSet correctly.
-
-	//s.peerSetCache = NewPeerSetCache()
-
+	s.peerSetCache = NewPeerSetCache()
 	s.repertoireByPubKey = make(map[string]*peers.Peer)
 	s.repertoireByID = make(map[uint32]*peers.Peer)
 	s.eventCache = cm.NewLRU(s.cacheSize, nil)

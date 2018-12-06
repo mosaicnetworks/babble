@@ -340,7 +340,7 @@ func TestJoin(t *testing.T) {
 
 	defer shutdownNodes(nodes)
 
-	defer drawGraphs(nodes, t)
+	//defer drawGraphs(nodes, t)
 
 	target := 50
 	err := gossip(nodes, target, false, 3*time.Second)
@@ -388,7 +388,7 @@ func TestJoin(t *testing.T) {
 
 	for i := range nodes {
 		if nodes[i].core.peers.Len() != 5 {
-			t.Errorf("Node %d should have %d peers, not %d", i, 5, nodes[i].core.peers.Len())
+			t.Errorf("Error: Node %d should have %d peers, not %d", i, 5, nodes[i].core.peers.Len())
 		}
 	}
 
