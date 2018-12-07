@@ -351,6 +351,7 @@ func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 		}
 
 		if err := c.InsertEvent(ev, false); err != nil {
+			c.logger.WithError(err).Errorf("Inserting Event %s", ev.Hex())
 			return err
 		}
 

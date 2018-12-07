@@ -641,14 +641,22 @@ func TestCoreFastForward(t *testing.T) {
 }
 
 /*
-We introduce a JoinRequest at round 0, which is received at round 1, and updates
-the PeerSet at round 5 (1 + 4)
+We introduce a JoinRequest at round 1, which is received at round 2, and updates
+the PeerSet at round 6 (2 + 4)
 
-	     ----------------
-		    |    |    |
-            |    |    |
+
+Round 6
+P:[0,1,2,3]
+            |    |   w62
+			|    | /  |
+ 			|   w61   |
+            |  / |    |
+            w60  |    |
+        -------\----------
+	        |   j12   |
+            |    | \  |
 Round 5     |    |   w52
-P:[0,1,2,3] |    | /  |
+P:[0,1,2]   |    | /  |
             |   w51   |
             |  / |    |
             w50  |    |
@@ -685,14 +693,14 @@ P:[0,1,2]	| /  |    |
 		   w10   |    |
 		    |  \ |    |
 		    |    | \  |
-		    |    |   w12
+		    |    |   w12*
 		    |    |  / |
 		    |   w11   |
 		 -----/------------
-Round 0	   e12   |    |
+Round 0	   e12   |    |   Block 0
 P:[0,1,2]   |  \ |    |
 		    |    | \  |
-		    |    |   e21*
+		    |    |   e21
 		    |    | /  |
 		    |   e10   |
 		    |  / |    |
@@ -713,11 +721,11 @@ func initR2DynHashgraph(t *testing.T) (cores []*Core, bobPeer *peers.Peer, bobKe
 	//Insert a JoinRequest in a Round0 Event
 	playbook := []play{
 		play{from: 0, to: 1, payload: [][]byte{[]byte("e10")}},
-		play{from: 1, to: 2, payload: [][]byte{[]byte("e21")},
-			internalTxs: []hg.InternalTransaction{hg.NewInternalTransaction(hg.PEER_ADD, *bobPeer)}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("e21")}},
 		play{from: 2, to: 0, payload: [][]byte{[]byte("e12")}},
 		play{from: 0, to: 1, payload: [][]byte{[]byte("w11")}},
-		play{from: 1, to: 2, payload: [][]byte{[]byte("w12")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("w12")},
+			internalTxs: []hg.InternalTransaction{hg.NewInternalTransaction(hg.PEER_ADD, *bobPeer)}},
 		play{from: 2, to: 0, payload: [][]byte{[]byte("w10")}},
 		play{from: 0, to: 1, payload: [][]byte{[]byte("f10")}},
 		play{from: 1, to: 2, payload: [][]byte{[]byte("w22")}},
@@ -735,6 +743,10 @@ func initR2DynHashgraph(t *testing.T) (cores []*Core, bobPeer *peers.Peer, bobKe
 		play{from: 1, to: 0, payload: [][]byte{[]byte("w50")}},
 		play{from: 0, to: 1, payload: [][]byte{[]byte("w51")}},
 		play{from: 1, to: 2, payload: [][]byte{[]byte("w52")}},
+		play{from: 2, to: 1, payload: [][]byte{[]byte("j12")}},
+		play{from: 1, to: 0, payload: [][]byte{[]byte("w60")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("w61")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("w62")}},
 	}
 
 	for k, play := range playbook {
@@ -755,11 +767,11 @@ func TestR2DynConsensus(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Logf("frame1: %v", frame1)
-		if lcr := c.hg.LastConsensusRound; lcr == nil || *lcr != 3 {
-			t.Fatalf("cores[%d] LastConsensusRound should be 3, not %d", i, *lcr)
+		if lcr := c.hg.LastConsensusRound; lcr == nil || *lcr != 4 {
+			t.Fatalf("cores[%d] LastConsensusRound should be 4, not %d", i, *lcr)
 		}
-		if ps, _ := c.hg.Store.GetPeerSet(5); ps.Len() != 4 {
-			t.Fatalf("cores[%d] PeerSet(5) should contain 4 peers, not %d", i, ps.Len())
+		if ps, _ := c.hg.Store.GetPeerSet(6); ps.Len() != 4 {
+			t.Fatalf("cores[%d] PeerSet(6) should contain 4 peers, not %d", i, ps.Len())
 		}
 	}
 }
@@ -784,138 +796,182 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 	cores = append(cores, bobCore)
 
 	/***************************************************************************
-		Manually FastForward Bob from cores[2]'s AnchorBlock (Block 2)
+		Manually FastForward Bob from cores[2]
+
+		Testing 2 scenarios:
+
+			- AnchorBlock: check that the AnchorBlock (Block 2) is selected
+						   correctly and that FuturePeerSets works.
+
+			- Block 0: check that FastForwarding from a Round below the PeerSet
+			           change works.
 	***************************************************************************/
 
-	block, frame, err := cores[2].hg.GetAnchorBlockWithFrame()
+	type play struct {
+		block           *hg.Block
+		frame           *hg.Frame
+		roundLowerBound int
+	}
+
+	plays := []play{}
+
+	//Prepare Block 0 scenario
+	block0, err := cores[2].hg.Store.GetBlock(0)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	marshalledBlock, err := block.Marshal()
+	frame0, err := cores[2].hg.Store.GetFrame(block0.RoundReceived())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	var unmarshalledBlock hg.Block
-	err = unmarshalledBlock.Unmarshal(marshalledBlock)
+	plays = append(plays, play{block0, frame0, 0})
+
+	//Prepare AnchorBlock scenario
+	anchorBlock, anchorFrame, err := cores[2].hg.GetAnchorBlockWithFrame()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	marshalledFrame, err := frame.Marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var unmarshalledFrame hg.Frame
-	err = unmarshalledFrame.Unmarshal(marshalledFrame)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = cores[3].FastForward(cores[2].hexID, &unmarshalledBlock, &unmarshalledFrame)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	//continue after FastForward
-	err = syncAndRunConsensus(cores, 2, 3, [][]byte{}, []hg.InternalTransaction{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	plays = append(plays, play{anchorBlock, anchorFrame, 2})
 
 	/***************************************************************************
-		Check Known
+		Run the same test for both scenarios
 	***************************************************************************/
 
-	knownBy3 := cores[3].KnownEvents()
-	if err != nil {
-		t.Fatal(err)
-	}
+	for _, p := range plays {
 
-	expectedKnown := map[uint32]int{
-		common.Hash32(cores[0].pubKey): 6,
-		common.Hash32(cores[1].pubKey): 9,
-		common.Hash32(cores[2].pubKey): 7,
-		common.Hash32(cores[3].pubKey): 0,
-	}
+		/***********************************************************************
+			FastForward, Sync, and Run Consensus
+		***********************************************************************/
 
-	if !reflect.DeepEqual(knownBy3, expectedKnown) {
-		t.Fatalf("Cores[3].Known should be %v, not %v", expectedKnown, knownBy3)
-	}
-
-	/***************************************************************************
-		Check Rounds
-	***************************************************************************/
-
-	//The fame of Rounds 0 and 1 witnesses are not reprocessed after Reset. No
-	//need to check Rounds 0 and 1
-	for i := 2; i <= 5; i++ {
-		c3RI, err := cores[3].hg.Store.GetRound(i)
+		marshalledBlock, err := p.block.Marshal()
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		c2RI, err := cores[2].hg.Store.GetRound(i)
+		var unmarshalledBlock hg.Block
+		err = unmarshalledBlock.Unmarshal(marshalledBlock)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		c3RIw := c3RI.Witnesses()
-		c2RIw := c2RI.Witnesses()
-		sort.Strings(c3RIw)
-		sort.Strings(c2RIw)
-
-		if !reflect.DeepEqual(c3RIw, c2RIw) {
-			t.Logf("Round(%d).Witnesses do not match", i)
-		}
-
-		if !reflect.DeepEqual(c3RI.CreatedEvents, c3RI.CreatedEvents) {
-			t.Logf("Round(%d).CreatedEvents do not match", i)
-		}
-
-		c3RIr := c3RI.ReceivedEvents
-		c2RIr := c2RI.ReceivedEvents
-		sort.Strings(c3RIr)
-		sort.Strings(c2RIr)
-
-		if !reflect.DeepEqual(c3RIw, c2RIw) {
-			t.Logf("Round(%d).ReceivedEvents do not match", i)
-		}
-	}
-
-	/***************************************************************************
-		Check PeerSets
-	***************************************************************************/
-
-	for i := 1; i <= 5; i++ {
-		c3PS, err := cores[3].hg.Store.GetPeerSet(i)
+		marshalledFrame, err := p.frame.Marshal()
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		c2PS, err := cores[2].hg.Store.GetPeerSet(i)
+		var unmarshalledFrame hg.Frame
+		err = unmarshalledFrame.Unmarshal(marshalledFrame)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if !reflect.DeepEqual(c3PS.Hex(), c2PS.Hex()) {
-			t.Logf("PeerSet(%d) does not match", i)
+		err = cores[3].FastForward(cores[2].hexID, &unmarshalledBlock, &unmarshalledFrame)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		//continue after FastForward
+		err = syncAndRunConsensus(cores, 2, 3, [][]byte{}, []hg.InternalTransaction{})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		/***********************************************************************
+			Check Known
+		***********************************************************************/
+
+		knownBy3 := cores[3].KnownEvents()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		expectedKnown := map[uint32]int{
+			common.Hash32(cores[0].pubKey): 7,
+			common.Hash32(cores[1].pubKey): 11,
+			common.Hash32(cores[2].pubKey): 8,
+			common.Hash32(cores[3].pubKey): 0,
+		}
+
+		if !reflect.DeepEqual(knownBy3, expectedKnown) {
+			t.Fatalf("Cores[3].Known should be %v, not %v", expectedKnown, knownBy3)
+		}
+
+		/***********************************************************************
+			Check Rounds
+		***********************************************************************/
+
+		//The fame of witnesses of the FastForward's Block RoundReceived and
+		//below are not reprocessed after Reset. No need to those rounds
+		for i := p.roundLowerBound; i <= 5; i++ {
+			c3RI, err := cores[3].hg.Store.GetRound(i)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			c2RI, err := cores[2].hg.Store.GetRound(i)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			c3RIw := c3RI.Witnesses()
+			c2RIw := c2RI.Witnesses()
+			sort.Strings(c3RIw)
+			sort.Strings(c2RIw)
+
+			if !reflect.DeepEqual(c3RIw, c2RIw) {
+				t.Logf("Round(%d).Witnesses do not match", i)
+			}
+
+			if !reflect.DeepEqual(c3RI.CreatedEvents, c3RI.CreatedEvents) {
+				t.Logf("Round(%d).CreatedEvents do not match", i)
+			}
+
+			c3RIr := c3RI.ReceivedEvents
+			c2RIr := c2RI.ReceivedEvents
+			sort.Strings(c3RIr)
+			sort.Strings(c2RIr)
+
+			if !reflect.DeepEqual(c3RIw, c2RIw) {
+				t.Logf("Round(%d).ReceivedEvents do not match", i)
+			}
+		}
+
+		/***********************************************************************
+			Check PeerSets
+		***********************************************************************/
+
+		for i := p.roundLowerBound; i <= 5; i++ {
+			c3PS, err := cores[3].hg.Store.GetPeerSet(i)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			c2PS, err := cores[2].hg.Store.GetPeerSet(i)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if !reflect.DeepEqual(c3PS.Hex(), c2PS.Hex()) {
+				t.Fatalf("PeerSet(%d) does not match", i)
+			}
+		}
+
+		/***********************************************************************
+			Check Consensus Rounds and Blocks
+		***********************************************************************/
+
+		if r := cores[3].GetLastConsensusRoundIndex(); r == nil || *r != 4 {
+			t.Fatalf("Cores[3] last consensus Round should be 4, not %v", *r)
+		}
+
+		if lbi := cores[3].hg.Store.LastBlockIndex(); lbi != 3 {
+			t.Fatalf("Cores[3].hg.LastBlockIndex should be 3, not %d", lbi)
 		}
 	}
 
-	/***************************************************************************
-		Check Consensus Rounds and Blocks
-	***************************************************************************/
-
-	if r := cores[3].GetLastConsensusRoundIndex(); r == nil || *r != 3 {
-		t.Fatalf("Cores[3] last consensus Round should be 3, not %v", *r)
-	}
-
-	if lbi := cores[3].hg.Store.LastBlockIndex(); lbi != 2 {
-		t.Fatalf("Cores[3].hg.LastBlockIndex should be 2, not %d", lbi)
-	}
 }
 
 /******************************************************************************/

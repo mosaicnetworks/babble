@@ -457,25 +457,33 @@ func TestR2DynProcessDecidedRounds(t *testing.T) {
 We insert Events into rounds to which the Event creator does not belong. These
 Events should not be counted as witnesses and should not mess up the consensus.
 
-Round 2 	|	w21   |    |
-	        | /  |    |    |
-	   	   w20   |    |    |
-            |    \    |    |
-            |    |    \    |
-		    |    |    |   x22
-            |	 |	  | /  |
-		    |    |   w22   |
-			|    | /  |    |
-         -------------------------
-            | /  |    |    |
-           f03   |    |    |
+
+			|   w41   |    |
+		 -----/------------------
+Round 3    h03   |    |    |
 			|  \ |    |    |
-			|    | \  |    |
+			|    |  \ |    |
 	        |    |    | \  |
-		    |    |    |   f31
-Round 1		|    |    | /  |
-			|    |  / |    R3
-			|   f10   |
+		    |    |    |   x32 should not be a witness and should not count in strongly seen computations
+			|    |    | /  |
+			|    |   w32   R3
+			|    |  / |
+			|   w31   |
+			| /  |    |
+		   w30   |    |
+			|  \ |    |
+		 ------------------
+Round 2		|    | \  |
+			|    |   g21
+			|    | /  |
+			|   w21   |
+			| /  |    |
+		   w20   |    |
+		    |  \ |    |
+		    |    | \  |
+		    |    |   w22
+		 -----------/------
+Round 1		|   f10   |
 			| /  |    |
 		   w10   |    |
 		    |  \ |    |
@@ -513,6 +521,10 @@ func initUsurperHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 		play{2, 2, "e21", "w11", "w12", [][]byte{[]byte("w12")}, nil},
 		play{0, 2, "e12", "w12", "w10", [][]byte{[]byte("w10")}, nil},
 		play{1, 3, "w11", "w10", "f10", [][]byte{[]byte("f10")}, nil},
+		play{2, 3, "w12", "f10", "w22", [][]byte{[]byte("w22")}, nil},
+		play{0, 3, "w10", "w22", "w20", [][]byte{[]byte("w20")}, nil},
+		play{1, 4, "f10", "w20", "w21", [][]byte{[]byte("w21")}, nil},
+		play{2, 4, "w22", "w21", "g21", [][]byte{[]byte("g21")}, nil},
 	}
 
 	playEvents(plays, nodes, index, orderedEvents)
@@ -539,12 +551,12 @@ func initUsurperHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 	}
 
 	plays = []play{
-		play{3, 0, "R3", "f10", "f31", [][]byte{[]byte("f31")}, nil},
-		play{0, 3, "w10", "f31", "f03", [][]byte{[]byte("f03")}, nil},
-		play{2, 3, "w12", "f03", "w22", [][]byte{[]byte("w22")}, nil},
-		play{3, 1, "f31", "w22", "x22", [][]byte{[]byte("x22")}, nil},
-		play{0, 4, "f03", "x22", "w20", [][]byte{[]byte("w20")}, nil},
-		play{1, 4, "f10", "w20", "w21", [][]byte{[]byte("w21")}, nil},
+		play{0, 4, "w20", "g21", "w30", [][]byte{[]byte("w30")}, nil},
+		play{1, 5, "w21", "w30", "w31", [][]byte{[]byte("w31")}, nil},
+		play{2, 5, "g21", "w31", "w32", [][]byte{[]byte("w32")}, nil},
+		play{3, 0, "R3", "w32", "x32", [][]byte{[]byte("x32")}, nil},
+		play{0, 5, "w30", "x32", "h03", [][]byte{[]byte("h03")}, nil},
+		play{1, 6, "w31", "h03", "w41", [][]byte{[]byte("w41")}, nil},
 	}
 
 	orderedEvents = &[]*Event{}
@@ -584,12 +596,16 @@ func TestUsurperDivideRounds(t *testing.T) {
 		"w12": tr{5, 1},
 		"w10": tr{6, 1},
 		"f10": tr{7, 1},
-		"f31": tr{8, 1},
-		"f03": tr{9, 1},
-		"w22": tr{10, 2},
-		"x22": tr{11, 2},
-		"w20": tr{12, 2},
-		"w21": tr{13, 2},
+		"w22": tr{8, 2},
+		"w20": tr{9, 2},
+		"w21": tr{10, 2},
+		"g21": tr{11, 2},
+		"w30": tr{12, 3},
+		"w31": tr{13, 3},
+		"w32": tr{14, 3},
+		"x32": tr{15, 3},
+		"h03": tr{16, 3},
+		"w41": tr{17, 4},
 	}
 
 	for e, et := range expectedTimestamps {
@@ -611,6 +627,8 @@ func TestUsurperDivideRounds(t *testing.T) {
 		0: []string{"w00", "w01", "w02"},
 		1: []string{"w10", "w11", "w12"},
 		2: []string{"w20", "w21", "w22"},
+		3: []string{"w30", "w31", "w32"},
+		4: []string{"w41"},
 	}
 
 	for i := 0; i < 3; i++ {

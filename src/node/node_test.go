@@ -376,6 +376,8 @@ func TestJoin(t *testing.T) {
 
 	nodes = append(nodes, newNode)
 
+	defer drawGraphs(nodes, t)
+
 	//Gossip some more
 	secondTarget := target + 20
 	err = bombardAndWait(nodes, secondTarget, 6*time.Second)

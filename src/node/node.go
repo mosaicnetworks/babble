@@ -216,6 +216,7 @@ func (n *Node) fastForward() error {
 		"block_round_received": resp.Block.RoundReceived(),
 		"frame_events":         len(resp.Frame.Events),
 		"frame_roots":          resp.Frame.Roots,
+		"frame_peers":          len(resp.Frame.Peers),
 		"snapshot":             resp.Snapshot,
 	}).Debug("FastForwardResponse")
 
