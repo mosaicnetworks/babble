@@ -332,15 +332,14 @@ func TestFastSync(t *testing.T) {
 	checkGossip(nodes, *start, t)
 }
 
-func TestJoin(t *testing.T) {
+func TestJoinRequest(t *testing.T) {
 	logger := common.NewTestLogger(t)
 
 	keys, peerSet := initPeers(4)
 	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", logger, t)
 
 	defer shutdownNodes(nodes)
-
-	//defer drawGraphs(nodes, t)
+	defer drawGraphs(nodes, t)
 
 	target := 50
 	err := gossip(nodes, target, false, 3*time.Second)
@@ -355,6 +354,106 @@ func TestJoin(t *testing.T) {
 		fmt.Sprint("127.0.0.1:4242"),
 	)
 	newNode := newNode(peer, key, peerSet, 1000, 1000, "inmem", logger, t)
+
+	err = newNode.join()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	//Gossip some more
+	secondTarget := target + 20
+	err = bombardAndWait(nodes, secondTarget, 6*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes, 0, t)
+
+	for i := range nodes {
+		if nodes[i].core.peers.Len() != 5 {
+			t.Errorf("Error: Node %d should have %d peers, not %d", i, 5, nodes[i].core.peers.Len())
+		}
+	}
+
+}
+
+func TestFastForwardAfterJoin(t *testing.T) {
+	logger := common.NewTestLogger(t)
+
+	keys, peerSet := initPeers(3)
+	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", logger, t)
+
+	defer shutdownNodes(nodes)
+	defer drawGraphs(nodes, t)
+
+	target := 50
+	err := gossip(nodes, target, false, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes, 0, t)
+
+	key, _ := crypto.GenerateECDSAKey()
+	peer := peers.NewPeer(
+		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
+		fmt.Sprint("127.0.0.1:4242"),
+	)
+	newNode := newNode(peer, key, peerSet, 1000, 1000, "inmem", logger, t)
+
+	err = newNode.join()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = newNode.fastForward()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	frameRound := newNode.core.hg.FirstConsensusRound
+
+	frame, err := newNode.core.hg.Store.GetFrame(*frameRound)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	badRounds := false
+	for _, ev := range frame.Events {
+		realEv, err := nodes[0].core.hg.Store.GetEvent(ev.Hex())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if *realEv.GetRound() != *ev.GetRound() {
+			t.Logf("Event %s round should be %d, not %d", ev.Hex(), *realEv.GetRound(), *ev.GetRound())
+			badRounds = true
+		}
+	}
+
+	if badRounds {
+		t.Fatalf("Bad Rounds")
+	}
+}
+
+func TestJoinFull(t *testing.T) {
+	logger := common.NewTestLogger(t)
+
+	keys, peerSet := initPeers(3)
+	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", logger, t)
+
+	defer shutdownNodes(nodes)
+
+	target := 50
+	err := gossip(nodes, target, false, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes, 0, t)
+
+	key, _ := crypto.GenerateECDSAKey()
+	peer := peers.NewPeer(
+		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
+		fmt.Sprint("127.0.0.1:4242"),
+	)
+	newNode := newNode(peer, key, peerSet, 1000000, 1000, "inmem", logger, t)
 
 	//Run parallel routine to check node4 eventually reaches CatchingUp state.
 	timeout := time.After(6 * time.Second)
@@ -387,13 +486,6 @@ func TestJoin(t *testing.T) {
 
 	start := newNode.core.hg.FirstConsensusRound
 	checkGossip(nodes, *start, t)
-
-	for i := range nodes {
-		if nodes[i].core.peers.Len() != 5 {
-			t.Errorf("Error: Node %d should have %d peers, not %d", i, 5, nodes[i].core.peers.Len())
-		}
-	}
-
 }
 
 func TestShutdown(t *testing.T) {

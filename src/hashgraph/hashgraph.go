@@ -266,18 +266,16 @@ func (h *Hashgraph) _round(x string) (int, error) {
 	if err != nil {
 		if common.Is(err, common.KeyNotFound) {
 			return parentRound, nil
-		} else {
-			return math.MinInt32, err
 		}
+		return math.MinInt32, err
 	}
 
 	parentRoundPeerSet, err := h.Store.GetPeerSet(parentRound)
 	if err != nil {
 		if common.Is(err, common.KeyNotFound) {
 			return parentRound, nil
-		} else {
-			return math.MinInt32, err
 		}
+		return math.MinInt32, err
 	}
 
 	c := 0
@@ -310,7 +308,7 @@ func (h *Hashgraph) witness(x string) (bool, error) {
 		return false, err
 	}
 
-	// XXX does the creator belong to the PeerSet
+	//does the creator belong to the PeerSet?
 	peerSet, err := h.Store.GetPeerSet(xRound)
 	if err != nil {
 		return false, err
@@ -1104,16 +1102,7 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 			Round after a Reset.
 		*/
 		if h.roundLowerBound != nil && r.Index <= *h.roundLowerBound {
-			//XXX
-			round, err := h.Store.GetRound(r.Index)
-			if err != nil {
-				return err
-			}
-			h.logger.WithFields(logrus.Fields{
-				"round":           r.Index,
-				"created_events":  round.CreatedEvents,
-				"received_events": round.ReceivedEvents,
-			}).Debug("Skipping Pending Round")
+			h.logger.WithField("round", r.Index).Debug("Skipping Pending Round")
 			processedIndex++
 			continue
 		}
@@ -1136,7 +1125,7 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 			return err
 		}
 
-		//XXX
+		//XXX For logging
 		eventHashes := []string{}
 		for _, e := range frame.Events {
 			eventHashes = append(eventHashes, e.Hex())
@@ -1223,7 +1212,7 @@ func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 		return nil, err
 	}
 
-	//XXX Get Future PeerSets
+	//Get Future PeerSets
 	futurePeerSets, err := h.Store.GetFuturePeerSets(roundReceived)
 	if err != nil {
 		return nil, err

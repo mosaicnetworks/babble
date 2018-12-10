@@ -252,6 +252,10 @@ func (e *Event) SetRound(r int) {
 	*e.round = r
 }
 
+func (e *Event) GetRound() *int {
+	return e.round
+}
+
 func (e *Event) SetLamportTimestamp(t int) {
 	if e.lamportTimestamp == nil {
 		e.lamportTimestamp = new(int)

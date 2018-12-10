@@ -271,7 +271,7 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 		//respond to the corresponding promise
 		if p, ok := c.promises[tx.Hash()]; ok {
 			p.Respond(acceptedRound, peers.Peers)
-			//XXX remove promise
+			delete(c.promises, tx.Hash())
 		}
 	}
 

@@ -2545,7 +2545,7 @@ ATTENTION: Look at roots in Rounds 1 and 2
     |    |    | /  |
     |    |   w12   |  Frame {
     |     /   |    |	Evs  : w10, w11, f01, w12, w13
-	|  / |    |    |	Roots: [w00,e32], [w10, e10], [w11, e21], [w12, e32]
+	|  / |    |    |	Roots: [w00,e32], [e10,w10], [e21, f01], [e32, w12]
    f01   |    |    |  }
 	| \  |    |    |
     |   w11   |    |

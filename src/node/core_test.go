@@ -679,7 +679,7 @@ P:[0,1,2]   |    |   w32
 		    |  \ |    |
 		------------------
 Round 2		|    |  \ |
-P:[0,1,2]	|    |   g21
+P:[0,1,2]	|    |   g21 AnchorBlock
 			|    | /  |
 			|   w21   |
 			| /  |    |
@@ -904,7 +904,7 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 		***********************************************************************/
 
 		//The fame of witnesses of the FastForward's Block RoundReceived and
-		//below are not reprocessed after Reset. No need to those rounds
+		//below are not reprocessed after Reset. No need to test those rounds.
 		for i := p.roundLowerBound; i <= 5; i++ {
 			c3RI, err := cores[3].hg.Store.GetRound(i)
 			if err != nil {
