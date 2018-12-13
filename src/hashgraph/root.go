@@ -60,58 +60,80 @@ ex 2:
 -----------------
 */
 
-//RootEvent contains enough information about an Event and its direct descendant
-//to allow inserting Events on top of it.
+//RootEvent contains enough information about an Event to insert its direct
+//descendant in a reset Hashgraph.
 type RootEvent struct {
-	Hash             string
-	CreatorID        uint32
-	Index            int
-	LamportTimestamp int
-	Round            int
-	NextRound        int
+	Hash      string
+	CreatorID uint32
+	Index     int
 }
 
 //NewBaseRootEvent creates a RootEvent corresponding to the the very beginning
 //of a Hashgraph.
 func NewBaseRootEvent(creatorID uint32) RootEvent {
 	res := RootEvent{
-		Hash:             fmt.Sprintf("Root%d", creatorID),
-		CreatorID:        creatorID,
-		Index:            -1,
-		LamportTimestamp: -1,
-		Round:            -1,
+		Hash:      fmt.Sprintf("Root%d", creatorID),
+		CreatorID: creatorID,
+		Index:     -1,
 	}
 	return res
 }
 
-//Root forms a base on top of which a participant's Events can be inserted. In
-//contains the SelfParent of the first descendant of the Root, as well as other
-//Events, belonging to a past before the Root, which might be referenced
-//in future Events. NextRound corresponds to a proposed value for the child's
-//Round; it is only used if the child's OtherParent is empty or NOT in the
-//Root's Others.
+/*
+RoundAndLamport holds information about an Event's Round and LamportTimestamp.
+It is used to store the pre-computed values for Events in a Root, so when
+resetting a hashgraph from a Frame, these values do not need to be
+re-calculated.
+*/
+type RoundAndLamport struct {
+	Round            int
+	LamportTimestamp int
+}
+
+//NewBaseRoundAndLamport creates a new RoundAndLamport for a fresh Root.
+//XXX would be nice to start all indexes at 0
+func NewBaseRoundAndLamport() RoundAndLamport {
+	return RoundAndLamport{
+		Round:            -1,
+		LamportTimestamp: -1,
+	}
+}
+
+/*
+Root forms a base on top of which a participant's Events can be inserted. It
+contains the SelfParent of the first descendant of the Root, the pre-computed
+Round and Lamport values of Events attached to the Root (cf Frame), as well as
+other Events, that are referenced by future Events but are "below" the Frame.
+The Others field is necessary when the other-parent of a Frame Event is not
+contained in the Frame, because it is not permitted to insert an Event in the
+Hashgraph if both its parents are not known.
+*/
 type Root struct {
-	SelfParent RootEvent
-	Others     map[string]RootEvent
+	BaseEvent        RootEvent
+	BasePrecomputed  RoundAndLamport
+	OtherEvents      map[string]RootEvent
+	OtherPrecomputed map[string]RoundAndLamport
 }
 
 //NewBaseRoot initializes a Root object for a fresh Hashgraph.
 func NewBaseRoot(creatorID uint32) *Root {
 	res := &Root{
-		SelfParent: NewBaseRootEvent(creatorID),
-		Others:     map[string]RootEvent{},
+		BaseEvent:        NewBaseRootEvent(creatorID),
+		BasePrecomputed:  NewBaseRoundAndLamport(),
+		OtherEvents:      make(map[string]RootEvent),
+		OtherPrecomputed: make(map[string]RoundAndLamport),
 	}
 	return res
 }
 
-//The JSON encoding of a Root must be DETERMINISTIC because it is itself
-//included in the JSON encoding of a Frame. The difficulty is that Roots contain
-//go maps for which one should not expect a de facto order of entries; we cannot
-//use the builtin JSON codec within overriding something. Instead, we are using
-//a third party library (ugorji/codec) that enables deterministic encoding of
-//golang maps.
+/*
+The JSON encoding of a Root must be DETERMINISTIC because it is itself included
+in the JSON encoding of a Frame. The difficulty is that Roots contain go maps
+for which one should not expect a de facto order of entries; so we cannot use
+the builtin JSON codec. Instead, we are using a third party library
+(ugorji/codec) that enables deterministic encoding of golang maps.
+*/
 func (root *Root) Marshal() ([]byte, error) {
-
 	b := new(bytes.Buffer)
 	jh := new(codec.JsonHandle)
 	jh.Canonical = true
@@ -125,7 +147,6 @@ func (root *Root) Marshal() ([]byte, error) {
 }
 
 func (root *Root) Unmarshal(data []byte) error {
-
 	b := bytes.NewBuffer(data)
 	jh := new(codec.JsonHandle)
 	jh.Canonical = true

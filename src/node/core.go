@@ -135,8 +135,8 @@ func (c *Core) SetHeadAndSeq() error {
 		if err != nil {
 			return err
 		}
-		head = root.SelfParent.Hash
-		seq = root.SelfParent.Index
+		head = root.BaseEvent.Hash
+		seq = root.BaseEvent.Index
 	} else {
 		lastEvent, err := c.GetEvent(last)
 		if err != nil {

@@ -88,7 +88,7 @@ func (s *InmemStore) AddParticipant(p *peers.Peer) error {
 	if _, ok := s.rootsByParticipant[p.PubKeyHex]; !ok {
 		root := NewBaseRoot(p.ID())
 		s.rootsByParticipant[p.PubKeyHex] = root
-		s.rootsBySelfParent[root.SelfParent.Hash] = root
+		s.rootsBySelfParent[root.BaseEvent.Hash] = root
 	}
 
 	s.repertoireByPubKey[p.PubKeyHex] = p
@@ -144,8 +144,8 @@ func (s *InmemStore) ParticipantEvent(participant string, index int) (string, er
 		if !ok {
 			return "", cm.NewStoreErr("InmemStore.Roots", cm.NoRoot, participant)
 		}
-		if root.SelfParent.Index == index {
-			ev = root.SelfParent.Hash
+		if root.BaseEvent.Index == index {
+			ev = root.BaseEvent.Hash
 			err = nil
 		}
 	}
@@ -160,7 +160,7 @@ func (s *InmemStore) LastEventFrom(participant string) (last string, isRoot bool
 	if err != nil && cm.Is(err, cm.Empty) {
 		root, ok := s.rootsByParticipant[participant]
 		if ok {
-			last = root.SelfParent.Hash
+			last = root.BaseEvent.Hash
 			isRoot = true
 			err = nil
 		} else {
@@ -177,7 +177,7 @@ func (s *InmemStore) LastConsensusEventFrom(participant string) (last string, is
 	if !ok {
 		root, ok := s.rootsByParticipant[participant]
 		if ok {
-			last = root.SelfParent.Hash
+			last = root.BaseEvent.Hash
 			isRoot = true
 		} else {
 			err = cm.NewStoreErr("InmemStore.Roots", cm.NoRoot, participant)
@@ -193,7 +193,7 @@ func (s *InmemStore) KnownEvents() map[uint32]int {
 		if known[pid.ID()] == -1 {
 			root, ok := s.rootsByParticipant[p]
 			if ok {
-				known[pid.ID()] = root.SelfParent.Index
+				known[pid.ID()] = root.BaseEvent.Index
 			}
 		}
 	}
@@ -329,7 +329,7 @@ func (s *InmemStore) Reset(frame *Frame) error {
 	s.rootsByParticipant = frame.Roots
 
 	for _, r := range frame.Roots {
-		s.rootsBySelfParent[r.SelfParent.Hash] = r
+		s.rootsBySelfParent[r.BaseEvent.Hash] = r
 	}
 
 	//Set PeerSet, which also populates the Repertoires as a side effect.
