@@ -275,7 +275,7 @@ func TestCatchUp(t *testing.T) {
 func TestFastSync(t *testing.T) {
 	logger := common.NewTestLogger(t)
 
-	keys, peers := initPeers(7)
+	keys, peers := initPeers(5)
 
 	//make cache high to draw graphs
 	nodes := initNodes(keys, peers, 100000, 500, "inmem", logger, t)
@@ -309,7 +309,7 @@ func TestFastSync(t *testing.T) {
 		for {
 			select {
 			case <-timeout:
-				t.Fatalf("Timeout waiting for node4 to enter CatchingUp state")
+				t.Fatalf("Timeout waiting for node0 to enter CatchingUp state")
 			default:
 			}
 			if node0.getState() == CatchingUp {

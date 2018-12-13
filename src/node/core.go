@@ -32,12 +32,15 @@ type Core struct {
 	Head string
 	Seq  int
 
-	//Hashes of the Events that are not tied to the Head. This is managed by the
-	//Sync method. If the gossip condition is false (there is nothing
-	//interesting to record), items are added to heads; if the gossip condition
-	//is true, items are removed from heads and used to record a new self-event.
-	//This functionality allows to not grow the hashgraph for no reason.
-	heads []string
+	/*
+		Events that are not tied to this node's Head. This is managed by
+		the Sync method. If the gossip condition is false (there is nothing
+		interesting to record), items are added to heads; if the gossip
+		condition is true, items are removed from heads and used to record a new
+		self-event. This functionality allows to not grow the hashgraph
+		continuously when there is nothing to record.
+	*/
+	heads map[uint32]*hg.Event
 
 	transactionPool         [][]byte
 	internalTransactionPool []hg.InternalTransaction
@@ -76,7 +79,7 @@ func NewCore(
 		internalTransactionPool: []hg.InternalTransaction{},
 		blockSignaturePool:      []hg.BlockSignature{},
 		promises:                make(map[string]*JoinPromise),
-		heads:                   []string{},
+		heads:                   make(map[uint32]*hg.Event),
 		logger:                  logEntry,
 		Head:                    "",
 		Seq:                     -1,
@@ -84,9 +87,11 @@ func NewCore(
 
 	core.hg = hg.NewHashgraph(store, core.Commit, logEntry)
 
-	//XXX This will create roots and set PeerSet for round 0, which is not
-	//necessarily correct; what if this is a node that only joins the cluster
-	//on the go? Doesnt really matter because it's going to get Reset.
+	/*
+		This will create roots and set PeerSet for round 0, which is not
+		necessarily correct; what if this is a node that only joins the cluster
+		on the go? Doesnt really matter because it's going to get Reset.
+	*/
 	core.hg.Init(peers)
 
 	return core
@@ -339,7 +344,7 @@ func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 		"block_signature_pool":      len(c.blockSignaturePool),
 	}).Debug("Sync")
 
-	otherHead := ""
+	var otherHead *hg.Event
 	for _, we := range unknownEvents {
 		ev, err := c.hg.ReadWireInfo(we)
 		if err != nil {
@@ -356,11 +361,21 @@ func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 		}
 
 		if we.Body.CreatorID == fromID {
-			otherHead = ev.Hex()
+			otherHead = ev
+		}
+
+		if h, ok := c.heads[we.Body.CreatorID]; ok && h != nil && we.Body.Index > h.Index() {
+			delete(c.heads, we.Body.CreatorID)
 		}
 	}
 
-	c.heads = append(c.heads, otherHead)
+	//Do not overwrite a non-empty head with an empty head
+	if h, ok := c.heads[fromID]; !ok ||
+		h == nil ||
+		otherHead != nil && otherHead.Index() > h.Index() {
+
+		c.heads[fromID] = otherHead
+	}
 
 	//Create new event with self head and other head only if there are pending
 	//loaded events or the pools are not empty
@@ -376,16 +391,15 @@ func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 }
 
 func (c *Core) RecordHeads() error {
-	handledHeads := 0
-	defer func() {
-		c.heads = c.heads[handledHeads:]
-	}()
-
-	for _, b := range c.heads {
-		if err := c.AddSelfEvent(b); err != nil {
+	for id, ev := range c.heads {
+		op := ""
+		if ev != nil {
+			op = ev.Hex()
+		}
+		if err := c.AddSelfEvent(op); err != nil {
 			return err
 		}
-		handledHeads++
+		delete(c.heads, id)
 	}
 
 	return nil
