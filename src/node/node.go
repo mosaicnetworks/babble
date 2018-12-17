@@ -267,6 +267,11 @@ func (n *Node) join() error {
 		"peers":          len(resp.Peers),
 	}).Debug("JoinResponse")
 
+	//XXX
+	//This prevevents the node from FastForwarding to before the Round where it
+	//was accepted. WIP
+	time.Sleep(1000 * time.Millisecond)
+
 	n.setState(CatchingUp)
 
 	return nil

@@ -371,6 +371,11 @@ func TestDBFrameMethods(t *testing.T) {
 			p.ID()
 		}
 
+		//force init Roots for deep DeepEqual
+		for _, r := range storedFrame.Roots {
+			r.Init()
+		}
+
 		if !reflect.DeepEqual(storedFrame, frame) {
 			t.Fatalf("Frame and StoredFrame do not match")
 		}
@@ -443,6 +448,8 @@ func TestBadgerPeerSets(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
+		dRoot.Init()
 
 		if !reflect.DeepEqual(iRoot, dRoot) {
 			t.Fatalf("%s Inmem and DB Roots don't match", pub)
@@ -734,6 +741,10 @@ func TestBadgerFrames(t *testing.T) {
 		storedFrame, err := store.GetFrame(frame.Round)
 		if err != nil {
 			t.Fatal(err)
+		}
+
+		for _, r := range storedFrame.Roots {
+			r.Init()
 		}
 
 		if !reflect.DeepEqual(storedFrame, frame) {

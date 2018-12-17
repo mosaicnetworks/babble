@@ -312,10 +312,6 @@ func (e *Event) ToWire() WireEvent {
 	}
 }
 
-func rootSelfParent(participantID uint32) string {
-	return fmt.Sprintf("Root%d", participantID)
-}
-
 /*******************************************************************************
 Sorting
 *******************************************************************************/

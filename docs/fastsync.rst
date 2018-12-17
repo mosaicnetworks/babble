@@ -61,8 +61,10 @@ records of the gossip history are ignored.
 
   type Frame struct {
   	Round  int     //RoundReceived
+    Peers  []*peers.Peer
   	Roots  []Root  //[participant ID] => Root
   	Events []Event //Events with RoundReceived = Round
+    FuturePeerSets map(int)[]peers.Peer //[round] => Peers
   }
 
 A Frame corresponds to a Hashgraph consensus round. Indeed, the consensus 
@@ -105,29 +107,34 @@ section of an existing Hashgraph, and discard everything below it.
 
 A Root is a data structure containing condensed information about the ancestors 
 of the first Events to be added to the Hashgraph. Each participant has a Root,
-containing a *SelfParent* - the direct ancestor of the first Event for the 
-corresponding participant - and *Others* - a map of Event hashes to the 
-corresponding Other-Parents. These parents are instances of the **RootEvent** 
-object, which is a minimal version of the Hashgraph Event. RootEvents contain
-information about the Index, Round, and LamportTimestamp of the corresponding 
-Events. RootEvents also contain a NextRound field which helps in calculating the
-rounds of direct descendants.
+containing a *Head* - the direct ancestor of the first Event for the 
+corresponding participant - and *Past* - a map of older Events. These parents 
+are instances of the **RootEvent**  object, which is a minimal version of the 
+Hashgraph Event. RootEvents contain information about the Index, Round, and 
+LamportTimestamp of the corresponding Events. Roots also contain a map of 
+Precomputed Events, which helps in consensus computations in a Reset Hashgraph. 
+
+What matters is that every participant computes the same Roots, and that Roots
+contain sufficient information to keep inserting Events in a Reset hashgraph and 
+compute a consensus order.
 
 ::
 
-  type Root struct {
-    SelfParent RootEvent
-    Others     map[string]RootEvent
-  }
+type Root struct {
+	Head        string
+	Past        map[string]RootEvent
+	Precomputed map[string]RootEvent
 
-  type RootEvent struct {
-    Hash             string
-    CreatorID        int
-    Index            int
-    LamportTimestamp int
-    Round            int
-    NextRound        int
-  }
+	...private fields not shown...
+}
+
+type RootEvent struct {
+	Hash             string
+	CreatorID        uint32
+	Index            int
+	Round            int
+	LamportTimestamp int
+}
 
 Algorithm Updates
 -----------------
@@ -137,47 +144,11 @@ should only be inserted if its parents belong to the Hashgraph or are referenced
 in one of the Roots. The algorithms for computing an Event's Round and 
 LamportTimestamp have also changed slightly.
 
-There are six different scenarios to consider when computing an Event's Round;
-each corresponding to a different relationship between the Event and its 
-creator's Root.
-
-.. image:: assets/round_algo.png
-
-+----------+---------------------------+---------------------------------------+--------------------------------------------+ 
-| Scenario | Description               | Round                                 | LamportTimestamp                           |  
-+==========+===========================+=======================================+============================================+ 
-| A        | The Event is a Root       | Root.SelfParent.Round                 | Root.SelfParent.LamportTimestamp           |
-|          | itself                    |                                       |                                            |
-+----------+---------------------------+---------------------------------------+--------------------------------------------+ 
-| B        | The Event is directly     | Root.SelfParent.NextRound             | Root.SelfParent.LamportTimestamp + 1       |
-|          | attached to the Root,     |                                       |                                            |
-|          | and its OtherParent is    |                                       |                                            |
-|          | empty                     |                                       |                                            |
-+----------+---------------------------+---------------------------------------+--------------------------------------------+ 
-| C        | The Event is directly     | Root.SelfParent.NextRound             | Max(Root.SelfParent.LamportTimestamp,      | 
-|          | attached to the Root,     |                                       | Root.Others[AAA].LamportTimestamp) +1      |
-|          | and its OtherParent is    |                                       |                                            |
-|          | referenced in Root.Others |                                       |                                            |
-+----------+---------------------------+---------------------------------------+--------------------------------------------+ 
-| D        | The Event is not directly | Root.Others[AAA].NextRound            | Max(Event.SelfParent.LamportTimestamp,     | 
-|          | attached to the Root,     |                                       | Root.Others[AAA].LamportTimestamp) +1      |
-|          | but its OtherParent is    |                                       |                                            |
-|          | referenced in Root.Others |                                       |                                            |
-+----------+---------------------------+---------------------------------------+--------------------------------------------+
-| E        | The Event is directly     | Max(Root.SelfParent.Round,            | Max(Root.SelfParent.LamportTimestamp,      | 
-|          | attached to the Root,     | Event.OtherParent.Round) + RoundInc() | Event.OtherParent.LamportTimestamp) +1     |
-|          | and its OtherParent is    |                                       |                                            |
-|          | a normal Event            |                                       |                                            |
-+----------+---------------------------+---------------------------------------+--------------------------------------------+
-| F        | Both parents are regular  | Max(Event.SelfParent.Round,           | Max(Event.SelfParent.LamportTimestamp,     | 
-|          | Events (or OtherParent is | Event.OtherParent.Round) + RoundInc() | Event.OtherParent.LamportTimestamp) +1     |
-|          | empty)                    |                                       |                                            |   
-+----------+---------------------------+---------------------------------------+--------------------------------------------+
-
-Here RoundInc() is the function that computes whether and Event's Round should 
-be incremented over its ParentRound. It checks if the Event can StronglySee a 
-super-majority of witnesses from ParentRound, as described in the original 
-whitepaper.
+When an Event is referenced in a Root's Precomputed, we use the precomputed 
+value directy instead of running the usual method. This is necessary because a
+Reset Hashgraph could me missing some information necessary for Round and 
+LamportTimestamp computation (lastAncestore/firstDescendants, set of famous 
+witnesses, etc.).
 
 Note that there is still a possibility for an Event's OtherParent to refer to an
 Event "below" the Frame. This is possible due to the asynchronous nature of the
@@ -250,8 +221,8 @@ quickly lead to forks and diverging nodes.
 "below" the Frame. These Events will fail to be inserted into the Hashgraph, and 
 the node would stop making progress.
 
-2) The snapshot is not directly linked to the Blockchain, only indirectly through
-resulting StateHashes.
+2) The snapshot is not directly linked to the Blockchain, only indirectly 
+through resulting StateHashes.
 
 Both these issues could be addressed with a general retry mechanism, whereby the 
 FastForward method is made atomic by working on a temporary copy of the 

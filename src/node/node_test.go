@@ -231,7 +231,7 @@ func TestCatchUp(t *testing.T) {
 	*/
 	normalNodes := initNodes(keys[1:], peers, 1000000, 400, "inmem", logger, t)
 	defer shutdownNodes(normalNodes)
-	defer drawGraphs(normalNodes, t)
+	//defer drawGraphs(normalNodes, t)
 
 	target := 50
 	err := gossip(normalNodes, target, false, 6*time.Second)
@@ -280,10 +280,9 @@ func TestFastSync(t *testing.T) {
 	//make cache high to draw graphs
 	nodes := initNodes(keys, peers, 100000, 500, "inmem", logger, t)
 	defer shutdownNodes(nodes)
-
 	//defer drawGraphs(nodes, t)
 
-	target := 15
+	target := 30
 	err := gossip(nodes, target, false, 6*time.Second)
 	if err != nil {
 		t.Fatal(err)
@@ -293,7 +292,7 @@ func TestFastSync(t *testing.T) {
 	node0 := nodes[0]
 	node0.Shutdown()
 
-	secondTarget := target + 15
+	secondTarget := target + 30
 	err = bombardAndWait(nodes[1:], secondTarget, 10*time.Second)
 	if err != nil {
 		t.Fatal(err)
@@ -322,61 +321,8 @@ func TestFastSync(t *testing.T) {
 	nodes[0] = node0
 
 	//Gossip some more
-	thirdTarget := secondTarget + 15
+	thirdTarget := secondTarget + 30
 	err = bombardAndWait(nodes, thirdTarget, 6*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	start := node0.core.hg.FirstConsensusRound
-	checkGossip(nodes, *start, t)
-}
-
-func TestInAndOut(t *testing.T) {
-	logger := common.NewTestLogger(t)
-
-	keys, peers := initPeers(4)
-
-	//make cache high to draw graphs
-	nodes := initNodes(keys, peers, 100000, 400, "inmem", logger, t)
-	defer shutdownNodes(nodes)
-
-	//defer drawGraphs(nodes, t)
-
-	target := 20
-	err := gossip(nodes, target, false, 6*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	checkGossip(nodes, 0, t)
-
-	node0 := nodes[0]
-	node0.Shutdown()
-
-	//Can't re-run it; have to reinstantiate a new node.
-	node0 = recycleNode(node0, logger, t)
-
-	//Run parallel routine to check node0 eventually reaches CatchingUp state.
-	timeout := time.After(6 * time.Second)
-	go func() {
-		for {
-			select {
-			case <-timeout:
-				t.Fatalf("Timeout waiting for node0 to enter CatchingUp state")
-			default:
-			}
-			if node0.getState() == CatchingUp {
-				break
-			}
-		}
-	}()
-
-	node0.RunAsync(true)
-	nodes[0] = node0
-
-	//Gossip some more
-	secondTarget := target + 20
-	err = bombardAndWait(nodes, secondTarget, 6*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -428,72 +374,15 @@ func TestJoinRequest(t *testing.T) {
 	}
 }
 
-func TestPullAfterJoin(t *testing.T) {
-	logger := common.NewTestLogger(t)
-
-	keys, peerSet := initPeers(3)
-	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", logger, t)
-
-	defer shutdownNodes(nodes)
-	defer drawGraphs(nodes, t)
-
-	target := 50
-	err := gossip(nodes, target, false, 3*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	checkGossip(nodes, 0, t)
-
-	key, _ := crypto.GenerateECDSAKey()
-	peer := peers.NewPeer(
-		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
-		fmt.Sprint("127.0.0.1:4242"),
-	)
-	newNode := newNode(peer, key, peerSet, 1000, 1000, "inmem", logger, t)
-
-	err = newNode.join()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = newNode.fastForward()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	frameRound := newNode.core.hg.FirstConsensusRound
-
-	frame, err := newNode.core.hg.Store.GetFrame(*frameRound)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	badRounds := false
-	for _, ev := range frame.Events {
-		realEv, err := nodes[0].core.hg.Store.GetEvent(ev.Hex())
-		if err != nil {
-			t.Fatal(err)
-		}
-		if *realEv.GetRound() != *ev.GetRound() {
-			t.Logf("Event %s round should be %d, not %d", ev.Hex(), *realEv.GetRound(), *ev.GetRound())
-			badRounds = true
-		}
-	}
-
-	if badRounds {
-		t.Fatalf("Bad Rounds")
-	}
-}
-
 func TestJoinFull(t *testing.T) {
 	logger := common.NewTestLogger(t)
 
-	keys, peerSet := initPeers(5)
-	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", logger, t)
+	keys, peerSet := initPeers(4)
+	nodes := initNodes(keys, peerSet, 1000000, 400, "inmem", logger, t)
 
 	defer shutdownNodes(nodes)
 
-	target := 15
+	target := 50
 	err := gossip(nodes, target, false, 6*time.Second)
 	if err != nil {
 		t.Fatal(err)
@@ -505,7 +394,7 @@ func TestJoinFull(t *testing.T) {
 		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
 		fmt.Sprint("127.0.0.1:4242"),
 	)
-	newNode := newNode(peer, key, peerSet, 1000000, 1000, "inmem", logger, t)
+	newNode := newNode(peer, key, peerSet, 1000000, 400, "inmem", logger, t)
 
 	//Run parallel routine to check newNode eventually reaches CatchingUp state.
 	timeout := time.After(6 * time.Second)
@@ -527,10 +416,10 @@ func TestJoinFull(t *testing.T) {
 
 	nodes = append(nodes, newNode)
 
-	defer drawGraphs(nodes, t)
+	//defer drawGraphs(nodes, t)
 
 	//Gossip some more
-	secondTarget := target + 20
+	secondTarget := target + 50
 	err = bombardAndWait(nodes, secondTarget, 6*time.Second)
 	if err != nil {
 		t.Fatal(err)
@@ -601,6 +490,63 @@ func BenchmarkGossip(b *testing.B) {
 		gossip(nodes, 50, true, 3*time.Second)
 	}
 }
+
+// func TestPullAfterJoin(t *testing.T) {
+// 	logger := common.NewTestLogger(t)
+
+// 	keys, peerSet := initPeers(3)
+// 	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", logger, t)
+
+// 	defer shutdownNodes(nodes)
+// 	defer drawGraphs(nodes, t)
+
+// 	target := 50
+// 	err := gossip(nodes, target, false, 3*time.Second)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	checkGossip(nodes, 0, t)
+
+// 	key, _ := crypto.GenerateECDSAKey()
+// 	peer := peers.NewPeer(
+// 		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
+// 		fmt.Sprint("127.0.0.1:4242"),
+// 	)
+// 	newNode := newNode(peer, key, peerSet, 1000, 1000, "inmem", logger, t)
+
+// 	err = newNode.join()
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+
+// 	err = newNode.fastForward()
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+
+// 	frameRound := newNode.core.hg.FirstConsensusRound
+
+// 	frame, err := newNode.core.hg.Store.GetFrame(*frameRound)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+
+// 	badRounds := false
+// 	for _, ev := range frame.Events {
+// 		realEv, err := nodes[0].core.hg.Store.GetEvent(ev.Hex())
+// 		if err != nil {
+// 			t.Fatal(err)
+// 		}
+// 		if *realEv.GetRound() != *ev.GetRound() {
+// 			t.Logf("Event %s round should be %d, not %d", ev.Hex(), *realEv.GetRound(), *ev.GetRound())
+// 			badRounds = true
+// 		}
+// 	}
+
+// 	if badRounds {
+// 		t.Fatalf("Bad Rounds")
+// 	}
+// }
 
 // func TestPeerLeaveRequest(t *testing.T) {
 // 	logger := common.NewTestLogger(t)
@@ -822,7 +768,7 @@ func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
 				//the app
 				targetBlock, err := n.core.hg.Store.GetBlock(target)
 				if err != nil {
-					return fmt.Errorf("Couldn't find target block: %v, ce: %d", err, ce)
+					return fmt.Errorf("Error: Couldn't find target block: %v, ce: %d", err, ce)
 				}
 				if len(targetBlock.StateHash()) == 0 {
 					done = false

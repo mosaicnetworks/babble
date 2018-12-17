@@ -12,6 +12,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	/*
+		ROOT_DEPTH determines how many RootEvents are included in the Root.Past
+		map. It is preferable not to make ROOT_DEPTH configurable because if
+		peers use diffent values, they will produce different Roots, different
+		Frames, and different Blocks. Perhaps this parameter should be tied to
+		the number of Peers rather than hard-coded.
+	*/
+	ROOT_DEPTH = 10
+)
+
 //Hashgraph is a DAG of Events. It also contains methods to extract a consensus
 //order of Events and map them onto a blockchain.
 type Hashgraph struct {
@@ -204,10 +215,10 @@ func (h *Hashgraph) round(x string) (int, error) {
 }
 
 func (h *Hashgraph) _round(x string) (int, error) {
-	//x is the Root; use Root.SelfParent.Round
+	//x is the Root's Head; use Root.Head.Round
 	rootsBySelfParent := h.Store.RootsBySelfParent()
 	if r, ok := rootsBySelfParent[x]; ok {
-		return r.BasePrecomputed.Round, nil
+		return r.GetHead().Round, nil
 	}
 
 	ex, err := h.Store.GetEvent(x)
@@ -221,7 +232,7 @@ func (h *Hashgraph) _round(x string) (int, error) {
 	}
 
 	//x is attached to the Root; use pre-computed value.
-	if v, ok := root.OtherPrecomputed[x]; ok {
+	if v, ok := root.Precomputed[x]; ok {
 		return v.Round, nil
 	}
 
@@ -340,10 +351,10 @@ func (h *Hashgraph) lamportTimestamp(x string) (int, error) {
 }
 
 func (h *Hashgraph) _lamportTimestamp(x string) (int, error) {
-	//x is the Root; use Root.SelfParent.LamportTimestamp
+	//x is the Root's Head; use Root.Head.LamportTimestamp
 	rootsBySelfParent := h.Store.RootsBySelfParent()
 	if r, ok := rootsBySelfParent[x]; ok {
-		return r.BasePrecomputed.LamportTimestamp, nil
+		return r.GetHead().LamportTimestamp, nil
 	}
 
 	ex, err := h.Store.GetEvent(x)
@@ -356,7 +367,7 @@ func (h *Hashgraph) _lamportTimestamp(x string) (int, error) {
 		return math.MinInt32, err
 	}
 
-	if v, ok := root.OtherPrecomputed[x]; ok {
+	if v, ok := root.Precomputed[x]; ok {
 		return v.LamportTimestamp, nil
 	}
 
@@ -425,15 +436,17 @@ func (h *Hashgraph) checkOtherParent(event *Event) error {
 		//Check if we have it
 		_, err := h.Store.GetEvent(otherParent)
 		if err != nil {
-			//it might still be in the Root
-			root, err := h.Store.GetRoot(event.Creator())
-			if err != nil {
-				return err
+			//could be in the Root's PastEvents
+			for p := range h.Store.RepertoireByPubKey() {
+				root, err := h.Store.GetRoot(p)
+				if err != nil {
+					return err
+				}
+				if _, ok := root.Past[otherParent]; ok {
+					return nil
+				}
 			}
-			other, ok := root.OtherEvents[event.Hex()]
-			if ok && other.Hash == event.OtherParent() {
-				return nil
-			}
+
 			return fmt.Errorf("Other-parent not known")
 		}
 	}
@@ -509,118 +522,77 @@ func (h *Hashgraph) updateAncestorFirstDescendant(event *Event) error {
 	return nil
 }
 
-func (h *Hashgraph) createBaseEvent(ev *Event) (RootEvent, error) {
-	sp := ev.SelfParent()
-
-	//???
-	if ev.Body.creatorID == 0 {
-		creator, ok := h.Store.RepertoireByPubKey()[ev.Creator()]
-		if !ok {
-			h.logger.WithField("creator", ev.Creator()).Errorf("Could not find creator")
-			return RootEvent{}, fmt.Errorf("Creator %v not found", ev.Creator())
-		}
-		ev.Body.creatorID = creator.ID()
-	}
-
-	selfParentRootEvent := RootEvent{
-		Hash:      sp,
-		CreatorID: ev.Body.creatorID,
-		Index:     ev.Index() - 1,
-	}
-
-	return selfParentRootEvent, nil
-}
-
-func (h *Hashgraph) createOtherParentRootEvent(ev *Event) (RootEvent, error) {
-	op := ev.OtherParent()
-
-	//it might still be in the Root
-	root, err := h.Store.GetRoot(ev.Creator())
+func (h *Hashgraph) createRootEvent(x string) (RootEvent, error) {
+	ev, err := h.Store.GetEvent(x)
 	if err != nil {
-		return RootEvent{}, err
-	}
-	if other, ok := root.OtherEvents[ev.Hex()]; ok {
-		return other, nil
-	}
-
-	otherParent, err := h.Store.GetEvent(op)
-	if err != nil {
-		return RootEvent{}, err
-	}
-
-	//???
-	if otherParent.Body.creatorID == 0 {
-		creator, ok := h.Store.RepertoireByPubKey()[otherParent.Creator()]
-		if !ok {
-			h.logger.WithField("creator", otherParent.Creator()).Errorf("Could not find creator")
-			return RootEvent{}, err
+		//it might still be in the Roots
+		for p := range h.Store.RepertoireByPubKey() {
+			r, err := h.Store.GetRoot(p)
+			if err != nil {
+				return RootEvent{}, err
+			}
+			if pe, ok := r.Past[x]; ok {
+				return pe, nil
+			}
 		}
-		otherParent.Body.creatorID = creator.ID()
+		return RootEvent{}, fmt.Errorf("RootEvent %s not found", x)
 	}
 
-	otherParentRootEvent := RootEvent{
-		Hash:      op,
-		CreatorID: otherParent.Body.creatorID,
-		Index:     otherParent.Index(),
-	}
-
-	return otherParentRootEvent, nil
-}
-
-func (h *Hashgraph) createRoundAndLamport(x string) (RoundAndLamport, error) {
 	round, err := h.round(x)
 	if err != nil {
-		return RoundAndLamport{}, err
+		return RootEvent{}, err
 	}
 
 	lt, err := h.lamportTimestamp(x)
 	if err != nil {
-		return RoundAndLamport{}, err
+		return RootEvent{}, err
 	}
 
-	return RoundAndLamport{Round: round, LamportTimestamp: lt}, nil
+	rootEvent := RootEvent{
+		Index:            ev.Index(),
+		CreatorID:        h.Store.RepertoireByPubKey()[ev.Creator()].ID(),
+		Hash:             ev.Hex(),
+		Round:            round,
+		LamportTimestamp: lt,
+	}
+
+	return rootEvent, nil
 }
 
-func (h *Hashgraph) createRoot(ev *Event) (*Root, error) {
-
-	//SelfParent
-	selfParentBaseEvent, err := h.createBaseEvent(ev)
+func (h *Hashgraph) createRoot(participant string, head string) (*Root, error) {
+	headEvent, err := h.createRootEvent(head)
 	if err != nil {
 		return nil, err
 	}
 
-	selfParentBasePrecomputed, err := h.createRoundAndLamport(ev.SelfParent())
+	root := NewRoot(headEvent)
+
+	oldRoot, err := h.Store.GetRoot(participant)
 	if err != nil {
 		return nil, err
 	}
 
-	//OtherParent
-	var otherParentRootEvent *RootEvent
-	if ev.OtherParent() != "" {
-		opre, err := h.createOtherParentRootEvent(ev)
-		if err != nil {
-			return nil, err
+	index := headEvent.Index
+	for i := 0; i < ROOT_DEPTH; i++ {
+		index = index - 1
+		if index >= 0 {
+			if pe, ok := oldRoot.PastByIndex(index); ok {
+				root.Insert(pe)
+			} else {
+				peh, err := h.Store.ParticipantEvent(participant, index)
+				if err != nil {
+					break
+				}
+				rev, err := h.createRootEvent(peh)
+				if err != nil {
+					return nil, err
+				}
+				root.Insert(rev)
+			}
+		} else {
+			break
 		}
-		otherParentRootEvent = &opre
 	}
-
-	root := &Root{
-		BaseEvent:        selfParentBaseEvent,
-		BasePrecomputed:  selfParentBasePrecomputed,
-		OtherEvents:      make(map[string]RootEvent),
-		OtherPrecomputed: make(map[string]RoundAndLamport),
-	}
-
-	if otherParentRootEvent != nil {
-		root.OtherEvents[ev.Hex()] = *otherParentRootEvent
-	}
-
-	descendantRoundAndLamport, err := h.createRoundAndLamport(ev.Hex())
-	if err != nil {
-		return nil, err
-	}
-
-	root.OtherPrecomputed[ev.Hex()] = descendantRoundAndLamport
 
 	return root, nil
 }
@@ -641,7 +613,7 @@ func (h *Hashgraph) setWireInfo(event *Event) error {
 		if err != nil {
 			return err
 		}
-		selfParentIndex = root.BaseEvent.Index
+		selfParentIndex = root.GetHead().Index
 	} else {
 		selfParent, err := h.Store.GetEvent(event.SelfParent())
 		if err != nil {
@@ -651,15 +623,22 @@ func (h *Hashgraph) setWireInfo(event *Event) error {
 	}
 
 	if event.OtherParent() != "" {
-		//Check Root then regular Events
-		root, err := h.Store.GetRoot(creator.PubKeyHex)
-		if err != nil {
-			return err
+		//Check Root's PastEvents, then regular Events
+		foundInRoots := false
+		for p := range h.Store.RepertoireByPubKey() {
+			root, err := h.Store.GetRoot(p)
+			if err != nil {
+				return err
+			}
+			if pe, ok := root.Past[event.OtherParent()]; ok {
+				otherParentCreatorID = pe.CreatorID
+				otherParentIndex = pe.Index
+				foundInRoots = true
+				break
+			}
 		}
-		if other, ok := root.OtherEvents[event.Hex()]; ok {
-			otherParentCreatorID = other.CreatorID
-			otherParentIndex = other.Index
-		} else {
+
+		if !foundInRoots {
 			otherParent, err := h.Store.GetEvent(event.OtherParent())
 			if err != nil {
 				return err
@@ -1193,25 +1172,28 @@ func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 
 	sort.Sort(ByLamportTimestamp(events))
 
-	// Get/Create Roots
+	/*
+		Get/Create Roots. The events are in topological order; so each time we
+		run into the first Event of a participant, we create a Root for it. Then
+		we populate the root's Precomputed map.
+	*/
 	roots := make(map[string]*Root)
-	//The events are in topological order. Each time we run into the first Event
-	//of a participant, we create a Root for it.
+
 	for _, ev := range events {
 		p := ev.Creator()
 		r, ok := roots[p]
 		if !ok {
-			r, err = h.createRoot(ev)
+			r, err = h.createRoot(p, ev.SelfParent())
 			if err != nil {
 				return nil, err
 			}
 			roots[p] = r
 		}
-		precomputed, err := h.createRoundAndLamport(ev.Hex())
+		rootEvent, err := h.createRootEvent(ev.Hex())
 		if err != nil {
 			return nil, err
 		}
-		r.OtherPrecomputed[ev.Hex()] = precomputed
+		r.Precomputed[ev.Hex()] = rootEvent
 	}
 	/*
 		Every participant needs a Root in the Frame. For the participants that
@@ -1228,11 +1210,7 @@ func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 			if isRoot {
 				root, _ = h.Store.GetRoot(p)
 			} else {
-				lastConsensusEvent, err := h.Store.GetEvent(lastConsensusEventHash)
-				if err != nil {
-					return nil, err
-				}
-				root, err = h.createRoot(lastConsensusEvent)
+				root, err = h.createRoot(p, lastConsensusEventHash)
 				if err != nil {
 					return nil, err
 				}
@@ -1242,11 +1220,12 @@ func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 	}
 
 	/*
-		Some Events in the Frame might have other-parents that are outside of the
-		Frame (cf root.go ex 2)
-		When inserting these Events in a newly reset hashgraph, the CheckOtherParent
-		method would return an error because the other-parent would not be found.
-		So we make it possible to also look for other-parents in the creator's Root.
+		Some Events in the Frame might have other-parents that are outside of
+		the Frame (cf root.go ex 2), and outside of the Root's PastEvents. When
+		inserting these Events in a newly reset hashgraph, the CheckOtherParent
+		method would return an error because the other-parent would not be
+		found. So we make it possible to also look for other-parents in the
+		Roots.
 	*/
 	treated := map[string]bool{}
 	for _, ev := range events {
@@ -1255,13 +1234,13 @@ func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 		if otherParent != "" {
 			opt, ok := treated[otherParent]
 			if !opt || !ok {
-				if ev.SelfParent() != roots[ev.Creator()].BaseEvent.Hash {
-					other, err := h.createOtherParentRootEvent(ev)
-					if err != nil {
-						return nil, err
-					}
-					roots[ev.Creator()].OtherEvents[ev.Hex()] = other
+				other, err := h.createRootEvent(ev.OtherParent())
+				if err != nil {
+					return nil, err
 				}
+				otherCreator := h.Store.RepertoireByID()[other.CreatorID]
+				roots[otherCreator.PubKeyHex].Insert(other)
+
 			}
 		}
 	}
@@ -1506,32 +1485,27 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 			return nil, err
 		}
 	}
+
 	if wevent.Body.OtherParentIndex >= 0 {
 		otherParentCreator, ok := h.Store.RepertoireByID()[wevent.Body.OtherParentCreatorID]
 		if !ok {
 			return nil, fmt.Errorf("Participant %d not found", wevent.Body.OtherParentCreatorID)
 		}
+
 		otherParent, err = h.Store.ParticipantEvent(otherParentCreator.PubKeyHex, wevent.Body.OtherParentIndex)
 		if err != nil {
-			root, err := h.Store.GetRoot(creator.PubKeyHex)
+			//Could be in OtherParent's Root PastEvents
+			otherRoot, err := h.Store.GetRoot(otherParentCreator.PubKeyHex)
 			if err != nil {
 				return nil, err
 			}
 
-			//loop through others
-			found := false
-			for _, re := range root.OtherEvents {
-				if re.CreatorID == wevent.Body.OtherParentCreatorID &&
-					re.Index == wevent.Body.OtherParentIndex {
-					otherParent = re.Hash
-					found = true
-					break
-				}
-			}
-
-			if !found {
+			pe, ok := otherRoot.PastByIndex(wevent.Body.OtherParentIndex)
+			if !ok {
 				return nil, fmt.Errorf("OtherParent (creator: %d, index: %d) not found", wevent.Body.OtherParentCreatorID, wevent.Body.OtherParentIndex)
 			}
+
+			otherParent = pe.Hash
 		}
 	}
 

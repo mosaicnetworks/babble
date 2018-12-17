@@ -140,8 +140,8 @@ func (c *Core) SetHeadAndSeq() error {
 		if err != nil {
 			return err
 		}
-		head = root.BaseEvent.Hash
-		seq = root.BaseEvent.Index
+		head = root.GetHead().Hash
+		seq = root.GetHead().Index
 	} else {
 		lastEvent, err := c.GetEvent(last)
 		if err != nil {
