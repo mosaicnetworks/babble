@@ -356,7 +356,7 @@ func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 		}
 
 		if err := c.InsertEvent(ev, false); err != nil {
-			c.logger.WithError(err).Errorf("Inserting Event %s", ev.Hex())
+			c.logger.WithField("ev", ev).WithError(err).Errorf("Inserting Event %s, creatord %d", ev.Hex(), we.Body.CreatorID)
 			return err
 		}
 
@@ -364,7 +364,10 @@ func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 			otherHead = ev
 		}
 
-		if h, ok := c.heads[we.Body.CreatorID]; ok && h != nil && we.Body.Index > h.Index() {
+		if h, ok := c.heads[we.Body.CreatorID]; ok &&
+			h != nil &&
+			we.Body.Index > h.Index() {
+
 			delete(c.heads, we.Body.CreatorID)
 		}
 	}
@@ -372,7 +375,7 @@ func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 	//Do not overwrite a non-empty head with an empty head
 	if h, ok := c.heads[fromID]; !ok ||
 		h == nil ||
-		otherHead != nil && otherHead.Index() > h.Index() {
+		(otherHead != nil && otherHead.Index() > h.Index()) {
 
 		c.heads[fromID] = otherHead
 	}

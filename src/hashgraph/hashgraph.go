@@ -984,10 +984,17 @@ func (h *Hashgraph) DecideRoundReceived() error {
 			/*
 				We are looping from earlier to later rounds; so if we encounter
 				one round with undecided witnesses, we are sure that this event
-				is not "received". Break out of i loop
+				is not "received". Break out of i loop. This is not true when
+				when Resetting from a Frame; it is possiblie that we just don't
+				have all the round's witnesses. In this case, just continue
+				through the i loop.
 			*/
 			if !(tr.WitnessesDecided(tPeers)) {
-				break
+				if h.roundLowerBound == nil || *h.roundLowerBound < i {
+					break
+				} else {
+					continue
+				}
 			}
 
 			fws := tr.FamousWitnesses()
@@ -1058,10 +1065,11 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 			Round after a Reset.
 		*/
 		if h.roundLowerBound != nil && r.Index <= *h.roundLowerBound {
-			h.logger.WithField("round", r.Index).Debug("Skipping Pending Round")
+			h.logger.WithField("round_received", r.Index).Debug("Skipping Pending Round")
 			processedIndex++
 			continue
 		}
+
 		/*
 			Although it is possible for a Round to be 'decided' before a previous
 			round, we should NEVER process a decided round before all the earlier
@@ -1071,14 +1079,14 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 			break
 		}
 
-		frame, err := h.GetFrame(r.Index)
-		if err != nil {
-			return fmt.Errorf("Getting Frame %d: %v", r.Index, err)
-		}
-
 		round, err := h.Store.GetRound(r.Index)
 		if err != nil {
 			return err
+		}
+
+		frame, err := h.GetFrame(r.Index)
+		if err != nil {
+			return fmt.Errorf("Getting Frame %d: %v", r.Index, err)
 		}
 
 		//XXX For logging

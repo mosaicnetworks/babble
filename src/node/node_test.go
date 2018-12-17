@@ -275,15 +275,15 @@ func TestCatchUp(t *testing.T) {
 func TestFastSync(t *testing.T) {
 	logger := common.NewTestLogger(t)
 
-	keys, peers := initPeers(5)
+	keys, peers := initPeers(7)
 
 	//make cache high to draw graphs
 	nodes := initNodes(keys, peers, 100000, 500, "inmem", logger, t)
 	defer shutdownNodes(nodes)
 
-	defer drawGraphs(nodes, t)
+	//defer drawGraphs(nodes, t)
 
-	target := 50
+	target := 15
 	err := gossip(nodes, target, false, 6*time.Second)
 	if err != nil {
 		t.Fatal(err)
@@ -293,8 +293,8 @@ func TestFastSync(t *testing.T) {
 	node0 := nodes[0]
 	node0.Shutdown()
 
-	secondTarget := target + 50
-	err = bombardAndWait(nodes[1:], secondTarget, 6*time.Second)
+	secondTarget := target + 15
+	err = bombardAndWait(nodes[1:], secondTarget, 10*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -322,8 +322,61 @@ func TestFastSync(t *testing.T) {
 	nodes[0] = node0
 
 	//Gossip some more
-	thirdTarget := secondTarget + 20
+	thirdTarget := secondTarget + 15
 	err = bombardAndWait(nodes, thirdTarget, 6*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	start := node0.core.hg.FirstConsensusRound
+	checkGossip(nodes, *start, t)
+}
+
+func TestInAndOut(t *testing.T) {
+	logger := common.NewTestLogger(t)
+
+	keys, peers := initPeers(4)
+
+	//make cache high to draw graphs
+	nodes := initNodes(keys, peers, 100000, 400, "inmem", logger, t)
+	defer shutdownNodes(nodes)
+
+	//defer drawGraphs(nodes, t)
+
+	target := 20
+	err := gossip(nodes, target, false, 6*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes, 0, t)
+
+	node0 := nodes[0]
+	node0.Shutdown()
+
+	//Can't re-run it; have to reinstantiate a new node.
+	node0 = recycleNode(node0, logger, t)
+
+	//Run parallel routine to check node0 eventually reaches CatchingUp state.
+	timeout := time.After(6 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-timeout:
+				t.Fatalf("Timeout waiting for node0 to enter CatchingUp state")
+			default:
+			}
+			if node0.getState() == CatchingUp {
+				break
+			}
+		}
+	}()
+
+	node0.RunAsync(true)
+	nodes[0] = node0
+
+	//Gossip some more
+	secondTarget := target + 20
+	err = bombardAndWait(nodes, secondTarget, 6*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -373,7 +426,6 @@ func TestJoinRequest(t *testing.T) {
 			t.Errorf("Error: Node %d should have %d peers, not %d", i, 5, nodes[i].core.peers.Len())
 		}
 	}
-
 }
 
 func TestPullAfterJoin(t *testing.T) {
@@ -436,13 +488,13 @@ func TestPullAfterJoin(t *testing.T) {
 func TestJoinFull(t *testing.T) {
 	logger := common.NewTestLogger(t)
 
-	keys, peerSet := initPeers(3)
+	keys, peerSet := initPeers(5)
 	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", logger, t)
 
 	defer shutdownNodes(nodes)
 
-	target := 50
-	err := gossip(nodes, target, false, 3*time.Second)
+	target := 15
+	err := gossip(nodes, target, false, 6*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -455,7 +507,7 @@ func TestJoinFull(t *testing.T) {
 	)
 	newNode := newNode(peer, key, peerSet, 1000000, 1000, "inmem", logger, t)
 
-	//Run parallel routine to check node4 eventually reaches CatchingUp state.
+	//Run parallel routine to check newNode eventually reaches CatchingUp state.
 	timeout := time.After(6 * time.Second)
 	go func() {
 		for {

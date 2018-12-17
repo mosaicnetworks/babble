@@ -1,14 +1,17 @@
 #!/bin/bash
 
+breakCounter=0
 for i in `seq 1 100`
 do
-    go test -run TestFastSync  > ~/gossip.logs
+    go test -run TestJoinFull  > ~/gossip.logs
     if grep "FAIL" ~/gossip.logs 
     then
-        echo 'CHECK LOGS'
-        exit
+	echo "FAIL"
+	((breakCounter++))
+        #echo 'CHECK LOGS'
+        #exit
     else
         echo $i "OK"
     fi
 done
-echo 'NO ERRORS'
+echo "errors: $breakCounter / 100"
