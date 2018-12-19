@@ -36,6 +36,8 @@ func New(privKey string,
 		"config":   fmt.Sprintf("%v", config),
 	}).Debug("New Mobile Node")
 
+	babbleConfig.BindAddr = nodeAddr
+
 	//Check private key
 	pemKey := &crypto.PemKey{}
 
