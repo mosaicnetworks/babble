@@ -1,7 +1,9 @@
 package mobile
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/mosaicnetworks/babble/src/babble"
 	"github.com/mosaicnetworks/babble/src/crypto"
@@ -21,7 +23,7 @@ type Node struct {
 // New initializes Node struct
 func New(privKey string,
 	nodeAddr string,
-	participants *peers.Peers,
+	jsonPeers string,
 	commitHandler CommitHandler,
 	exceptionHandler ExceptionHandler,
 	config *MobileConfig) *Node {
@@ -30,9 +32,11 @@ func New(privKey string,
 
 	babbleConfig.Logger.WithFields(logrus.Fields{
 		"nodeAddr": nodeAddr,
-		"peers":    participants,
+		"peers":    jsonPeers,
 		"config":   fmt.Sprintf("%v", config),
 	}).Debug("New Mobile Node")
+
+	babbleConfig.BindAddr = nodeAddr
 
 	//Check private key
 	pemKey := &crypto.PemKey{}
@@ -46,6 +50,15 @@ func New(privKey string,
 	}
 
 	babbleConfig.Key = key
+
+	var ps []*peers.Peer
+	dec := json.NewDecoder(strings.NewReader(jsonPeers))
+	if err := dec.Decode(&ps); err != nil {
+		exceptionHandler.OnException(fmt.Sprintf("Failed to parse jsonPeers: %s", err))
+		return nil
+	}
+
+	participants := peers.NewPeersFromSlice(ps)
 
 	// There should be at least two peers
 	if participants.Len() < 2 {
