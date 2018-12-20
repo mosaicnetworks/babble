@@ -3,7 +3,7 @@
 breakCounter=0
 for i in `seq 1 100`
 do
-    go test -run TestFastSync > ~/gossip.logs
+    go test -run TestJoinFull > ~/gossip.logs
     if grep "FAIL" ~/gossip.logs 
     then
 	echo "FAIL"

@@ -338,9 +338,9 @@ func TestJoinRequest(t *testing.T) {
 	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", logger, t)
 
 	defer shutdownNodes(nodes)
-	defer drawGraphs(nodes, t)
+	//defer drawGraphs(nodes, t)
 
-	target := 50
+	target := 30
 	err := gossip(nodes, target, false, 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
@@ -366,12 +366,6 @@ func TestJoinRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 	checkGossip(nodes, 0, t)
-
-	for i := range nodes {
-		if nodes[i].core.peers.Len() != 5 {
-			t.Errorf("Error: Node %d should have %d peers, not %d", i, 5, nodes[i].core.peers.Len())
-		}
-	}
 }
 
 func TestJoinFull(t *testing.T) {
@@ -818,6 +812,22 @@ func shutdownNodes(nodes []*Node) {
 }
 
 func checkGossip(nodes []*Node, fromBlock int, t *testing.T) {
+	node0FP, err := nodes[0].core.hg.Store.GetFuturePeerSets(-1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range nodes[1:] {
+		nodeiFP, err := nodes[i].core.hg.Store.GetFuturePeerSets(-1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(node0FP, nodeiFP) {
+			t.Logf("Node 0 FuturePeerSets: %v", node0FP)
+			t.Logf("Node %d FuturePeerSets: %v", i, node0FP)
+			t.Fatalf("FuturePeerSets defer")
+		}
+	}
+
 	nodeBlocks := map[int][]*hg.Block{}
 	for index, n := range nodes {
 		blocks := []*hg.Block{}
