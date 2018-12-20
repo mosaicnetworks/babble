@@ -1040,11 +1040,12 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 		/*
 			After a Reset, round roundLowerBound (=LastConsensusRound) is added
 			to PendingRounds, but its ConsensusEvents (which are necessarily
-			 'under' this Round) are already deemed committed. Hence, skip this
+			'under' this Round) are already deemed committed. Hence, skip this
 			Round after a Reset.
 		*/
 		if h.roundLowerBound != nil && r.Index <= *h.roundLowerBound {
 			h.logger.WithField("round_received", r.Index).Debug("Skipping Pending Round")
+			h.PendingLoadedEvents = 0
 			processedIndex++
 			continue
 		}

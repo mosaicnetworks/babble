@@ -275,7 +275,7 @@ func TestCatchUp(t *testing.T) {
 func TestFastSync(t *testing.T) {
 	logger := common.NewTestLogger(t)
 
-	keys, peers := initPeers(7)
+	keys, peers := initPeers(4)
 
 	//make cache high to draw graphs
 	nodes := initNodes(keys, peers, 100000, 500, "inmem", logger, t)
@@ -292,7 +292,7 @@ func TestFastSync(t *testing.T) {
 	node0 := nodes[0]
 	node0.Shutdown()
 
-	secondTarget := target + 30
+	secondTarget := target + 50
 	err = bombardAndWait(nodes[1:], secondTarget, 10*time.Second)
 	if err != nil {
 		t.Fatal(err)
@@ -321,7 +321,7 @@ func TestFastSync(t *testing.T) {
 	nodes[0] = node0
 
 	//Gossip some more
-	thirdTarget := secondTarget + 30
+	thirdTarget := secondTarget + 50
 	err = bombardAndWait(nodes, thirdTarget, 6*time.Second)
 	if err != nil {
 		t.Fatal(err)

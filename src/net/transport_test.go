@@ -355,7 +355,9 @@ func TestTransport_Join(t *testing.T) {
 		}
 
 		resp := JoinResponse{
-			Peer: *unmarshalledPeers[1],
+			FromID:        testPeers[1].ID(),
+			AcceptedRound: 5,
+			Peers:         unmarshalledPeers,
 		}
 
 		// Listen for a request
@@ -394,7 +396,7 @@ func TestTransport_Join(t *testing.T) {
 
 		// Verify the response
 		if !reflect.DeepEqual(resp, out) {
-			t.Fatalf("command mismatch: %#v %#v", resp, out)
+			t.Fatalf("response mismatch: %#v %#v", resp, out)
 		}
 	}
 }

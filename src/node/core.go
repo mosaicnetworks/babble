@@ -422,6 +422,7 @@ func (c *Core) AddSelfEvent(otherHead string) error {
 	}
 
 	c.logger.WithFields(logrus.Fields{
+		"loaded_events":         c.hg.PendingLoadedEvents,
 		"transactions":          len(c.transactionPool),
 		"internal_transactions": len(c.internalTransactionPool),
 		"block_signatures":      len(c.blockSignaturePool),
