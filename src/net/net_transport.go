@@ -59,7 +59,8 @@ type NetworkTransport struct {
 
 	stream StreamLayer
 
-	timeout time.Duration
+	timeout     time.Duration
+	joinTimeout time.Duration
 }
 
 // StreamLayer is used with the NetworkTransport to provide
@@ -91,6 +92,7 @@ func NewNetworkTransport(
 	stream StreamLayer,
 	maxPool int,
 	timeout time.Duration,
+	joinTimeout time.Duration,
 	logger *logrus.Logger,
 ) *NetworkTransport {
 	if logger == nil {
@@ -98,13 +100,14 @@ func NewNetworkTransport(
 		logger.Level = logrus.DebugLevel
 	}
 	trans := &NetworkTransport{
-		connPool:   make(map[string][]*netConn),
-		consumeCh:  make(chan RPC),
-		logger:     logger,
-		maxPool:    maxPool,
-		shutdownCh: make(chan struct{}),
-		stream:     stream,
-		timeout:    timeout,
+		connPool:    make(map[string][]*netConn),
+		consumeCh:   make(chan RPC),
+		logger:      logger,
+		maxPool:     maxPool,
+		shutdownCh:  make(chan struct{}),
+		stream:      stream,
+		timeout:     timeout,
+		joinTimeout: joinTimeout,
 	}
 	go trans.listen()
 	return trans
@@ -205,35 +208,35 @@ func (n *NetworkTransport) returnConn(conn *netConn) {
 
 // Sync implements the Transport interface.
 func (n *NetworkTransport) Sync(target string, args *SyncRequest, resp *SyncResponse) error {
-	return n.genericRPC(target, rpcSync, args, resp)
+	return n.genericRPC(target, rpcSync, n.timeout, args, resp)
 }
 
 // EagerSync implements the Transport interface.
 func (n *NetworkTransport) EagerSync(target string, args *EagerSyncRequest, resp *EagerSyncResponse) error {
-	return n.genericRPC(target, rpcEagerSync, args, resp)
+	return n.genericRPC(target, rpcEagerSync, n.timeout, args, resp)
 }
 
 // FastForward implements the Transport interface.
 func (n *NetworkTransport) FastForward(target string, args *FastForwardRequest, resp *FastForwardResponse) error {
-	return n.genericRPC(target, rpcFastForward, args, resp)
+	return n.genericRPC(target, rpcFastForward, n.timeout, args, resp)
 }
 
 // Join implements the Transport interface.
 func (n *NetworkTransport) Join(target string, args *JoinRequest, resp *JoinResponse) error {
-	return n.genericRPC(target, rpcJoin, args, resp)
+	return n.genericRPC(target, rpcJoin, n.joinTimeout, args, resp)
 }
 
 // genericRPC handles a simple request/response RPC.
-func (n *NetworkTransport) genericRPC(target string, rpcType uint8, args interface{}, resp interface{}) error {
+func (n *NetworkTransport) genericRPC(target string, rpcType uint8, timeout time.Duration, args interface{}, resp interface{}) error {
 	// Get a conn
-	conn, err := n.getConn(target, n.timeout)
+	conn, err := n.getConn(target, timeout)
 	if err != nil {
 		return err
 	}
 
 	// Set a deadline
-	if n.timeout > 0 {
-		conn.conn.SetDeadline(time.Now().Add(n.timeout))
+	if timeout > 0 {
+		conn.conn.SetDeadline(time.Now().Add(timeout))
 	}
 
 	// Send the RPC

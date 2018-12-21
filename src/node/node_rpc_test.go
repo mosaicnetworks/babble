@@ -20,7 +20,7 @@ func TestProcessSync(t *testing.T) {
 
 	peers := p.Peers
 
-	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, testLogger)
+	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, time.Second, testLogger)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestProcessSync(t *testing.T) {
 
 	node0.RunAsync(false)
 
-	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, testLogger)
+	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, time.Second, testLogger)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestProcessEagerSync(t *testing.T) {
 
 	peers := p.Peers
 
-	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, testLogger)
+	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, time.Second, testLogger)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestProcessEagerSync(t *testing.T) {
 
 	node0.RunAsync(false)
 
-	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, testLogger)
+	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, time.Second, testLogger)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -192,7 +192,7 @@ func TestProcessFastForward(t *testing.T) {
 
 	peers := p.Peers
 
-	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, testLogger)
+	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, time.Second, testLogger)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -206,7 +206,7 @@ func TestProcessFastForward(t *testing.T) {
 
 	node0.RunAsync(false)
 
-	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, testLogger)
+	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, time.Second, testLogger)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

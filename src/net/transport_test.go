@@ -22,7 +22,7 @@ func NewTestTransport(ttype int, addr string, t *testing.T) Transport {
 		_, it := NewInmemTransport(addr)
 		return it
 	case TCP:
-		tt, err := NewTCPTransport(addr, nil, 2, time.Second, common.NewTestLogger(t))
+		tt, err := NewTCPTransport(addr, nil, 2, time.Second, 2*time.Second, common.NewTestLogger(t))
 		if err != nil {
 			t.Fatal(err)
 		}

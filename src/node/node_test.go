@@ -31,14 +31,14 @@ func TestAddTransaction(t *testing.T) {
 
 	peers := p.Peers
 
-	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
+	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, config.TCPTimeout, config.JoinTimeout, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 	peer0Proxy := dummy.NewInmemDummyClient(testLogger)
 	defer peer0Trans.Close()
 
-	node0 := NewNode(TestConfig(t), peers[0].ID(), keys[0], p,
+	node0 := NewNode(config, peers[0].ID(), keys[0], p,
 		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
 		peer0Proxy)
@@ -46,7 +46,7 @@ func TestAddTransaction(t *testing.T) {
 
 	node0.RunAsync(false)
 
-	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, common.NewTestLogger(t))
+	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, config.TCPTimeout, config.JoinTimeout, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -223,11 +223,11 @@ func TestCatchUp(t *testing.T) {
 	keys, peers := initPeers(5)
 
 	/*
-		We only initialize 4 nodes. The 5th is going to be passive for the first
-		part of the test. If we initialize the 5th node, requests will be queued
-		in its TCP socket, even if it is not running. This is because the socket
-		is setup to listen regardless of whether a node is running or not. We
-		should probably change this at some point.
+		We don't initialize the first node; it is going to be passive for the
+		first part of the test, otherwise requests would be queued in its TCP
+		socket, even if it is not running. This is because the socket is setup
+		to listen regardless of whether a node is running or not. We should
+		probably change this at some point.
 	*/
 	normalNodes := initNodes(keys[1:], peers, 1000000, 400, "inmem", logger, t)
 	defer shutdownNodes(normalNodes)
@@ -318,6 +318,7 @@ func TestFastSync(t *testing.T) {
 	}()
 
 	node0.RunAsync(true)
+	defer node0.Shutdown()
 	nodes[0] = node0
 
 	//Gossip some more
@@ -328,98 +329,6 @@ func TestFastSync(t *testing.T) {
 	}
 
 	start := node0.core.hg.FirstConsensusRound
-	checkGossip(nodes, *start, t)
-}
-
-func TestJoinRequest(t *testing.T) {
-	logger := common.NewTestLogger(t)
-
-	keys, peerSet := initPeers(4)
-	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", logger, t)
-
-	defer shutdownNodes(nodes)
-	//defer drawGraphs(nodes, t)
-
-	target := 30
-	err := gossip(nodes, target, false, 3*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	checkGossip(nodes, 0, t)
-
-	key, _ := crypto.GenerateECDSAKey()
-	peer := peers.NewPeer(
-		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
-		fmt.Sprint("127.0.0.1:4242"),
-	)
-	newNode := newNode(peer, key, peerSet, 1000, 1000, "inmem", logger, t)
-
-	err = newNode.join()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	//Gossip some more
-	secondTarget := target + 20
-	err = bombardAndWait(nodes, secondTarget, 6*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	checkGossip(nodes, 0, t)
-}
-
-func TestJoinFull(t *testing.T) {
-	logger := common.NewTestLogger(t)
-
-	keys, peerSet := initPeers(4)
-	nodes := initNodes(keys, peerSet, 1000000, 400, "inmem", logger, t)
-
-	defer shutdownNodes(nodes)
-
-	target := 50
-	err := gossip(nodes, target, false, 6*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	checkGossip(nodes, 0, t)
-
-	key, _ := crypto.GenerateECDSAKey()
-	peer := peers.NewPeer(
-		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
-		fmt.Sprint("127.0.0.1:4242"),
-	)
-	newNode := newNode(peer, key, peerSet, 1000000, 400, "inmem", logger, t)
-
-	//Run parallel routine to check newNode eventually reaches CatchingUp state.
-	timeout := time.After(6 * time.Second)
-	go func() {
-		for {
-			select {
-			case <-timeout:
-				t.Fatalf("Timeout waiting for newNode to enter CatchingUp state")
-			default:
-			}
-			if newNode.getState() == CatchingUp {
-				break
-			}
-		}
-	}()
-
-	newNode.RunAsync(true)
-	defer newNode.Shutdown()
-
-	nodes = append(nodes, newNode)
-
-	//defer drawGraphs(nodes, t)
-
-	//Gossip some more
-	secondTarget := target + 50
-	err = bombardAndWait(nodes, secondTarget, 6*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	start := newNode.core.hg.FirstConsensusRound
 	checkGossip(nodes, *start, t)
 }
 
@@ -485,95 +394,6 @@ func BenchmarkGossip(b *testing.B) {
 	}
 }
 
-// func TestPullAfterJoin(t *testing.T) {
-// 	logger := common.NewTestLogger(t)
-
-// 	keys, peerSet := initPeers(3)
-// 	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", logger, t)
-
-// 	defer shutdownNodes(nodes)
-// 	defer drawGraphs(nodes, t)
-
-// 	target := 50
-// 	err := gossip(nodes, target, false, 3*time.Second)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	checkGossip(nodes, 0, t)
-
-// 	key, _ := crypto.GenerateECDSAKey()
-// 	peer := peers.NewPeer(
-// 		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
-// 		fmt.Sprint("127.0.0.1:4242"),
-// 	)
-// 	newNode := newNode(peer, key, peerSet, 1000, 1000, "inmem", logger, t)
-
-// 	err = newNode.join()
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-
-// 	err = newNode.fastForward()
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-
-// 	frameRound := newNode.core.hg.FirstConsensusRound
-
-// 	frame, err := newNode.core.hg.Store.GetFrame(*frameRound)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-
-// 	badRounds := false
-// 	for _, ev := range frame.Events {
-// 		realEv, err := nodes[0].core.hg.Store.GetEvent(ev.Hex())
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-// 		if *realEv.GetRound() != *ev.GetRound() {
-// 			t.Logf("Event %s round should be %d, not %d", ev.Hex(), *realEv.GetRound(), *ev.GetRound())
-// 			badRounds = true
-// 		}
-// 	}
-
-// 	if badRounds {
-// 		t.Fatalf("Bad Rounds")
-// 	}
-// }
-
-// func TestPeerLeaveRequest(t *testing.T) {
-// 	logger := common.NewTestLogger(t)
-
-// 	keys, peerSet := initPeers(4)
-// 	nodes := initNodes(keys, peerSet, 1000, 1000, "inmem", logger, t)
-
-// 	runNodes(nodes, true)
-
-// 	target := 50
-
-// 	err := bombardAndWait(nodes, target, 3*time.Second)
-// 	if err != nil {
-// 		t.Fatal("Error bombarding: ", err)
-// 	}
-
-// 	nodes[1].Shutdown()
-// 	nodes = append([]*Node{nodes[0]}, nodes[2:]...)
-
-// 	target = 50
-
-// 	err = bombardAndWait(nodes, target, 3*time.Second)
-// 	if err != nil {
-// 		t.Fatal("Error bombarding: ", err)
-// 	}
-
-// 	for i := range nodes {
-// 		if nodes[i].core.peers.Len() != 3 {
-// 			t.Errorf("Node %d should have %d peers, not %d", i, 3, nodes[i].core.peers.Len())
-// 		}
-// 	}
-// }
-
 /*******************************************************************************
 HELPERS
 *******************************************************************************/
@@ -610,13 +430,14 @@ func newNode(peer *peers.Peer,
 	conf := NewConfig(
 		5*time.Millisecond,
 		time.Second,
+		time.Second,
 		cacheSize,
 		syncLimit,
 		logger,
 	)
 
 	trans, err := net.NewTCPTransport(peer.NetAddr,
-		nil, 2, time.Second, logger)
+		nil, 2, conf.TCPTimeout, conf.JoinTimeout, logger)
 	if err != nil {
 		t.Fatalf("failed to create transport for peer %d: %s", peer.ID(), err)
 	}
@@ -701,7 +522,7 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 	}
 
 	trans, err := net.NewTCPTransport(oldNode.trans.LocalAddr(),
-		nil, 2, time.Second, logger)
+		nil, 2, conf.TCPTimeout, conf.JoinTimeout, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -812,22 +633,6 @@ func shutdownNodes(nodes []*Node) {
 }
 
 func checkGossip(nodes []*Node, fromBlock int, t *testing.T) {
-	node0FP, err := nodes[0].core.hg.Store.GetFuturePeerSets(-1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for i := range nodes[1:] {
-		nodeiFP, err := nodes[i].core.hg.Store.GetFuturePeerSets(-1)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !reflect.DeepEqual(node0FP, nodeiFP) {
-			t.Logf("Node 0 FuturePeerSets: %v", node0FP)
-			t.Logf("Node %d FuturePeerSets: %v", i, node0FP)
-			t.Fatalf("FuturePeerSets defer")
-		}
-	}
-
 	nodeBlocks := map[int][]*hg.Block{}
 	for index, n := range nodes {
 		blocks := []*hg.Block{}

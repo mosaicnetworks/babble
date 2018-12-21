@@ -257,9 +257,9 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 		changed = true
 	}
 
-	//Why +4? It is what we call the RoundDecided; the round of the first
-	//witness that can decide the fame of a SuperMajority of witnesses from
-	//roundReceived, also accounting for Coin rounds. Cf whitepaper proofs.
+	//Why +4? We call it the RoundDecided; the round of the first witness that
+	//can decide the fame of a SuperMajority of witnesses from roundReceived,
+	//also accounting for Coin rounds. Cf whitepaper proofs.
 	acceptedRound := roundReceived + 4
 
 	if changed {
@@ -572,7 +572,7 @@ func (c *Core) AddInternalTransaction(tx hg.InternalTransaction) *JoinPromise {
 	//save it to promise store, for later use by the Commit callback
 	c.promises[tx.Hash()] = promise
 
-	//submit the internal tx, it will be processed asynchronously by the gossip
+	//submit the internal tx to be processed asynchronously by the gossip
 	//routines
 	c.internalTransactionPool = append(c.internalTransactionPool, tx)
 

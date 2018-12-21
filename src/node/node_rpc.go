@@ -225,12 +225,13 @@ func (n *Node) processJoinRequest(rpc net.RPC, cmd *net.JoinRequest) {
 	n.coreLock.Unlock()
 
 	//Wait for the InternalTransaction to go through consensus
-	timeout := time.After(1 * time.Second)
+	timeout := time.After(n.conf.JoinTimeout)
 	select {
 	case resp := <-promise.RespCh:
 		promiseResp = resp
 	case <-timeout:
 		respErr = fmt.Errorf("Timeout waiting for JoinRequest to go through consensus")
+		n.logger.WithError(respErr).Error()
 		break
 	}
 
