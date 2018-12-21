@@ -217,22 +217,41 @@ func (n *Node) processJoinRequest(rpc net.RPC, cmd *net.JoinRequest) {
 	var respErr error
 	var promiseResp JoinPromiseResponse
 
-	//XXX run this by the App first
+	itx := hg.NewInternalTransaction(hg.PEER_ADD, cmd.Peer)
 
-	//Dispatch the InternalTransaction
+	//Check already present or pending request
 	n.coreLock.Lock()
-	promise := n.core.AddInternalTransaction(hg.NewInternalTransaction(hg.PEER_ADD, cmd.Peer))
+
+	if _, ok := n.core.promises[itx.Hash()]; ok {
+		respErr := fmt.Errorf("Peer already has a pending request")
+		n.logger.WithError(respErr).Error()
+	}
+
+	if _, ok := n.core.peers.ByPubKey[cmd.Peer.PubKeyHex]; ok {
+		respErr := fmt.Errorf("Peer is already part of the PeerSet")
+		n.logger.WithError(respErr).Error()
+	}
+
 	n.coreLock.Unlock()
 
-	//Wait for the InternalTransaction to go through consensus
-	timeout := time.After(n.conf.JoinTimeout)
-	select {
-	case resp := <-promise.RespCh:
-		promiseResp = resp
-	case <-timeout:
-		respErr = fmt.Errorf("Timeout waiting for JoinRequest to go through consensus")
-		n.logger.WithError(respErr).Error()
-		break
+	//XXX run this by the App first
+
+	if respErr == nil {
+		//Dispatch the InternalTransaction
+		n.coreLock.Lock()
+		promise := n.core.AddInternalTransaction(itx)
+		n.coreLock.Unlock()
+
+		//Wait for the InternalTransaction to go through consensus
+		timeout := time.After(n.conf.JoinTimeout)
+		select {
+		case resp := <-promise.RespCh:
+			promiseResp = resp
+		case <-timeout:
+			respErr = fmt.Errorf("Timeout waiting for JoinRequest to go through consensus")
+			n.logger.WithError(respErr).Error()
+			break
+		}
 	}
 
 	resp := &net.JoinResponse{

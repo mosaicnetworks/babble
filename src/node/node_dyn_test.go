@@ -13,10 +13,8 @@ import (
 
 func TestJoinRequest(t *testing.T) {
 	logger := common.NewTestLogger(t)
-
 	keys, peerSet := initPeers(4)
 	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", logger, t)
-
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
@@ -41,7 +39,7 @@ func TestJoinRequest(t *testing.T) {
 	}
 
 	//Gossip some more
-	secondTarget := target + 20
+	secondTarget := target + 30
 	err = bombardAndWait(nodes, secondTarget, 6*time.Second)
 	if err != nil {
 		t.Fatal(err)
@@ -52,25 +50,24 @@ func TestJoinRequest(t *testing.T) {
 
 func TestJoinFull(t *testing.T) {
 	logger := common.NewTestLogger(t)
-
 	keys, peerSet := initPeers(4)
-	nodes := initNodes(keys, peerSet, 1000000, 400, "inmem", logger, t)
+	initialNodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", logger, t)
+	defer shutdownNodes(initialNodes)
 
-	defer shutdownNodes(nodes)
-
-	target := 50
-	err := gossip(nodes, target, false, 6*time.Second)
+	target := 30
+	err := gossip(initialNodes, target, false, 6*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
-	checkGossip(nodes, 0, t)
+	checkGossip(initialNodes, 0, t)
 
 	key, _ := crypto.GenerateECDSAKey()
 	peer := peers.NewPeer(
 		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
 		fmt.Sprint("127.0.0.1:4242"),
 	)
-	newNode := newNode(peer, key, peerSet, 1000000, 400, "inmem", logger, t)
+	newNode := newNode(peer, key, peerSet, 1000000, 1000, "inmem", logger, t)
+	defer newNode.Shutdown()
 
 	//Run parallel routine to check newNode eventually reaches CatchingUp state.
 	timeout := time.After(6 * time.Second)
@@ -88,9 +85,8 @@ func TestJoinFull(t *testing.T) {
 	}()
 
 	newNode.RunAsync(true)
-	defer newNode.Shutdown()
 
-	nodes = append(nodes, newNode)
+	nodes := append(initialNodes, newNode)
 
 	//defer drawGraphs(nodes, t)
 

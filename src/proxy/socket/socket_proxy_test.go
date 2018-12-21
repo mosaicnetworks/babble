@@ -62,8 +62,8 @@ func NewTestHandler(t *testing.T) *TestHandler {
 }
 
 func TestSocketProxyServer(t *testing.T) {
-	clientAddr := "127.0.0.1:9990"
-	proxyAddr := "127.0.0.1:9991"
+	clientAddr := "127.0.0.1:6990"
+	proxyAddr := "127.0.0.1:6991"
 
 	appProxy, err := aproxy.NewSocketAppProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestLogger(t))
 
@@ -105,8 +105,8 @@ func TestSocketProxyServer(t *testing.T) {
 }
 
 func TestSocketProxyClient(t *testing.T) {
-	clientAddr := "127.0.0.1:9992"
-	proxyAddr := "127.0.0.1:9993"
+	clientAddr := "127.0.0.1:6992"
+	proxyAddr := "127.0.0.1:6993"
 
 	logger := common.NewTestLogger(t)
 

@@ -103,10 +103,8 @@ func TestAddTransaction(t *testing.T) {
 
 func TestGossip(t *testing.T) {
 	logger := common.NewTestLogger(t)
-
 	keys, peers := initPeers(4)
 	nodes := initNodes(keys, peers, 100000, 1000, "inmem", logger, t)
-
 	//defer drawGraphs(nodes, t)
 
 	target := 50
@@ -120,12 +118,8 @@ func TestGossip(t *testing.T) {
 
 func TestMissingNodeGossip(t *testing.T) {
 	logger := common.NewTestLogger(t)
-
 	keys, peers := initPeers(4)
 	nodes := initNodes(keys, peers, 1000, 1000, "inmem", logger, t)
-
-	defer shutdownNodes(nodes)
-
 	//defer drawGraphs(nodes, t)
 
 	err := gossip(nodes[1:], 10, true, 6*time.Second)
@@ -137,18 +131,15 @@ func TestMissingNodeGossip(t *testing.T) {
 }
 
 func TestSyncLimit(t *testing.T) {
-
 	logger := common.NewTestLogger(t)
-
 	keys, peers := initPeers(4)
 	nodes := initNodes(keys, peers, 1000, 1000, "inmem", logger, t)
+	defer shutdownNodes(nodes)
 
 	err := gossip(nodes, 10, false, 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	defer shutdownNodes(nodes)
 
 	//create fake node[0] known to artificially reach SyncLimit
 	node0KnownEvents := nodes[0].core.KnownEvents()
@@ -181,12 +172,11 @@ func TestSyncLimit(t *testing.T) {
 
 func TestFastForward(t *testing.T) {
 	logger := common.NewTestLogger(t)
-
-	keys, peers := initPeers(5)
+	keys, peers := initPeers(4)
 	nodes := initNodes(keys, peers, 1000, 1000, "inmem", logger, t)
 	defer shutdownNodes(nodes)
 
-	target := 50
+	target := 10
 	err := gossip(nodes[1:], target, false, 6*time.Second)
 	if err != nil {
 		t.Fatal(err)
@@ -219,28 +209,28 @@ func TestFastForward(t *testing.T) {
 
 func TestCatchUp(t *testing.T) {
 	logger := common.NewTestLogger(t)
-
-	keys, peers := initPeers(5)
+	keys, peers := initPeers(4)
 
 	/*
-		We don't initialize the first node; it is going to be passive for the
+		We don't initialize the first node; it will stay passive during the
 		first part of the test, otherwise requests would be queued in its TCP
 		socket, even if it is not running. This is because the socket is setup
 		to listen regardless of whether a node is running or not. We should
 		probably change this at some point.
 	*/
-	normalNodes := initNodes(keys[1:], peers, 1000000, 400, "inmem", logger, t)
+	normalNodes := initNodes(keys[1:], peers, 1000000, 100, "inmem", logger, t)
 	defer shutdownNodes(normalNodes)
 	//defer drawGraphs(normalNodes, t)
 
-	target := 50
+	target := 30
 	err := gossip(normalNodes, target, false, 6*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
 	checkGossip(normalNodes, 0, t)
 
-	node0 := newNode(peers.Peers[0], keys[0], peers, 1000000, 400, "inmem", logger, t)
+	node0 := newNode(peers.Peers[0], keys[0], peers, 1000000, 100, "inmem", logger, t)
+	defer node0.Shutdown()
 
 	//Run parallel routine to check node0 eventually reaches CatchingUp state.
 	timeout := time.After(6 * time.Second)
@@ -258,10 +248,10 @@ func TestCatchUp(t *testing.T) {
 	}()
 
 	node0.RunAsync(true)
-	defer node0.Shutdown()
+
+	nodes := append(normalNodes, node0)
 
 	//Gossip some more with all nodes
-	nodes := append(normalNodes, node0)
 	newTarget := target + 50
 	err = bombardAndWait(nodes, newTarget, 6*time.Second)
 	if err != nil {
@@ -274,11 +264,8 @@ func TestCatchUp(t *testing.T) {
 
 func TestFastSync(t *testing.T) {
 	logger := common.NewTestLogger(t)
-
 	keys, peers := initPeers(4)
-
-	//make cache high to draw graphs
-	nodes := initNodes(keys, peers, 100000, 500, "inmem", logger, t)
+	nodes := initNodes(keys, peers, 100000, 100, "inmem", logger, t) //make cache high to draw graphs
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
@@ -292,8 +279,8 @@ func TestFastSync(t *testing.T) {
 	node0 := nodes[0]
 	node0.Shutdown()
 
-	secondTarget := target + 50
-	err = bombardAndWait(nodes[1:], secondTarget, 10*time.Second)
+	secondTarget := target + 30
+	err = bombardAndWait(nodes[1:], secondTarget, 6*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,6 +288,7 @@ func TestFastSync(t *testing.T) {
 
 	//Can't re-run it; have to reinstantiate a new node.
 	node0 = recycleNode(node0, logger, t)
+	nodes[0] = node0
 
 	//Run parallel routine to check node0 eventually reaches CatchingUp state.
 	timeout := time.After(6 * time.Second)
@@ -318,8 +306,6 @@ func TestFastSync(t *testing.T) {
 	}()
 
 	node0.RunAsync(true)
-	defer node0.Shutdown()
-	nodes[0] = node0
 
 	//Gossip some more
 	thirdTarget := secondTarget + 50
@@ -334,7 +320,6 @@ func TestFastSync(t *testing.T) {
 
 func TestShutdown(t *testing.T) {
 	logger := common.NewTestLogger(t)
-
 	keys, peers := initPeers(4)
 	nodes := initNodes(keys, peers, 1000, 1000, "inmem", logger, t)
 	runNodes(nodes, false)
@@ -350,36 +335,30 @@ func TestShutdown(t *testing.T) {
 }
 
 func TestBootstrapAllNodes(t *testing.T) {
-	logger := common.NewTestLogger(t)
-
 	os.RemoveAll("test_data")
 	os.Mkdir("test_data", os.ModeDir|0777)
 
 	//create a first network with BadgerStore and wait till it reaches 10 blocks
 	//before shutting it down
+	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(4)
-
 	nodes := initNodes(keys, peers, 1000, 1000, "badger", logger, t)
 
-	err := gossip(nodes, 10, false, 3*time.Second)
+	err := gossip(nodes, 10, true, 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
 	checkGossip(nodes, 0, t)
 
-	shutdownNodes(nodes)
-
 	//Now try to recreate a network from the databases created in the first step
 	//and advance it to 20 blocks
 	newNodes := recycleNodes(nodes, logger, t)
 
-	err = gossip(newNodes, 20, false, 3*time.Second)
+	err = gossip(newNodes, 20, true, 3*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
 	checkGossip(newNodes, 0, t)
-
-	shutdownNodes(newNodes)
 
 	//Check that both networks did not have completely different consensus events
 	checkGossip([]*Node{nodes[0], newNodes[0]}, 0, t)
