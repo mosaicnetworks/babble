@@ -120,8 +120,8 @@ func TestTransport_Sync(t *testing.T) {
 }
 
 func TestTransport_EagerSync(t *testing.T) {
-	addr1 := "127.0.0.1:1234"
-	addr2 := "127.0.0.1:1235"
+	addr1 := "127.0.0.1:1236"
+	addr2 := "127.0.0.1:1237"
 	for ttype := 0; ttype < numTestTransports; ttype++ {
 		trans1 := NewTestTransport(ttype, addr1, t)
 		defer trans1.Close()
@@ -189,8 +189,8 @@ func TestTransport_EagerSync(t *testing.T) {
 }
 
 func TestTransport_FastForward(t *testing.T) {
-	addr1 := "127.0.0.1:1234"
-	addr2 := "127.0.0.1:1235"
+	addr1 := "127.0.0.1:1238"
+	addr2 := "127.0.0.1:1239"
 	for ttype := 0; ttype < numTestTransports; ttype++ {
 		trans1 := NewTestTransport(ttype, addr1, t)
 		defer trans1.Close()
@@ -320,8 +320,8 @@ func TestTransport_FastForward(t *testing.T) {
 }
 
 func TestTransport_Join(t *testing.T) {
-	addr1 := "127.0.0.1:1234"
-	addr2 := "127.0.0.1:1235"
+	addr1 := "127.0.0.1:2345"
+	addr2 := "127.0.0.1:2346"
 	for ttype := 0; ttype < numTestTransports; ttype++ {
 		trans1 := NewTestTransport(ttype, addr1, t)
 		defer trans1.Close()
