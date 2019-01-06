@@ -75,11 +75,13 @@ func (r *RoundInfo) SetFame(x string, f bool) {
 	r.CreatedEvents[x] = e
 }
 
-//WitnessesDecided returns true if a super-majority of witnesses are decided,
-//and there are no undecided witnesses. Our algorithm relies on the fact that a
-//witness that is not yet known when a super-majority of witnesses are already
-//decided, has no chance of ever being famous. Once a Round is decided it stays
-//decided, even if new witnesses are added after it was first decided.
+/*
+WitnessesDecided returns true if a super-majority of witnesses are decided,
+and there are no undecided witnesses. Our algorithm relies on the fact that a
+witness that is not yet known when a super-majority of witnesses are already
+decided, has no chance of ever being famous. Once a Round is decided it stays
+decided, even if new witnesses are added after it was first decided.
+*/
 func (r *RoundInfo) WitnessesDecided(peerSet *peers.PeerSet) bool {
 	//if the round was already decided, it stays decided no matter what.
 	if r.decided {

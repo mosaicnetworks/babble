@@ -32,18 +32,23 @@ type Core struct {
 	Head string
 	Seq  int
 
-	//Hashes of the Events that are not tied to the Head. This is managed by the
-	//Sync method. If the gossip condition is false (there is nothing
-	//interesting to record), items are added to heads; if the gossip condition
-	//is true, items are removed from heads and used to record a new self-event.
-	//This functionality allows to not grow the hashgraph for no reason.
-	heads []string
+	/*
+		Events that are not tied to this node's Head. This is managed by
+		the Sync method. If the gossip condition is false (there is nothing
+		interesting to record), items are added to heads; if the gossip
+		condition is true, items are removed from heads and used to record a new
+		self-event. This functionality allows to not grow the hashgraph
+		continuously when there is nothing to record.
+	*/
+	heads map[uint32]*hg.Event
 
 	transactionPool         [][]byte
 	internalTransactionPool []hg.InternalTransaction
 	blockSignaturePool      []hg.BlockSignature
 
 	proxyCommitCallback proxy.CommitCallback
+
+	promises map[string]*JoinPromise
 
 	logger *logrus.Entry
 }
@@ -73,13 +78,21 @@ func NewCore(
 		transactionPool:         [][]byte{},
 		internalTransactionPool: []hg.InternalTransaction{},
 		blockSignaturePool:      []hg.BlockSignature{},
-		heads:                   []string{},
+		promises:                make(map[string]*JoinPromise),
+		heads:                   make(map[uint32]*hg.Event),
 		logger:                  logEntry,
 		Head:                    "",
 		Seq:                     -1,
 	}
 
-	core.hg = hg.NewHashgraph(peers, store, core.Commit, logEntry)
+	core.hg = hg.NewHashgraph(store, core.Commit, logEntry)
+
+	/*
+		This will create roots and set PeerSet for round 0, which is not
+		necessarily correct; what if this is a node that only joins the cluster
+		on the go? Doesnt really matter because it's going to get Reset.
+	*/
+	core.hg.Init(peers)
 
 	return core
 }
@@ -107,6 +120,16 @@ func (c *Core) SetHeadAndSeq() error {
 	var head string
 	var seq int
 
+	//Add self if not in Repertoire yet
+	if _, ok := c.hg.Store.RepertoireByID()[c.ID()]; !ok {
+		c.logger.Debug("Not in repertoire yet.")
+		err := c.hg.Store.AddParticipant(peers.NewPeer(c.HexID(), ""))
+		if err != nil {
+			c.logger.WithError(err).Error("Error adding self to Store")
+			return err
+		}
+	}
+
 	last, isRoot, err := c.hg.Store.LastEventFrom(c.HexID())
 	if err != nil {
 		return err
@@ -117,8 +140,8 @@ func (c *Core) SetHeadAndSeq() error {
 		if err != nil {
 			return err
 		}
-		head = root.SelfParent.Hash
-		seq = root.SelfParent.Index
+		head = root.GetHead().Hash
+		seq = root.GetHead().Index
 	} else {
 		lastEvent, err := c.GetEvent(last)
 		if err != nil {
@@ -218,7 +241,9 @@ func (c *Core) SignBlock(block *hg.Block) (hg.BlockSignature, error) {
 func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.InternalTransaction) error {
 	peers := c.peers
 
+	changed := false
 	for _, tx := range txs {
+		//update the PeerSet placholder
 		switch tx.Type {
 		case hg.PEER_ADD:
 			c.logger.WithField("peer", tx.Peer).Debug("adding peer")
@@ -228,19 +253,32 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 			peers = peers.WithRemovedPeer(&tx.Peer)
 		default:
 		}
+
+		changed = true
 	}
 
-	//XXX  +4 is arbitrary. Should be RoundDecided, ie. the round of the first
-	//witness that can decide the fame of a SuperMajority of witnesses from
-	//roundReceived
-	err := c.hg.Store.SetPeerSet(roundReceived+4, peers)
-	if err != nil {
-		return fmt.Errorf("Udpating Store PeerSet: %s", err)
+	//Why +4? We call it the RoundDecided; the round of the first witness that
+	//can decide the fame of a SuperMajority of witnesses from roundReceived,
+	//also accounting for Coin rounds. Cf whitepaper proofs.
+	acceptedRound := roundReceived + 4
+
+	if changed {
+		err := c.hg.Store.SetPeerSet(acceptedRound, peers)
+		if err != nil {
+			return fmt.Errorf("Udpating Store PeerSet: %s", err)
+		}
+
+		c.peers = peers
+		c.peerSelector = NewRandomPeerSelector(peers, c.id)
 	}
 
-	c.peers = peers
-
-	c.peerSelector = NewRandomPeerSelector(peers, c.id)
+	for _, tx := range txs {
+		//respond to the corresponding promise
+		if p, ok := c.promises[tx.Hash()]; ok {
+			p.Respond(acceptedRound, peers.Peers)
+			delete(c.promises, tx.Hash())
+		}
+	}
 
 	return nil
 }
@@ -296,7 +334,9 @@ func (c *Core) EventDiff(known map[uint32]int) (events []*hg.Event, err error) {
 	return unknown, nil
 }
 
-func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
+//Sync decodes and inserts new Events into the Hashgraph. UnknownEvents are
+//expected to be in topoligical order.
+func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 	c.logger.WithFields(logrus.Fields{
 		"unknown_events":            len(unknownEvents),
 		"transaction_pool":          len(c.transactionPool),
@@ -304,8 +344,8 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 		"block_signature_pool":      len(c.blockSignaturePool),
 	}).Debug("Sync")
 
-	otherHead := ""
-	for k, we := range unknownEvents {
+	var otherHead *hg.Event
+	for _, we := range unknownEvents {
 		ev, err := c.hg.ReadWireInfo(we)
 		if err != nil {
 			c.logger.WithFields(logrus.Fields{
@@ -316,16 +356,29 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 		}
 
 		if err := c.InsertEvent(ev, false); err != nil {
+			c.logger.WithField("ev", ev).WithError(err).Errorf("Inserting Event %s, creatord %d", ev.Hex(), we.Body.CreatorID)
 			return err
 		}
 
-		//Assume last event corresponds to other-head
-		if k == len(unknownEvents)-1 {
-			otherHead = ev.Hex()
+		if we.Body.CreatorID == fromID {
+			otherHead = ev
+		}
+
+		if h, ok := c.heads[we.Body.CreatorID]; ok &&
+			h != nil &&
+			we.Body.Index > h.Index() {
+
+			delete(c.heads, we.Body.CreatorID)
 		}
 	}
 
-	c.heads = append(c.heads, otherHead)
+	//Do not overwrite a non-empty head with an empty head
+	if h, ok := c.heads[fromID]; !ok ||
+		h == nil ||
+		(otherHead != nil && otherHead.Index() > h.Index()) {
+
+		c.heads[fromID] = otherHead
+	}
 
 	//Create new event with self head and other head only if there are pending
 	//loaded events or the pools are not empty
@@ -341,16 +394,15 @@ func (c *Core) Sync(unknownEvents []hg.WireEvent) error {
 }
 
 func (c *Core) RecordHeads() error {
-	handledHeads := 0
-	defer func() {
-		c.heads = c.heads[handledHeads:]
-	}()
-
-	for _, b := range c.heads {
-		if err := c.AddSelfEvent(b); err != nil {
+	for id, ev := range c.heads {
+		op := ""
+		if ev != nil {
+			op = ev.Hex()
+		}
+		if err := c.AddSelfEvent(op); err != nil {
 			return err
 		}
-		handledHeads++
+		delete(c.heads, id)
 	}
 
 	return nil
@@ -370,6 +422,7 @@ func (c *Core) AddSelfEvent(otherHead string) error {
 	}
 
 	c.logger.WithFields(logrus.Fields{
+		"loaded_events":         c.hg.PendingLoadedEvents,
 		"transactions":          len(c.transactionPool),
 		"internal_transactions": len(c.internalTransactionPool),
 		"block_signatures":      len(c.blockSignaturePool),
@@ -383,7 +436,6 @@ func (c *Core) AddSelfEvent(otherHead string) error {
 }
 
 func (c *Core) FastForward(peer string, block *hg.Block, frame *hg.Frame) error {
-
 	peerSet := peers.NewPeerSet(frame.Peers)
 
 	//Check Block Signatures
@@ -513,8 +565,19 @@ func (c *Core) AddTransactions(txs [][]byte) {
 	c.transactionPool = append(c.transactionPool, txs...)
 }
 
-func (c *Core) AddInternalTransactions(txs []hg.InternalTransaction) {
-	c.internalTransactionPool = append(c.internalTransactionPool, txs...)
+func (c *Core) AddInternalTransaction(tx hg.InternalTransaction) *JoinPromise {
+	//create promise
+	promise := NewJoinPromise(tx)
+
+	//save it to promise store, for later use by the Commit callback
+	c.promises[tx.Hash()] = promise
+
+	//submit the internal tx to be processed asynchronously by the gossip
+	//routines
+	c.internalTransactionPool = append(c.internalTransactionPool, tx)
+
+	//return the promise
+	return promise
 }
 
 func (c *Core) AddBlockSignature(bs hg.BlockSignature) {

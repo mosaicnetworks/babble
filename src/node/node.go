@@ -27,9 +27,8 @@ type Node struct {
 	trans net.Transport
 	netCh <-chan net.RPC
 
-	proxy            proxy.AppProxy
-	submitCh         chan []byte
-	submitInternalCh chan hg.InternalTransaction
+	proxy    proxy.AppProxy
+	submitCh chan []byte
 
 	shutdownCh chan struct{}
 
@@ -52,23 +51,19 @@ func NewNode(conf *Config,
 ) *Node {
 
 	node := Node{
-		id:               id,
-		conf:             conf,
-		logger:           conf.Logger.WithField("this_id", id),
-		core:             NewCore(id, key, peers, store, proxy.CommitBlock, conf.Logger),
-		trans:            trans,
-		netCh:            trans.Consumer(),
-		proxy:            proxy,
-		submitCh:         proxy.SubmitCh(),
-		submitInternalCh: proxy.SubmitInternalCh(),
-		shutdownCh:       make(chan struct{}),
-		controlTimer:     NewRandomControlTimer(),
+		id:           id,
+		conf:         conf,
+		logger:       conf.Logger.WithField("this_id", id),
+		core:         NewCore(id, key, peers, store, proxy.CommitBlock, conf.Logger),
+		trans:        trans,
+		netCh:        trans.Consumer(),
+		proxy:        proxy,
+		submitCh:     proxy.SubmitCh(),
+		shutdownCh:   make(chan struct{}),
+		controlTimer: NewRandomControlTimer(),
 	}
 
 	node.needBoostrap = store.NeedBoostrap()
-
-	//Initialize as Babbling
-	node.setState(Babbling)
 
 	return &node
 }
@@ -82,11 +77,25 @@ func (n *Node) Init() error {
 		}
 	}
 
-	return n.core.SetHeadAndSeq()
+	_, ok := n.core.peers.ByID[n.id]
+	if ok {
+		n.logger.Debug("Node belongs to PeerSet => Babbling")
+
+		if err := n.core.SetHeadAndSeq(); err != nil {
+			n.core.SetHeadAndSeq()
+		}
+
+		n.setState(Babbling)
+	} else {
+		n.logger.Debug("Node does not belong to PeerSet => Joining")
+		n.setState(Joining)
+	}
+
+	return nil
 }
 
 func (n *Node) RunAsync(gossip bool) {
-	n.logger.Debug("runasync")
+	n.logger.WithField("gossip", gossip).Debug("runasync")
 
 	go n.Run(gossip)
 }
@@ -102,7 +111,7 @@ func (n *Node) Run(gossip bool) {
 
 	//Execute Node State Machine
 	for {
-		// Run different routines depending on node state
+		//Run different routines depending on node state
 		state := n.getState()
 
 		n.logger.WithField("state", state.String()).Debug("Run loop")
@@ -112,6 +121,8 @@ func (n *Node) Run(gossip bool) {
 			n.babble(gossip)
 		case CatchingUp:
 			n.fastForward()
+		case Joining:
+			n.join()
 		case Shutdown:
 			return
 		}
@@ -143,10 +154,6 @@ func (n *Node) doBackgroundWork() {
 			n.logger.Debug("Adding Transaction")
 			n.addTransaction(t)
 			n.resetTimer()
-		case t := <-n.submitInternalCh:
-			n.logger.Debug("Adding Internal Transaction")
-			n.addInternalTransaction(t)
-			n.resetTimer()
 		case <-n.shutdownCh:
 			return
 		}
@@ -158,6 +165,8 @@ func (n *Node) doBackgroundWork() {
 //Otherwise, it processes RPC requests, periodicaly initiates gossip while there
 //is something to gossip about, or waits.
 func (n *Node) babble(gossip bool) {
+	n.logger.Debug("BABBLING")
+
 	returnCh := make(chan struct{}, 100)
 	for {
 		select {
@@ -182,155 +191,90 @@ func (n *Node) babble(gossip bool) {
 	}
 }
 
-func (n *Node) processRPC(rpc net.RPC) {
-	switch cmd := rpc.Command.(type) {
-	case *net.SyncRequest:
-		n.processSyncRequest(rpc, cmd)
-	case *net.EagerSyncRequest:
-		n.processEagerSyncRequest(rpc, cmd)
-	case *net.FastForwardRequest:
-		n.processFastForwardRequest(rpc, cmd)
-	default:
-		n.logger.WithField("cmd", rpc.Command).Error("Unexpected RPC command")
-		rpc.Respond(nil, fmt.Errorf("unexpected command"))
-	}
-}
+func (n *Node) fastForward() error {
+	n.logger.Debug("CATCHING-UP")
 
-func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
-	n.logger.WithFields(logrus.Fields{
-		"from_id": cmd.FromID,
-		"known":   cmd.Known,
-	}).Debug("process SyncRequest")
+	//wait until sync routines finish
+	n.waitRoutines()
 
-	resp := &net.SyncResponse{
-		FromID: n.id,
+	//fastForwardRequest
+	peer := n.core.peerSelector.Next()
+
+	start := time.Now()
+	resp, err := n.requestFastForward(peer.NetAddr)
+	elapsed := time.Since(start)
+	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestFastForward()")
+
+	if err != nil {
+		n.logger.WithField("error", err).Error("requestFastForward()")
+		return err
 	}
 
-	var respErr error
-
-	//Check sync limit
-	n.coreLock.Lock()
-
-	overSyncLimit := n.core.OverSyncLimit(cmd.Known, n.conf.SyncLimit)
-
-	n.coreLock.Unlock()
-
-	if overSyncLimit {
-		n.logger.Debug("SyncLimit")
-
-		resp.SyncLimit = true
-	} else {
-		//Compute Diff
-		start := time.Now()
-		n.coreLock.Lock()
-		eventDiff, err := n.core.EventDiff(cmd.Known)
-		n.coreLock.Unlock()
-		elapsed := time.Since(start)
-
-		n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Diff()")
-
-		if err != nil {
-			n.logger.WithField("error", err).Error("Calculating Diff")
-			respErr = err
-		}
-
-		//Convert to WireEvents
-		wireEvents, err := n.core.ToWire(eventDiff)
-		if err != nil {
-			n.logger.WithField("error", err).Debug("Converting to WireEvent")
-			respErr = err
-		} else {
-			resp.Events = wireEvents
-		}
-	}
-
-	//Get Self Known
-	n.coreLock.Lock()
-	knownEvents := n.core.KnownEvents()
-	n.coreLock.Unlock()
-
-	resp.Known = knownEvents
-
 	n.logger.WithFields(logrus.Fields{
-		"events":     len(resp.Events),
-		"known":      resp.Known,
-		"sync_limit": resp.SyncLimit,
-		"error":      respErr,
-	}).Debug("Responding to SyncRequest")
+		"from_id":              resp.FromID,
+		"block_index":          resp.Block.Index(),
+		"block_round_received": resp.Block.RoundReceived(),
+		"frame_events":         len(resp.Frame.Events),
+		"frame_roots":          resp.Frame.Roots,
+		"frame_peers":          len(resp.Frame.Peers),
+		"snapshot":             resp.Snapshot,
+	}).Debug("FastForwardResponse")
 
-	rpc.Respond(resp, respErr)
-}
-
-func (n *Node) processEagerSyncRequest(rpc net.RPC, cmd *net.EagerSyncRequest) {
-	n.logger.WithFields(logrus.Fields{
-		"from_id": cmd.FromID,
-		"events":  len(cmd.Events),
-	}).Debug("EagerSyncRequest")
-
-	success := true
-
+	//prepare core. ie: fresh hashgraph
 	n.coreLock.Lock()
-	err := n.sync(cmd.Events)
+	err = n.core.FastForward(peer.PubKeyHex, &resp.Block, &resp.Frame)
 	n.coreLock.Unlock()
 
 	if err != nil {
-		n.logger.WithField("error", err).Error("sync()")
-		success = false
+		n.logger.WithField("error", err).Error("Fast Forwarding Hashgraph")
+		return err
 	}
 
-	resp := &net.EagerSyncResponse{
-		FromID:  n.id,
-		Success: success,
+	//update app from snapshot
+	err = n.proxy.Restore(resp.Snapshot)
+
+	if err != nil {
+		n.logger.WithField("error", err).Error("Restoring App from Snapshot")
+		return err
 	}
 
-	rpc.Respond(resp, err)
+	n.logger.Debug("Fast-Forward OK")
+
+	n.setState(Babbling)
+
+	return nil
 }
 
-func (n *Node) processFastForwardRequest(rpc net.RPC, cmd *net.FastForwardRequest) {
-	n.logger.WithFields(logrus.Fields{
-		"from": cmd.FromID,
-	}).Debug("process FastForwardRequest")
+func (n *Node) join() error {
+	n.logger.Debug("JOINING")
 
-	resp := &net.FastForwardResponse{
-		FromID: n.id,
-	}
+	peer := n.core.peerSelector.Next()
 
-	var respErr error
-
-	//Get latest Frame
-	n.coreLock.Lock()
-
-	block, frame, err := n.core.GetAnchorBlockWithFrame()
-
-	n.coreLock.Unlock()
+	start := time.Now()
+	resp, err := n.requestJoin(peer.NetAddr)
+	elapsed := time.Since(start)
+	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestJoin()")
 
 	if err != nil {
-		n.logger.WithField("error", err).Error("Getting Frame")
-
-		respErr = err
+		n.logger.Error("Cannot join:", peer.NetAddr, err)
+		n.setState(Shutdown)
+		return err
 	}
-
-	resp.Block = *block
-
-	resp.Frame = *frame
-
-	//Get snapshot
-	snapshot, err := n.proxy.GetSnapshot(block.Index())
-
-	if err != nil {
-		n.logger.WithField("error", err).Error("Getting Snapshot")
-
-		respErr = err
-	}
-
-	resp.Snapshot = snapshot
 
 	n.logger.WithFields(logrus.Fields{
-		"Events": len(resp.Frame.Events),
-		"Error":  respErr,
-	}).Debug("Responding to FastForwardRequest")
+		"from_id":        resp.FromID,
+		"accepted_round": resp.AcceptedRound,
+		"peers":          len(resp.Peers),
+	}).Debug("JoinResponse")
 
-	rpc.Respond(resp, respErr)
+	//XXX
+	//This prevevents the node from FastForwarding to before the Round where it
+	//was accepted. WIP
+	time.Sleep(1000 * time.Millisecond)
+
+	n.setState(CatchingUp)
+
+	return nil
 }
 
 //This function is usually called in a go-routine and needs to inform the
@@ -339,16 +283,13 @@ func (n *Node) processFastForwardRequest(rpc net.RPC, cmd *net.FastForwardReques
 func (n *Node) gossip(peer *peers.Peer, parentReturnCh chan struct{}) error {
 	//pull
 	syncLimit, otherKnownEvents, err := n.pull(peer)
-
 	if err != nil {
-		// n.addInternalTransaction(hg.NewInternalTransactionLeave(*peer))
-
 		return err
 	}
 
 	//check and handle syncLimit
 	if syncLimit {
-		n.logger.WithField("from", peer.ID).Debug("SyncLimit")
+		n.logger.WithField("from", peer.ID()).Debug("SyncLimit")
 		n.setState(CatchingUp) //
 		parentReturnCh <- struct{}{}
 
@@ -364,9 +305,7 @@ func (n *Node) gossip(peer *peers.Peer, parentReturnCh chan struct{}) error {
 
 	//update peer selector
 	n.core.selectorLock.Lock()
-
-	n.core.peerSelector.UpdateLast(peer.ID)
-
+	n.core.peerSelector.UpdateLast(peer.ID())
 	n.core.selectorLock.Unlock()
 
 	n.logStats()
@@ -377,23 +316,17 @@ func (n *Node) gossip(peer *peers.Peer, parentReturnCh chan struct{}) error {
 func (n *Node) pull(peer *peers.Peer) (syncLimit bool, otherKnownEvents map[uint32]int, err error) {
 	//Compute Known
 	n.coreLock.Lock()
-
 	knownEvents := n.core.KnownEvents()
-
 	n.coreLock.Unlock()
 
 	//Send SyncRequest
 	start := time.Now()
-
 	resp, err := n.requestSync(peer.NetAddr, knownEvents)
-
 	elapsed := time.Since(start)
-
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestSync()")
 
 	if err != nil {
 		n.logger.WithField("error", err).Error("requestSync()")
-
 		return false, nil, err
 	}
 
@@ -410,8 +343,9 @@ func (n *Node) pull(peer *peers.Peer) (syncLimit bool, otherKnownEvents map[uint
 
 	//Add Events to Hashgraph and create new Head if necessary
 	n.coreLock.Lock()
-	err = n.sync(resp.Events)
+	err = n.sync(peer.ID(), resp.Events)
 	n.coreLock.Unlock()
+
 	if err != nil {
 		n.logger.WithField("error", err).Error("sync()")
 		return false, nil, err
@@ -480,117 +414,11 @@ func (n *Node) push(peer *peers.Peer, knownEvents map[uint32]int) error {
 	return nil
 }
 
-func (n *Node) fastForward() error {
-	n.logger.Debug("IN CATCHING-UP STATE")
-
-	//wait until sync routines finish
-	n.waitRoutines()
-
-	//fastForwardRequest
-	peer := n.core.peerSelector.Next()
-
-	start := time.Now()
-
-	resp, err := n.requestFastForward(peer.NetAddr)
-
-	elapsed := time.Since(start)
-
-	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestFastForward()")
-
-	if err != nil {
-		n.logger.WithField("error", err).Error("requestFastForward()")
-
-		return err
-	}
-
-	n.logger.WithFields(logrus.Fields{
-		"from_id":              resp.FromID,
-		"block_index":          resp.Block.Index(),
-		"block_round_received": resp.Block.RoundReceived(),
-		"frame_events":         len(resp.Frame.Events),
-		"frame_roots":          resp.Frame.Roots,
-		"snapshot":             resp.Snapshot,
-	}).Debug("FastForwardResponse")
-
-	//prepare core. ie: fresh hashgraph
-	n.coreLock.Lock()
-
-	err = n.core.FastForward(peer.PubKeyHex, &resp.Block, &resp.Frame)
-
-	n.coreLock.Unlock()
-
-	if err != nil {
-		n.logger.WithField("error", err).Error("Fast Forwarding Hashgraph")
-
-		return err
-	}
-
-	//update app from snapshot
-	err = n.proxy.Restore(resp.Snapshot)
-
-	if err != nil {
-		n.logger.WithField("error", err).Error("Restoring App from Snapshot")
-
-		return err
-	}
-
-	n.logger.Debug("Fast-Forward OK")
-
-	n.setState(Babbling)
-
-	return nil
-}
-
-func (n *Node) requestSync(target string, known map[uint32]int) (net.SyncResponse, error) {
-	args := net.SyncRequest{
-		FromID: n.id,
-		Known:  known,
-	}
-
-	var out net.SyncResponse
-
-	err := n.trans.Sync(target, &args, &out)
-
-	return out, err
-}
-
-func (n *Node) requestEagerSync(target string, events []hg.WireEvent) (net.EagerSyncResponse, error) {
-	args := net.EagerSyncRequest{
-		FromID: n.id,
-		Events: events,
-	}
-
-	var out net.EagerSyncResponse
-
-	err := n.trans.EagerSync(target, &args, &out)
-
-	return out, err
-}
-
-func (n *Node) requestFastForward(target string) (net.FastForwardResponse, error) {
-	n.logger.WithFields(logrus.Fields{
-		"target": target,
-	}).Debug("RequestFastForward()")
-
-	args := net.FastForwardRequest{
-		FromID: n.id,
-	}
-
-	var out net.FastForwardResponse
-
-	err := n.trans.FastForward(target, &args, &out)
-
-	return out, err
-}
-
-func (n *Node) sync(events []hg.WireEvent) error {
+func (n *Node) sync(fromID uint32, events []hg.WireEvent) error {
 	//Insert Events in Hashgraph and create new Head if necessary
 	start := time.Now()
-
-	err := n.core.Sync(events)
-
+	err := n.core.Sync(fromID, events)
 	elapsed := time.Since(start)
-
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed Sync()")
 
 	if err != nil {
@@ -599,11 +427,8 @@ func (n *Node) sync(events []hg.WireEvent) error {
 
 	//Run consensus methods
 	start = time.Now()
-
 	err = n.core.RunConsensus()
-
 	elapsed = time.Since(start)
-
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed RunConsensus()")
 
 	if err != nil {
@@ -615,17 +440,9 @@ func (n *Node) sync(events []hg.WireEvent) error {
 
 func (n *Node) addTransaction(tx []byte) {
 	n.coreLock.Lock()
-
 	defer n.coreLock.Unlock()
 
 	n.core.AddTransactions([][]byte{tx})
-}
-
-func (n *Node) addInternalTransaction(tx hg.InternalTransaction) {
-	n.coreLock.Lock()
-	defer n.coreLock.Unlock()
-
-	n.core.AddInternalTransactions([]hg.InternalTransaction{tx})
 }
 
 func (n *Node) Shutdown() {

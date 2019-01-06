@@ -89,7 +89,7 @@ func initR2DynHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 
 	for i, peer := range peerSet.Peers {
 		name := fmt.Sprintf("w0%d", i)
-		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{rootSelfParent(peer.ID), ""}, nodes[i].Pub, 0)
+		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{rootSelfParent(peer.ID()), ""}, nodes[i].Pub, 0)
 		nodes[i].signAndAddEvent(event, name, index, orderedEvents)
 	}
 
@@ -120,7 +120,7 @@ func initR2DynHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 	node3 := NewTestNode(key3)
 	nodes = append(nodes, node3)
 	peer3 := peers.NewPeer(node3.PubHex, "")
-	index["R3"] = rootSelfParent(peer3.ID)
+	index["R3"] = rootSelfParent(peer3.ID())
 	newPeerSet := peerSet.WithNewPeer(peer3)
 
 	//Set Round 2 PeerSet
@@ -449,6 +449,200 @@ func TestR2DynProcessDecidedRounds(t *testing.T) {
 
 		if bph := block.PeersHash(); !reflect.DeepEqual(bph, peersHash) {
 			t.Fatalf("Block[%d].PeersHash should be %v, not %v", i, peersHash, bph)
+		}
+	}
+}
+
+/*
+We insert Events into rounds to which the Event creator does not belong. These
+Events should not be counted as witnesses and should not mess up the consensus.
+
+
+			|   w41   |    |
+		 -----/------------------
+Round 3    h03   |    |    |
+			|  \ |    |    |
+			|    |  \ |    |
+	        |    |    | \  |
+		    |    |    |   x32 should not be a witness and should not count in strongly seen computations
+			|    |    | /  |
+			|    |   w32   R3
+			|    |  / |
+			|   w31   |
+			| /  |    |
+		   w30   |    |
+			|  \ |    |
+		 ------------------
+Round 2		|    | \  |
+			|    |   g21
+			|    | /  |
+			|   w21   |
+			| /  |    |
+		   w20   |    |
+		    |  \ |    |
+		    |    | \  |
+		    |    |   w22
+		 -----------/------
+Round 1		|   f10   |
+			| /  |    |
+		   w10   |    |
+		    |  \ |    |
+		    |    | \  |
+		    |    |   w12
+		    |    |  / |
+		    |   w11   |
+		 -----/------------
+Round 0	   e12   |    |
+		    |  \ |    |
+		    |    | \  |
+		    |    |   e21
+		    |    | /  |
+		    |   e10   |
+		    |  / |    |
+		   w00  w01  w02
+			|    |    |
+		    R0   R1   R2
+*/
+
+func initUsurperHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
+	nodes, index, orderedEvents, peerSet := initHashgraphNodes(3)
+
+	for i, peer := range peerSet.Peers {
+		name := fmt.Sprintf("w0%d", i)
+		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{rootSelfParent(peer.ID()), ""}, nodes[i].Pub, 0)
+		nodes[i].signAndAddEvent(event, name, index, orderedEvents)
+	}
+
+	plays := []play{
+		play{1, 1, "w01", "w00", "e10", [][]byte{[]byte("e10")}, nil},
+		play{2, 1, "w02", "e10", "e21", [][]byte{[]byte("e21")}, nil},
+		play{0, 1, "w00", "e21", "e12", [][]byte{[]byte("e12")}, nil},
+		play{1, 2, "e10", "e12", "w11", [][]byte{[]byte("w11")}, nil},
+		play{2, 2, "e21", "w11", "w12", [][]byte{[]byte("w12")}, nil},
+		play{0, 2, "e12", "w12", "w10", [][]byte{[]byte("w10")}, nil},
+		play{1, 3, "w11", "w10", "f10", [][]byte{[]byte("f10")}, nil},
+		play{2, 3, "w12", "f10", "w22", [][]byte{[]byte("w22")}, nil},
+		play{0, 3, "w10", "w22", "w20", [][]byte{[]byte("w20")}, nil},
+		play{1, 4, "f10", "w20", "w21", [][]byte{[]byte("w21")}, nil},
+		play{2, 4, "w22", "w21", "g21", [][]byte{[]byte("g21")}, nil},
+	}
+
+	playEvents(plays, nodes, index, orderedEvents)
+
+	hg := createHashgraph(false, orderedEvents, peerSet, common.NewTestLogger(t).WithField("test", "USURPER"))
+
+	/***************************************************************************
+		Add Participant 3 (the usurper); new Peerset for Round10
+		(far enough in the future)
+	***************************************************************************/
+
+	//create new node
+	key3, _ := crypto.GenerateECDSAKey()
+	usurperNode := NewTestNode(key3)
+	nodes = append(nodes, usurperNode)
+	usurperPeer := peers.NewPeer(usurperNode.PubHex, "")
+	index["R3"] = rootSelfParent(usurperPeer.ID())
+	newPeerSet := peerSet.WithNewPeer(usurperPeer)
+
+	//Set Round 10 PeerSet
+	err := hg.Store.SetPeerSet(10, newPeerSet)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	plays = []play{
+		play{0, 4, "w20", "g21", "w30", [][]byte{[]byte("w30")}, nil},
+		play{1, 5, "w21", "w30", "w31", [][]byte{[]byte("w31")}, nil},
+		play{2, 5, "g21", "w31", "w32", [][]byte{[]byte("w32")}, nil},
+		play{3, 0, "R3", "w32", "x32", [][]byte{[]byte("x32")}, nil},
+		play{0, 5, "w30", "x32", "h03", [][]byte{[]byte("h03")}, nil},
+		play{1, 6, "w31", "h03", "w41", [][]byte{[]byte("w41")}, nil},
+	}
+
+	orderedEvents = &[]*Event{}
+
+	playEvents(plays, nodes, index, orderedEvents)
+
+	for i, ev := range *orderedEvents {
+		if err := hg.InsertEvent(ev, true); err != nil {
+			t.Fatalf("ERROR inserting event %d: %s\n", i, err)
+		}
+	}
+
+	return hg, index
+}
+
+func TestUsurperDivideRounds(t *testing.T) {
+	h, index := initUsurperHashgraph(t)
+
+	if err := h.DivideRounds(); err != nil {
+		t.Fatal(err)
+	}
+
+	/**************************************************************************/
+
+	//[event] => {lamportTimestamp, round}
+	type tr struct {
+		t, r int
+	}
+	expectedTimestamps := map[string]tr{
+		"w00": tr{0, 0},
+		"w01": tr{0, 0},
+		"w02": tr{0, 0},
+		"e10": tr{1, 0},
+		"e21": tr{2, 0},
+		"e12": tr{3, 0},
+		"w11": tr{4, 1},
+		"w12": tr{5, 1},
+		"w10": tr{6, 1},
+		"f10": tr{7, 1},
+		"w22": tr{8, 2},
+		"w20": tr{9, 2},
+		"w21": tr{10, 2},
+		"g21": tr{11, 2},
+		"w30": tr{12, 3},
+		"w31": tr{13, 3},
+		"w32": tr{14, 3},
+		"x32": tr{15, 3},
+		"h03": tr{16, 3},
+		"w41": tr{17, 4},
+	}
+
+	for e, et := range expectedTimestamps {
+		ev, err := h.Store.GetEvent(index[e])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r := ev.round; r == nil || *r != et.r {
+			t.Fatalf("%s round should be %d, not %d", e, et.r, *r)
+		}
+		if ts := ev.lamportTimestamp; ts == nil || *ts != et.t {
+			t.Fatalf("%s lamportTimestamp should be %d, not %d", e, et.t, *ts)
+		}
+	}
+
+	/**************************************************************************/
+
+	expectedWitnesses := map[int][]string{
+		0: []string{"w00", "w01", "w02"},
+		1: []string{"w10", "w11", "w12"},
+		2: []string{"w20", "w21", "w22"},
+		3: []string{"w30", "w31", "w32"},
+		4: []string{"w41"},
+	}
+
+	for i := 0; i < 3; i++ {
+		round, err := h.Store.GetRound(i)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if l := len(round.Witnesses()); l != len(expectedWitnesses[i]) {
+			t.Fatalf("round %d should have %d witnesses, not %d", i, len(expectedWitnesses[i]), l)
+		}
+		for _, w := range expectedWitnesses[i] {
+			if !contains(round.Witnesses(), index[w]) {
+				t.Fatalf("round %d witnesses should contain %s", i, w)
+			}
 		}
 	}
 }

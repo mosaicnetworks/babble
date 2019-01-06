@@ -26,14 +26,14 @@ func (g *Graph) GetParticipantEvents() (map[string]map[string]*hg.Event, error) 
 			return res, err
 		}
 
-		evs, err := store.ParticipantEvents(p.PubKeyHex, root.SelfParent.Index)
+		evs, err := store.ParticipantEvents(p.PubKeyHex, root.GetHead().Index)
 		if err != nil {
 			return res, err
 		}
 
 		res[p.PubKeyHex] = make(map[string]*hg.Event)
 
-		res[p.PubKeyHex][root.SelfParent.Hash] = hg.NewEvent(
+		res[p.PubKeyHex][root.Head] = hg.NewEvent(
 			[][]byte{},
 			[]hg.InternalTransaction{},
 			[]hg.BlockSignature{},

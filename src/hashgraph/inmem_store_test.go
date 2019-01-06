@@ -17,31 +17,36 @@ type participant struct {
 	hex     string
 }
 
-func initInmemStore(cacheSize int) (*InmemStore, []participant) {
-	n := 3
+func initPeers(n int) (*peers.PeerSet, []participant) {
+	pirs := []*peers.Peer{}
 	participants := []participant{}
 
-	pirs := []*peers.Peer{}
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
 		pubKey := crypto.FromECDSAPub(&key.PublicKey)
 		peer := peers.NewPeer(fmt.Sprintf("0x%X", pubKey), "")
-		participants = append(participants,
-			participant{peer.ID, key, pubKey, peer.PubKeyHex})
 		pirs = append(pirs, peer)
+		participants = append(participants, participant{peer.ID(), key, pubKey, peer.PubKeyHex})
 	}
 
 	peerSet := peers.NewPeerSet(pirs)
 
-	store := NewInmemStore(peerSet, cacheSize)
-
-	return store, participants
+	return peerSet, participants
 }
 
 func TestInmemEvents(t *testing.T) {
+	n := 3
 	cacheSize := 100
 	testSize := 15
-	store, participants := initInmemStore(cacheSize)
+
+	store := NewInmemStore(cacheSize)
+
+	peerSet, participants := initPeers(n)
+
+	err := store.SetPeerSet(0, peerSet)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	events := make(map[string][]*Event)
 
@@ -124,7 +129,17 @@ func TestInmemEvents(t *testing.T) {
 }
 
 func TestInmemRounds(t *testing.T) {
-	store, participants := initInmemStore(10)
+	n := 3
+	cacheSize := 100
+
+	store := NewInmemStore(cacheSize)
+
+	peerSet, participants := initPeers(n)
+
+	err := store.SetPeerSet(0, peerSet)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	round := NewRoundInfo()
 	events := make(map[string]*Event)
@@ -174,7 +189,17 @@ func TestInmemRounds(t *testing.T) {
 }
 
 func TestInmemBlocks(t *testing.T) {
-	store, participants := initInmemStore(10)
+	n := 3
+	cacheSize := 100
+
+	store := NewInmemStore(cacheSize)
+
+	peerSet, participants := initPeers(n)
+
+	err := store.SetPeerSet(0, peerSet)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	index := 0
 	roundReceived := 7

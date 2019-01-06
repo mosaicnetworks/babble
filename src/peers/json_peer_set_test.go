@@ -72,7 +72,7 @@ func TestJSONPeerSet(t *testing.T) {
 			t.Fatalf("peers[%d] PubKeyHex should be %s, not %s", i,
 				newPeerSlice[i].PubKeyHex, peerSlice[i].PubKeyHex)
 		}
-		pubKeyBytes, err := peerSlice[i].PubKeyBytes()
+		pubKeyBytes := peerSlice[i].PubKeyBytes()
 		if err != nil {
 			t.Fatal(err)
 		}

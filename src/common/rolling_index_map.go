@@ -11,16 +11,12 @@ type RollingIndexMap struct {
 	mapping map[uint32]*RollingIndex
 }
 
-func NewRollingIndexMap(name string, size int, keys []uint32) *RollingIndexMap {
-	items := make(map[uint32]*RollingIndex)
-	for _, key := range keys {
-		items[key] = NewRollingIndex(fmt.Sprintf("%s[%d]", name, key), size)
-	}
+func NewRollingIndexMap(name string, size int) *RollingIndexMap {
 	return &RollingIndexMap{
 		name:    name,
 		size:    size,
-		keys:    keys,
-		mapping: items,
+		keys:    []uint32{},
+		mapping: make(map[uint32]*RollingIndex),
 	}
 }
 

@@ -1,6 +1,11 @@
 package net
 
-import "github.com/mosaicnetworks/babble/src/hashgraph"
+import (
+	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/peers"
+)
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 type SyncRequest struct {
 	FromID uint32
@@ -37,4 +42,16 @@ type FastForwardResponse struct {
 	Block    hashgraph.Block
 	Frame    hashgraph.Frame
 	Snapshot []byte
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+type JoinRequest struct {
+	Peer peers.Peer // peer that wants to join
+}
+
+type JoinResponse struct {
+	FromID        uint32
+	AcceptedRound int
+	Peers         []*peers.Peer
 }
