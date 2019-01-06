@@ -92,7 +92,7 @@ func TestJoinFull(t *testing.T) {
 
 	//Gossip some more
 	secondTarget := target + 50
-	err = bombardAndWait(nodes, secondTarget, 6*time.Second)
+	err = bombardAndWait(nodes, secondTarget, 10*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
