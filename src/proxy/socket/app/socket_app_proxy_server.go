@@ -5,23 +5,20 @@ import (
 	"net/rpc"
 	"net/rpc/jsonrpc"
 
-	"github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/sirupsen/logrus"
 )
 
 type SocketAppProxyServer struct {
-	netListener      *net.Listener
-	rpcServer        *rpc.Server
-	submitCh         chan []byte
-	submitInternalCh chan hashgraph.InternalTransaction
-	logger           *logrus.Logger
+	netListener *net.Listener
+	rpcServer   *rpc.Server
+	submitCh    chan []byte
+	logger      *logrus.Logger
 }
 
 func NewSocketAppProxyServer(bindAddress string, logger *logrus.Logger) (*SocketAppProxyServer, error) {
 	server := &SocketAppProxyServer{
-		submitCh:         make(chan []byte),
-		submitInternalCh: make(chan hashgraph.InternalTransaction),
-		logger:           logger,
+		submitCh: make(chan []byte),
+		logger:   logger,
 	}
 
 	if err := server.register(bindAddress); err != nil {
@@ -67,16 +64,6 @@ func (p *SocketAppProxyServer) SubmitTx(tx []byte, ack *bool) error {
 	p.logger.Debug("SubmitTx")
 
 	p.submitCh <- tx
-
-	*ack = true
-
-	return nil
-}
-
-func (p *SocketAppProxyServer) SubmitInternalTx(tx hashgraph.InternalTransaction, ack *bool) error {
-	p.logger.Debug("SubmitTx")
-
-	p.submitInternalCh <- tx
 
 	*ack = true
 
