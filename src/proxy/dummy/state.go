@@ -42,14 +42,17 @@ func (a *State) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, erro
 	a.logger.WithField("block", block).Debug("CommitBlock")
 
 	err := a.commit(block)
-
 	if err != nil {
 		return proxy.CommitResponse{}, err
 	}
 
+	for _, it := range block.InternalTransactions() {
+		it.Accept()
+	}
+
 	response := proxy.CommitResponse{
-		StateHash:                    a.stateHash,
-		AcceptedInternalTransactions: block.InternalTransactions(),
+		StateHash:            a.stateHash,
+		InternalTransactions: block.InternalTransactions(),
 	}
 
 	return response, nil

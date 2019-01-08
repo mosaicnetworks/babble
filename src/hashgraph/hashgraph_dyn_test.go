@@ -357,7 +357,6 @@ func TestR2DynDecideFame(t *testing.T) {
 			}
 		}
 	}
-
 }
 
 func TestR2DynDecideRoundReceived(t *testing.T) {
@@ -389,7 +388,6 @@ func TestR2DynDecideRoundReceived(t *testing.T) {
 			t.Fatalf("Round[%d].ReceivedEvents should be %v, %v", i, expectedConsensusEvents[i], round.ReceivedEvents)
 		}
 	}
-
 }
 
 func TestR2DynProcessDecidedRounds(t *testing.T) {
@@ -646,3 +644,264 @@ func TestUsurperDivideRounds(t *testing.T) {
 		}
 	}
 }
+
+/*
+	w80
+	|
+	w70
+	|
+	w60
+    |
+	w50
+	|
+	w40
+	|
+	w30
+    |
+	w20
+	|
+	w10
+	|
+    w00
+	|
+	R0
+*/
+func initMonologueHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
+	nodes, index, orderedEvents, peerSet := initHashgraphNodes(1)
+
+	for i, peer := range peerSet.Peers {
+		name := fmt.Sprintf("w0%d", i)
+		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{rootSelfParent(peer.ID()), ""}, nodes[i].Pub, 0)
+		nodes[i].signAndAddEvent(event, name, index, orderedEvents)
+	}
+
+	plays := []play{
+		play{0, 1, "w00", "", "w10", [][]byte{[]byte("w10")}, nil},
+		play{0, 2, "w10", "", "w20", [][]byte{[]byte("w20")}, nil},
+		play{0, 3, "w20", "", "w30", [][]byte{[]byte("w30")}, nil},
+		play{0, 4, "w30", "", "w40", [][]byte{[]byte("w40")}, nil},
+		play{0, 5, "w40", "", "w50", [][]byte{[]byte("w40")}, nil},
+		play{0, 6, "w50", "", "w60", [][]byte{[]byte("w60")}, nil},
+		play{0, 7, "w60", "", "w70", [][]byte{[]byte("w70")}, nil},
+		play{0, 8, "w70", "", "w80", [][]byte{[]byte("w80")}, nil},
+	}
+
+	playEvents(plays, nodes, index, orderedEvents)
+
+	hg := createHashgraph(false, orderedEvents, peerSet, common.NewTestLogger(t).WithField("test", "MONOLOGUE"))
+
+	return hg, index
+}
+
+func TestMonologueDivideRounds(t *testing.T) {
+	h, index := initMonologueHashgraph(t)
+
+	if err := h.DivideRounds(); err != nil {
+		t.Fatal(err)
+	}
+
+	/**************************************************************************/
+
+	//[event] => {lamportTimestamp, round}
+	type tr struct {
+		t, r int
+	}
+	expectedTimestamps := map[string]tr{
+		"w00": tr{0, 0},
+		"w10": tr{1, 1},
+		"w20": tr{2, 2},
+		"w30": tr{3, 3},
+		"w40": tr{4, 4},
+		"w50": tr{5, 5},
+		"w60": tr{6, 6},
+		"w70": tr{7, 7},
+		"w80": tr{8, 8},
+	}
+
+	for e, et := range expectedTimestamps {
+		ev, err := h.Store.GetEvent(index[e])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r := ev.round; r == nil || *r != et.r {
+			t.Fatalf("%s round should be %d, not %d", e, et.r, *r)
+		}
+		if ts := ev.lamportTimestamp; ts == nil || *ts != et.t {
+			t.Fatalf("%s lamportTimestamp should be %d, not %d", e, et.t, *ts)
+		}
+	}
+
+	/**************************************************************************/
+
+	expectedWitnesses := map[int][]string{
+		0: []string{"w00"},
+		1: []string{"w10"},
+		2: []string{"w20"},
+		3: []string{"w30"},
+		4: []string{"w40"},
+		5: []string{"w50"},
+		6: []string{"w60"},
+		7: []string{"w70"},
+		8: []string{"w80"},
+	}
+
+	for i := 0; i < 9; i++ {
+		round, err := h.Store.GetRound(i)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if l := len(round.Witnesses()); l != len(expectedWitnesses[i]) {
+			t.Fatalf("round %d should have %d witnesses, not %d", i, len(expectedWitnesses[i]), l)
+		}
+		for _, w := range expectedWitnesses[i] {
+			if !contains(round.Witnesses(), index[w]) {
+				t.Fatalf("round %d witnesses should contain %s", i, w)
+			}
+		}
+	}
+}
+
+func TestMonologueDecideFame(t *testing.T) {
+	h, index := initMonologueHashgraph(t)
+
+	h.DivideRounds()
+	if err := h.DecideFame(); err != nil {
+		t.Fatal(err)
+	}
+
+	expectedEvents := map[int]map[string]RoundEvent{
+		0: map[string]RoundEvent{
+			"w00": RoundEvent{Witness: true, Famous: True},
+		},
+		1: map[string]RoundEvent{
+			"w10": RoundEvent{Witness: true, Famous: True},
+		},
+		2: map[string]RoundEvent{
+			"w20": RoundEvent{Witness: true, Famous: True},
+		},
+		3: map[string]RoundEvent{
+			"w30": RoundEvent{Witness: true, Famous: True},
+		},
+		4: map[string]RoundEvent{
+			"w40": RoundEvent{Witness: true, Famous: True},
+		},
+		5: map[string]RoundEvent{
+			"w50": RoundEvent{Witness: true, Famous: True},
+		},
+		6: map[string]RoundEvent{
+			"w60": RoundEvent{Witness: true, Famous: True},
+		},
+		7: map[string]RoundEvent{
+			"w70": RoundEvent{Witness: true, Famous: Undefined},
+		},
+		8: map[string]RoundEvent{
+			"w80": RoundEvent{Witness: true, Famous: Undefined},
+		},
+	}
+
+	for i := 0; i < 9; i++ {
+		round, err := h.Store.GetRound(i)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if l := len(round.CreatedEvents); l != len(expectedEvents[i]) {
+			t.Fatalf("Round[%d].CreatedEvents should contain %d items, not %d", i, len(expectedEvents[i]), l)
+		}
+		for w, re := range expectedEvents[i] {
+			if f := round.CreatedEvents[index[w]]; !reflect.DeepEqual(f, re) {
+				t.Fatalf("%s should be %v; got %v", w, re, f)
+			}
+		}
+	}
+}
+
+func TestMonologueDecideRoundReceived(t *testing.T) {
+	h, index := initMonologueHashgraph(t)
+
+	h.DivideRounds()
+	h.DecideFame()
+	if err := h.DecideRoundReceived(); err != nil {
+		t.Fatal(err)
+	}
+
+	expectedConsensusEvents := map[int][]string{
+		0: []string{},
+		1: []string{index["w00"]},
+		2: []string{index["w10"]},
+		3: []string{index["w20"]},
+		4: []string{index["w30"]},
+		5: []string{index["w40"]},
+		6: []string{index["w50"]},
+	}
+
+	for i := 0; i < 7; i++ {
+		round, err := h.Store.GetRound(i)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(round.ReceivedEvents, expectedConsensusEvents[i]) {
+			t.Fatalf("Round[%d].ReceivedEvents should be %v, %v", i, expectedConsensusEvents[i], round.ReceivedEvents)
+		}
+	}
+}
+
+// func TestR2DynProcessDecidedRounds(t *testing.T) {
+// 	h, index := initR2DynHashgraph(t)
+
+// 	h.DivideRounds()
+// 	h.DecideFame()
+// 	h.DecideRoundReceived()
+// 	if err := h.ProcessDecidedRounds(); err != nil {
+// 		t.Fatal(err)
+// 	}
+
+// 	//--------------------------------------------------------------------------
+// 	consensusEvents := h.Store.ConsensusEvents()
+
+// 	for i, e := range consensusEvents {
+// 		t.Logf("consensus[%d]: %s\n", i, getName(index, e))
+// 	}
+
+// 	if l := len(consensusEvents); l != 22 {
+// 		t.Fatalf("length of consensus should be 22 not %d", l)
+// 	}
+
+// 	if ple := h.PendingLoadedEvents; ple != 9 {
+// 		t.Fatalf("PendingLoadedEvents should be 9, not %d", ple)
+// 	}
+
+// 	//--------------------------------------------------------------------------
+
+// 	for i := 0; i < 4; i++ {
+// 		rr := i + 1
+
+// 		frame, err := h.Store.GetFrame(rr)
+// 		if err != nil {
+// 			t.Fatal(err)
+// 		}
+// 		frameHash, _ := frame.Hash()
+
+// 		ps, err := h.Store.GetPeerSet(rr)
+// 		if err != nil {
+// 			t.Fatal(err)
+// 		}
+// 		peersHash, _ := ps.Hash()
+
+// 		block, err := h.Store.GetBlock(i)
+// 		if err != nil {
+// 			t.Fatal(err)
+// 		}
+
+// 		if brr := block.RoundReceived(); brr != rr {
+// 			t.Fatalf("Block[%d].RoundReceived should be %d, not %d", i, rr, brr)
+// 		}
+
+// 		if bfh := block.FrameHash(); !reflect.DeepEqual(bfh, frameHash) {
+// 			t.Fatalf("Block[%d].FrameHash should be %v, not %v", i, frameHash, bfh)
+// 		}
+
+// 		if bph := block.PeersHash(); !reflect.DeepEqual(bph, peersHash) {
+// 			t.Fatalf("Block[%d].PeersHash should be %v, not %v", i, peersHash, bph)
+// 		}
+// 	}
+// }

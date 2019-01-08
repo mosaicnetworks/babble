@@ -151,7 +151,10 @@ func (c *PeerSet) SuperMajority() int {
 
 func (c *PeerSet) TrustCount() int {
 	if c.trustCount == nil {
-		val := int(math.Ceil(float64(c.Len()) / float64(3)))
+		val := 0
+		if len(c.Peers) > 1 {
+			val = int(math.Ceil(float64(c.Len()) / float64(3)))
+		}
 		c.trustCount = &val
 	}
 	return *c.trustCount
