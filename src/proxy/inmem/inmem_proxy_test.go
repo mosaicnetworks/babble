@@ -7,6 +7,8 @@ import (
 
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/peers"
+	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/sirupsen/logrus"
 )
 
@@ -16,12 +18,19 @@ type TestProxy struct {
 	logger       *logrus.Logger
 }
 
-func (p *TestProxy) CommitHandler(block hashgraph.Block) ([]byte, error) {
+func (p *TestProxy) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, error) {
 	p.logger.Debug("CommitBlock")
 
 	p.transactions = append(p.transactions, block.Transactions()...)
 
-	return []byte("statehash"), nil
+	for _, it := range block.InternalTransactions() {
+		it.Accept()
+	}
+	response := proxy.CommitResponse{
+		StateHash:            []byte("statehash"),
+		InternalTransactions: block.InternalTransactions(),
+	}
+	return response, nil
 }
 
 func (p *TestProxy) SnapshotHandler(blockIndex int) ([]byte, error) {
@@ -82,19 +91,19 @@ func TestInmemProxyBabbleSide(t *testing.T) {
 		[]byte("tx 3"),
 	}
 
-	block := hashgraph.NewBlock(0, 1, []byte{}, transactions)
+	block := hashgraph.NewBlock(0, 1, []byte{}, []*peers.Peer{}, transactions, []hashgraph.InternalTransaction{})
 
 	/***************************************************************************
 	Commit
 	***************************************************************************/
-	stateHash, err := proxy.CommitBlock(block)
+	commitResponse, err := proxy.CommitBlock(*block)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	expectedStateHash := []byte("statehash")
-	if !reflect.DeepEqual(stateHash, expectedStateHash) {
-		t.Fatalf("StateHash should be %v, not %v", expectedStateHash, stateHash)
+	if !reflect.DeepEqual(commitResponse.StateHash, expectedStateHash) {
+		t.Fatalf("StateHash should be %v, not %v", expectedStateHash, commitResponse.StateHash)
 	}
 
 	if !reflect.DeepEqual(transactions, proxy.transactions) {

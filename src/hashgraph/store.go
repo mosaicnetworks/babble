@@ -4,30 +4,35 @@ import "github.com/mosaicnetworks/babble/src/peers"
 
 type Store interface {
 	CacheSize() int
-	Participants() (*peers.Peers, error)
-	RootsBySelfParent() (map[string]Root, error)
-	GetEvent(string) (Event, error)
-	SetEvent(Event) error
+	GetPeerSet(int) (*peers.PeerSet, error)
+	SetPeerSet(int, *peers.PeerSet) error
+	GetFuturePeerSets(int) (map[int][]*peers.Peer, error)
+	AddParticipant(*peers.Peer) error
+	RepertoireByPubKey() map[string]*peers.Peer
+	RepertoireByID() map[uint32]*peers.Peer
+	RootsBySelfParent() map[string]*Root
+	GetEvent(string) (*Event, error)
+	SetEvent(*Event) error
 	ParticipantEvents(string, int) ([]string, error)
 	ParticipantEvent(string, int) (string, error)
 	LastEventFrom(string) (string, bool, error)
 	LastConsensusEventFrom(string) (string, bool, error)
-	KnownEvents() map[int]int
+	KnownEvents() map[uint32]int
 	ConsensusEvents() []string
 	ConsensusEventsCount() int
-	AddConsensusEvent(Event) error
-	GetRound(int) (RoundInfo, error)
-	SetRound(int, RoundInfo) error
+	AddConsensusEvent(*Event) error
+	GetRound(int) (*RoundInfo, error)
+	SetRound(int, *RoundInfo) error
 	LastRound() int
 	RoundWitnesses(int) []string
 	RoundEvents(int) int
-	GetRoot(string) (Root, error)
-	GetBlock(int) (Block, error)
-	SetBlock(Block) error
+	GetRoot(string) (*Root, error)
+	GetBlock(int) (*Block, error)
+	SetBlock(*Block) error
 	LastBlockIndex() int
-	GetFrame(int) (Frame, error)
-	SetFrame(Frame) error
-	Reset(map[string]Root) error
+	GetFrame(int) (*Frame, error)
+	SetFrame(*Frame) error
+	Reset(*Frame) error
 	Close() error
 	NeedBoostrap() bool // Was the store loaded from existing db
 	StorePath() string

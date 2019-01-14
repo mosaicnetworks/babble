@@ -84,7 +84,7 @@ func (s *Service) GetGraph(w http.ResponseWriter, r *http.Request) {
 
 	encoder := json.NewEncoder(w)
 
-	res := s.graph.GetInfos()
+	res, _ := s.graph.GetInfos()
 
 	encoder.Encode(res)
 }

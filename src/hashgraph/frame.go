@@ -2,22 +2,27 @@ package hashgraph
 
 import (
 	"bytes"
-	"encoding/json"
 
 	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/peers"
+	"github.com/ugorji/go/codec"
 )
 
 type Frame struct {
-	Round  int     //RoundReceived
-	Roots  []Root  // [participant ID] => Root
-	Events []Event //Event with RoundReceived = Round
+	Round          int //RoundReceived
+	Peers          []*peers.Peer
+	Roots          map[string]*Root
+	Events         []*Event              //Event with RoundReceived = Round
+	FuturePeerSets map[int][]*peers.Peer //[round] => Peers
 }
 
 //json encoding of Frame
 func (f *Frame) Marshal() ([]byte, error) {
+	b := new(bytes.Buffer)
+	jh := new(codec.JsonHandle)
+	jh.Canonical = true
+	enc := codec.NewEncoder(b, jh)
 
-	var b bytes.Buffer
-	enc := json.NewEncoder(&b) //will write to b
 	if err := enc.Encode(f); err != nil {
 		return nil, err
 	}
@@ -26,10 +31,16 @@ func (f *Frame) Marshal() ([]byte, error) {
 }
 
 func (f *Frame) Unmarshal(data []byte) error {
-
 	b := bytes.NewBuffer(data)
-	dec := json.NewDecoder(b) //will read from b
-	return dec.Decode(f)
+	jh := new(codec.JsonHandle)
+	jh.Canonical = true
+	dec := codec.NewDecoder(b, jh)
+
+	if err := dec.Decode(f); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (f *Frame) Hash() ([]byte, error) {

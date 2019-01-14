@@ -2,7 +2,9 @@ package hashgraph
 
 import (
 	"bytes"
-	"encoding/json"
+
+	"github.com/mosaicnetworks/babble/src/peers"
+	"github.com/ugorji/go/codec"
 )
 
 type Trilean int
@@ -25,47 +27,39 @@ type pendingRound struct {
 }
 
 type RoundEvent struct {
-	Consensus bool
-	Witness   bool
-	Famous    Trilean
+	Witness bool
+	Famous  Trilean
 }
 
 type RoundInfo struct {
-	Events map[string]RoundEvent
-	queued bool
+	CreatedEvents  map[string]RoundEvent
+	ReceivedEvents []string
+	queued         bool
+	decided        bool
 }
 
 func NewRoundInfo() *RoundInfo {
 	return &RoundInfo{
-		Events: make(map[string]RoundEvent),
+		CreatedEvents:  make(map[string]RoundEvent),
+		ReceivedEvents: []string{},
 	}
 }
 
-func (r *RoundInfo) AddEvent(x string, witness bool) {
-	_, ok := r.Events[x]
-
+func (r *RoundInfo) AddCreatedEvent(x string, witness bool) {
+	_, ok := r.CreatedEvents[x]
 	if !ok {
-		r.Events[x] = RoundEvent{
+		r.CreatedEvents[x] = RoundEvent{
 			Witness: witness,
 		}
 	}
 }
 
-func (r *RoundInfo) SetConsensusEvent(x string) {
-	e, ok := r.Events[x]
-
-	if !ok {
-		e = RoundEvent{}
-	}
-
-	e.Consensus = true
-
-	r.Events[x] = e
+func (r *RoundInfo) AddReceivedEvent(x string) {
+	r.ReceivedEvents = append(r.ReceivedEvents, x)
 }
 
 func (r *RoundInfo) SetFame(x string, f bool) {
-	e, ok := r.Events[x]
-
+	e, ok := r.CreatedEvents[x]
 	if !ok {
 		e = RoundEvent{
 			Witness: true,
@@ -78,51 +72,41 @@ func (r *RoundInfo) SetFame(x string, f bool) {
 		e.Famous = False
 	}
 
-	r.Events[x] = e
+	r.CreatedEvents[x] = e
 }
 
-//return true if no witnesses' fame is left undefined
-func (r *RoundInfo) WitnessesDecided() bool {
-	for _, e := range r.Events {
-		if e.Witness && e.Famous == Undefined {
+/*
+WitnessesDecided returns true if a super-majority of witnesses are decided,
+and there are no undecided witnesses. Our algorithm relies on the fact that a
+witness that is not yet known when a super-majority of witnesses are already
+decided, has no chance of ever being famous. Once a Round is decided it stays
+decided, even if new witnesses are added after it was first decided.
+*/
+func (r *RoundInfo) WitnessesDecided(peerSet *peers.PeerSet) bool {
+	//if the round was already decided, it stays decided no matter what.
+	if r.decided {
+		return true
+	}
+
+	c := 0
+	for _, e := range r.CreatedEvents {
+		if e.Witness && e.Famous != Undefined {
+			c++
+		} else if e.Witness && e.Famous == Undefined {
 			return false
 		}
 	}
 
-	return true
+	r.decided = c >= peerSet.SuperMajority()
+
+	return r.decided
 }
 
 //return witnesses
 func (r *RoundInfo) Witnesses() []string {
 	res := []string{}
-
-	for x, e := range r.Events {
+	for x, e := range r.CreatedEvents {
 		if e.Witness {
-			res = append(res, x)
-		}
-	}
-
-	return res
-}
-
-func (r *RoundInfo) RoundEvents() []string {
-	res := []string{}
-
-	for x, e := range r.Events {
-		if !e.Consensus {
-			res = append(res, x)
-		}
-	}
-
-	return res
-}
-
-//return consensus events
-func (r *RoundInfo) ConsensusEvents() []string {
-	res := []string{}
-
-	for x, e := range r.Events {
-		if e.Consensus {
 			res = append(res, x)
 		}
 	}
@@ -133,26 +117,24 @@ func (r *RoundInfo) ConsensusEvents() []string {
 //return famous witnesses
 func (r *RoundInfo) FamousWitnesses() []string {
 	res := []string{}
-
-	for x, e := range r.Events {
+	for x, e := range r.CreatedEvents {
 		if e.Witness && e.Famous == True {
 			res = append(res, x)
 		}
 	}
-
 	return res
 }
 
 func (r *RoundInfo) IsDecided(witness string) bool {
-	w, ok := r.Events[witness]
-
+	w, ok := r.CreatedEvents[witness]
 	return ok && w.Witness && w.Famous != Undefined
 }
 
 func (r *RoundInfo) Marshal() ([]byte, error) {
-	var b bytes.Buffer
-
-	enc := json.NewEncoder(&b)
+	b := new(bytes.Buffer)
+	jh := new(codec.JsonHandle)
+	jh.Canonical = true
+	enc := codec.NewEncoder(b, jh)
 
 	if err := enc.Encode(r); err != nil {
 		return nil, err
@@ -163,8 +145,9 @@ func (r *RoundInfo) Marshal() ([]byte, error) {
 
 func (r *RoundInfo) Unmarshal(data []byte) error {
 	b := bytes.NewBuffer(data)
-
-	dec := json.NewDecoder(b) //will read from b
+	jh := new(codec.JsonHandle)
+	jh.Canonical = true
+	dec := codec.NewDecoder(b, jh)
 
 	return dec.Decode(r)
 }

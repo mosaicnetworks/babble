@@ -50,10 +50,11 @@ func NewTCPTransport(
 	advertise net.Addr,
 	maxPool int,
 	timeout time.Duration,
+	joinTimeout time.Duration,
 	logger *logrus.Logger,
 ) (*NetworkTransport, error) {
-	return newTCPTransport(bindAddr, advertise, maxPool, timeout, func(stream StreamLayer) *NetworkTransport {
-		return NewNetworkTransport(stream, maxPool, timeout, logger)
+	return newTCPTransport(bindAddr, advertise, maxPool, timeout, joinTimeout, func(stream StreamLayer) *NetworkTransport {
+		return NewNetworkTransport(stream, maxPool, timeout, joinTimeout, logger)
 	})
 }
 
@@ -61,6 +62,7 @@ func newTCPTransport(bindAddr string,
 	advertise net.Addr,
 	maxPool int,
 	timeout time.Duration,
+	joinTimeout time.Duration,
 	transportCreator func(stream StreamLayer) *NetworkTransport) (*NetworkTransport, error) {
 	// Try to bind
 	list, err := net.Listen("tcp", bindAddr)

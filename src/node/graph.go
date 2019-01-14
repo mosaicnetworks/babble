@@ -5,43 +5,47 @@ import (
 )
 
 type Infos struct {
-	ParticipantEvents map[string]map[string]hg.Event
-	Rounds            []hg.RoundInfo
-	Blocks            []hg.Block
+	ParticipantEvents map[string]map[string]*hg.Event
+	Rounds            []*hg.RoundInfo
+	Blocks            []*hg.Block
 }
 
 type Graph struct {
 	*Node
 }
 
-func (g *Graph) GetParticipantEvents() map[string]map[string]hg.Event {
-	res := make(map[string]map[string]hg.Event)
+func (g *Graph) GetParticipantEvents() (map[string]map[string]*hg.Event, error) {
+	res := make(map[string]map[string]*hg.Event)
 
 	store := g.Node.core.hg.Store
-	peers := g.Node.core.hg.Participants
+	repertoire := g.Node.core.hg.Store.RepertoireByPubKey()
 
-	for _, p := range peers.ByPubKey {
+	for _, p := range repertoire {
 		root, err := store.GetRoot(p.PubKeyHex)
-
 		if err != nil {
-			panic(err)
+			return res, err
 		}
 
-		evs, err := store.ParticipantEvents(p.PubKeyHex, root.SelfParent.Index)
-
+		evs, err := store.ParticipantEvents(p.PubKeyHex, root.GetHead().Index)
 		if err != nil {
-			panic(err)
+			return res, err
 		}
 
-		res[p.PubKeyHex] = make(map[string]hg.Event)
+		res[p.PubKeyHex] = make(map[string]*hg.Event)
 
-		res[p.PubKeyHex][root.SelfParent.Hash] = hg.NewEvent([][]byte{}, []hg.BlockSignature{}, []string{}, []byte{}, -1)
+		res[p.PubKeyHex][root.Head] = hg.NewEvent(
+			[][]byte{},
+			[]hg.InternalTransaction{},
+			[]hg.BlockSignature{},
+			[]string{},
+			[]byte{},
+			-1,
+		)
 
 		for _, e := range evs {
 			event, err := store.GetEvent(e)
-
 			if err != nil {
-				panic(err)
+				return res, err
 			}
 
 			hash := event.Hex()
@@ -50,11 +54,11 @@ func (g *Graph) GetParticipantEvents() map[string]map[string]hg.Event {
 		}
 	}
 
-	return res
+	return res, nil
 }
 
-func (g *Graph) GetRounds() []hg.RoundInfo {
-	res := []hg.RoundInfo{}
+func (g *Graph) GetRounds() []*hg.RoundInfo {
+	res := []*hg.RoundInfo{}
 
 	round := 0
 
@@ -75,8 +79,8 @@ func (g *Graph) GetRounds() []hg.RoundInfo {
 	return res
 }
 
-func (g *Graph) GetBlocks() []hg.Block {
-	res := []hg.Block{}
+func (g *Graph) GetBlocks() []*hg.Block {
+	res := []*hg.Block{}
 
 	blockIdx := 0
 
@@ -97,12 +101,17 @@ func (g *Graph) GetBlocks() []hg.Block {
 	return res
 }
 
-func (g *Graph) GetInfos() Infos {
+func (g *Graph) GetInfos() (Infos, error) {
+	participantEvents, err := g.GetParticipantEvents()
+	if err != nil {
+		return Infos{}, err
+	}
+
 	return Infos{
-		ParticipantEvents: g.GetParticipantEvents(),
+		ParticipantEvents: participantEvents,
 		Rounds:            g.GetRounds(),
 		Blocks:            g.GetBlocks(),
-	}
+	}, nil
 }
 
 func NewGraph(n *Node) *Graph {

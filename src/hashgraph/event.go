@@ -14,18 +14,18 @@ EventBody
 *******************************************************************************/
 
 type EventBody struct {
-	Transactions    [][]byte         //the payload
-	Parents         []string         //hashes of the event's parents, self-parent first
-	Creator         []byte           //creator's public key
-	Index           int              //index in the sequence of events created by Creator
-	BlockSignatures []BlockSignature //list of Block signatures signed by the Event's Creator ONLY
+	Transactions         [][]byte              //the payload
+	InternalTransactions []InternalTransaction //peers add and removal internal consensus
+	Parents              []string              //hashes of the event's parents, self-parent first
+	Creator              []byte                //creator's public key
+	Index                int                   //index in the sequence of events created by Creator
+	BlockSignatures      []BlockSignature      //list of Block signatures signed by the Event's Creator ONLY
 
-	//wire
-	//It is cheaper to send ints than hashes over the wire
+	//These fields are not serialized
+	creatorID            uint32
+	otherParentCreatorID uint32
 	selfParentIndex      int
-	otherParentCreatorID int
 	otherParentIndex     int
-	creatorID            int
 }
 
 //json encoding of body only
@@ -56,7 +56,7 @@ func (e *EventBody) Hash() ([]byte, error) {
 }
 
 /*******************************************************************************
-Event
+EventCoordinates
 *******************************************************************************/
 
 type EventCoordinates struct {
@@ -64,41 +64,23 @@ type EventCoordinates struct {
 	index int
 }
 
-type OrderedEventCoordinates []Index
+type CoordinatesMap map[string]EventCoordinates
 
-func (o OrderedEventCoordinates) GetIDIndex(id int) int {
-	for i, idx := range o {
-		if idx.participantId == id {
-			return i
-		}
+func NewCoordinatesMap() CoordinatesMap {
+	return make(map[string]EventCoordinates)
+}
+
+func (c CoordinatesMap) Copy() CoordinatesMap {
+	res := make(map[string]EventCoordinates, len(c))
+	for k, v := range c {
+		res[k] = v
 	}
-
-	return -1
+	return res
 }
 
-func (o OrderedEventCoordinates) GetByID(id int) (Index, bool) {
-	for _, idx := range o {
-		if idx.participantId == id {
-			return idx, true
-		}
-	}
-
-	return Index{}, false
-}
-
-func (o *OrderedEventCoordinates) Add(id int, event EventCoordinates) {
-	*o = append(*o, Index{
-		participantId: id,
-		event:         event,
-	})
-}
-
-type Index struct {
-	participantId int
-	event         EventCoordinates
-}
-
-// -----
+/*******************************************************************************
+Event
+*******************************************************************************/
 
 type Event struct {
 	Body      EventBody
@@ -112,8 +94,8 @@ type Event struct {
 
 	roundReceived *int
 
-	lastAncestors    OrderedEventCoordinates //[participant fake id] => last ancestor
-	firstDescendants OrderedEventCoordinates //[participant fake id] => first descendant
+	lastAncestors    CoordinatesMap //[participant pubkey] => last ancestor
+	firstDescendants CoordinatesMap //[participant pubkey] => first descendant
 
 	creator string
 	hash    []byte
@@ -121,19 +103,21 @@ type Event struct {
 }
 
 func NewEvent(transactions [][]byte,
+	internalTransactions []InternalTransaction,
 	blockSignatures []BlockSignature,
 	parents []string,
 	creator []byte,
-	index int) Event {
+	index int) *Event {
 
 	body := EventBody{
-		Transactions:    transactions,
-		BlockSignatures: blockSignatures,
-		Parents:         parents,
-		Creator:         creator,
-		Index:           index,
+		Transactions:         transactions,
+		InternalTransactions: internalTransactions,
+		BlockSignatures:      blockSignatures,
+		Parents:              parents,
+		Creator:              creator,
+		Index:                index,
 	}
-	return Event{
+	return &Event{
 		Body: body,
 	}
 }
@@ -157,6 +141,10 @@ func (e *Event) Transactions() [][]byte {
 	return e.Body.Transactions
 }
 
+func (e *Event) InternalTransactions() []InternalTransaction {
+	return e.Body.InternalTransactions
+}
+
 func (e *Event) Index() int {
 	return e.Body.Index
 }
@@ -172,7 +160,7 @@ func (e *Event) IsLoaded() bool {
 	}
 
 	hasTransactions := e.Body.Transactions != nil &&
-		len(e.Body.Transactions) > 0
+		(len(e.Body.Transactions) > 0 || len(e.Body.InternalTransactions) > 0)
 
 	return hasTransactions
 }
@@ -183,11 +171,14 @@ func (e *Event) Sign(privKey *ecdsa.PrivateKey) error {
 	if err != nil {
 		return err
 	}
+
 	R, S, err := crypto.Sign(privKey, signBytes)
 	if err != nil {
 		return err
 	}
+
 	e.Signature = crypto.EncodeSignature(R, S)
+
 	return err
 }
 
@@ -211,16 +202,21 @@ func (e *Event) Verify() (bool, error) {
 //json encoding of body and signature
 func (e *Event) Marshal() ([]byte, error) {
 	var b bytes.Buffer
+
 	enc := json.NewEncoder(&b)
+
 	if err := enc.Encode(e); err != nil {
 		return nil, err
 	}
+
 	return b.Bytes(), nil
 }
 
 func (e *Event) Unmarshal(data []byte) error {
 	b := bytes.NewBuffer(data)
+
 	dec := json.NewDecoder(b) //will read from b
+
 	return dec.Decode(e)
 }
 
@@ -231,16 +227,20 @@ func (e *Event) Hash() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		e.hash = hash
 	}
+
 	return e.hash, nil
 }
 
 func (e *Event) Hex() string {
 	if e.hex == "" {
 		hash, _ := e.Hash()
+
 		e.hex = fmt.Sprintf("0x%X", hash)
 	}
+
 	return e.hex
 }
 
@@ -248,13 +248,19 @@ func (e *Event) SetRound(r int) {
 	if e.round == nil {
 		e.round = new(int)
 	}
+
 	*e.round = r
+}
+
+func (e *Event) GetRound() *int {
+	return e.round
 }
 
 func (e *Event) SetLamportTimestamp(t int) {
 	if e.lamportTimestamp == nil {
 		e.lamportTimestamp = new(int)
 	}
+
 	*e.lamportTimestamp = t
 }
 
@@ -262,13 +268,14 @@ func (e *Event) SetRoundReceived(rr int) {
 	if e.roundReceived == nil {
 		e.roundReceived = new(int)
 	}
+
 	*e.roundReceived = rr
 }
 
-func (e *Event) SetWireInfo(selfParentIndex,
-	otherParentCreatorID,
-	otherParentIndex,
-	creatorID int) {
+func (e *Event) SetWireInfo(selfParentIndex int,
+	otherParentCreatorID uint32,
+	otherParentIndex int,
+	creatorID uint32) {
 	e.Body.selfParentIndex = selfParentIndex
 	e.Body.otherParentCreatorID = otherParentCreatorID
 	e.Body.otherParentIndex = otherParentIndex
@@ -278,20 +285,22 @@ func (e *Event) SetWireInfo(selfParentIndex,
 func (e *Event) WireBlockSignatures() []WireBlockSignature {
 	if e.Body.BlockSignatures != nil {
 		wireSignatures := make([]WireBlockSignature, len(e.Body.BlockSignatures))
+
 		for i, bs := range e.Body.BlockSignatures {
 			wireSignatures[i] = bs.ToWire()
 		}
 
 		return wireSignatures
 	}
+
 	return nil
 }
 
 func (e *Event) ToWire() WireEvent {
-
 	return WireEvent{
 		Body: WireBody{
 			Transactions:         e.Body.Transactions,
+			InternalTransactions: e.Body.InternalTransactions,
 			SelfParentIndex:      e.Body.selfParentIndex,
 			OtherParentCreatorID: e.Body.otherParentCreatorID,
 			OtherParentIndex:     e.Body.otherParentIndex,
@@ -303,10 +312,6 @@ func (e *Event) ToWire() WireEvent {
 	}
 }
 
-func rootSelfParent(participantID int) string {
-	return fmt.Sprintf("Root%d", participantID)
-}
-
 /*******************************************************************************
 Sorting
 *******************************************************************************/
@@ -314,7 +319,7 @@ Sorting
 // ByTopologicalOrder implements sort.Interface for []Event based on
 // the topologicalIndex field.
 // THIS IS A PARTIAL ORDER
-type ByTopologicalOrder []Event
+type ByTopologicalOrder []*Event
 
 func (a ByTopologicalOrder) Len() int      { return len(a) }
 func (a ByTopologicalOrder) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
@@ -325,7 +330,7 @@ func (a ByTopologicalOrder) Less(i, j int) bool {
 // ByLamportTimestamp implements sort.Interface for []Event based on
 // the lamportTimestamp field.
 // THIS IS A TOTAL ORDER
-type ByLamportTimestamp []Event
+type ByLamportTimestamp []*Event
 
 func (a ByLamportTimestamp) Len() int      { return len(a) }
 func (a ByLamportTimestamp) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
@@ -351,15 +356,15 @@ func (a ByLamportTimestamp) Less(i, j int) bool {
 *******************************************************************************/
 
 type WireBody struct {
-	Transactions    [][]byte
-	BlockSignatures []WireBlockSignature
+	Transactions         [][]byte
+	InternalTransactions []InternalTransaction
+	BlockSignatures      []WireBlockSignature
 
+	CreatorID            uint32
+	OtherParentCreatorID uint32
+	Index                int
 	SelfParentIndex      int
-	OtherParentCreatorID int
 	OtherParentIndex     int
-	CreatorID            int
-
-	Index int
 }
 
 type WireEvent struct {
@@ -370,6 +375,7 @@ type WireEvent struct {
 func (we *WireEvent) BlockSignatures(validator []byte) []BlockSignature {
 	if we.Body.BlockSignatures != nil {
 		blockSignatures := make([]BlockSignature, len(we.Body.BlockSignatures))
+
 		for k, bs := range we.Body.BlockSignatures {
 			blockSignatures[k] = BlockSignature{
 				Validator: validator,
@@ -377,7 +383,9 @@ func (we *WireEvent) BlockSignatures(validator []byte) []BlockSignature {
 				Signature: bs.Signature,
 			}
 		}
+
 		return blockSignatures
 	}
+
 	return nil
 }

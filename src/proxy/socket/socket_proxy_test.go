@@ -7,6 +7,8 @@ import (
 
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/peers"
+	"github.com/mosaicnetworks/babble/src/proxy"
 	aproxy "github.com/mosaicnetworks/babble/src/proxy/socket/app"
 	bproxy "github.com/mosaicnetworks/babble/src/proxy/socket/babble"
 	"github.com/sirupsen/logrus"
@@ -19,12 +21,21 @@ type TestHandler struct {
 	logger     *logrus.Logger
 }
 
-func (p *TestHandler) CommitHandler(block hashgraph.Block) ([]byte, error) {
+func (p *TestHandler) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, error) {
 	p.logger.Debug("CommitBlock")
 
 	p.blocks = append(p.blocks, block)
 
-	return []byte("statehash"), nil
+	for _, it := range block.InternalTransactions() {
+		it.Accept()
+	}
+
+	response := proxy.CommitResponse{
+		StateHash:            []byte("statehash"),
+		InternalTransactions: block.InternalTransactions(),
+	}
+
+	return response, nil
 }
 
 func (p *TestHandler) SnapshotHandler(blockIndex int) ([]byte, error) {
@@ -53,9 +64,10 @@ func NewTestHandler(t *testing.T) *TestHandler {
 		logger:     logger,
 	}
 }
+
 func TestSocketProxyServer(t *testing.T) {
-	clientAddr := "127.0.0.1:9990"
-	proxyAddr := "127.0.0.1:9991"
+	clientAddr := "127.0.0.1:6990"
+	proxyAddr := "127.0.0.1:6991"
 
 	appProxy, err := aproxy.NewSocketAppProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestLogger(t))
 
@@ -97,8 +109,8 @@ func TestSocketProxyServer(t *testing.T) {
 }
 
 func TestSocketProxyClient(t *testing.T) {
-	clientAddr := "127.0.0.1:9992"
-	proxyAddr := "127.0.0.1:9993"
+	clientAddr := "127.0.0.1:6992"
+	proxyAddr := "127.0.0.1:6993"
 
 	logger := common.NewTestLogger(t)
 
@@ -119,21 +131,27 @@ func TestSocketProxyClient(t *testing.T) {
 		[]byte("tx 3"),
 	}
 
-	block := hashgraph.NewBlock(0, 1, []byte{}, transactions)
+	internalTransactions := []hashgraph.InternalTransaction{
+		hashgraph.NewInternalTransaction(hashgraph.PEER_ADD, *peers.NewPeer("node0", "paris")),
+		hashgraph.NewInternalTransaction(hashgraph.PEER_REMOVE, *peers.NewPeer("node1", "london")),
+	}
+
+	block := hashgraph.NewBlock(0, 1, []byte{}, []*peers.Peer{}, transactions, internalTransactions)
+
 	expectedStateHash := []byte("statehash")
 	expectedSnapshot := []byte("snapshot")
 
-	stateHash, err := appProxy.CommitBlock(block)
+	commitResponse, err := appProxy.CommitBlock(*block)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !reflect.DeepEqual(block, handler.blocks[0]) {
-		t.Fatalf("block should be %v, not %v", block, handler.blocks[0])
+	if !reflect.DeepEqual(block.Body, handler.blocks[0].Body) {
+		t.Fatalf("block should be \n%#v\n, not \n%#v\n", *block, handler.blocks[0])
 	}
 
-	if !reflect.DeepEqual(stateHash, expectedStateHash) {
-		t.Fatalf("StateHash should be %v, not %v", expectedStateHash, stateHash)
+	if !reflect.DeepEqual(commitResponse.StateHash, expectedStateHash) {
+		t.Fatalf("StateHash should be %v, not %v", expectedStateHash, commitResponse.StateHash)
 	}
 
 	snapshot, err := appProxy.GetSnapshot(block.Index())

@@ -2,58 +2,59 @@ package hashgraph
 
 import (
 	"fmt"
+	"sort"
+	"strconv"
 
 	cm "github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
 type Key struct {
-	x string
-	y string
+	x, y string
 }
 
 func (k Key) ToString() string {
 	return fmt.Sprintf("{%s, %s}", k.x, k.y)
 }
 
-type ParentRoundInfo struct {
-	round                     int
-	isRoot                    bool
-	rootStronglySeenWitnesses int
+type TreKey struct {
+	x, y, z string
 }
 
-func NewBaseParentRoundInfo() ParentRoundInfo {
-	return ParentRoundInfo{
-		round:  -1,
-		isRoot: false,
-	}
+func (k TreKey) ToString() string {
+	return fmt.Sprintf("{%s, %s, %s}", k.x, k.y, k.z)
 }
 
 //------------------------------------------------------------------------------
 
 type ParticipantEventsCache struct {
-	participants *peers.Peers
+	participants *peers.PeerSet
 	rim          *cm.RollingIndexMap
 }
 
-func NewParticipantEventsCache(size int, participants *peers.Peers) *ParticipantEventsCache {
+func NewParticipantEventsCache(size int) *ParticipantEventsCache {
 	return &ParticipantEventsCache{
-		participants: participants,
-		rim:          cm.NewRollingIndexMap("ParticipantEvents", size, participants.ToIDSlice()),
+		participants: peers.NewPeerSet([]*peers.Peer{}),
+		rim:          cm.NewRollingIndexMap("ParticipantEvents", size),
 	}
 }
 
-func (pec *ParticipantEventsCache) participantID(participant string) (int, error) {
+func (pec *ParticipantEventsCache) AddPeer(peer *peers.Peer) error {
+	pec.participants = pec.participants.WithNewPeer(peer)
+	return pec.rim.AddKey(peer.ID())
+}
+
+func (pec *ParticipantEventsCache) participantID(participant string) (uint32, error) {
 	peer, ok := pec.participants.ByPubKey[participant]
 
 	if !ok {
-		return -1, cm.NewStoreErr("ParticipantEvents", cm.UnknownParticipant, participant)
+		return 0, cm.NewStoreErr("ParticipantEvents", cm.UnknownParticipant, participant)
 	}
 
-	return peer.ID, nil
+	return peer.ID(), nil
 }
 
-//return participant events with index > skip
+//Get returns participant events with index > skip
 func (pec *ParticipantEventsCache) Get(participant string, skipIndex int) ([]string, error) {
 	id, err := pec.participantID(participant)
 	if err != nil {
@@ -98,19 +99,6 @@ func (pec *ParticipantEventsCache) GetLast(participant string) (string, error) {
 	return last.(string), nil
 }
 
-func (pec *ParticipantEventsCache) GetLastConsensus(participant string) (string, error) {
-	id, err := pec.participantID(participant)
-	if err != nil {
-		return "", err
-	}
-
-	last, err := pec.rim.GetLast(id)
-	if err != nil {
-		return "", err
-	}
-	return last.(string), nil
-}
-
 func (pec *ParticipantEventsCache) Set(participant string, hash string, index int) error {
 	id, err := pec.participantID(participant)
 	if err != nil {
@@ -120,94 +108,77 @@ func (pec *ParticipantEventsCache) Set(participant string, hash string, index in
 }
 
 //returns [participant id] => lastKnownIndex
-func (pec *ParticipantEventsCache) Known() map[int]int {
+func (pec *ParticipantEventsCache) Known() map[uint32]int {
 	return pec.rim.Known()
-}
-
-func (pec *ParticipantEventsCache) Reset() error {
-	return pec.rim.Reset()
 }
 
 //------------------------------------------------------------------------------
 
-type ParticipantBlockSignaturesCache struct {
-	participants *peers.Peers
-	rim          *cm.RollingIndexMap
+type PeerSetCache struct {
+	rounds   sort.IntSlice
+	peerSets map[int]*peers.PeerSet
 }
 
-func NewParticipantBlockSignaturesCache(size int, participants *peers.Peers) *ParticipantBlockSignaturesCache {
-	return &ParticipantBlockSignaturesCache{
-		participants: participants,
-		rim:          cm.NewRollingIndexMap("ParticipantBlockSignatures", size, participants.ToIDSlice()),
+func NewPeerSetCache() *PeerSetCache {
+	return &PeerSetCache{
+		rounds:   sort.IntSlice{},
+		peerSets: make(map[int]*peers.PeerSet),
 	}
 }
 
-func (psc *ParticipantBlockSignaturesCache) participantID(participant string) (int, error) {
-	peer, ok := psc.participants.ByPubKey[participant]
-
-	if !ok {
-		return -1, cm.NewStoreErr("ParticipantBlockSignatures", cm.UnknownParticipant, participant)
+func (c *PeerSetCache) Set(round int, peerSet *peers.PeerSet) error {
+	if _, ok := c.peerSets[round]; ok {
+		return cm.NewStoreErr("PeerSetCache", cm.KeyAlreadyExists, strconv.Itoa(round))
 	}
+	c.peerSets[round] = peerSet
+	c.rounds = append(c.rounds, round)
+	c.rounds.Sort()
+	return nil
 
-	return peer.ID, nil
 }
 
-//return participant BlockSignatures where index > skip
-func (psc *ParticipantBlockSignaturesCache) Get(participant string, skipIndex int) ([]BlockSignature, error) {
-	id, err := psc.participantID(participant)
-	if err != nil {
-		return []BlockSignature{}, err
+func (c *PeerSetCache) Get(round int) (*peers.PeerSet, error) {
+	//check if direclty in peerSets
+	ps, ok := c.peerSets[round]
+	if ok {
+		return ps, nil
 	}
 
-	ps, err := psc.rim.Get(id, skipIndex)
-	if err != nil {
-		return []BlockSignature{}, err
+	//situate round in sorted rounds
+	if len(c.rounds) == 0 {
+		return nil, cm.NewStoreErr("PeerSetCache", cm.KeyNotFound, strconv.Itoa(round))
 	}
 
-	res := make([]BlockSignature, len(ps))
-	for k := 0; k < len(ps); k++ {
-		res[k] = ps[k].(BlockSignature)
+	/*
+		XXX should probably do something smarter here, because this is wrong.
+		Ex: After a FastForward.
+		The Frame has a PeerSet that corresponds to its RoundReceived, BUT the
+		Frame may contain Events from previous Rounds which have different
+		PeerSets. Upon Reset(), only the PeerSet of the Frame will be stored.
+		When Getting the PeerSet for a Frame Event belonging to a earlier round
+		than the Frame RoundReceived, we fall in this case, and return a wrong
+		PeerSet.
+	*/
+	if round < c.rounds[0] {
+		return c.peerSets[c.rounds[0]], nil
+	}
+
+	for i := 0; i < len(c.rounds)-1; i++ {
+		if round >= c.rounds[i] && round < c.rounds[i+1] {
+			return c.peerSets[c.rounds[i]], nil
+		}
+	}
+
+	//return last PeerSet
+	return c.peerSets[c.rounds[len(c.rounds)-1]], nil
+}
+
+func (c *PeerSetCache) GetFuture(baseRound int) (map[int][]*peers.Peer, error) {
+	res := make(map[int][]*peers.Peer)
+	for _, r := range c.rounds {
+		if r > baseRound {
+			res[r] = c.peerSets[r].Peers
+		}
 	}
 	return res, nil
-}
-
-func (psc *ParticipantBlockSignaturesCache) GetItem(participant string, index int) (BlockSignature, error) {
-	id, err := psc.participantID(participant)
-	if err != nil {
-		return BlockSignature{}, err
-	}
-
-	item, err := psc.rim.GetItem(id, index)
-	if err != nil {
-		return BlockSignature{}, err
-	}
-	return item.(BlockSignature), nil
-}
-
-func (psc *ParticipantBlockSignaturesCache) GetLast(participant string) (BlockSignature, error) {
-	last, err := psc.rim.GetLast(psc.participants.ByPubKey[participant].ID)
-
-	if err != nil {
-		return BlockSignature{}, err
-	}
-
-	return last.(BlockSignature), nil
-}
-
-func (psc *ParticipantBlockSignaturesCache) Set(participant string, sig BlockSignature) error {
-	id, err := psc.participantID(participant)
-	if err != nil {
-		return err
-	}
-
-	return psc.rim.Set(id, sig, sig.Index)
-}
-
-//returns [participant id] => last BlockSignature Index
-func (psc *ParticipantBlockSignaturesCache) Known() map[int]int {
-	return psc.rim.Known()
-}
-
-func (psc *ParticipantBlockSignaturesCache) Reset() error {
-	return psc.rim.Reset()
 }

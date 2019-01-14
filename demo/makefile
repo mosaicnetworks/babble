@@ -33,5 +33,9 @@ demo:
 bombard: 
 	./scripts/bombard.sh $(nodes) $(txs)
 
-.PHONY: up build conf start watch stop demo bombard
+# create new peer and join
+join:
+	./scripts/join.sh $(nodes)
+
+.PHONY: up build conf start watch stop demo bombard join
 	

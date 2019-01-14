@@ -8,14 +8,21 @@ import (
 	"fmt"
 
 	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/peers"
 )
 
+/*******************************************************************************
+BlockBody
+*******************************************************************************/
+
 type BlockBody struct {
-	Index         int
-	RoundReceived int
-	StateHash     []byte
-	FrameHash     []byte
-	Transactions  [][]byte
+	Index                int
+	RoundReceived        int
+	StateHash            []byte
+	FrameHash            []byte
+	PeersHash            []byte
+	Transactions         [][]byte
+	InternalTransactions []InternalTransaction
 }
 
 //json encoding of body only
@@ -45,7 +52,9 @@ func (bb *BlockBody) Hash() ([]byte, error) {
 	return crypto.SHA256(hashBytes), nil
 }
 
-//------------------------------------------------------------------------------
+/*******************************************************************************
+BlockSignature
+*******************************************************************************/
 
 type BlockSignature struct {
 	Validator []byte
@@ -87,38 +96,63 @@ type WireBlockSignature struct {
 	Signature string
 }
 
-//------------------------------------------------------------------------------
+/*******************************************************************************
+Block
+*******************************************************************************/
 
 type Block struct {
 	Body       BlockBody
 	Signatures map[string]string // [validator hex] => signature
 
-	hash []byte
-	hex  string
+	hash    []byte
+	hex     string
+	peerSet *peers.PeerSet
 }
 
-func NewBlockFromFrame(blockIndex int, frame Frame) (Block, error) {
+func NewBlockFromFrame(blockIndex int, frame *Frame) (*Block, error) {
 	frameHash, err := frame.Hash()
 	if err != nil {
-		return Block{}, err
+		return nil, err
 	}
+
 	transactions := [][]byte{}
+	internalTransactions := []InternalTransaction{}
 	for _, e := range frame.Events {
 		transactions = append(transactions, e.Transactions()...)
+		internalTransactions = append(internalTransactions, e.InternalTransactions()...)
 	}
-	return NewBlock(blockIndex, frame.Round, frameHash, transactions), nil
+
+	return NewBlock(blockIndex, frame.Round, frameHash, frame.Peers, transactions, internalTransactions), nil
 }
 
-func NewBlock(blockIndex, roundReceived int, frameHash []byte, txs [][]byte) Block {
-	body := BlockBody{
-		Index:         blockIndex,
-		RoundReceived: roundReceived,
-		FrameHash:     frameHash,
-		Transactions:  txs,
+func NewBlock(blockIndex,
+	roundReceived int,
+	frameHash []byte,
+	peerSlice []*peers.Peer,
+	txs [][]byte,
+	itxs []InternalTransaction) *Block {
+
+	peerSet := peers.NewPeerSet(peerSlice)
+
+	peersHash, err := peerSet.Hash()
+	if err != nil {
+		return nil
 	}
-	return Block{
+
+	body := BlockBody{
+		Index:                blockIndex,
+		RoundReceived:        roundReceived,
+		StateHash:            []byte{},
+		FrameHash:            frameHash,
+		PeersHash:            peersHash,
+		Transactions:         txs,
+		InternalTransactions: itxs,
+	}
+
+	return &Block{
 		Body:       body,
 		Signatures: make(map[string]string),
+		peerSet:    peerSet,
 	}
 }
 
@@ -128,6 +162,10 @@ func (b *Block) Index() int {
 
 func (b *Block) Transactions() [][]byte {
 	return b.Body.Transactions
+}
+
+func (b *Block) InternalTransactions() []InternalTransaction {
+	return b.Body.InternalTransactions
 }
 
 func (b *Block) RoundReceived() int {
@@ -140,6 +178,10 @@ func (b *Block) StateHash() []byte {
 
 func (b *Block) FrameHash() []byte {
 	return b.Body.FrameHash
+}
+
+func (b *Block) PeersHash() []byte {
+	return b.Body.PeersHash
 }
 
 func (b *Block) GetSignatures() []BlockSignature {
@@ -213,7 +255,6 @@ func (b *Block) Hex() string {
 }
 
 func (b *Block) Sign(privKey *ecdsa.PrivateKey) (bs BlockSignature, err error) {
-
 	signBytes, err := b.Body.Hash()
 	if err != nil {
 		return bs, err
@@ -237,7 +278,6 @@ func (b *Block) SetSignature(bs BlockSignature) error {
 }
 
 func (b *Block) Verify(sig BlockSignature) (bool, error) {
-
 	signBytes, err := b.Body.Hash()
 	if err != nil {
 		return false, err

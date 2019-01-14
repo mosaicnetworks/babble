@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 	"testing"
 
@@ -11,38 +12,43 @@ import (
 	"github.com/mosaicnetworks/babble/src/crypto"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/peers"
+	"github.com/mosaicnetworks/babble/src/proxy"
 )
 
-func initCores(n int, t *testing.T) ([]Core, map[int]*ecdsa.PrivateKey, map[string]string) {
+func initCores(n int, t *testing.T) ([]*Core, map[uint32]*ecdsa.PrivateKey, map[string]string) {
 	cacheSize := 1000
 
-	cores := []Core{}
+	cores := []*Core{}
 	index := make(map[string]string)
-	participantKeys := map[int]*ecdsa.PrivateKey{}
+	participantKeys := map[uint32]*ecdsa.PrivateKey{}
+	pirs := []*peers.Peer{}
 
-	// participantKeys := []*ecdsa.PrivateKey{}
-	participants := peers.NewPeers()
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
 		pubHex := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey))
 		peer := peers.NewPeer(pubHex, "")
-		participants.AddPeer(peer)
-		participantKeys[peer.ID] = key
+		pirs = append(pirs, peer)
+		participantKeys[peer.ID()] = key
 	}
 
-	for i, peer := range participants.ToPeerSlice() {
-		core := NewCore(i,
-			participantKeys[peer.ID],
-			participants,
-			hg.NewInmemStore(participants, cacheSize),
-			nil,
+	peerSet := peers.NewPeerSet(pirs)
+
+	for i, peer := range peerSet.Peers {
+		core := NewCore(peer.ID(),
+			participantKeys[peer.ID()],
+			peerSet,
+			hg.NewInmemStore(cacheSize),
+			proxy.DummyCommitCallback,
 			common.NewTestLogger(t))
 
 		//Create and save the first Event
-		initialEvent := hg.NewEvent([][]byte(nil), nil,
-			[]string{fmt.Sprintf("Root%d", peer.ID), ""},
+		initialEvent := hg.NewEvent([][]byte(nil),
+			[]hg.InternalTransaction{},
+			nil,
+			[]string{fmt.Sprintf("Root%d", peer.ID()), ""},
 			core.PubKey(),
 			0)
+
 		err := core.SignAndInsertSelfEvent(initialEvent)
 		if err != nil {
 			t.Fatal(err)
@@ -67,9 +73,9 @@ e01 |   |
 e0  e1  e2
 0   1   2
 */
-func initHashgraph(cores []Core, keys map[int]*ecdsa.PrivateKey, index map[string]string, participant int) {
+func initHashgraph(cores []*Core, keys map[uint32]*ecdsa.PrivateKey, index map[string]string, participant uint32) {
 	for i := 0; i < len(cores); i++ {
-		if i != participant {
+		if uint32(i) != participant {
 			event, _ := cores[i].GetEvent(index[fmt.Sprintf("e%d", i)])
 			if err := cores[participant].InsertEvent(event, true); err != nil {
 				fmt.Printf("error inserting %s: %s\n", getName(index, event.Hex()), err)
@@ -77,21 +83,27 @@ func initHashgraph(cores []Core, keys map[int]*ecdsa.PrivateKey, index map[strin
 		}
 	}
 
-	event01 := hg.NewEvent([][]byte{}, nil,
+	event01 := hg.NewEvent([][]byte{},
+		[]hg.InternalTransaction{},
+		nil,
 		[]string{index["e0"], index["e1"]}, //e0 and e1
 		cores[0].PubKey(), 1)
 	if err := insertEvent(cores, keys, index, event01, "e01", participant, common.Hash32(cores[0].pubKey)); err != nil {
 		fmt.Printf("error inserting e01: %s\n", err)
 	}
 
-	event20 := hg.NewEvent([][]byte{}, nil,
+	event20 := hg.NewEvent([][]byte{},
+		[]hg.InternalTransaction{},
+		nil,
 		[]string{index["e2"], index["e01"]}, //e2 and e01
 		cores[2].PubKey(), 1)
 	if err := insertEvent(cores, keys, index, event20, "e20", participant, common.Hash32(cores[2].pubKey)); err != nil {
 		fmt.Printf("error inserting e20: %s\n", err)
 	}
 
-	event12 := hg.NewEvent([][]byte{}, nil,
+	event12 := hg.NewEvent([][]byte{},
+		[]hg.InternalTransaction{},
+		nil,
 		[]string{index["e1"], index["e20"]}, //e1 and e20
 		cores[1].PubKey(), 1)
 	if err := insertEvent(cores, keys, index, event12, "e12", participant, common.Hash32(cores[1].pubKey)); err != nil {
@@ -99,8 +111,8 @@ func initHashgraph(cores []Core, keys map[int]*ecdsa.PrivateKey, index map[strin
 	}
 }
 
-func insertEvent(cores []Core, keys map[int]*ecdsa.PrivateKey, index map[string]string,
-	event hg.Event, name string, particant int, creator int) error {
+func insertEvent(cores []*Core, keys map[uint32]*ecdsa.PrivateKey, index map[string]string,
+	event *hg.Event, name string, particant uint32, creator uint32) error {
 
 	if particant == creator {
 		if err := cores[particant].SignAndInsertSelfEvent(event); err != nil {
@@ -156,6 +168,7 @@ func TestEventDiff(t *testing.T) {
 	}
 
 }
+
 func TestSync(t *testing.T) {
 	cores, _, index := initCores(3, t)
 
@@ -167,7 +180,7 @@ func TestSync(t *testing.T) {
 	*/
 
 	//core 1 is going to tell core 0 everything it knows
-	if err := synchronizeCores(cores, 1, 0, [][]byte{}); err != nil {
+	if err := synchronizeCores(cores, 1, 0, [][]byte{}, []hg.InternalTransaction{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -200,7 +213,7 @@ func TestSync(t *testing.T) {
 	index["e01"] = core0Head.Hex()
 
 	//core 0 is going to tell core 2 everything it knows
-	if err := synchronizeCores(cores, 0, 2, [][]byte{}); err != nil {
+	if err := synchronizeCores(cores, 0, 2, [][]byte{}, []hg.InternalTransaction{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -238,7 +251,7 @@ func TestSync(t *testing.T) {
 	index["e20"] = core2Head.Hex()
 
 	//core 2 is going to tell core 1 everything it knows
-	if err := synchronizeCores(cores, 2, 1, [][]byte{}); err != nil {
+	if err := synchronizeCores(cores, 2, 1, [][]byte{}, []hg.InternalTransaction{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -320,12 +333,13 @@ e0  e1  e2
 0   1    2
 */
 type play struct {
-	from    int
-	to      int
-	payload [][]byte
+	from        int
+	to          int
+	payload     [][]byte
+	internalTxs []hg.InternalTransaction
 }
 
-func initConsensusHashgraph(t *testing.T) []Core {
+func initConsensusHashgraph(t *testing.T) []*Core {
 	cores, _, _ := initCores(3, t)
 	playbook := []play{
 		play{from: 0, to: 1, payload: [][]byte{[]byte("e10")}},
@@ -351,7 +365,7 @@ func initConsensusHashgraph(t *testing.T) []Core {
 	}
 
 	for _, play := range playbook {
-		if err := syncAndRunConsensus(cores, play.from, play.to, play.payload); err != nil {
+		if err := syncAndRunConsensus(cores, play.from, play.to, play.payload, play.internalTxs); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -383,7 +397,7 @@ func TestOverSyncLimit(t *testing.T) {
 	cores := initConsensusHashgraph(t)
 
 	//positive
-	known := map[int]int{
+	known := map[uint32]int{
 		common.Hash32(cores[0].pubKey): 1,
 		common.Hash32(cores[1].pubKey): 1,
 		common.Hash32(cores[2].pubKey): 1,
@@ -396,7 +410,7 @@ func TestOverSyncLimit(t *testing.T) {
 	}
 
 	//negative
-	known = map[int]int{
+	known = map[uint32]int{
 		common.Hash32(cores[0].pubKey): 6,
 		common.Hash32(cores[1].pubKey): 6,
 		common.Hash32(cores[2].pubKey): 6,
@@ -407,7 +421,7 @@ func TestOverSyncLimit(t *testing.T) {
 	}
 
 	//edge
-	known = map[int]int{
+	known = map[uint32]int{
 		common.Hash32(cores[0].pubKey): 2,
 		common.Hash32(cores[1].pubKey): 3,
 		common.Hash32(cores[2].pubKey): 3,
@@ -419,9 +433,6 @@ func TestOverSyncLimit(t *testing.T) {
 }
 
 /*
-
-
-
     |   |   |   |-----------------
 	|   w31 |   | R3
 	|	| \ |   |
@@ -458,7 +469,7 @@ func TestOverSyncLimit(t *testing.T) {
     |   e1  e2  e3
     0	1	2	3
 */
-func initFFHashgraph(cores []Core, t *testing.T) {
+func initFFHashgraph(cores []*Core, t *testing.T) {
 	playbook := []play{
 		play{from: 1, to: 2, payload: [][]byte{[]byte("e21")}},
 		play{from: 2, to: 3, payload: [][]byte{[]byte("e32")}},
@@ -477,7 +488,7 @@ func initFFHashgraph(cores []Core, t *testing.T) {
 	}
 
 	for k, play := range playbook {
-		if err := syncAndRunConsensus(cores, play.from, play.to, play.payload); err != nil {
+		if err := syncAndRunConsensus(cores, play.from, play.to, play.payload, play.internalTxs); err != nil {
 			t.Fatalf("play %d: %s", k, err)
 		}
 	}
@@ -600,7 +611,7 @@ func TestCoreFastForward(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		expectedKnown := map[int]int{
+		expectedKnown := map[uint32]int{
 			common.Hash32(cores[0].pubKey): -1,
 			common.Hash32(cores[1].pubKey): 1,
 			common.Hash32(cores[2].pubKey): 1,
@@ -626,24 +637,346 @@ func TestCoreFastForward(t *testing.T) {
 		if !reflect.DeepEqual(sBlock.Body, block.Body) {
 			t.Fatalf("Blocks defer")
 		}
-
-		// lastEventFrom0, _, err := cores[0].hg.Store.LastEventFrom(cores[0].hexID)
-		// if err != nil {
-		// 	t.Fatal(err)
-		// }
-		// if c0h := cores[0].Head; c0h != lastEventFrom0 {
-		// 	t.Fatalf("Head should be %s, not %s", lastEventFrom0, c0h)
-		// }
-
-		// if c0s := cores[0].Seq; c0s != 0 {
-		// 	t.Fatalf("Seq should be %d, not %d", 0, c0s)
-		// }
-
 	})
+}
+
+/*
+We introduce a JoinRequest at round 1, which is received at round 2, and updates
+the PeerSet at round 6 (2 + 4)
+
+
+Round 6
+P:[0,1,2,3]
+            |    |   w62
+			|    | /  |
+ 			|   w61   |
+            |  / |    |
+            w60  |    |
+        -------\----------
+	        |   j12   |
+            |    | \  |
+Round 5     |    |   w52
+P:[0,1,2]   |    | /  |
+            |   w51   |
+            |  / |    |
+            w50  |    |
+        -------\----------
+		    |   i12   |
+            |    | \  |
+Round 4     |    |   w42
+P:[0,1,2]   |    | /  |
+            |   w41   |
+            |  / |    |
+            w40  |    |
+        -------\----------
+		    |   h12   |
+Round 3		|    | \  |
+P:[0,1,2]   |    |   w32
+            |    |  / |
+			|   w31   |
+			| /  |    |
+		   w30   |    |
+		    |  \ |    |
+		------------------
+Round 2		|    |  \ |
+P:[0,1,2]	|    |   g21 AnchorBlock
+			|    | /  |
+			|   w21   |
+			| /  |    |
+		   w20   |    |
+		    |  \ |    |
+		    |    | \  |
+			|    |   w22
+		-----------/------
+Round 1		|   f10   |
+P:[0,1,2]	| /  |    |
+		   w10   |    |
+		    |  \ |    |
+		    |    | \  |
+		    |    |   w12*
+		    |    |  / |
+		    |   w11   |
+		 -----/------------
+Round 0	   e12   |    |   Block 0
+P:[0,1,2]   |  \ |    |
+		    |    | \  |
+		    |    |   e21
+		    |    | /  |
+		    |   e10   |
+		    |  / |    |
+		   w00  w01  w02
+			|    |    |
+		    R0   R1   R2
+			0	 1	  2
+*/
+func initR2DynHashgraph(t *testing.T) (cores []*Core, bobPeer *peers.Peer, bobKey *ecdsa.PrivateKey) {
+	//Initialize first 3 cores. They will have the same PeerSet of 3.
+	cores, _, _ = initCores(3, t)
+
+	//Initialize the joining Peer (bob)
+	bobKey, _ = crypto.GenerateECDSAKey()
+	bobPubHex := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&bobKey.PublicKey))
+	bobPeer = peers.NewPeer(bobPubHex, "")
+
+	//Insert a JoinRequest in a Round0 Event
+	playbook := []play{
+		play{from: 0, to: 1, payload: [][]byte{[]byte("e10")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("e21")}},
+		play{from: 2, to: 0, payload: [][]byte{[]byte("e12")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("w11")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("w12")},
+			internalTxs: []hg.InternalTransaction{hg.NewInternalTransaction(hg.PEER_ADD, *bobPeer)}},
+		play{from: 2, to: 0, payload: [][]byte{[]byte("w10")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("f10")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("w22")}},
+		play{from: 2, to: 0, payload: [][]byte{[]byte("w20")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("w21")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("g21")}},
+		play{from: 2, to: 0, payload: [][]byte{[]byte("w30")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("w31")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("w32")}},
+		play{from: 2, to: 1, payload: [][]byte{[]byte("h12")}},
+		play{from: 1, to: 0, payload: [][]byte{[]byte("w40")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("w41")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("w42")}},
+		play{from: 2, to: 1, payload: [][]byte{[]byte("i12")}},
+		play{from: 1, to: 0, payload: [][]byte{[]byte("w50")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("w51")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("w52")}},
+		play{from: 2, to: 1, payload: [][]byte{[]byte("j12")}},
+		play{from: 1, to: 0, payload: [][]byte{[]byte("w60")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("w61")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("w62")}},
+	}
+
+	for k, play := range playbook {
+		if err := syncAndRunConsensus(cores, play.from, play.to, play.payload, play.internalTxs); err != nil {
+			t.Fatalf("play %d: %s", k, err)
+		}
+	}
+
+	return cores, bobPeer, bobKey
+}
+
+func TestR2DynConsensus(t *testing.T) {
+	cores, _, _ := initR2DynHashgraph(t)
+
+	for i, c := range cores {
+		frame1, err := c.hg.Store.GetFrame(1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("frame1: %v", frame1)
+		if lcr := c.hg.LastConsensusRound; lcr == nil || *lcr != 4 {
+			t.Fatalf("cores[%d] LastConsensusRound should be 4, not %d", i, *lcr)
+		}
+		if ps, _ := c.hg.Store.GetPeerSet(6); ps.Len() != 4 {
+			t.Fatalf("cores[%d] PeerSet(6) should contain 4 peers, not %d", i, ps.Len())
+		}
+	}
+}
+
+func TestCoreFastForwardAfterJoin(t *testing.T) {
+	cores, bobPeer, bobKey := initR2DynHashgraph(t)
+
+	initPeerSet, err := cores[0].hg.Store.GetPeerSet(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bobCore := NewCore(bobPeer.ID(),
+		bobKey,
+		initPeerSet,
+		hg.NewInmemStore(1000),
+		proxy.DummyCommitCallback,
+		common.NewTestLogger(t))
+
+	bobCore.SetHeadAndSeq()
+
+	cores = append(cores, bobCore)
+
+	/***************************************************************************
+		Manually FastForward Bob from cores[2]
+
+		Testing 2 scenarios:
+
+			- AnchorBlock: check that the AnchorBlock (Block 2) is selected
+						   correctly and that FuturePeerSets works.
+
+			- Block 0: check that FastForwarding from a Round below the PeerSet
+			           change works.
+	***************************************************************************/
+
+	type play struct {
+		block           *hg.Block
+		frame           *hg.Frame
+		roundLowerBound int
+	}
+
+	plays := []play{}
+
+	//Prepare Block 0 scenario
+	block0, err := cores[2].hg.Store.GetBlock(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	frame0, err := cores[2].hg.Store.GetFrame(block0.RoundReceived())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	plays = append(plays, play{block0, frame0, 0})
+
+	//Prepare AnchorBlock scenario
+	anchorBlock, anchorFrame, err := cores[2].hg.GetAnchorBlockWithFrame()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	plays = append(plays, play{anchorBlock, anchorFrame, 2})
+
+	/***************************************************************************
+		Run the same test for both scenarios
+	***************************************************************************/
+
+	for _, p := range plays {
+
+		/***********************************************************************
+			FastForward, Sync, and Run Consensus
+		***********************************************************************/
+
+		marshalledBlock, err := p.block.Marshal()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var unmarshalledBlock hg.Block
+		err = unmarshalledBlock.Unmarshal(marshalledBlock)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		marshalledFrame, err := p.frame.Marshal()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var unmarshalledFrame hg.Frame
+		err = unmarshalledFrame.Unmarshal(marshalledFrame)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = cores[3].FastForward(cores[2].hexID, &unmarshalledBlock, &unmarshalledFrame)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		//continue after FastForward
+		err = syncAndRunConsensus(cores, 2, 3, [][]byte{}, []hg.InternalTransaction{})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		/***********************************************************************
+			Check Known
+		***********************************************************************/
+
+		knownBy3 := cores[3].KnownEvents()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		expectedKnown := map[uint32]int{
+			common.Hash32(cores[0].pubKey): 7,
+			common.Hash32(cores[1].pubKey): 11,
+			common.Hash32(cores[2].pubKey): 8,
+			common.Hash32(cores[3].pubKey): 0,
+		}
+
+		if !reflect.DeepEqual(knownBy3, expectedKnown) {
+			t.Fatalf("Cores[3].Known should be %v, not %v", expectedKnown, knownBy3)
+		}
+
+		/***********************************************************************
+			Check Rounds
+		***********************************************************************/
+
+		//The fame of witnesses of the FastForward's Block RoundReceived and
+		//below are not reprocessed after Reset. No need to test those rounds.
+		for i := p.roundLowerBound; i <= 5; i++ {
+			c3RI, err := cores[3].hg.Store.GetRound(i)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			c2RI, err := cores[2].hg.Store.GetRound(i)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			c3RIw := c3RI.Witnesses()
+			c2RIw := c2RI.Witnesses()
+			sort.Strings(c3RIw)
+			sort.Strings(c2RIw)
+
+			if !reflect.DeepEqual(c3RIw, c2RIw) {
+				t.Logf("Round(%d).Witnesses do not match", i)
+			}
+
+			if !reflect.DeepEqual(c3RI.CreatedEvents, c3RI.CreatedEvents) {
+				t.Logf("Round(%d).CreatedEvents do not match", i)
+			}
+
+			c3RIr := c3RI.ReceivedEvents
+			c2RIr := c2RI.ReceivedEvents
+			sort.Strings(c3RIr)
+			sort.Strings(c2RIr)
+
+			if !reflect.DeepEqual(c3RIw, c2RIw) {
+				t.Logf("Round(%d).ReceivedEvents do not match", i)
+			}
+		}
+
+		/***********************************************************************
+			Check PeerSets
+		***********************************************************************/
+
+		for i := p.roundLowerBound; i <= 5; i++ {
+			c3PS, err := cores[3].hg.Store.GetPeerSet(i)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			c2PS, err := cores[2].hg.Store.GetPeerSet(i)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if !reflect.DeepEqual(c3PS.Hex(), c2PS.Hex()) {
+				t.Fatalf("PeerSet(%d) does not match", i)
+			}
+		}
+
+		/***********************************************************************
+			Check Consensus Rounds and Blocks
+		***********************************************************************/
+
+		if r := cores[3].GetLastConsensusRoundIndex(); r == nil || *r != 4 {
+			t.Fatalf("Cores[3] last consensus Round should be 4, not %v", *r)
+		}
+
+		if lbi := cores[3].hg.Store.LastBlockIndex(); lbi != 3 {
+			t.Fatalf("Cores[3].hg.LastBlockIndex should be 3, not %d", lbi)
+		}
+	}
 
 }
 
-func synchronizeCores(cores []Core, from int, to int, payload [][]byte) error {
+/******************************************************************************/
+
+func synchronizeCores(cores []*Core, from int, to int, payload [][]byte, internalTxs []hg.InternalTransaction) error {
 	knownByTo := cores[to].KnownEvents()
 	unknownByTo, err := cores[from].EventDiff(knownByTo)
 	if err != nil {
@@ -657,11 +990,15 @@ func synchronizeCores(cores []Core, from int, to int, payload [][]byte) error {
 
 	cores[to].AddTransactions(payload)
 
-	return cores[to].Sync(unknownWire)
+	for _, it := range internalTxs {
+		cores[to].AddInternalTransaction(it)
+	}
+
+	return cores[to].Sync(cores[from].ID(), unknownWire)
 }
 
-func syncAndRunConsensus(cores []Core, from int, to int, payload [][]byte) error {
-	if err := synchronizeCores(cores, from, to, payload); err != nil {
+func syncAndRunConsensus(cores []*Core, from int, to int, payload [][]byte, internalTxs []hg.InternalTransaction) error {
+	if err := synchronizeCores(cores, from, to, payload, internalTxs); err != nil {
 		return err
 	}
 	cores[to].RunConsensus()
