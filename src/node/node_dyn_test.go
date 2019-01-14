@@ -11,6 +11,21 @@ import (
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
+func TestMonologue(t *testing.T) {
+	logger := common.NewTestLogger(t)
+	keys, peers := initPeers(1)
+	nodes := initNodes(keys, peers, 100000, 1000, "inmem", logger, t)
+	//defer drawGraphs(nodes, t)
+
+	target := 50
+	err := gossip(nodes, target, true, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	checkGossip(nodes, 0, t)
+}
+
 func TestJoinRequest(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(4)
@@ -51,7 +66,7 @@ func TestJoinRequest(t *testing.T) {
 func TestJoinFull(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(4)
-	initialNodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", logger, t)
+	initialNodes := initNodes(keys, peerSet, 1000000, 400, "inmem", logger, t)
 	defer shutdownNodes(initialNodes)
 
 	target := 30
@@ -66,7 +81,7 @@ func TestJoinFull(t *testing.T) {
 		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
 		fmt.Sprint("127.0.0.1:4242"),
 	)
-	newNode := newNode(peer, key, peerSet, 1000000, 1000, "inmem", logger, t)
+	newNode := newNode(peer, key, peerSet, 1000000, 400, "inmem", logger, t)
 	defer newNode.Shutdown()
 
 	//Run parallel routine to check newNode eventually reaches CatchingUp state.
@@ -93,6 +108,41 @@ func TestJoinFull(t *testing.T) {
 	//Gossip some more
 	secondTarget := target + 50
 	err = bombardAndWait(nodes, secondTarget, 10*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	start := newNode.core.hg.FirstConsensusRound
+	checkGossip(nodes, *start, t)
+	checkPeerSets(nodes, t)
+}
+
+func TestOneTwo(t *testing.T) {
+	logger := common.NewTestLogger(t)
+	keys, peerSet := initPeers(1)
+
+	node0 := newNode(peerSet.Peers[0], keys[0], peerSet, 1000000, 400, "inmem", logger, t)
+	node0.conf.HeartbeatTimeout = 100 * time.Millisecond
+	defer node0.Shutdown()
+	node0.RunAsync(true)
+
+	key, _ := crypto.GenerateECDSAKey()
+	peer := peers.NewPeer(
+		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
+		fmt.Sprint("127.0.0.1:4242"),
+	)
+	newNode := newNode(peer, key, peerSet, 1000000, 400, "inmem", logger, t)
+	newNode.conf.HeartbeatTimeout = 100 * time.Millisecond
+	defer newNode.Shutdown()
+	newNode.RunAsync(true)
+
+	nodes := []*Node{node0, newNode}
+
+	defer drawGraphs(nodes, t)
+
+	//Gossip some more
+	target := 20
+	err := bombardAndWait(nodes, target, 10*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}

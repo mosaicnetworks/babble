@@ -67,10 +67,6 @@ func (b *Babble) initPeers() error {
 		return err
 	}
 
-	if participants.Len() < 2 {
-		return fmt.Errorf("peers.json should define at least two peers")
-	}
-
 	b.Peers = participants
 
 	return nil

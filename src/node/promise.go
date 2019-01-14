@@ -18,8 +18,8 @@ type JoinPromise struct {
 func NewJoinPromise(tx hashgraph.InternalTransaction) *JoinPromise {
 	return &JoinPromise{
 		Tx: tx,
-		//XXX make buffered because we don't want to block if there is no
-		//listener. There might be something smarter to do here
+		//make buffered because we don't want to block if there is no listener.
+		//There might be something smarter to do here
 		RespCh: make(chan JoinPromiseResponse, 2),
 	}
 }

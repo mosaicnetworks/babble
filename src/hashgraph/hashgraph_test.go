@@ -1980,7 +1980,7 @@ func TestBootstrap(t *testing.T) {
 
 /*
 
-	The fame of witness w00 is only decided at round 5.
+	The fame of witness w00 is never decided.
 
 --------------------------------------------------------------------------------
 	|   w51   |    | This section is only added in 'full' mode

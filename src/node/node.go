@@ -180,7 +180,11 @@ func (n *Node) babble(gossip bool) {
 			if gossip {
 				n.logger.Debug("Time to gossip!")
 				peer := n.core.peerSelector.Next()
-				n.goFunc(func() { n.gossip(peer, returnCh) })
+				if peer != nil {
+					n.goFunc(func() { n.gossip(peer, returnCh) })
+				} else {
+					n.monologue()
+				}
 			}
 			n.resetTimer()
 		case <-returnCh:
@@ -204,7 +208,6 @@ func (n *Node) fastForward() error {
 	resp, err := n.requestFastForward(peer.NetAddr)
 	elapsed := time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestFastForward()")
-
 	if err != nil {
 		n.logger.WithField("error", err).Error("requestFastForward()")
 		return err
@@ -224,18 +227,23 @@ func (n *Node) fastForward() error {
 	n.coreLock.Lock()
 	err = n.core.FastForward(peer.PubKeyHex, &resp.Block, &resp.Frame)
 	n.coreLock.Unlock()
-
 	if err != nil {
-		n.logger.WithField("error", err).Error("Fast Forwarding Hashgraph")
+		n.logger.WithError(err).Error("Fast Forwarding Hashgraph")
 		return err
 	}
 
 	//update app from snapshot
 	err = n.proxy.Restore(resp.Snapshot)
-
 	if err != nil {
-		n.logger.WithField("error", err).Error("Restoring App from Snapshot")
+		n.logger.WithError(err).Error("Restoring App from Snapshot")
 		return err
+	}
+
+	//XXX
+	//We should commit first to see which InternalTransactions are accepted
+	err = n.core.ProcessAcceptedInternalTransactions(resp.Block.RoundReceived(), resp.Block.InternalTransactions())
+	if err != nil {
+		n.logger.WithError(err).Error("Processing AnchorBlock InternalTransactions")
 	}
 
 	n.logger.Debug("Fast-Forward OK")
@@ -281,9 +289,21 @@ func (n *Node) join() error {
 //calling routine (usually the babble routine) when it is time to exit the
 //Babbling state and return.
 func (n *Node) gossip(peer *peers.Peer, parentReturnCh chan struct{}) error {
+	var err error
+
+	//if gossip fails, do a monologue anyway, this creates a self-event, clears
+	//the pools, and processes consensus methods. Useful in avoiding dead-locks
+	//in dynamic-participants.
+	// defer func() {
+	// 	if err != nil {
+	// 		n.monologue()
+	// 	}
+	// }()
+
 	//pull
 	syncLimit, otherKnownEvents, err := n.pull(peer)
 	if err != nil {
+		n.logger.WithError(err).Error("gossip pull")
 		return err
 	}
 
@@ -298,8 +318,8 @@ func (n *Node) gossip(peer *peers.Peer, parentReturnCh chan struct{}) error {
 
 	//push
 	err = n.push(peer, otherKnownEvents)
-
 	if err != nil {
+		n.logger.WithError(err).Error("gossip push")
 		return err
 	}
 
@@ -309,6 +329,30 @@ func (n *Node) gossip(peer *peers.Peer, parentReturnCh chan struct{}) error {
 	n.core.selectorLock.Unlock()
 
 	n.logStats()
+
+	return nil
+}
+
+func (n *Node) monologue() error {
+	n.coreLock.Lock()
+	defer n.coreLock.Unlock()
+
+	err := n.core.AddSelfEvent("")
+	if err != nil {
+		n.logger.WithError(err).Error("monologue, AddSelfEvent()")
+		return err
+	}
+
+	//Run consensus methods
+	start := time.Now()
+	err = n.core.RunConsensus()
+	elapsed := time.Since(start)
+	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed RunConsensus()")
+
+	if err != nil {
+		n.logger.WithError(err).Error("monologue, RunConsensus()")
+		return err
+	}
 
 	return nil
 }
@@ -422,8 +466,11 @@ func (n *Node) sync(fromID uint32, events []hg.WireEvent) error {
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed Sync()")
 
 	if err != nil {
+		n.logger.WithError(err).Error()
 		return err
 	}
+
+	n.logger.Debug("Sync OK")
 
 	//Run consensus methods
 	start = time.Now()

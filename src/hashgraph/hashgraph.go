@@ -21,6 +21,12 @@ const (
 		the number of Peers rather than hard-coded.
 	*/
 	ROOT_DEPTH = 10
+
+	/*
+		COIN_ROUND_FREQ defines the frequency of coin rounds. The value 4 is
+		arbitrary. Do something smarter.
+	*/
+	COIN_ROUND_FREQ = float64(4)
 )
 
 //Hashgraph is a DAG of Events. It also contains methods to extract a consensus
@@ -695,11 +701,21 @@ func (h *Hashgraph) InsertEvent(event *Event, setWireInfo bool) error {
 	}
 
 	if err := h.checkSelfParent(event); err != nil {
-		return fmt.Errorf("CheckSelfParent: %s", err)
+		h.logger.WithFields(logrus.Fields{
+			"event":       event.Hex(),
+			"creator":     event.Creator(),
+			"self_parent": event.SelfParent(),
+		}).WithError(err).Errorf("CheckSelfParent")
+		return err
 	}
 
 	if err := h.checkOtherParent(event); err != nil {
-		return fmt.Errorf("CheckOtherParent: %s", err)
+		h.logger.WithFields(logrus.Fields{
+			"event":        event.Hex(),
+			"creator":      event.Creator(),
+			"other_parent": event.OtherParent(),
+		}).WithError(err).Errorf("CheckOtherParent")
+		return err
 	}
 
 	event.topologicalIndex = h.topologicalIndex
@@ -893,11 +909,9 @@ func (h *Hashgraph) DecideFame() error {
 							t = yays
 						}
 
-						//In what follows, the choice of coin-round frequency is
-						//completely arbitrary.
-
+						//float64(rPeerSet.Len())
 						//normal round
-						if math.Mod(float64(diff), float64(rPeerSet.Len())) > 0 {
+						if math.Mod(float64(diff), COIN_ROUND_FREQ) > 0 {
 							if t >= jPeerSet.SuperMajority() {
 								rRoundInfo.SetFame(x, v)
 								setVote(votes, y, x, v)
@@ -1069,25 +1083,12 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 			return fmt.Errorf("Getting Frame %d: %v", r.Index, err)
 		}
 
-		//XXX For logging
-		eventHashes := []string{}
-		for _, e := range frame.Events {
-			eventHashes = append(eventHashes, e.Hex())
-		}
-
-		roots := make(map[string]Root)
-		for p, r := range frame.Roots {
-			roots[p] = *r
-		}
-
 		h.logger.WithFields(logrus.Fields{
 			"round_received":  r.Index,
 			"witnesses":       round.FamousWitnesses(),
 			"created_events":  round.CreatedEvents,
 			"events":          len(frame.Events),
-			"event_hashes":    eventHashes,
 			"peers":           len(frame.Peers),
-			"roots":           roots,
 			"future_peersets": frame.FuturePeerSets,
 		}).Debugf("Processing Decided Round")
 
@@ -1264,14 +1265,13 @@ func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 /*
 ProcessSigPool runs through the SignaturePool and tries to map a Signature to
 a known Block. If a Signature is valid, it is appended to the block and removed
-from the SignaturePool. When a Block gathers enough signatures, it becomes the
-new Anchor Block if:
-	- it is above the current anchor block
-   	- it doesn't contain InternalTransactions
+from the SignaturePool. The function also updates the AnchorBlock if necessary.
 */
 func (h *Hashgraph) ProcessSigPool() error {
 	processedSignatures := map[int]bool{} //index in SigPool => Processed?
 	defer h.removeProcessedSignatures(processedSignatures)
+
+	h.logger.WithField("sig_pool", len(h.SigPool)).Debug("ProcessSigPool()")
 
 	for i, bs := range h.SigPool {
 		block, err := h.Store.GetBlock(bs.Index)
@@ -1329,20 +1329,45 @@ func (h *Hashgraph) ProcessSigPool() error {
 			}).Warning("Saving Block")
 		}
 
-		if len(block.Signatures) > peerSet.TrustCount() &&
-			(h.AnchorBlock == nil ||
-				block.Index() > *h.AnchorBlock) &&
-			len(block.InternalTransactions()) == 0 {
-
-			h.setAnchorBlock(block.Index())
-			h.logger.WithFields(logrus.Fields{
-				"block_index": block.Index(),
-				"signatures":  len(block.Signatures),
-				"trustCount":  peerSet.TrustCount(),
-			}).Debug("Setting AnchorBlock")
+		if err := h.SetAnchorBlock(block); err != nil {
+			return err
 		}
 
 		processedSignatures[i] = true
+	}
+
+	return nil
+}
+
+/*
+SetAnchorBlock sets the AnchorBlock index if the proposed block has collected
+enough signatures (+1/3) and is above the current AnchorBlock. The AnchorBlock
+is the latest Block that collected +1/3 signatures from validators. It is used
+in FastForward responses when a node wants to sync to the top of the hashgraph.
+*/
+func (h *Hashgraph) SetAnchorBlock(block *Block) error {
+	peerSet, err := h.Store.GetPeerSet(block.RoundReceived())
+	if err != nil {
+		h.logger.WithError(err).Error("No PeerSet for Block's Round ")
+		return err
+	}
+
+	if len(block.Signatures) > peerSet.TrustCount() &&
+		(h.AnchorBlock == nil ||
+			block.Index() > *h.AnchorBlock) {
+
+		h.setAnchorBlock(block.Index())
+		h.logger.WithFields(logrus.Fields{
+			"block_index": block.Index(),
+			"signatures":  len(block.Signatures),
+			"trustCount":  peerSet.TrustCount(),
+		}).Debug("Setting AnchorBlock")
+	} else {
+		h.logger.WithFields(logrus.Fields{
+			"index":       block.Index(),
+			"sigs":        len(block.Signatures),
+			"trust_count": peerSet.TrustCount(),
+		}).Debug("Block is not a suitable Anchor")
 	}
 
 	return nil

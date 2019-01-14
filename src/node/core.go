@@ -22,8 +22,6 @@ type Core struct {
 	hexID  string
 	hg     *hg.Hashgraph
 
-	//XXX this needs major refactoring. Be careful with race conditions and
-	//deadlocks
 	peers        *peers.PeerSet //[PubKey] => id
 	peerSelector PeerSelector
 	selectorLock sync.Mutex
@@ -198,9 +196,9 @@ func (c *Core) Commit(block *hg.Block) error {
 	commitResponse, err := c.proxyCommitCallback(*block)
 
 	c.logger.WithFields(logrus.Fields{
-		"block":                          block.Index(),
-		"state_hash":                     fmt.Sprintf("%X", commitResponse.StateHash),
-		"accepted_internal_transactions": commitResponse.AcceptedInternalTransactions,
+		"block":                 block.Index(),
+		"state_hash":            fmt.Sprintf("%X", commitResponse.StateHash),
+		"internal_transactions": commitResponse.InternalTransactions,
 		"err": err,
 	}).Debug("CommitBlock Response")
 
@@ -210,15 +208,21 @@ func (c *Core) Commit(block *hg.Block) error {
 	//InternalTransactions which might update the PeerSet.
 	if err == nil {
 		block.Body.StateHash = commitResponse.StateHash
+		block.Body.InternalTransactions = commitResponse.InternalTransactions
 
 		sig, err := c.SignBlock(block)
 		if err != nil {
 			return err
 		}
 
-		c.AddBlockSignature(sig)
+		err = c.hg.SetAnchorBlock(block)
+		if err != nil {
+			return err
+		}
 
-		err = c.ProcessAcceptedInternalTransactions(block.RoundReceived(), commitResponse.AcceptedInternalTransactions)
+		c.AddBlockSignatureToPool(sig)
+
+		err = c.ProcessAcceptedInternalTransactions(block.RoundReceived(), commitResponse.InternalTransactions)
 		if err != nil {
 			return err
 		}
@@ -232,10 +236,18 @@ func (c *Core) SignBlock(block *hg.Block) (hg.BlockSignature, error) {
 	if err != nil {
 		return hg.BlockSignature{}, err
 	}
-	if err := block.SetSignature(sig); err != nil {
+
+	err = block.SetSignature(sig)
+	if err != nil {
 		return hg.BlockSignature{}, err
 	}
-	return sig, c.hg.Store.SetBlock(block)
+
+	err = c.hg.Store.SetBlock(block)
+	if err != nil {
+		return sig, err
+	}
+
+	return sig, nil
 }
 
 func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.InternalTransaction) error {
@@ -356,7 +368,7 @@ func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 		}
 
 		if err := c.InsertEvent(ev, false); err != nil {
-			c.logger.WithField("ev", ev).WithError(err).Errorf("Inserting Event %s, creatord %d", ev.Hex(), we.Body.CreatorID)
+			c.logger.WithError(err).Errorf("Inserting Event")
 			return err
 		}
 
@@ -394,6 +406,8 @@ func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 }
 
 func (c *Core) RecordHeads() error {
+	c.logger.WithField("heads", len(c.heads)).Debug("RecordHeads()")
+
 	for id, ev := range c.heads {
 		op := ""
 		if ev != nil {
@@ -418,7 +432,8 @@ func (c *Core) AddSelfEvent(otherHead string) error {
 		c.PubKey(), c.Seq+1)
 
 	if err := c.SignAndInsertSelfEvent(newHead); err != nil {
-		return fmt.Errorf("Error inserting new head: %s", err)
+		c.logger.WithError(err).Errorf("Error inserting new head")
+		return err
 	}
 
 	c.logger.WithFields(logrus.Fields{
@@ -499,62 +514,42 @@ func (c *Core) ToWire(events []*hg.Event) ([]hg.WireEvent, error) {
 
 func (c *Core) RunConsensus() error {
 	start := time.Now()
-
 	err := c.hg.DivideRounds()
-
 	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("DivideRounds()")
-
 	if err != nil {
 		c.logger.WithField("error", err).Error("DivideRounds")
-
 		return err
 	}
 
 	start = time.Now()
-
 	err = c.hg.DecideFame()
-
 	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("DecideFame()")
-
 	if err != nil {
 		c.logger.WithField("error", err).Error("DecideFame")
-
 		return err
 	}
 
 	start = time.Now()
-
 	err = c.hg.DecideRoundReceived()
-
 	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("DecideRoundReceived()")
-
 	if err != nil {
 		c.logger.WithField("error", err).Error("DecideRoundReceived")
-
 		return err
 	}
 
 	start = time.Now()
-
 	err = c.hg.ProcessDecidedRounds()
-
 	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("ProcessDecidedRounds()")
-
 	if err != nil {
 		c.logger.WithField("error", err).Error("ProcessDecidedRounds")
-
 		return err
 	}
 
 	start = time.Now()
-
 	err = c.hg.ProcessSigPool()
-
 	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("ProcessSigPool()")
-
 	if err != nil {
 		c.logger.WithField("error", err).Error("ProcessSigPool()")
-
 		return err
 	}
 
@@ -580,7 +575,7 @@ func (c *Core) AddInternalTransaction(tx hg.InternalTransaction) *JoinPromise {
 	return promise
 }
 
-func (c *Core) AddBlockSignature(bs hg.BlockSignature) {
+func (c *Core) AddBlockSignatureToPool(bs hg.BlockSignature) {
 	c.blockSignaturePool = append(c.blockSignaturePool, bs)
 }
 

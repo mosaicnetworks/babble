@@ -21,8 +21,9 @@ const (
 )
 
 type InternalTransaction struct {
-	Type TransactionType
-	Peer peers.Peer
+	Type     TransactionType
+	Peer     peers.Peer
+	Accepted Trilean
 }
 
 func NewInternalTransaction(tType TransactionType, peer peers.Peer) InternalTransaction {
@@ -69,4 +70,12 @@ func (t *InternalTransaction) Hash() string {
 	hashBytes, _ := t.Marshal()
 	hash := crypto.SHA256(hashBytes)
 	return fmt.Sprintf("0x%x", hash)
+}
+
+func (t *InternalTransaction) Accept() {
+	t.Accepted = True
+}
+
+func (t *InternalTransaction) Refuse() {
+	t.Accepted = False
 }
