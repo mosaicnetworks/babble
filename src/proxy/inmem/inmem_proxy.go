@@ -2,17 +2,15 @@ package inmem
 
 import (
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
-	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/sirupsen/logrus"
 )
 
 //InmemProxy implements the AppProxy interface natively
 type InmemProxy struct {
-	handler          proxy.ProxyHandler
-	submitCh         chan []byte
-	submitInternalCh chan hg.InternalTransaction
-	logger           *logrus.Logger
+	handler  proxy.ProxyHandler
+	submitCh chan []byte
+	logger   *logrus.Logger
 }
 
 // NewInmemProxy instantiates an InmemProxy from a set of handlers.
@@ -27,10 +25,9 @@ func NewInmemProxy(handler proxy.ProxyHandler,
 	}
 
 	return &InmemProxy{
-		handler:          handler,
-		submitCh:         make(chan []byte),
-		submitInternalCh: make(chan hg.InternalTransaction),
-		logger:           logger,
+		handler:  handler,
+		submitCh: make(chan []byte),
+		logger:   logger,
 	}
 }
 
@@ -49,14 +46,6 @@ func (p *InmemProxy) SubmitTx(tx []byte) {
 	p.submitCh <- t
 }
 
-func (p *InmemProxy) ProposePeerAdd(peer peers.Peer) {
-	p.submitInternalCh <- hg.NewInternalTransaction(hg.PEER_ADD, peer)
-}
-
-func (p *InmemProxy) ProposePeerRemove(peer peers.Peer) {
-	p.submitInternalCh <- hg.NewInternalTransaction(hg.PEER_REMOVE, peer)
-}
-
 /*******************************************************************************
 * Implement AppProxy Interface                                                 *
 *******************************************************************************/
@@ -66,23 +55,22 @@ func (p *InmemProxy) SubmitCh() chan []byte {
 	return p.submitCh
 }
 
-//SubmitCh returns the channel of raw transactions
-func (p *InmemProxy) SubmitInternalCh() chan hg.InternalTransaction {
-	return p.submitInternalCh
-}
-
 //CommitBlock calls the commitHandler
-func (p *InmemProxy) CommitBlock(block hg.Block) ([]byte, error) {
-	stateHash, err := p.handler.CommitHandler(block)
+func (p *InmemProxy) CommitBlock(block hg.Block) (proxy.CommitResponse, error) {
+	commitResponse, err := p.handler.CommitHandler(block)
 
 	p.logger.WithFields(logrus.Fields{
+		"index":          block.Index(),
 		"round_received": block.RoundReceived(),
+		"frame_hash":     block.FrameHash(),
+		"peers_hash":     block.PeersHash(),
+		"state_hash":     block.StateHash(),
 		"txs":            len(block.Transactions()),
-		"state_hash":     stateHash,
+		"response":       commitResponse,
 		"err":            err,
 	}).Debug("InmemProxy.CommitBlock")
 
-	return stateHash, err
+	return commitResponse, err
 }
 
 //GetSnapshot calls the snapshotHandler

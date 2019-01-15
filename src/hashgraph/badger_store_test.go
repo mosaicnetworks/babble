@@ -3,44 +3,27 @@ package hashgraph
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"reflect"
 	"testing"
 
-	"github.com/mosaicnetworks/babble/src/crypto"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
-func initBadgerStore(cacheSize int, t *testing.T) (*BadgerStore, []participant) {
-	n := 3
-	participants := []participant{}
-
-	pirs := []*peers.Peer{}
-	for i := 0; i < n; i++ {
-		key, _ := crypto.GenerateECDSAKey()
-		pubKey := crypto.FromECDSAPub(&key.PublicKey)
-		peer := peers.NewPeer(fmt.Sprintf("0x%X", pubKey), "")
-		pirs = append(pirs, peer)
-		participants = append(participants,
-			participant{peer.ID, key, pubKey, peer.PubKeyHex})
-	}
-
-	peerSet := peers.NewPeerSet(pirs)
-
+func initBadgerStore(cacheSize int, t *testing.T) *BadgerStore {
 	os.RemoveAll("test_data")
 	os.Mkdir("test_data", os.ModeDir|0777)
 	dir, err := ioutil.TempDir("test_data", "badger")
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 
-	store, err := NewBadgerStore(peerSet, cacheSize, dir)
+	store, err := NewBadgerStore(cacheSize, dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return store, participants
+	return store
 }
 
 func removeBadgerStore(store *BadgerStore, t *testing.T) {
@@ -52,53 +35,15 @@ func removeBadgerStore(store *BadgerStore, t *testing.T) {
 	}
 }
 
-func createTestDB(dir string, t *testing.T) *BadgerStore {
-	participants := peers.NewPeerSet([]*peers.Peer{
-		peers.NewPeer("0xaa", ""),
-		peers.NewPeer("0xbb", ""),
-		peers.NewPeer("0xcc", ""),
-	})
-
-	cacheSize := 100
-
-	store, err := NewBadgerStore(participants, cacheSize, dir)
-	if err != nil {
-		t.Fatalf("err: %s", err)
-	}
-
-	return store
-}
+/*******************************************************************************
+Test creating, loading, and closing a BadgerStore
+*******************************************************************************/
 
 func TestNewBadgerStore(t *testing.T) {
-	os.RemoveAll("test_data")
-	os.Mkdir("test_data", os.ModeDir|0777)
+	store := initBadgerStore(1000, t)
 
-	dbPath := "test_data/badger"
-	store := createTestDB(dbPath, t)
-	defer os.RemoveAll(store.path)
-
-	if store.path != dbPath {
-		t.Fatalf("unexpected path %q", store.path)
-	}
-	if _, err := os.Stat(dbPath); err != nil {
+	if _, err := os.Stat(store.path); err != nil {
 		t.Fatalf("err: %s", err)
-	}
-
-	//check roots
-	inmemRoots := store.inmemStore.rootsByParticipant
-
-	if len(inmemRoots) != 3 {
-		t.Fatalf("DB root should have 3 items, not %d", len(inmemRoots))
-	}
-
-	for p, root := range inmemRoots {
-		dbRoot, err := store.dbGetRoot(p)
-		if err != nil {
-			t.Fatalf("Error retrieving DB root for peer %s: %s", p, err)
-		}
-		if !reflect.DeepEqual(dbRoot, root) {
-			t.Fatalf("%s DB root should be %#v, not %#v", p, root, dbRoot)
-		}
 	}
 
 	if err := store.Close(); err != nil {
@@ -106,55 +51,71 @@ func TestNewBadgerStore(t *testing.T) {
 	}
 }
 
-func TestLoadBadgerStore(t *testing.T) {
-	os.RemoveAll("test_data")
-	os.Mkdir("test_data", os.ModeDir|0777)
-	dbPath := "test_data/badger"
+/*******************************************************************************
+Call DB methods directly
+*******************************************************************************/
 
-	//Create the test db
-	tempStore := createTestDB(dbPath, t)
-	defer os.RemoveAll(tempStore.path)
-	tempStore.Close()
+func TestDBRepertoireMethods(t *testing.T) {
+	cacheSize := 0
 
-	badgerStore, err := LoadBadgerStore(cacheSize, tempStore.path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	store := initBadgerStore(cacheSize, t)
+	defer removeBadgerStore(store, t)
 
-	dbPeerSet, err := badgerStore.dbGetPeerSet()
-	if err != nil {
-		t.Fatal(err)
-	}
+	peerSet, _ := initPeers(3)
 
-	lastPeerSet, err := badgerStore.GetLastPeerSet()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if lastPeerSet.Len() != 3 {
-		t.Fatalf("lastPeerSet length should be %d, not %d", 3, lastPeerSet.Len())
-	}
-
-	for dbP, dbPeer := range dbPeerSet.ByPubKey {
-		peer, ok := lastPeerSet.ByPubKey[dbP]
-		if !ok {
-			t.Fatalf("BadgerStore peerSet does not contains %s", dbP)
+	for _, p := range peerSet.Peers {
+		if err := store.dbSetRepertoire(p); err != nil {
+			t.Fatal(err)
 		}
-		if peer.ID != dbPeer.ID {
-			t.Fatalf("peerSet %s ID should be %d, not %d", dbP, dbPeer.ID, peer.ID)
-		}
+	}
+
+	repertoire, err := store.dbGetRepertoire()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	//force computation of id field, otherwise DeepEquals will fail.
+	for _, p := range repertoire {
+		p.ID()
+	}
+
+	if !reflect.DeepEqual(peerSet.ByPubKey, repertoire) {
+		t.Fatalf("Repertoire should be %#v, not %#v", peerSet.ByPubKey, repertoire)
 	}
 
 }
 
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//Call DB methods directly
+func TestDBPeerSetMethods(t *testing.T) {
+	cacheSize := 0
+
+	store := initBadgerStore(cacheSize, t)
+	defer removeBadgerStore(store, t)
+
+	peerSet, _ := initPeers(3)
+
+	err := store.dbSetPeerSet(0, peerSet)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	peerSet0, err := store.dbGetPeerSet(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(peerSet, peerSet0) {
+		t.Fatalf("Retrieved PeerSet should be %#v, not %#v", peerSet, peerSet0)
+	}
+}
 
 func TestDBEventMethods(t *testing.T) {
 	cacheSize := 0
 	testSize := 100
-	store, participants := initBadgerStore(cacheSize, t)
+
+	store := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
+
+	_, participants := initPeers(3)
 
 	//insert events in db directly
 	events := make(map[string][]*Event)
@@ -235,34 +196,17 @@ func TestDBEventMethods(t *testing.T) {
 			t.Fatalf("failed to verify signature. err: %s", err)
 		}
 	}
-
-	//check that peerSet events where correctly added
-	skipIndex := -1 //do not skip any indexes
-	for _, p := range participants {
-		pEvents, err := store.dbParticipantEvents(p.hex, skipIndex)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if l := len(pEvents); l != testSize {
-			t.Fatalf("%s should have %d events, not %d", p.hex, testSize, l)
-		}
-
-		expectedEvents := events[p.hex][skipIndex+1:]
-		for k, e := range expectedEvents {
-			if e.Hex() != pEvents[k] {
-				t.Fatalf("peerSetEvents[%s][%d] should be %s, not %s",
-					p.hex, k, e.Hex(), pEvents[k])
-			}
-		}
-	}
 }
 
 func TestDBRoundMethods(t *testing.T) {
 	cacheSize := 0
-	store, participants := initBadgerStore(cacheSize, t)
+
+	store := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
 
-	round := NewRoundInfo(nil) //XXX something better here
+	_, participants := initPeers(3)
+
+	round := NewRoundInfo()
 	events := make(map[string]*Event)
 	for _, p := range participants {
 		event := NewEvent([][]byte{},
@@ -300,40 +244,13 @@ func TestDBRoundMethods(t *testing.T) {
 	}
 }
 
-func TestDBPeerSetMethods(t *testing.T) {
-	cacheSize := 0
-	store, _ := initBadgerStore(cacheSize, t)
-	defer removeBadgerStore(store, t)
-
-	lastPeerSet, err := store.GetLastPeerSet()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := store.dbSetPeerSet(lastPeerSet); err != nil {
-		t.Fatal(err)
-	}
-
-	participantsFromDB, err := store.dbGetPeerSet()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for p, peer := range lastPeerSet.ByPubKey {
-		dbPeer, ok := participantsFromDB.ByPubKey[p]
-		if !ok {
-			t.Fatalf("DB does not contain peerSet %s", p)
-		}
-		if peer.ID != dbPeer.ID {
-			t.Fatalf("DB peerSet %s should have ID %d, not %d", p, peer.ID, dbPeer.ID)
-		}
-	}
-}
-
 func TestDBBlockMethods(t *testing.T) {
 	cacheSize := 0
-	store, participants := initBadgerStore(cacheSize, t)
+
+	store := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
+
+	peerSet, participants := initPeers(3)
 
 	index := 0
 	roundReceived := 5
@@ -344,9 +261,13 @@ func TestDBBlockMethods(t *testing.T) {
 		[]byte("tx4"),
 		[]byte("tx5"),
 	}
+	internalTransactions := []InternalTransaction{
+		NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1", "paris")),
+		NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2", "london")),
+	}
 	frameHash := []byte("this is the frame hash")
 
-	block := NewBlock(index, roundReceived, frameHash, []*peers.Peer{}, transactions)
+	block := NewBlock(index, roundReceived, frameHash, peerSet.Peers, transactions, internalTransactions)
 
 	sig1, err := block.Sign(participants[0].privKey)
 	if err != nil {
@@ -406,8 +327,11 @@ func TestDBBlockMethods(t *testing.T) {
 
 func TestDBFrameMethods(t *testing.T) {
 	cacheSize := 0
-	store, participants := initBadgerStore(cacheSize, t)
+
+	store := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
+
+	peerSet, participants := initPeers(3)
 
 	events := []*Event{}
 	roots := make(map[string]*Root)
@@ -422,11 +346,12 @@ func TestDBFrameMethods(t *testing.T) {
 		event.Sign(p.privKey)
 		events = append(events, event)
 
-		roots[p.hex] = NewBaseRoot(id)
+		roots[p.hex] = NewBaseRoot(uint32(id))
 	}
 
 	frame := &Frame{
 		Round:  1,
+		Peers:  peerSet.Peers,
 		Events: events,
 		Roots:  roots,
 	}
@@ -441,22 +366,110 @@ func TestDBFrameMethods(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		//force computing of IDs for DeepEqual
+		for _, p := range storedFrame.Peers {
+			p.ID()
+		}
+
+		//force init Roots for deep DeepEqual
+		for _, r := range storedFrame.Roots {
+			r.Init()
+		}
+
 		if !reflect.DeepEqual(storedFrame, frame) {
 			t.Fatalf("Frame and StoredFrame do not match")
 		}
 	})
 }
 
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//Check that the wrapper methods work
-//These methods use the inmemStore as a cache on top of the DB
+/*******************************************************************************
+Test wrapper methods work. These methods use the inmemStore as a cache on top of
+the DB.
+*******************************************************************************/
+
+func TestBadgerPeerSets(t *testing.T) {
+	cacheSize := 1000
+
+	store := initBadgerStore(cacheSize, t)
+	defer removeBadgerStore(store, t)
+
+	peerSet, _ := initPeers(3)
+
+	err := store.SetPeerSet(0, peerSet)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	//check that it made it into the InmemStore
+	iPeerSet, err := store.GetPeerSet(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(iPeerSet, peerSet) {
+		t.Fatalf("InmemStore PeerSet should be %#v, not %#v", peerSet, iPeerSet)
+	}
+
+	//check that it also made it into the DB
+	dPeerSet, err := store.GetPeerSet(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(dPeerSet, peerSet) {
+		t.Fatalf("DB PeerSet should be %#v, not %#v", peerSet, dPeerSet)
+	}
+
+	//Check Repertoire and Roots
+	repertoire, err := store.dbGetRepertoire()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for pub, peer := range peerSet.ByPubKey {
+		p, ok := repertoire[pub]
+		if !ok {
+			t.Fatalf("Repertoire[%s] not found", pub)
+		}
+
+		//force ID
+		p.ID()
+
+		if !reflect.DeepEqual(p, peer) {
+			t.Fatalf("repertoire[%s] should be %#v, not %#v", pub, peer, p)
+		}
+
+		iRoot, err := store.inmemStore.GetRoot(pub)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		dRoot, err := store.dbGetRoot(pub)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		dRoot.Init()
+
+		if !reflect.DeepEqual(iRoot, dRoot) {
+			t.Fatalf("%s Inmem and DB Roots don't match", pub)
+		}
+	}
+}
 
 func TestBadgerEvents(t *testing.T) {
 	//Insert more events than can fit in cache to test retrieving from db.
 	cacheSize := 10
 	testSize := 100
-	store, participants := initBadgerStore(cacheSize, t)
+
+	store := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
+
+	peerSet, participants := initPeers(3)
+
+	if err := store.SetPeerSet(0, peerSet); err != nil {
+		t.Fatal(err)
+	}
 
 	//insert event
 	events := make(map[string][]*Event)
@@ -528,7 +541,7 @@ func TestBadgerEvents(t *testing.T) {
 		}
 	}
 
-	expectedKnown := make(map[int]int)
+	expectedKnown := make(map[uint32]int)
 	for _, p := range participants {
 		expectedKnown[p.id] = testSize - 1
 	}
@@ -550,10 +563,17 @@ func TestBadgerEvents(t *testing.T) {
 
 func TestBadgerRounds(t *testing.T) {
 	cacheSize := 0
-	store, participants := initBadgerStore(cacheSize, t)
+
+	store := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
 
-	round := NewRoundInfo(nil) //XXX
+	peerSet, participants := initPeers(3)
+
+	if err := store.SetPeerSet(0, peerSet); err != nil {
+		t.Fatal(err)
+	}
+
+	round := NewRoundInfo()
 	events := make(map[string]*Event)
 	for _, p := range participants {
 		event := NewEvent([][]byte{},
@@ -597,8 +617,15 @@ func TestBadgerRounds(t *testing.T) {
 
 func TestBadgerBlocks(t *testing.T) {
 	cacheSize := 0
-	store, participants := initBadgerStore(cacheSize, t)
+
+	store := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
+
+	peerSet, participants := initPeers(3)
+
+	if err := store.SetPeerSet(0, peerSet); err != nil {
+		t.Fatal(err)
+	}
 
 	index := 0
 	roundReceived := 5
@@ -609,8 +636,12 @@ func TestBadgerBlocks(t *testing.T) {
 		[]byte("tx4"),
 		[]byte("tx5"),
 	}
+	internalTransactions := []InternalTransaction{
+		NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1", "paris")),
+		NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2", "london")),
+	}
 	frameHash := []byte("this is the frame hash")
-	block := NewBlock(index, roundReceived, frameHash, []*peers.Peer{}, transactions)
+	block := NewBlock(index, roundReceived, frameHash, []*peers.Peer{}, transactions, internalTransactions)
 
 	sig1, err := block.Sign(participants[0].privKey)
 	if err != nil {
@@ -670,8 +701,15 @@ func TestBadgerBlocks(t *testing.T) {
 
 func TestBadgerFrames(t *testing.T) {
 	cacheSize := 0
-	store, participants := initBadgerStore(cacheSize, t)
+
+	store := initBadgerStore(cacheSize, t)
 	defer removeBadgerStore(store, t)
+
+	peerSet, participants := initPeers(3)
+
+	if err := store.SetPeerSet(0, peerSet); err != nil {
+		t.Fatal(err)
+	}
 
 	events := []*Event{}
 	roots := make(map[string]*Root)
@@ -686,7 +724,7 @@ func TestBadgerFrames(t *testing.T) {
 		event.Sign(p.privKey)
 		events = append(events, event)
 
-		roots[p.hex] = NewBaseRoot(id)
+		roots[p.hex] = NewBaseRoot(uint32(id))
 	}
 
 	frame := &Frame{
@@ -703,6 +741,10 @@ func TestBadgerFrames(t *testing.T) {
 		storedFrame, err := store.GetFrame(frame.Round)
 		if err != nil {
 			t.Fatal(err)
+		}
+
+		for _, r := range storedFrame.Roots {
+			r.Init()
 		}
 
 		if !reflect.DeepEqual(storedFrame, frame) {

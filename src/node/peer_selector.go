@@ -8,7 +8,7 @@ import (
 
 type PeerSelector interface {
 	Peers() *peers.PeerSet
-	UpdateLast(peer string)
+	UpdateLast(peer uint32)
 	Next() *peers.Peer
 }
 
@@ -16,15 +16,18 @@ type PeerSelector interface {
 //RANDOM
 
 type RandomPeerSelector struct {
-	peers     *peers.PeerSet
-	localAddr string
-	last      string
+	peers           *peers.PeerSet
+	selfID          uint32
+	selectablePeers []*peers.Peer
+	last            uint32
 }
 
-func NewRandomPeerSelector(peerSet *peers.PeerSet, localAddr string) *RandomPeerSelector {
+func NewRandomPeerSelector(peerSet *peers.PeerSet, selfID uint32) *RandomPeerSelector {
+	_, selectablePeers := peers.ExcludePeer(peerSet.Peers, selfID)
 	return &RandomPeerSelector{
-		localAddr: localAddr,
-		peers:     peerSet,
+		peers:           peerSet,
+		selfID:          selfID,
+		selectablePeers: selectablePeers,
 	}
 }
 
@@ -32,19 +35,19 @@ func (ps *RandomPeerSelector) Peers() *peers.PeerSet {
 	return ps.peers
 }
 
-func (ps *RandomPeerSelector) UpdateLast(peer string) {
+func (ps *RandomPeerSelector) UpdateLast(peer uint32) {
 	ps.last = peer
 }
 
 func (ps *RandomPeerSelector) Next() *peers.Peer {
-	selectablePeers := ps.peers.Peers
+	selectablePeers := ps.selectablePeers
+
+	if len(selectablePeers) == 0 {
+		return nil
+	}
 
 	if len(selectablePeers) > 1 {
-		_, selectablePeers = peers.ExcludePeer(selectablePeers, ps.localAddr)
-
-		if len(selectablePeers) > 1 {
-			_, selectablePeers = peers.ExcludePeer(selectablePeers, ps.last)
-		}
+		_, selectablePeers = peers.ExcludePeer(selectablePeers, ps.last)
 	}
 
 	i := rand.Intn(len(selectablePeers))

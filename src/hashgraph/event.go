@@ -7,56 +7,7 @@ import (
 	"fmt"
 
 	"github.com/mosaicnetworks/babble/src/crypto"
-	"github.com/mosaicnetworks/babble/src/peers"
 )
-
-/*******************************************************************************
-InternalTransactions
-*******************************************************************************/
-
-type TransactionType uint8
-
-const (
-	PEER_ADD TransactionType = iota
-	PEER_REMOVE
-)
-
-type InternalTransaction struct {
-	Type TransactionType
-	Peer peers.Peer
-}
-
-func NewInternalTransaction(tType TransactionType, peer peers.Peer) InternalTransaction {
-	return InternalTransaction{
-		Type: tType,
-		Peer: peer,
-	}
-}
-
-//json encoding of body only
-func (t *InternalTransaction) Marshal() ([]byte, error) {
-	var b bytes.Buffer
-
-	enc := json.NewEncoder(&b) //will write to b
-
-	if err := enc.Encode(t); err != nil {
-		return nil, err
-	}
-
-	return b.Bytes(), nil
-}
-
-func (t *InternalTransaction) Unmarshal(data []byte) error {
-	b := bytes.NewBuffer(data)
-
-	dec := json.NewDecoder(b) //will read from b
-
-	if err := dec.Decode(t); err != nil {
-		return err
-	}
-
-	return nil
-}
 
 /*******************************************************************************
 EventBody
@@ -70,12 +21,11 @@ type EventBody struct {
 	Index                int                   //index in the sequence of events created by Creator
 	BlockSignatures      []BlockSignature      //list of Block signatures signed by the Event's Creator ONLY
 
-	//wire
-	//It is cheaper to send ints than hashes over the wire
+	//These fields are not serialized
+	creatorID            uint32
+	otherParentCreatorID uint32
 	selfParentIndex      int
-	otherParentCreatorID int
 	otherParentIndex     int
-	creatorID            int
 }
 
 //json encoding of body only
@@ -191,6 +141,10 @@ func (e *Event) Transactions() [][]byte {
 	return e.Body.Transactions
 }
 
+func (e *Event) InternalTransactions() []InternalTransaction {
+	return e.Body.InternalTransactions
+}
+
 func (e *Event) Index() int {
 	return e.Body.Index
 }
@@ -298,6 +252,10 @@ func (e *Event) SetRound(r int) {
 	*e.round = r
 }
 
+func (e *Event) GetRound() *int {
+	return e.round
+}
+
 func (e *Event) SetLamportTimestamp(t int) {
 	if e.lamportTimestamp == nil {
 		e.lamportTimestamp = new(int)
@@ -314,10 +272,10 @@ func (e *Event) SetRoundReceived(rr int) {
 	*e.roundReceived = rr
 }
 
-func (e *Event) SetWireInfo(selfParentIndex,
-	otherParentCreatorID,
-	otherParentIndex,
-	creatorID int) {
+func (e *Event) SetWireInfo(selfParentIndex int,
+	otherParentCreatorID uint32,
+	otherParentIndex int,
+	creatorID uint32) {
 	e.Body.selfParentIndex = selfParentIndex
 	e.Body.otherParentCreatorID = otherParentCreatorID
 	e.Body.otherParentIndex = otherParentIndex
@@ -352,10 +310,6 @@ func (e *Event) ToWire() WireEvent {
 		},
 		Signature: e.Signature,
 	}
-}
-
-func rootSelfParent(participantID int) string {
-	return fmt.Sprintf("Root%d", participantID)
 }
 
 /*******************************************************************************
@@ -406,12 +360,11 @@ type WireBody struct {
 	InternalTransactions []InternalTransaction
 	BlockSignatures      []WireBlockSignature
 
+	CreatorID            uint32
+	OtherParentCreatorID uint32
+	Index                int
 	SelfParentIndex      int
-	OtherParentCreatorID int
 	OtherParentIndex     int
-	CreatorID            int
-
-	Index int
 }
 
 type WireEvent struct {

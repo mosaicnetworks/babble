@@ -11,37 +11,42 @@ import (
 )
 
 type participant struct {
-	id      int
+	id      uint32
 	privKey *ecdsa.PrivateKey
 	pubKey  []byte
 	hex     string
 }
 
-func initInmemStore(cacheSize int) (*InmemStore, []participant) {
-	n := 3
+func initPeers(n int) (*peers.PeerSet, []participant) {
+	pirs := []*peers.Peer{}
 	participants := []participant{}
 
-	pirs := []*peers.Peer{}
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
 		pubKey := crypto.FromECDSAPub(&key.PublicKey)
 		peer := peers.NewPeer(fmt.Sprintf("0x%X", pubKey), "")
-		participants = append(participants,
-			participant{peer.ID, key, pubKey, peer.PubKeyHex})
 		pirs = append(pirs, peer)
+		participants = append(participants, participant{peer.ID(), key, pubKey, peer.PubKeyHex})
 	}
 
 	peerSet := peers.NewPeerSet(pirs)
 
-	store := NewInmemStore(peerSet, cacheSize)
-
-	return store, participants
+	return peerSet, participants
 }
 
 func TestInmemEvents(t *testing.T) {
+	n := 3
 	cacheSize := 100
 	testSize := 15
-	store, participants := initInmemStore(cacheSize)
+
+	store := NewInmemStore(cacheSize)
+
+	peerSet, participants := initPeers(n)
+
+	err := store.SetPeerSet(0, peerSet)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	events := make(map[string][]*Event)
 
@@ -100,7 +105,7 @@ func TestInmemEvents(t *testing.T) {
 	})
 
 	t.Run("Check KnownEvents", func(t *testing.T) {
-		expectedKnown := make(map[int]int)
+		expectedKnown := make(map[uint32]int)
 		for _, p := range participants {
 			expectedKnown[p.id] = testSize - 1
 		}
@@ -124,9 +129,19 @@ func TestInmemEvents(t *testing.T) {
 }
 
 func TestInmemRounds(t *testing.T) {
-	store, participants := initInmemStore(10)
+	n := 3
+	cacheSize := 100
 
-	round := NewRoundInfo(nil) //XXX
+	store := NewInmemStore(cacheSize)
+
+	peerSet, participants := initPeers(n)
+
+	err := store.SetPeerSet(0, peerSet)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	round := NewRoundInfo()
 	events := make(map[string]*Event)
 	for _, p := range participants {
 		event := NewEvent([][]byte{},
@@ -174,7 +189,17 @@ func TestInmemRounds(t *testing.T) {
 }
 
 func TestInmemBlocks(t *testing.T) {
-	store, participants := initInmemStore(10)
+	n := 3
+	cacheSize := 100
+
+	store := NewInmemStore(cacheSize)
+
+	peerSet, participants := initPeers(n)
+
+	err := store.SetPeerSet(0, peerSet)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	index := 0
 	roundReceived := 7
@@ -185,9 +210,13 @@ func TestInmemBlocks(t *testing.T) {
 		[]byte("tx4"),
 		[]byte("tx5"),
 	}
+	internalTransactions := []InternalTransaction{
+		NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1", "paris")),
+		NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2", "london")),
+	}
 	frameHash := []byte("this is the frame hash")
 
-	block := NewBlock(index, roundReceived, frameHash, []*peers.Peer{}, transactions)
+	block := NewBlock(index, roundReceived, frameHash, []*peers.Peer{}, transactions, internalTransactions)
 
 	sig1, err := block.Sign(participants[0].privKey)
 	if err != nil {

@@ -14,8 +14,8 @@ import (
 )
 
 func TestSocketProxyServer(t *testing.T) {
-	clientAddr := "127.0.0.1:9990"
-	proxyAddr := "127.0.0.1:9991"
+	clientAddr := "127.0.0.1:5990"
+	proxyAddr := "127.0.0.1:5991"
 
 	proxy, err := aproxy.NewSocketAppProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestLogger(t))
 
@@ -56,8 +56,8 @@ func TestSocketProxyServer(t *testing.T) {
 }
 
 func TestSocketProxyClient(t *testing.T) {
-	clientAddr := "127.0.0.1:9992"
-	proxyAddr := "127.0.0.1:9993"
+	clientAddr := "127.0.0.1:5992"
+	proxyAddr := "127.0.0.1:5993"
 
 	//launch dummy application
 	dummyClient, err := NewDummySocketClient(clientAddr, proxyAddr, common.NewTestLogger(t))
@@ -79,11 +79,21 @@ func TestSocketProxyClient(t *testing.T) {
 	blocks := [5]*hashgraph.Block{}
 
 	for i := 0; i < 5; i++ {
-		blocks[i] = hashgraph.NewBlock(i, i+1, []byte{}, []*peers.Peer{}, [][]byte{[]byte(fmt.Sprintf("block %d transaction", i))})
+		blocks[i] = hashgraph.NewBlock(i, i+1,
+			[]byte{},
+			[]*peers.Peer{},
+			[][]byte{
+				[]byte(fmt.Sprintf("block %d transaction", i)),
+			},
+			[]hashgraph.InternalTransaction{
+				hashgraph.NewInternalTransaction(hashgraph.PEER_ADD, *peers.NewPeer("node0", "paris")),
+				hashgraph.NewInternalTransaction(hashgraph.PEER_REMOVE, *peers.NewPeer("node1", "london")),
+			},
+		)
 	}
 
 	//commit first block and check that the client's statehash is correct
-	stateHash, err := proxy.CommitBlock(*blocks[0])
+	commitResponse, err := proxy.CommitBlock(*blocks[0])
 
 	if err != nil {
 		t.Fatal(err)
@@ -97,8 +107,8 @@ func TestSocketProxyClient(t *testing.T) {
 		expectedStateHash = bcrypto.SimpleHashFromTwoHashes(expectedStateHash, tHash)
 	}
 
-	if !reflect.DeepEqual(stateHash, expectedStateHash) {
-		t.Fatalf("StateHash should be %v, not %v", expectedStateHash, stateHash)
+	if !reflect.DeepEqual(commitResponse.StateHash, expectedStateHash) {
+		t.Fatalf("StateHash should be %v, not %v", expectedStateHash, commitResponse.StateHash)
 	}
 
 	snapshot, err := proxy.GetSnapshot(blocks[0].Index())

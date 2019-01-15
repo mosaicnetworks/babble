@@ -5,10 +5,11 @@ import "github.com/mosaicnetworks/babble/src/peers"
 type Store interface {
 	CacheSize() int
 	GetPeerSet(int) (*peers.PeerSet, error)
-	GetLastPeerSet() (*peers.PeerSet, error)
 	SetPeerSet(int, *peers.PeerSet) error
+	GetFuturePeerSets(int) (map[int][]*peers.Peer, error)
+	AddParticipant(*peers.Peer) error
 	RepertoireByPubKey() map[string]*peers.Peer
-	RepertoireByID() map[int]*peers.Peer
+	RepertoireByID() map[uint32]*peers.Peer
 	RootsBySelfParent() map[string]*Root
 	GetEvent(string) (*Event, error)
 	SetEvent(*Event) error
@@ -16,7 +17,7 @@ type Store interface {
 	ParticipantEvent(string, int) (string, error)
 	LastEventFrom(string) (string, bool, error)
 	LastConsensusEventFrom(string) (string, bool, error)
-	KnownEvents() map[int]int
+	KnownEvents() map[uint32]int
 	ConsensusEvents() []string
 	ConsensusEventsCount() int
 	AddConsensusEvent(*Event) error

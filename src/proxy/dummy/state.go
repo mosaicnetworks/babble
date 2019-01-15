@@ -5,6 +5,7 @@ import (
 
 	"github.com/mosaicnetworks/babble/src/crypto"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/sirupsen/logrus"
 )
 
@@ -37,16 +38,24 @@ func NewState(logger *logrus.Logger) *State {
 	return state
 }
 
-func (a *State) CommitHandler(block hashgraph.Block) ([]byte, error) {
+func (a *State) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, error) {
 	a.logger.WithField("block", block).Debug("CommitBlock")
 
 	err := a.commit(block)
-
 	if err != nil {
-		return nil, err
+		return proxy.CommitResponse{}, err
 	}
 
-	return a.stateHash, nil
+	for _, it := range block.InternalTransactions() {
+		it.Accept()
+	}
+
+	response := proxy.CommitResponse{
+		StateHash:            a.stateHash,
+		InternalTransactions: block.InternalTransactions(),
+	}
+
+	return response, nil
 }
 
 func (a *State) SnapshotHandler(blockIndex int) ([]byte, error) {

@@ -32,26 +32,26 @@ type ParticipantEventsCache struct {
 	rim          *cm.RollingIndexMap
 }
 
-func NewParticipantEventsCache(size int, participants *peers.PeerSet) *ParticipantEventsCache {
+func NewParticipantEventsCache(size int) *ParticipantEventsCache {
 	return &ParticipantEventsCache{
-		participants: participants,
-		rim:          cm.NewRollingIndexMap("ParticipantEvents", size, participants.IDs()),
+		participants: peers.NewPeerSet([]*peers.Peer{}),
+		rim:          cm.NewRollingIndexMap("ParticipantEvents", size),
 	}
 }
 
 func (pec *ParticipantEventsCache) AddPeer(peer *peers.Peer) error {
 	pec.participants = pec.participants.WithNewPeer(peer)
-	return pec.rim.AddKey(peer.ID)
+	return pec.rim.AddKey(peer.ID())
 }
 
-func (pec *ParticipantEventsCache) participantID(participant string) (int, error) {
+func (pec *ParticipantEventsCache) participantID(participant string) (uint32, error) {
 	peer, ok := pec.participants.ByPubKey[participant]
 
 	if !ok {
-		return -1, cm.NewStoreErr("ParticipantEvents", cm.UnknownParticipant, participant)
+		return 0, cm.NewStoreErr("ParticipantEvents", cm.UnknownParticipant, participant)
 	}
 
-	return peer.ID, nil
+	return peer.ID(), nil
 }
 
 //Get returns participant events with index > skip
@@ -108,7 +108,7 @@ func (pec *ParticipantEventsCache) Set(participant string, hash string, index in
 }
 
 //returns [participant id] => lastKnownIndex
-func (pec *ParticipantEventsCache) Known() map[int]int {
+func (pec *ParticipantEventsCache) Known() map[uint32]int {
 	return pec.rim.Known()
 }
 
@@ -149,10 +149,17 @@ func (c *PeerSetCache) Get(round int) (*peers.PeerSet, error) {
 		return nil, cm.NewStoreErr("PeerSetCache", cm.KeyNotFound, strconv.Itoa(round))
 	}
 
-	if len(c.rounds) == 1 {
-		if round < c.rounds[0] {
-			return nil, cm.NewStoreErr("PeerSetCache", cm.KeyNotFound, strconv.Itoa(round))
-		}
+	/*
+		XXX should probably do something smarter here, because this is wrong.
+		Ex: After a FastForward.
+		The Frame has a PeerSet that corresponds to its RoundReceived, BUT the
+		Frame may contain Events from previous Rounds which have different
+		PeerSets. Upon Reset(), only the PeerSet of the Frame will be stored.
+		When Getting the PeerSet for a Frame Event belonging to a earlier round
+		than the Frame RoundReceived, we fall in this case, and return a wrong
+		PeerSet.
+	*/
+	if round < c.rounds[0] {
 		return c.peerSets[c.rounds[0]], nil
 	}
 
@@ -166,9 +173,12 @@ func (c *PeerSetCache) Get(round int) (*peers.PeerSet, error) {
 	return c.peerSets[c.rounds[len(c.rounds)-1]], nil
 }
 
-func (c *PeerSetCache) GetLast() (*peers.PeerSet, error) {
-	if len(c.rounds) == 0 {
-		return nil, cm.NewStoreErr("PeerSetCache", cm.NoPeerSet, "")
+func (c *PeerSetCache) GetFuture(baseRound int) (map[int][]*peers.Peer, error) {
+	res := make(map[int][]*peers.Peer)
+	for _, r := range c.rounds {
+		if r > baseRound {
+			res[r] = c.peerSets[r].Peers
+		}
 	}
-	return c.peerSets[c.rounds[len(c.rounds)-1]], nil
+	return res, nil
 }
