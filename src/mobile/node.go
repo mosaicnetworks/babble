@@ -28,15 +28,14 @@ func New(privKey string,
 	exceptionHandler ExceptionHandler,
 	config *MobileConfig) *Node {
 
-	babbleConfig := babble.NewDefaultConfig()
+	babbleConfig := config.toBabbleConfig()
+	babbleConfig.BindAddr = nodeAddr
 
 	babbleConfig.Logger.WithFields(logrus.Fields{
 		"nodeAddr": nodeAddr,
 		"peers":    jsonPeers,
 		"config":   fmt.Sprintf("%v", config),
 	}).Debug("New Mobile Node")
-
-	babbleConfig.BindAddr = nodeAddr
 
 	//Check private key
 	pemKey := &crypto.PemKey{}
