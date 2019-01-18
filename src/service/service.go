@@ -36,6 +36,8 @@ func (s *Service) Serve() {
 
 	http.HandleFunc("/graph", s.GetGraph)
 
+	http.HandleFunc("/peers", s.GetPeers)
+
 	err := http.ListenAndServe(s.bindAddress, nil)
 
 	if err != nil {
@@ -85,6 +87,16 @@ func (s *Service) GetGraph(w http.ResponseWriter, r *http.Request) {
 	encoder := json.NewEncoder(w)
 
 	res, _ := s.graph.GetInfos()
+
+	encoder.Encode(res)
+}
+
+func (s *Service) GetPeers(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	encoder := json.NewEncoder(w)
+
+	res := s.node.GetPeers()
 
 	encoder.Encode(res)
 }
