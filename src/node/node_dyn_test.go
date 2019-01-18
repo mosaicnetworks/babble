@@ -117,7 +117,7 @@ func TestJoinFull(t *testing.T) {
 	checkPeerSets(nodes, t)
 }
 
-func TestOneTwo(t *testing.T) {
+func TestOrganicGrowth(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(1)
 
@@ -126,30 +126,39 @@ func TestOneTwo(t *testing.T) {
 	defer node0.Shutdown()
 	node0.RunAsync(true)
 
-	key, _ := crypto.GenerateECDSAKey()
-	peer := peers.NewPeer(
-		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
-		fmt.Sprint("127.0.0.1:4242"),
-	)
-	newNode := newNode(peer, key, peerSet, 1000000, 400, "inmem", logger, t)
-	newNode.conf.HeartbeatTimeout = 100 * time.Millisecond
-	defer newNode.Shutdown()
-	newNode.RunAsync(true)
-
-	nodes := []*Node{node0, newNode}
-
+	nodes := []*Node{node0}
 	defer drawGraphs(nodes, t)
 
-	//Gossip some more
 	target := 20
-	err := bombardAndWait(nodes, target, 10*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
+	for i := 1; i <= 3; i++ {
+		peerSet := peers.NewPeerSet(node0.GetPeers())
 
-	start := newNode.core.hg.FirstConsensusRound
-	checkGossip(nodes, *start, t)
-	checkPeerSets(nodes, t)
+		key, _ := crypto.GenerateECDSAKey()
+		peer := peers.NewPeer(
+			fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
+			fmt.Sprintf("127.0.0.1:%d", 4240+i),
+		)
+		newNode := newNode(peer, key, peerSet, 1000000, 400, "inmem", logger, t)
+		newNode.conf.HeartbeatTimeout = 100 * time.Millisecond
+
+		logger.Debugf("XXX starting new node %d, %d", i, newNode.ID())
+		defer newNode.Shutdown()
+		newNode.RunAsync(true)
+
+		nodes := append(nodes, newNode)
+
+		//Gossip some more
+		err := bombardAndWait(nodes, target, 10*time.Second)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		start := newNode.core.hg.FirstConsensusRound
+		checkGossip(nodes, *start, t)
+		checkPeerSets(nodes, t)
+
+		target = target + 40
+	}
 }
 
 // func TestPullAfterJoin(t *testing.T) {
