@@ -34,7 +34,6 @@ do
     --store \
     --log="debug"
     
-    
     docker cp $MPWD/conf/node$i node$i:/.babble
     docker start node$i
 done
