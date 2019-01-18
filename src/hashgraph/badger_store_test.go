@@ -496,8 +496,12 @@ func TestBadgerEvents(t *testing.T) {
 		for k, ev := range evs {
 			rev, err := store.GetEvent(ev.Hex())
 			if err != nil {
+				rev, err = store.dbGetEvent(ev.Hex())
+			}
+			if err != nil {
 				t.Fatal(err)
 			}
+
 			if !reflect.DeepEqual(ev.Body, rev.Body) {
 				t.Fatalf("events[%s][%d].Body should be %#v, not %#v", p, k, ev, rev)
 			}
