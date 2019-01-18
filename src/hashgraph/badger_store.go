@@ -100,10 +100,12 @@ for caching and a BadgerDB to persist values on disk.
 /*******************************************************************************
 Cache Only
 
-Certain objects are not meant to be persisted. They are set on the go as the
-hashgraph evolves. After a store gets loaded from a BadgerDB and passed to a
-hashgraph, the Bootstrap method should be called on the Hashgraph to reprocess
-all the Events and consensus methods. This will set the InmemStore cache.
+Certain objects are not meant to be retrieved directly from disk; they need to
+be processed by the hashgraph methods first, and added to the InmemStore, before
+they can be used. This is usually done by the Bootstrap method when a node is
+started; it retrieves Events one by one from the disk, in topological order, and
+inserts them in the hashgraph (thereby populating the InmemStore) before running
+the consensus methods.
 
 *******************************************************************************/
 
@@ -111,9 +113,10 @@ func (s *BadgerStore) CacheSize() int {
 	return s.inmemStore.CacheSize()
 }
 
-//The InmemStore's PeerSetCache is populated during the bootstrap process: all
-//PeerSets are read from the DB and inserted into the InmemStore which manages
-//various counters and lists to handle all the clever PeerSet lookup.
+func (s *BadgerStore) GetEvent(key string) (*Event, error) {
+	return s.inmemStore.GetEvent(key)
+}
+
 func (s *BadgerStore) GetPeerSet(round int) (peerSet *peers.PeerSet, err error) {
 	return s.inmemStore.GetPeerSet(round)
 }
@@ -212,16 +215,6 @@ func (s *BadgerStore) AddParticipant(p *peers.Peer) error {
 	}
 
 	return nil
-}
-
-func (s *BadgerStore) GetEvent(key string) (event *Event, err error) {
-	//try to get it from cache
-	event, err = s.inmemStore.GetEvent(key)
-	//if not in cache, try to get it from db
-	if err != nil {
-		event, err = s.dbGetEvent(key)
-	}
-	return event, mapError(err, "Event", key)
 }
 
 func (s *BadgerStore) SetEvent(event *Event) error {
