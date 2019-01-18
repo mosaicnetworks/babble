@@ -600,3 +600,7 @@ func (n *Node) GetEvents() (map[uint32]int, error) {
 func (n *Node) ID() uint32 {
 	return n.id
 }
+
+func (n *Node) GetPeers() []*peers.Peer {
+	return n.core.peers.Peers
+}
