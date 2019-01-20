@@ -231,17 +231,6 @@ func TestDBRoundMethods(t *testing.T) {
 	if !reflect.DeepEqual(round, storedRound) {
 		t.Fatalf("Round and StoredRound do not match")
 	}
-
-	witnesses := store.RoundWitnesses(0)
-	expectedWitnesses := round.Witnesses()
-	if len(witnesses) != len(expectedWitnesses) {
-		t.Fatalf("There should be %d witnesses, not %d", len(expectedWitnesses), len(witnesses))
-	}
-	for _, w := range expectedWitnesses {
-		if !contains(witnesses, w) {
-			t.Fatalf("Witnesses should contain %s", w)
-		}
-	}
 }
 
 func TestDBBlockMethods(t *testing.T) {
@@ -516,6 +505,9 @@ func TestBadgerEvents(t *testing.T) {
 	for _, p := range participants {
 		pEvents, err := store.ParticipantEvents(p.hex, skipIndex)
 		if err != nil {
+			pEvents, err = store.dbParticipantEvents(p.hex, skipIndex)
+		}
+		if err != nil {
 			t.Fatal(err)
 		}
 		if l := len(pEvents); l != testSize {
@@ -600,22 +592,14 @@ func TestBadgerRounds(t *testing.T) {
 
 	storedRound, err := store.GetRound(0)
 	if err != nil {
+		storedRound, err = store.dbGetRound(0)
+	}
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	if !reflect.DeepEqual(round, storedRound) {
 		t.Fatalf("Round and StoredRound do not match")
-	}
-
-	witnesses := store.RoundWitnesses(0)
-	expectedWitnesses := round.Witnesses()
-	if len(witnesses) != len(expectedWitnesses) {
-		t.Fatalf("There should be %d witnesses, not %d", len(expectedWitnesses), len(witnesses))
-	}
-	for _, w := range expectedWitnesses {
-		if !contains(witnesses, w) {
-			t.Fatalf("Witnesses should contain %s", w)
-		}
 	}
 }
 
@@ -743,6 +727,9 @@ func TestBadgerFrames(t *testing.T) {
 		}
 
 		storedFrame, err := store.GetFrame(frame.Round)
+		if err != nil {
+			storedFrame, err = store.dbGetFrame(frame.Round)
+		}
 		if err != nil {
 			t.Fatal(err)
 		}
