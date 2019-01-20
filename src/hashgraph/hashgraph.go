@@ -706,6 +706,9 @@ func (h *Hashgraph) InsertEventAndRunConsensus(event *Event, setWireInfo bool) e
 //InsertEvent attempts to insert an Event in the DAG. It verifies the signature,
 //checks the ancestors are known, and prevents the introduction of forks.
 func (h *Hashgraph) InsertEvent(event *Event, setWireInfo bool) error {
+	//XXX TODO
+	//Check if creator belongs to round
+
 	//verify signature
 	if ok, err := event.Verify(); !ok {
 		if err != nil {
@@ -970,6 +973,7 @@ func (h *Hashgraph) DecideRoundReceived() error {
 	*/
 	for _, x := range h.UndeterminedEvents {
 		received := false
+
 		r, err := h.round(x)
 		if err != nil {
 			return err
@@ -1023,6 +1027,7 @@ func (h *Hashgraph) DecideRoundReceived() error {
 				if err != nil {
 					return err
 				}
+
 				ex.SetRoundReceived(i)
 
 				err = h.Store.SetEvent(ex)
@@ -1034,6 +1039,11 @@ func (h *Hashgraph) DecideRoundReceived() error {
 				err = h.Store.SetRound(i, tr)
 				if err != nil {
 					return err
+				}
+
+				//XXX
+				if h.roundLowerBound != nil && *h.roundLowerBound >= i && ex.IsLoaded() {
+					h.PendingLoadedEvents--
 				}
 
 				//break out of i loop
@@ -1073,8 +1083,8 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 		if h.roundLowerBound != nil && r.Index <= *h.roundLowerBound {
 			//XXX
 			//h.logger.WithField("round_received", r.Index).Debug("Skipping Pending Round")
-			//h.PendingLoadedEvents = 0
 			//processedIndex++
+			//h.PendingLoadedEvents = 0
 			continue
 		}
 

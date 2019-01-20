@@ -63,6 +63,63 @@ func TestJoinRequest(t *testing.T) {
 	checkPeerSets(nodes, t)
 }
 
+func TestPullAfterJoin(t *testing.T) {
+	logger := common.NewTestLogger(t)
+
+	keys, peerSet := initPeers(3)
+	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", logger, t)
+
+	defer shutdownNodes(nodes)
+	defer drawGraphs(nodes, t)
+
+	target := 50
+	err := gossip(nodes, target, false, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes, 0, t)
+
+	key, _ := crypto.GenerateECDSAKey()
+	peer := peers.NewPeer(
+		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
+		fmt.Sprint("127.0.0.1:4242"),
+	)
+	newNode := newNode(peer, key, peerSet, 1000, 1000, "inmem", logger, t)
+
+	err = newNode.join()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = newNode.fastForward()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	frameRound := newNode.core.hg.FirstConsensusRound
+
+	frame, err := newNode.core.hg.Store.GetFrame(*frameRound)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	badRounds := false
+	for _, ev := range frame.Events {
+		realEv, err := nodes[0].core.hg.Store.GetEvent(ev.Hex())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if *realEv.GetRound() != *ev.GetRound() {
+			t.Logf("Event %s round should be %d, not %d", ev.Hex(), *realEv.GetRound(), *ev.GetRound())
+			badRounds = true
+		}
+	}
+
+	if badRounds {
+		t.Fatalf("Bad Rounds")
+	}
+}
+
 func TestJoinFull(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(4)
@@ -160,63 +217,6 @@ func TestOrganicGrowth(t *testing.T) {
 		target = target + 40
 	}
 }
-
-// func TestPullAfterJoin(t *testing.T) {
-// 	logger := common.NewTestLogger(t)
-
-// 	keys, peerSet := initPeers(3)
-// 	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", logger, t)
-
-// 	defer shutdownNodes(nodes)
-// 	defer drawGraphs(nodes, t)
-
-// 	target := 50
-// 	err := gossip(nodes, target, false, 3*time.Second)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	checkGossip(nodes, 0, t)
-
-// 	key, _ := crypto.GenerateECDSAKey()
-// 	peer := peers.NewPeer(
-// 		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
-// 		fmt.Sprint("127.0.0.1:4242"),
-// 	)
-// 	newNode := newNode(peer, key, peerSet, 1000, 1000, "inmem", logger, t)
-
-// 	err = newNode.join()
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-
-// 	err = newNode.fastForward()
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-
-// 	frameRound := newNode.core.hg.FirstConsensusRound
-
-// 	frame, err := newNode.core.hg.Store.GetFrame(*frameRound)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-
-// 	badRounds := false
-// 	for _, ev := range frame.Events {
-// 		realEv, err := nodes[0].core.hg.Store.GetEvent(ev.Hex())
-// 		if err != nil {
-// 			t.Fatal(err)
-// 		}
-// 		if *realEv.GetRound() != *ev.GetRound() {
-// 			t.Logf("Event %s round should be %d, not %d", ev.Hex(), *realEv.GetRound(), *ev.GetRound())
-// 			badRounds = true
-// 		}
-// 	}
-
-// 	if badRounds {
-// 		t.Fatalf("Bad Rounds")
-// 	}
-// }
 
 // func TestPeerLeaveRequest(t *testing.T) {
 // 	logger := common.NewTestLogger(t)

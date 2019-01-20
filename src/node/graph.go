@@ -67,7 +67,7 @@ func (g *Graph) GetRounds() []*hg.RoundInfo {
 	for round <= store.LastRound() {
 		r, err := store.GetRound(round)
 
-		if err != nil || !r.IsQueued() {
+		if err != nil {
 			break
 		}
 

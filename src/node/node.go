@@ -275,6 +275,9 @@ func (n *Node) join() error {
 		"peers":          len(resp.Peers),
 	}).Debug("JoinResponse")
 
+	//XXX
+	n.core.AcceptedRound = resp.AcceptedRound
+
 	n.setState(CatchingUp)
 
 	return nil

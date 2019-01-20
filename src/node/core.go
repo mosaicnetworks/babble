@@ -29,6 +29,9 @@ type Core struct {
 	Head string
 	Seq  int
 
+	//XXX
+	AcceptedRound int
+
 	/*
 		Events that are not tied to this node's Head. This is managed by
 		the Sync method. If the gossip condition is false (there is nothing
@@ -80,6 +83,7 @@ func NewCore(
 		logger:                  logEntry,
 		Head:                    "",
 		Seq:                     -1,
+		AcceptedRound:           -1,
 	}
 
 	core.hg = hg.NewHashgraph(store, core.Commit, logEntry)
@@ -167,6 +171,11 @@ func (c *Core) Bootstrap() error {
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 func (c *Core) SignAndInsertSelfEvent(event *hg.Event) error {
+	//XXX
+	if c.hg.Store.LastRound() < c.AcceptedRound {
+		c.logger.Debugf("Too early to gossip (%d / %d)", c.hg.Store.LastRound(), c.AcceptedRound)
+		return nil
+	}
 	if err := event.Sign(c.key); err != nil {
 		return err
 	}
