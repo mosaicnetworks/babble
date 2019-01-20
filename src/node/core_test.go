@@ -77,7 +77,7 @@ func initHashgraph(cores []*Core, keys map[uint32]*ecdsa.PrivateKey, index map[s
 	for i := 0; i < len(cores); i++ {
 		if uint32(i) != participant {
 			event, _ := cores[i].GetEvent(index[fmt.Sprintf("e%d", i)])
-			if err := cores[participant].InsertEvent(event, true); err != nil {
+			if err := cores[participant].InsertEventAndRunConsensus(event, true); err != nil {
 				fmt.Printf("error inserting %s: %s\n", getName(index, event.Hex()), err)
 			}
 		}
@@ -122,7 +122,7 @@ func insertEvent(cores []*Core, keys map[uint32]*ecdsa.PrivateKey, index map[str
 		index[name] = cores[particant].Head
 	} else {
 		event.Sign(keys[creator])
-		if err := cores[particant].InsertEvent(event, true); err != nil {
+		if err := cores[particant].InsertEventAndRunConsensus(event, true); err != nil {
 			return err
 		}
 		index[name] = event.Hex()
@@ -669,7 +669,7 @@ P:[0,1,2]   |    | /  |
             |  / |    |
             w40  |    |
         -------\----------
-		    |   h12   |
+		    |   h12   |	AnchorBlock
 Round 3		|    | \  |
 P:[0,1,2]   |    |   w32
             |    |  / |
@@ -679,7 +679,7 @@ P:[0,1,2]   |    |   w32
 		    |  \ |    |
 		------------------
 Round 2		|    |  \ |
-P:[0,1,2]	|    |   g21 AnchorBlock
+P:[0,1,2]	|    |   g21
 			|    | /  |
 			|   w21   |
 			| /  |    |
@@ -800,7 +800,7 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 
 		Testing 2 scenarios:
 
-			- AnchorBlock: check that the AnchorBlock (Block 2) is selected
+			- AnchorBlock: check that the AnchorBlock (Block 3) is selected
 						   correctly and that FuturePeerSets works.
 
 			- Block 0: check that FastForwarding from a Round below the PeerSet
@@ -834,7 +834,7 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plays = append(plays, play{anchorBlock, anchorFrame, 2})
+	plays = append(plays, play{anchorBlock, anchorFrame, 3})
 
 	/***************************************************************************
 		Run the same test for both scenarios
@@ -1001,7 +1001,7 @@ func syncAndRunConsensus(cores []*Core, from int, to int, payload [][]byte, inte
 	if err := synchronizeCores(cores, from, to, payload, internalTxs); err != nil {
 		return err
 	}
-	cores[to].RunConsensus()
+	cores[to].ProcessSigPool()
 	return nil
 }
 

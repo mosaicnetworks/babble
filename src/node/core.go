@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"sort"
 	"sync"
-	"time"
 
 	"github.com/mosaicnetworks/babble/src/crypto"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
@@ -171,11 +170,11 @@ func (c *Core) SignAndInsertSelfEvent(event *hg.Event) error {
 	if err := event.Sign(c.key); err != nil {
 		return err
 	}
-	return c.InsertEvent(event, true)
+	return c.InsertEventAndRunConsensus(event, true)
 }
 
-func (c *Core) InsertEvent(event *hg.Event, setWireInfo bool) error {
-	if err := c.hg.InsertEvent(event, setWireInfo); err != nil {
+func (c *Core) InsertEventAndRunConsensus(event *hg.Event, setWireInfo bool) error {
+	if err := c.hg.InsertEventAndRunConsensus(event, setWireInfo); err != nil {
 		return err
 	}
 	if event.Creator() == c.HexID() {
@@ -367,7 +366,7 @@ func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 			return err
 		}
 
-		if err := c.InsertEvent(ev, false); err != nil {
+		if err := c.InsertEventAndRunConsensus(ev, false); err != nil {
 			c.logger.WithError(err).Errorf("Inserting Event")
 			return err
 		}
@@ -479,11 +478,6 @@ func (c *Core) FastForward(peer string, block *hg.Block, frame *hg.Frame) error 
 		return err
 	}
 
-	err = c.RunConsensus()
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -512,48 +506,8 @@ func (c *Core) ToWire(events []*hg.Event) ([]hg.WireEvent, error) {
 	return wireEvents, nil
 }
 
-func (c *Core) RunConsensus() error {
-	start := time.Now()
-	err := c.hg.DivideRounds()
-	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("DivideRounds()")
-	if err != nil {
-		c.logger.WithField("error", err).Error("DivideRounds")
-		return err
-	}
-
-	start = time.Now()
-	err = c.hg.DecideFame()
-	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("DecideFame()")
-	if err != nil {
-		c.logger.WithField("error", err).Error("DecideFame")
-		return err
-	}
-
-	start = time.Now()
-	err = c.hg.DecideRoundReceived()
-	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("DecideRoundReceived()")
-	if err != nil {
-		c.logger.WithField("error", err).Error("DecideRoundReceived")
-		return err
-	}
-
-	start = time.Now()
-	err = c.hg.ProcessDecidedRounds()
-	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("ProcessDecidedRounds()")
-	if err != nil {
-		c.logger.WithField("error", err).Error("ProcessDecidedRounds")
-		return err
-	}
-
-	start = time.Now()
-	err = c.hg.ProcessSigPool()
-	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("ProcessSigPool()")
-	if err != nil {
-		c.logger.WithField("error", err).Error("ProcessSigPool()")
-		return err
-	}
-
-	return nil
+func (c *Core) ProcessSigPool() error {
+	return c.hg.ProcessSigPool()
 }
 
 func (c *Core) AddTransactions(txs [][]byte) {
