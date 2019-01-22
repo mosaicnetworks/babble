@@ -13,6 +13,7 @@ func main() {
 	rootCmd.AddCommand(
 		cmd.VersionCmd,
 		cmd.NewProxyCmd(),
+		cmd.NewLog(),
 		cmd.NewRunCmd())
 
 	//Do not print usage when error occurs

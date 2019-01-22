@@ -1,17 +1,7 @@
 package commands
 
 import (
-	"fmt"
-	"io/ioutil"
-	"log"
-	"os"
-	"os/exec"
-	"os/signal"
-	"strconv"
-	"sync"
-	"syscall"
-	"time"
-
+	runtime "github.com/mosaicnetworks/babble/cmd/network/lib"
 	"github.com/mosaicnetworks/babble/src/babble"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -24,152 +14,14 @@ func NewRunCmd() *cobra.Command {
 		Use:     "run",
 		Short:   "Run node",
 		PreRunE: loadConfig,
-		RunE:    runBabbles,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runtime.New(config.Babble, config.NbNodes, config.SendTxs).Start()
+		},
 	}
 
 	AddRunFlags(cmd)
 
 	return cmd
-}
-
-/*******************************************************************************
-* RUN
-*******************************************************************************/
-
-func buildConfig() error {
-	babblePort := 1337
-
-	peersJSON := `[`
-
-	for i := 0; i < config.NbNodes; i++ {
-		nb := strconv.Itoa(i)
-
-		babblePortStr := strconv.Itoa(babblePort + (i * 10))
-
-		babbleNode := exec.Command("babble", "keygen", "--pem=/tmp/babble_configs/.babble"+nb+"/priv_key.pem", "--pub=/tmp/babble_configs/.babble"+nb+"/key.pub")
-
-		res, err := babbleNode.CombinedOutput()
-		if err != nil {
-			log.Fatal(err, res)
-		}
-
-		pubKey, err := ioutil.ReadFile("/tmp/babble_configs/.babble" + nb + "/key.pub")
-		if err != nil {
-			log.Fatal(err, res)
-		}
-
-		peersJSON += `	{
-		"NetAddr":"127.0.0.1:` + babblePortStr + `",
-		"PubKeyHex":"` + string(pubKey) + `"
-	},
-`
-	}
-
-	peersJSON = peersJSON[:len(peersJSON)-2]
-	peersJSON += `
-]
-`
-
-	for i := 0; i < config.NbNodes; i++ {
-		nb := strconv.Itoa(i)
-
-		err := ioutil.WriteFile("/tmp/babble_configs/.babble"+nb+"/peers.json", []byte(peersJSON), 0644)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-
-	return nil
-}
-
-func sendTxs(babbleNode *exec.Cmd, i int) {
-	ticker := time.NewTicker(1 * time.Second)
-	nb := strconv.Itoa(i)
-
-	txNb := 0
-
-	for range ticker.C {
-		if txNb == config.SendTxs {
-			ticker.Stop()
-
-			break
-		}
-
-		network := exec.Command("network", "proxy", "--node="+nb, "--submit="+nb+"_"+strconv.Itoa(txNb))
-
-		err := network.Run()
-		if err != nil {
-			continue
-		}
-
-		txNb++
-	}
-}
-
-func runBabbles(cmd *cobra.Command, args []string) error {
-	os.RemoveAll("/tmp/babble_configs")
-
-	if err := buildConfig(); err != nil {
-		log.Fatal(err)
-	}
-
-	babblePort := 1337
-	servicePort := 8080
-
-	wg := sync.WaitGroup{}
-
-	var processes = make([]*os.Process, config.NbNodes)
-
-	for i := 0; i < config.NbNodes; i++ {
-		wg.Add(1)
-
-		go func(i int) {
-			nb := strconv.Itoa(i)
-			babblePortStr := strconv.Itoa(babblePort + (i * 10))
-			proxyServPortStr := strconv.Itoa(babblePort + (i * 10) + 1)
-			proxyCliPortStr := strconv.Itoa(babblePort + (i * 10) + 2)
-
-			servicePort := strconv.Itoa(servicePort + i)
-
-			defer wg.Done()
-
-			babbleNode := exec.Command("babble", "run", "-l=127.0.0.1:"+babblePortStr, "--datadir=/tmp/babble_configs/.babble"+nb, "--proxy-listen=127.0.0.1:"+proxyServPortStr, "--client-connect=127.0.0.1:"+proxyCliPortStr, "-s=127.0.0.1:"+servicePort, "--heartbeat="+config.Babble.NodeConfig.HeartbeatTimeout.String())
-			err := babbleNode.Start()
-
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			fmt.Println("Running", i)
-
-			if config.SendTxs > 0 {
-				go sendTxs(babbleNode, i)
-			}
-
-			processes[i] = babbleNode.Process
-
-			babbleNode.Wait()
-
-			fmt.Println("Terminated", i)
-
-		}(i)
-	}
-
-	c := make(chan os.Signal, 1)
-
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-
-	go func() {
-		for range c {
-			for _, proc := range processes {
-				proc.Kill()
-			}
-		}
-	}()
-
-	wg.Wait()
-
-	return nil
 }
 
 /*******************************************************************************

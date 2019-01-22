@@ -62,6 +62,7 @@ func New(privKey string,
 	// There should be at least two peers
 	if peerSet.Len() < 2 {
 		exceptionHandler.OnException(fmt.Sprintf("Should define at least two peers"))
+
 		return nil
 	}
 

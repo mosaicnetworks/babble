@@ -9,6 +9,7 @@ import (
 
 	"github.com/mosaicnetworks/babble/src/crypto"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/mosaicnetworks/babble/src/proxy/socket/babble"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -35,7 +36,7 @@ type Handler struct {
 
 // Called when a new block is comming
 // You must provide a method to compute the stateHash incrementaly with incoming blocks
-func (h *Handler) CommitHandler(block hashgraph.Block) (stateHash []byte, err error) {
+func (h *Handler) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, error) {
 	hash := h.stateHash
 
 	for _, tx := range block.Transactions() {
@@ -45,7 +46,12 @@ func (h *Handler) CommitHandler(block hashgraph.Block) (stateHash []byte, err er
 
 	h.stateHash = hash
 
-	return h.stateHash, nil
+	response := proxy.CommitResponse{
+		StateHash:            hash,
+		InternalTransactions: block.InternalTransactions(),
+	}
+
+	return response, nil
 }
 
 // Called when syncing with the network
