@@ -124,10 +124,11 @@ implementations:
 
 The `AppProxy` interface exposes three methods for Babble to call the App:
 
-- `CommitBlock(Block) ([]byte, error)`: Commits a block to the application and 
-                                        returns the resulting state hash.
+- `CommitBlock(Block) (CommitResponse, error)`: Commits a block to the 
+        application and returns the resulting state-hash, with accepted internal
+        transactions.
 - `GetSnapshot(int) ([]byte, error)`: Gets the application snapshot 
-                                      corresponding to a particular block index.
+        corresponding to a particular block index.
 - `Restore([]byte) error`: Restores the App state from a snapshot.
 
 Reciprocally, `AppProxy` relays transactions from the App to Babble via a native 

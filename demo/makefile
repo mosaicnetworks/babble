@@ -1,5 +1,6 @@
 nodes = 4
 txs = 10
+index = 5
 
 up: conf start watch
 
@@ -35,7 +36,7 @@ bombard:
 
 # create new peer and join
 join:
-	./scripts/join.sh $(nodes)
+	./scripts/join.sh $(index)
 
 .PHONY: up build conf start watch stop demo bombard join
 	

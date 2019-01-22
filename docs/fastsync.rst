@@ -18,7 +18,7 @@ relevant data in signed blocks; here again we see the benefits of using a
 blockchain mapping on top of Hashgraph. Although implementing the 
 Snapshot/Restore functionality puts extra strain on the application developer, 
 it remains entirely optional; FastSync can be activated or deactivated via 
-configuration.    
+configuration. 
 
 Overview
 --------
@@ -61,10 +61,10 @@ records of the gossip history are ignored.
 
   type Frame struct {
   	Round  int     //RoundReceived
-    Peers  []*peers.Peer
+  	Peers  []*peers.Peer
   	Roots  []Root  //[participant ID] => Root
   	Events []Event //Events with RoundReceived = Round
-    FuturePeerSets map(int)[]peers.Peer //[round] => Peers
+  	FuturePeerSets map(int)[]peers.Peer //[round] => Peers
   }
 
 A Frame corresponds to a Hashgraph consensus round. Indeed, the consensus 
@@ -120,21 +120,21 @@ compute a consensus order.
 
 ::
 
-type Root struct {
-	Head        string
-	Past        map[string]RootEvent
-	Precomputed map[string]RootEvent
-
-	...private fields not shown...
-}
-
-type RootEvent struct {
-	Hash             string
-	CreatorID        uint32
-	Index            int
-	Round            int
-	LamportTimestamp int
-}
+  type Root struct {
+  	Head        string
+  	Past        map[string]RootEvent
+  	Precomputed map[string]RootEvent
+  
+  	...private fields not shown...
+  }
+  
+  type RootEvent struct {
+  	Hash             string
+  	CreatorID        uint32
+  	Index            int
+  	Round            int
+  	LamportTimestamp int
+  }
 
 Algorithm Updates
 -----------------
@@ -212,7 +212,7 @@ immediately diverge from the main chain because it will obtain different state
 hashes upon committing new blocks.
 
 Improvements and Further Work
-----------------------------
+-----------------------------
 
 The protocol is not entirely watertight yet; there are edge cases that could 
 quickly lead to forks and diverging nodes. 
