@@ -13,7 +13,6 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/mosaicnetworks/babble/src/babble"
 )
@@ -89,27 +88,17 @@ func (r *Runtime) buildConfig() error {
 	return nil
 }
 
-func (r *Runtime) sendTxs(babbleNode *exec.Cmd, i int) {
-	ticker := time.NewTicker(1 * time.Second)
+func (r *Runtime) sendTxs(i int) {
 	nb := strconv.Itoa(i)
 
-	txNb := 0
+	network := exec.Command("network", "proxy", "--node="+nb, "--submit="+nb)
 
-	for range ticker.C {
-		if txNb == r.sendTx {
-			ticker.Stop()
+	err := network.Run()
 
-			break
-		}
-
-		network := exec.Command("network", "proxy", "--node="+nb, "--submit="+nb+"_"+strconv.Itoa(txNb))
-
-		err := network.Run()
-		if err != nil {
-			continue
-		}
-
-		txNb++
+	if err != nil {
+		fmt.Println("Error: ", err)
+	} else {
+		fmt.Println("Ok")
 	}
 }
 
@@ -154,6 +143,10 @@ func (r *Runtime) runBabbles() error {
 			babbleNode.Stdout = write
 			babbleNode.Stderr = write
 
+			babbleNode.SysProcAttr = &syscall.SysProcAttr{
+				Setpgid: true,
+			}
+
 			out, err := os.OpenFile("/tmp/babble_configs/.babble"+nb+"/out.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0644)
 
 			if err != nil {
@@ -179,7 +172,7 @@ func (r *Runtime) runBabbles() error {
 			fmt.Println("Running", i)
 
 			if r.sendTx > 0 {
-				go r.sendTxs(babbleNode, i)
+				go r.sendTxs(i)
 			}
 
 			processes[i] = babbleNode.Process
@@ -230,6 +223,16 @@ func (r *Runtime) Start() error {
 		switch splited[0] {
 		case "h":
 			help()
+		case "p":
+			fallthrough
+		case "proxy":
+			node := 0
+
+			if len(splited) >= 2 {
+				node, _ = strconv.Atoi(splited[1])
+			}
+
+			r.sendTxs(node)
 		case "r":
 			fallthrough
 		case "run":
@@ -262,34 +265,23 @@ func (r *Runtime) Start() error {
 }
 
 func ReadLog(nb string) {
-	test := exec.Command("tail", "-f", "/tmp/babble_configs/.babble"+nb+"/out.log")
+	logs := exec.Command("tail", "-f", "/tmp/babble_configs/.babble"+nb+"/out.log")
 
-	test.Stdin = os.Stdin
-
-	stdin := os.Stdin
-
-	var err error
-
-	os.Stdin, err = os.Open("/dev/null")
-
-	if err != nil {
-		fmt.Println("ERROR", err)
-
-		return
+	logs.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
 	}
 
 	// This is crucial - otherwise it will write to a null device.
-	test.Stdout = os.Stdout
+	logs.Stdout = os.Stdout
 
-	test.Run()
-
-	os.Stdin = stdin
+	logs.Start()
 }
 
 func help() {
 	fmt.Println("Commands:")
-	fmt.Println("  r | run [nb=4]   - Run `nb` babble nodes")
-	fmt.Println("  l | log [node=0] - Show logs for a node")
-	fmt.Println("  h                - This help")
-	fmt.Println("  q                - Quit")
+	fmt.Println("  r | run [nb=4]     - Run `nb` babble nodes")
+	fmt.Println("  p | proxy [node=0] - Send a transaction to a node")
+	fmt.Println("  l | log [node=0]   - Show logs for a node")
+	fmt.Println("  h                  - This help")
+	fmt.Println("  q                  - Quit")
 }

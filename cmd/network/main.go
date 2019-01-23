@@ -19,7 +19,24 @@ func main() {
 	//Do not print usage when error occurs
 	rootCmd.SilenceUsage = true
 
+	// signalChan := make(chan os.Signal, 1)
+	// cleanupDone := make(chan struct{})
+
+	// signal.Notify(signalChan, os.Interrupt)
+
+	// go func() {
+	// 	<-signalChan
+
+	// 	fmt.Println("\nReceived an interrupt, stopping services...\n")
+
+	// 	// cleanup(services, c)
+	// }()
+
+	// go func() {
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
+	// }()
+
+	// <-cleanupDone
 }
