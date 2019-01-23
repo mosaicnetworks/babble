@@ -1,6 +1,9 @@
 package commands
 
 import (
+	"os"
+	"os/signal"
+
 	runtime "github.com/mosaicnetworks/babble/cmd/network/lib"
 	"github.com/mosaicnetworks/babble/src/babble"
 	"github.com/sirupsen/logrus"
@@ -15,7 +18,13 @@ func NewRunCmd() *cobra.Command {
 		Short:   "Run node",
 		PreRunE: loadConfig,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runtime.New(config.Babble, config.NbNodes, config.SendTxs).Start()
+			run := runtime.New(config.Babble, config.NbNodes, config.SendTxs)
+
+			signalChan := make(chan os.Signal, 1)
+
+			signal.Notify(signalChan, os.Interrupt)
+
+			return run.Start()
 		},
 	}
 

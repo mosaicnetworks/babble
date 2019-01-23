@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"os/signal"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,24 +16,19 @@ import (
 	"github.com/mosaicnetworks/babble/src/babble"
 )
 
-type Node struct {
-	id     int
-	babble *babble.Babble
-}
-
 type Runtime struct {
-	config       babble.BabbleConfig
-	nbNodes      int
-	sendTx       int
-	runningNodes []*Node
+	config    babble.BabbleConfig
+	nbNodes   int
+	sendTx    int
+	processes []*os.Process
 }
 
 func New(babbleConfig babble.BabbleConfig, nbNodes int, sendTx int) *Runtime {
 	return &Runtime{
-		config:       babbleConfig,
-		sendTx:       sendTx,
-		nbNodes:      nbNodes,
-		runningNodes: []*Node{},
+		config:    babbleConfig,
+		sendTx:    sendTx,
+		nbNodes:   nbNodes,
+		processes: make([]*os.Process, nbNodes),
 	}
 }
 
@@ -114,22 +108,24 @@ func (r *Runtime) runBabbles() error {
 
 	wg := sync.WaitGroup{}
 
-	var processes = make([]*os.Process, r.nbNodes)
+	r.processes = make([]*os.Process, r.nbNodes)
 
 	for i := 0; i < r.nbNodes; i++ {
 		wg.Add(1)
 
 		go func(i int) {
 			nb := strconv.Itoa(i)
+
 			babblePortStr := strconv.Itoa(babblePort + (i * 10))
 			proxyServPortStr := strconv.Itoa(babblePort + (i * 10) + 1)
 			proxyCliPortStr := strconv.Itoa(babblePort + (i * 10) + 2)
 
 			servicePort := strconv.Itoa(servicePort + i)
 
-			defer wg.Done()
+			// defer wg.Done()
 
 			read, write, err := os.Pipe()
+
 			defer write.Close()
 
 			if err != nil {
@@ -157,6 +153,8 @@ func (r *Runtime) runBabbles() error {
 
 			go func() {
 				defer read.Close()
+				defer out.Close()
+
 				// copy the data written to the PipeReader via the cmd to stdout
 				if _, err := io.Copy(out, read); err != nil {
 					log.Fatal(err)
@@ -171,11 +169,13 @@ func (r *Runtime) runBabbles() error {
 
 			fmt.Println("Running", i)
 
+			wg.Done()
+
 			if r.sendTx > 0 {
 				go r.sendTxs(i)
 			}
 
-			processes[i] = babbleNode.Process
+			r.processes[i] = babbleNode.Process
 
 			babbleNode.Wait()
 
@@ -184,19 +184,25 @@ func (r *Runtime) runBabbles() error {
 		}(i)
 	}
 
-	c := make(chan os.Signal, 1)
-
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-
-	go func() {
-		for range c {
-			for _, proc := range processes {
-				proc.Kill()
-			}
-		}
-	}()
-
 	wg.Wait()
+
+	return nil
+}
+
+func (r *Runtime) Kill(node int) error {
+	if node < 0 {
+		for _, proc := range r.processes {
+			proc.Kill()
+
+			r.processes = []*os.Process{}
+		}
+	} else if node < len(r.processes) {
+		r.processes[node].Kill()
+
+		r.processes = append(r.processes[0:node], r.processes[node+1:]...)
+	} else {
+		fmt.Println("Unknown process")
+	}
 
 	return nil
 }
@@ -222,9 +228,14 @@ func (r *Runtime) Start() error {
 
 		switch splited[0] {
 		case "h":
+			fallthrough
+
+		case "help":
 			help()
+
 		case "p":
 			fallthrough
+
 		case "proxy":
 			node := 0
 
@@ -233,28 +244,59 @@ func (r *Runtime) Start() error {
 			}
 
 			r.sendTxs(node)
+
 		case "r":
 			fallthrough
+
 		case "run":
 			if len(splited) >= 2 {
 				r.nbNodes, _ = strconv.Atoi(splited[1])
 			}
 
-			go r.runBabbles()
+			r.runBabbles()
 
 		case "l":
 			fallthrough
+
 		case "log":
 			nb := "0"
+
 			if len(splited) >= 2 {
 				nb = splited[1]
 			}
 
 			ReadLog(nb)
+
+		case "list":
+			for i := range r.processes {
+				fmt.Println(i, ": Babble")
+			}
+
+		case "k":
+			fallthrough
+
+		case "kill":
+			nb := "0"
+
+			if len(splited) >= 2 {
+				nb = splited[1]
+			}
+
+			inb, _ := strconv.Atoi(nb)
+
+			r.Kill(inb)
+
+		case "killall":
+			r.Kill(-1)
+
 		case "q":
+			fallthrough
+
+		case "quit":
 			running = false
 
 			break
+
 		case "":
 		default:
 			fmt.Println("Unknown command", splited[0])
@@ -267,14 +309,10 @@ func (r *Runtime) Start() error {
 func ReadLog(nb string) {
 	logs := exec.Command("tail", "-f", "/tmp/babble_configs/.babble"+nb+"/out.log")
 
-	logs.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-	}
-
 	// This is crucial - otherwise it will write to a null device.
 	logs.Stdout = os.Stdout
 
-	logs.Start()
+	logs.Run()
 }
 
 func help() {
@@ -282,6 +320,9 @@ func help() {
 	fmt.Println("  r | run [nb=4]     - Run `nb` babble nodes")
 	fmt.Println("  p | proxy [node=0] - Send a transaction to a node")
 	fmt.Println("  l | log [node=0]   - Show logs for a node")
-	fmt.Println("  h                  - This help")
-	fmt.Println("  q                  - Quit")
+	fmt.Println("      list           - List all running nodes")
+	fmt.Println("  k | kill [node=0]  - Kill given node")
+	fmt.Println("      killall        - Kill all nodes")
+	fmt.Println("  h | help           - This help")
+	fmt.Println("  q | quit           - Quit")
 }

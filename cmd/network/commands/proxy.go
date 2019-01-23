@@ -41,6 +41,7 @@ func (h *Handler) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, er
 
 	for _, tx := range block.Transactions() {
 		hash = crypto.SimpleHashFromTwoHashes(hash, crypto.SHA256(tx))
+
 		fmt.Println(string(tx))
 	}
 
