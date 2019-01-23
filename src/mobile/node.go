@@ -1,6 +1,7 @@
 package mobile
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -29,7 +30,8 @@ func New(privKey string,
 	exceptionHandler ExceptionHandler,
 	config *MobileConfig) *Node {
 
-	babbleConfig := babble.NewDefaultConfig()
+	babbleConfig := config.toBabbleConfig()
+	babbleConfig.BindAddr = nodeAddr
 
 	babbleConfig.Logger.WithFields(logrus.Fields{
 		"nodeAddr": nodeAddr,
@@ -58,12 +60,6 @@ func New(privKey string,
 	}
 
 	peerSet := peers.NewPeerSet(ps)
-
-	// There should be at least two peers
-	if peerSet.Len() < 2 {
-		exceptionHandler.OnException(fmt.Sprintf("Should define at least two peers"))
-		return nil
-	}
 
 	babbleConfig.LoadPeers = false
 
@@ -107,4 +103,16 @@ func (n *Node) SubmitTx(tx []byte) {
 	t := make([]byte, len(tx), len(tx))
 	copy(t, tx)
 	n.proxy.SubmitCh() <- t
+}
+
+func (n *Node) GetPeers() string {
+	peers := n.node.GetPeers()
+
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	if err := enc.Encode(peers); err != nil {
+		return ""
+	}
+
+	return buf.String()
 }
