@@ -35,12 +35,12 @@ type Hashgraph struct {
 	Store                   Store                  //store of Events, Rounds, and Blocks
 	UndeterminedEvents      []string               //[index] => hash . FIFO queue of Events whose consensus order is not yet determined
 	PendingRounds           *PendingRoundsCache    //FIFO queue of Rounds which have not attained consensus yet
+	PendingSignatures       *SigPool               //Pool of Block signatures that need to be processed (matched with Blocks)
 	LastConsensusRound      *int                   //index of last consensus round
 	FirstConsensusRound     *int                   //index of first consensus round (only used in tests)
 	AnchorBlock             *int                   //index of last block with enough signatures
 	roundLowerBound         *int                   //rounds and events below this lower bound have a special treatement (cf fastsync)
 	LastCommitedRoundEvents int                    //number of events in round before LastConsensusRound
-	SigPool                 []BlockSignature       //Pool of Block signatures that need to be processed
 	ConsensusTransactions   int                    //number of consensus transactions
 	PendingLoadedEvents     int                    //number of loaded events that are not yet committed
 	commitCallback          InternalCommitCallback //commit block callback
@@ -68,6 +68,7 @@ func NewHashgraph(store Store, commitCallback InternalCommitCallback, logger *lo
 	hashgraph := Hashgraph{
 		Store:             store,
 		PendingRounds:     NewPendingRoundsCache(),
+		PendingSignatures: NewSigPool(),
 		commitCallback:    commitCallback,
 		ancestorCache:     common.NewLRU(cacheSize, nil),
 		selfAncestorCache: common.NewLRU(cacheSize, nil),
@@ -668,14 +669,10 @@ func (h *Hashgraph) setWireInfo(event *Event) error {
 }
 
 //Remove processed Signatures from SigPool
-func (h *Hashgraph) removeProcessedSignatures(processedSignatures map[int]bool) {
-	newSigPool := []BlockSignature{}
-	for _, bs := range h.SigPool {
-		if _, ok := processedSignatures[bs.Index]; !ok {
-			newSigPool = append(newSigPool, bs)
-		}
+func (h *Hashgraph) removeProcessedSignatures(processedSignatures map[string]bool) {
+	for k := range processedSignatures {
+		h.PendingSignatures.Remove(k)
 	}
-	h.SigPool = newSigPool
 }
 
 /*******************************************************************************
@@ -762,7 +759,10 @@ func (h *Hashgraph) InsertEvent(event *Event, setWireInfo bool) error {
 		h.PendingLoadedEvents++
 	}
 
-	h.SigPool = append(h.SigPool, event.BlockSignatures()...)
+	for _, bs := range event.BlockSignatures() {
+		h.logger.Debugf("Inserting pending signature %v", bs.Key())
+		h.PendingSignatures.Add(bs)
+	}
 
 	return nil
 }
@@ -1041,7 +1041,7 @@ func (h *Hashgraph) DecideRoundReceived() error {
 					return err
 				}
 
-				//XXX
+				//Only count loaded Events of rounds above the lower bound
 				if h.roundLowerBound != nil && *h.roundLowerBound >= i && ex.IsLoaded() {
 					h.PendingLoadedEvents--
 				}
@@ -1081,10 +1081,7 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 			Round after a Reset.
 		*/
 		if h.roundLowerBound != nil && r.Index <= *h.roundLowerBound {
-			//XXX
-			//h.logger.WithField("round_received", r.Index).Debug("Skipping Pending Round")
-			//processedIndex++
-			//h.PendingLoadedEvents = 0
+			h.logger.WithField("round_received", r.Index).Debug("Skipping Pending Round")
 			continue
 		}
 
@@ -1292,12 +1289,12 @@ a known Block. If a Signature is valid, it is appended to the block and removed
 from the SignaturePool. The function also updates the AnchorBlock if necessary.
 */
 func (h *Hashgraph) ProcessSigPool() error {
-	processedSignatures := map[int]bool{} //index in SigPool => Processed?
-	defer h.removeProcessedSignatures(processedSignatures)
+	processedSignatures := []BlockSignature{}
+	defer h.PendingSignatures.RemoveSlice(processedSignatures)
 
-	h.logger.WithField("sig_pool", len(h.SigPool)).Debug("ProcessSigPool()")
+	h.logger.WithField("pending_signatures", h.PendingSignatures.Len()).Debug("ProcessSigPool()")
 
-	for i, bs := range h.SigPool {
+	for _, bs := range h.PendingSignatures.Items() {
 		block, err := h.Store.GetBlock(bs.Index)
 		if err != nil {
 			h.logger.WithFields(logrus.Fields{
@@ -1318,11 +1315,10 @@ func (h *Hashgraph) ProcessSigPool() error {
 		}
 
 		//check if validator belongs to list of participants
-		validatorHex := fmt.Sprintf("0x%X", bs.Validator)
-		if _, ok := peerSet.ByPubKey[validatorHex]; !ok {
+		if _, ok := peerSet.ByPubKey[bs.ValidatorHex()]; !ok {
 			h.logger.WithFields(logrus.Fields{
 				"index":     bs.Index,
-				"validator": validatorHex,
+				"validator": bs.ValidatorHex(),
 			}).Warning("Verifying Block signature. Unknown validator")
 			continue
 		}
@@ -1338,7 +1334,7 @@ func (h *Hashgraph) ProcessSigPool() error {
 		if !valid {
 			h.logger.WithFields(logrus.Fields{
 				"index":     bs.Index,
-				"validator": peerSet.ByPubKey[validatorHex],
+				"validator": peerSet.ByPubKey[bs.ValidatorHex()],
 				"block":     block,
 			}).Warning("Verifying Block signature. Invalid signature")
 			continue
@@ -1357,7 +1353,8 @@ func (h *Hashgraph) ProcessSigPool() error {
 			return err
 		}
 
-		processedSignatures[i] = true
+		h.logger.Debugf("processed sig %v", bs.Key())
+		processedSignatures = append(processedSignatures, bs)
 	}
 
 	return nil

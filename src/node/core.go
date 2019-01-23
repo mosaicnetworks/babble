@@ -29,7 +29,8 @@ type Core struct {
 	Head string
 	Seq  int
 
-	//XXX
+	//AcceptedRound is the first Round to which this peer belongs. A node will
+	//not create SelfEvents before reaching AcceptedRound.
 	AcceptedRound int
 
 	/*
@@ -44,7 +45,7 @@ type Core struct {
 
 	transactionPool         [][]byte
 	internalTransactionPool []hg.InternalTransaction
-	blockSignaturePool      []hg.BlockSignature
+	selfBlockSignatures     *hg.SigPool
 
 	proxyCommitCallback proxy.CommitCallback
 
@@ -77,7 +78,7 @@ func NewCore(
 		peerSelector:            peerSelector,
 		transactionPool:         [][]byte{},
 		internalTransactionPool: []hg.InternalTransaction{},
-		blockSignaturePool:      []hg.BlockSignature{},
+		selfBlockSignatures:     hg.NewSigPool(),
 		promises:                make(map[string]*JoinPromise),
 		heads:                   make(map[uint32]*hg.Event),
 		logger:                  logEntry,
@@ -171,7 +172,6 @@ func (c *Core) Bootstrap() error {
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 func (c *Core) SignAndInsertSelfEvent(event *hg.Event) error {
-	//XXX
 	if c.hg.Store.LastRound() < c.AcceptedRound {
 		c.logger.Debugf("Too early to gossip (%d / %d)", c.hg.Store.LastRound(), c.AcceptedRound)
 		return nil
@@ -228,7 +228,7 @@ func (c *Core) Commit(block *hg.Block) error {
 			return err
 		}
 
-		c.AddBlockSignatureToPool(sig)
+		c.selfBlockSignatures.Add(sig)
 
 		err = c.ProcessAcceptedInternalTransactions(block.RoundReceived(), commitResponse.InternalTransactions)
 		if err != nil {
@@ -361,7 +361,7 @@ func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 		"unknown_events":            len(unknownEvents),
 		"transaction_pool":          len(c.transactionPool),
 		"internal_transaction_pool": len(c.internalTransactionPool),
-		"block_signature_pool":      len(c.blockSignaturePool),
+		"self_signature_pool":       c.selfBlockSignatures.Len(),
 	}).Debug("Sync")
 
 	var otherHead *hg.Event
@@ -405,7 +405,7 @@ func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 	if c.hg.PendingLoadedEvents > 0 ||
 		len(c.transactionPool) > 0 ||
 		len(c.internalTransactionPool) > 0 ||
-		len(c.blockSignaturePool) > 0 {
+		c.selfBlockSignatures.Len() > 0 {
 
 		return c.RecordHeads()
 	}
@@ -431,11 +431,14 @@ func (c *Core) RecordHeads() error {
 }
 
 func (c *Core) AddSelfEvent(otherHead string) error {
+	//Add own block signatures to next Event
+	sigs := c.selfBlockSignatures.Slice()
+
 	//create new event with self head and otherHead
 	//empty pools in its payload
 	newHead := hg.NewEvent(c.transactionPool,
 		c.internalTransactionPool,
-		c.blockSignaturePool,
+		sigs,
 		[]string{c.Head, otherHead},
 		c.PubKey(), c.Seq+1)
 
@@ -448,12 +451,12 @@ func (c *Core) AddSelfEvent(otherHead string) error {
 		"loaded_events":         c.hg.PendingLoadedEvents,
 		"transactions":          len(c.transactionPool),
 		"internal_transactions": len(c.internalTransactionPool),
-		"block_signatures":      len(c.blockSignaturePool),
+		"self_block_signatures": len(sigs),
 	}).Debug("Created Self-Event")
 
 	c.transactionPool = [][]byte{}
 	c.internalTransactionPool = []hg.InternalTransaction{}
-	c.blockSignaturePool = []hg.BlockSignature{}
+	c.selfBlockSignatures.RemoveSlice(sigs)
 
 	return nil
 }
@@ -536,10 +539,6 @@ func (c *Core) AddInternalTransaction(tx hg.InternalTransaction) *JoinPromise {
 
 	//return the promise
 	return promise
-}
-
-func (c *Core) AddBlockSignatureToPool(bs hg.BlockSignature) {
-	c.blockSignaturePool = append(c.blockSignaturePool, bs)
 }
 
 func (c *Core) GetHead() (*hg.Event, error) {

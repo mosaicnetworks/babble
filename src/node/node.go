@@ -139,7 +139,7 @@ func (n *Node) resetTimer() {
 		//Slow gossip if nothing interesting to say
 		if n.core.hg.PendingLoadedEvents == 0 &&
 			len(n.core.transactionPool) == 0 &&
-			len(n.core.blockSignaturePool) == 0 {
+			n.core.selfBlockSignatures.Len() == 0 {
 			ts = time.Duration(time.Second)
 		}
 
@@ -239,8 +239,7 @@ func (n *Node) fastForward() error {
 		return err
 	}
 
-	//XXX
-	//We should commit first to see which InternalTransactions are accepted
+	//XXX We should commit first to see which InternalTransactions are accepted
 	err = n.core.ProcessAcceptedInternalTransactions(resp.Block.RoundReceived(), resp.Block.InternalTransactions())
 	if err != nil {
 		n.logger.WithError(err).Error("Processing AnchorBlock InternalTransactions")
@@ -275,7 +274,6 @@ func (n *Node) join() error {
 		"peers":          len(resp.Peers),
 	}).Debug("JoinResponse")
 
-	//XXX
 	n.core.AcceptedRound = resp.AcceptedRound
 
 	n.setState(CatchingUp)

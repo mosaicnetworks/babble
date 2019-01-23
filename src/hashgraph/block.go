@@ -58,7 +58,7 @@ BlockSignature
 
 type BlockSignature struct {
 	Validator []byte
-	Index     int
+	Index     int //Block Index
 	Signature string
 }
 
@@ -89,6 +89,10 @@ func (bs *BlockSignature) ToWire() WireBlockSignature {
 		Index:     bs.Index,
 		Signature: bs.Signature,
 	}
+}
+
+func (bs *BlockSignature) Key() string {
+	return fmt.Sprintf("%d-%s", bs.Index, bs.ValidatorHex())
 }
 
 type WireBlockSignature struct {

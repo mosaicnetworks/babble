@@ -244,3 +244,45 @@ func (c *PendingRoundsCache) Clean(processedRounds []int) {
 	sort.Sort(newSortedItems)
 	c.sortedItems = newSortedItems
 }
+
+//------------------------------------------------------------------------------
+
+type SigPool struct {
+	items map[string]BlockSignature
+}
+
+func NewSigPool() *SigPool {
+	return &SigPool{
+		items: make(map[string]BlockSignature),
+	}
+}
+
+func (sp *SigPool) Add(blockSignature BlockSignature) {
+	sp.items[blockSignature.Key()] = blockSignature
+}
+
+func (sp *SigPool) Remove(key string) {
+	delete(sp.items, key)
+}
+
+func (sp *SigPool) RemoveSlice(sigs []BlockSignature) {
+	for _, s := range sigs {
+		delete(sp.items, s.Key())
+	}
+}
+
+func (sp *SigPool) Len() int {
+	return len(sp.items)
+}
+
+func (sp *SigPool) Items() map[string]BlockSignature {
+	return sp.items
+}
+
+func (sp *SigPool) Slice() []BlockSignature {
+	res := []BlockSignature{}
+	for _, bs := range sp.items {
+		res = append(res, bs)
+	}
+	return res
+}
