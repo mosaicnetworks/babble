@@ -16,19 +16,26 @@ import (
 	"github.com/mosaicnetworks/babble/src/babble"
 )
 
+type Node struct {
+	i    int
+	proc *os.Process
+}
+
 type Runtime struct {
-	config    babble.BabbleConfig
-	nbNodes   int
-	sendTx    int
-	processes []*os.Process
+	config     babble.BabbleConfig
+	nbNodes    int
+	sendTx     int
+	nextNodeId int
+	processes  map[int]*os.Process
 }
 
 func New(babbleConfig babble.BabbleConfig, nbNodes int, sendTx int) *Runtime {
 	return &Runtime{
-		config:    babbleConfig,
-		sendTx:    sendTx,
-		nbNodes:   nbNodes,
-		processes: make([]*os.Process, nbNodes),
+		config:     babbleConfig,
+		sendTx:     sendTx,
+		nextNodeId: 0,
+		nbNodes:    nbNodes,
+		processes:  make(map[int]*os.Process),
 	}
 }
 
@@ -37,7 +44,7 @@ func (r *Runtime) buildConfig() error {
 
 	peersJSON := `[`
 
-	for i := 0; i < r.nbNodes; i++ {
+	for i := r.nextNodeId; i < r.nbNodes+r.nextNodeId; i++ {
 		nb := strconv.Itoa(i)
 
 		babblePortStr := strconv.Itoa(babblePort + (i * 10))
@@ -65,12 +72,28 @@ func (r *Runtime) buildConfig() error {
 	peersJSON += `
 ]
 `
+	if r.nextNodeId > 0 {
+		// use the first node's peers.json
+		for i := r.nextNodeId; i < r.nbNodes+r.nextNodeId; i++ {
+			nb := strconv.Itoa(i)
 
-	if r.nbNodes == 1 {
+			file, err := ioutil.ReadFile("/tmp/babble_configs/.babble0/peers.json")
+
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			err = ioutil.WriteFile("/tmp/babble_configs/.babble"+nb+"/peers.json", file, 0644)
+
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+
 		return nil
 	}
 
-	for i := 0; i < r.nbNodes; i++ {
+	for i := r.nextNodeId; i < r.nbNodes+r.nextNodeId; i++ {
 		nb := strconv.Itoa(i)
 
 		err := ioutil.WriteFile("/tmp/babble_configs/.babble"+nb+"/peers.json", []byte(peersJSON), 0644)
@@ -97,7 +120,9 @@ func (r *Runtime) sendTxs(i int) {
 }
 
 func (r *Runtime) runBabbles() error {
-	os.RemoveAll("/tmp/babble_configs")
+	if r.nextNodeId == 0 {
+		os.RemoveAll("/tmp/babble_configs")
+	}
 
 	if err := r.buildConfig(); err != nil {
 		log.Fatal(err)
@@ -108,9 +133,9 @@ func (r *Runtime) runBabbles() error {
 
 	wg := sync.WaitGroup{}
 
-	r.processes = make([]*os.Process, r.nbNodes)
+	// if existing network, join without creating peers.json
 
-	for i := 0; i < r.nbNodes; i++ {
+	for i := r.nextNodeId; i < r.nbNodes+r.nextNodeId; i++ {
 		wg.Add(1)
 
 		go func(i int) {
@@ -134,7 +159,14 @@ func (r *Runtime) runBabbles() error {
 				return
 			}
 
-			babbleNode := exec.Command("babble", "run", "-l=127.0.0.1:"+babblePortStr, "--datadir=/tmp/babble_configs/.babble"+nb, "--proxy-listen=127.0.0.1:"+proxyServPortStr, "--client-connect=127.0.0.1:"+proxyCliPortStr, "-s=127.0.0.1:"+servicePort, "--heartbeat="+r.config.NodeConfig.HeartbeatTimeout.String())
+			var babbleNode *exec.Cmd
+
+			// if r.nextNodeId == 0 {
+			// 	babbleNode = exec.Command("babble", "run", "-l=127.0.0.1:"+babblePortStr, "--datadir=/tmp/babble_configs/.babble"+nb, "--proxy-listen=127.0.0.1:"+proxyServPortStr, "--client-connect=127.0.0.1:"+proxyCliPortStr, "-s=127.0.0.1:"+servicePort, "--heartbeat="+r.config.NodeConfig.HeartbeatTimeout.String())
+			// } else {
+			// 	babbleNode = exec.Command("babble", "run", "-l=127.0.0.1:"+babblePortStr, "--datadir=/tmp/babble_configs/.babble"+nb, "--proxy-listen=127.0.0.1:"+proxyServPortStr, "--client-connect=127.0.0.1:"+proxyCliPortStr, "-s=127.0.0.1:"+servicePort, "--heartbeat="+r.config.NodeConfig.HeartbeatTimeout.String(), "-c=127.0.0.1:1337")
+			// }
+			babbleNode = exec.Command("babble", "run", "-l=127.0.0.1:"+babblePortStr, "--datadir=/tmp/babble_configs/.babble"+nb, "--proxy-listen=127.0.0.1:"+proxyServPortStr, "--client-connect=127.0.0.1:"+proxyCliPortStr, "-s=127.0.0.1:"+servicePort, "--heartbeat="+r.config.NodeConfig.HeartbeatTimeout.String())
 
 			babbleNode.Stdout = write
 			babbleNode.Stderr = write
@@ -181,10 +213,13 @@ func (r *Runtime) runBabbles() error {
 
 			fmt.Println("Terminated", i)
 
+			delete(r.processes, i)
 		}(i)
 	}
 
 	wg.Wait()
+
+	r.nextNodeId += r.nbNodes
 
 	return nil
 }
@@ -194,12 +229,12 @@ func (r *Runtime) Kill(node int) error {
 		for _, proc := range r.processes {
 			proc.Kill()
 
-			r.processes = []*os.Process{}
+			r.processes = map[int]*os.Process{}
 		}
-	} else if node < len(r.processes) {
-		r.processes[node].Kill()
+	} else if proc, ok := r.processes[node]; ok {
+		proc.Kill()
 
-		r.processes = append(r.processes[0:node], r.processes[node+1:]...)
+		delete(r.processes, node)
 	} else {
 		fmt.Println("Unknown process")
 	}
@@ -320,9 +355,9 @@ func help() {
 	fmt.Println("  r | run [nb=4]     - Run `nb` babble nodes")
 	fmt.Println("  p | proxy [node=0] - Send a transaction to a node")
 	fmt.Println("  l | log [node=0]   - Show logs for a node")
-	fmt.Println("      list           - List all running nodes")
+	fmt.Println("  h | help           - This help")
 	fmt.Println("  k | kill [node=0]  - Kill given node")
 	fmt.Println("      killall        - Kill all nodes")
-	fmt.Println("  h | help           - This help")
+	fmt.Println("      list           - List all running nodes")
 	fmt.Println("  q | quit           - Quit")
 }
