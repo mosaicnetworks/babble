@@ -783,19 +783,19 @@ func TestDivideRounds(t *testing.T) {
 		t.Fatalf("Round[1].CreatedEvents should be %v, not %v", expectedRounds[1].CreatedEvents, round1.CreatedEvents)
 	}
 
-	expectedPendingRounds := []pendingRound{
-		pendingRound{
+	expectedPendingRounds := []*PendingRound{
+		&PendingRound{
 			Index:   0,
 			Decided: false,
 		},
-		pendingRound{
+		&PendingRound{
 			Index:   1,
 			Decided: false,
 		},
 	}
-	for i, pd := range h.PendingRounds {
-		if !reflect.DeepEqual(*pd, expectedPendingRounds[i]) {
-			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedPendingRounds[i], *pd)
+	for i, pd := range h.PendingRounds.GetOrderedPendingRounds() {
+		if !reflect.DeepEqual(pd, expectedPendingRounds[i]) {
+			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedPendingRounds[i], pd)
 		}
 	}
 
@@ -976,7 +976,7 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 		}
 
 		//Check SigPool
-		if l := len(h.SigPool); l != 3 {
+		if l := h.PendingSignatures.Len(); l != 3 {
 			t.Fatalf("SigPool should contain 3 signatures, not %d", l)
 		}
 
@@ -990,7 +990,7 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 		}
 
 		//Check that SigPool was cleared
-		if l := len(h.SigPool); l != 0 {
+		if l := h.PendingSignatures.Len(); l != 0 {
 			t.Fatalf("SigPool should contain 0 signatures, not %d", l)
 		}
 	})
@@ -1337,32 +1337,36 @@ func TestDecideFame(t *testing.T) {
 		}
 	}
 
-	expectedpendingRounds := []pendingRound{
-		pendingRound{
+	expectedpendingRounds := []*PendingRound{
+		&PendingRound{
 			Index:   0,
 			Decided: true,
 		},
-		pendingRound{
+		&PendingRound{
 			Index:   1,
 			Decided: true,
 		},
-		pendingRound{
+		&PendingRound{
 			Index:   2,
 			Decided: true,
 		},
-		pendingRound{
+		&PendingRound{
 			Index:   3,
 			Decided: false,
 		},
-		pendingRound{
+		&PendingRound{
 			Index:   4,
 			Decided: false,
 		},
 	}
-	for i, pd := range h.PendingRounds {
-		if !reflect.DeepEqual(*pd, expectedpendingRounds[i]) {
-			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedpendingRounds[i], *pd)
-		}
+
+	expectedPendingRoundsCache := NewPendingRoundsCache()
+	for _, pr := range expectedpendingRounds {
+		expectedPendingRoundsCache.Set(pr)
+	}
+
+	if !reflect.DeepEqual(h.PendingRounds, expectedPendingRoundsCache) {
+		t.Fatalf("PendingRounds should be %v, not %v", expectedPendingRoundsCache, h.PendingRounds)
 	}
 }
 
@@ -1513,19 +1517,19 @@ func TestProcessDecidedRounds(t *testing.T) {
 	}
 
 	// pendingRounds -----------------------------------------------------------
-	expectedpendingRounds := []pendingRound{
-		pendingRound{
+	expectedpendingRounds := []*PendingRound{
+		&PendingRound{
 			Index:   3,
 			Decided: false,
 		},
-		pendingRound{
+		&PendingRound{
 			Index:   4,
 			Decided: false,
 		},
 	}
-	for i, pd := range h.PendingRounds {
-		if !reflect.DeepEqual(*pd, expectedpendingRounds[i]) {
-			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedpendingRounds[i], *pd)
+	for i, pd := range h.PendingRounds.GetOrderedPendingRounds() {
+		if !reflect.DeepEqual(pd, expectedpendingRounds[i]) {
+			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedpendingRounds[i], pd)
 		}
 	}
 
@@ -2115,32 +2119,32 @@ func TestFunkyHashgraphFame(t *testing.T) {
 	}
 
 	//Rounds 1 and 2 should get decided BEFORE round 0
-	expectedpendingRounds := []pendingRound{
-		pendingRound{
+	expectedpendingRounds := []*PendingRound{
+		&PendingRound{
 			Index:   0,
 			Decided: false,
 		},
-		pendingRound{
+		&PendingRound{
 			Index:   1,
 			Decided: true,
 		},
-		pendingRound{
+		&PendingRound{
 			Index:   2,
 			Decided: true,
 		},
-		pendingRound{
+		&PendingRound{
 			Index:   3,
 			Decided: false,
 		},
-		pendingRound{
+		&PendingRound{
 			Index:   4,
 			Decided: false,
 		},
 	}
 
-	for i, pd := range h.PendingRounds {
-		if !reflect.DeepEqual(*pd, expectedpendingRounds[i]) {
-			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedpendingRounds[i], *pd)
+	for i, pd := range h.PendingRounds.GetOrderedPendingRounds() {
+		if !reflect.DeepEqual(pd, expectedpendingRounds[i]) {
+			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedpendingRounds[i], pd)
 		}
 	}
 
@@ -2155,9 +2159,9 @@ func TestFunkyHashgraphFame(t *testing.T) {
 	//are decided. So the PendingQueue should remain the same after calling
 	//ProcessDecidedRounds()
 
-	for i, pd := range h.PendingRounds {
-		if !reflect.DeepEqual(*pd, expectedpendingRounds[i]) {
-			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedpendingRounds[i], *pd)
+	for i, pd := range h.PendingRounds.GetOrderedPendingRounds() {
+		if !reflect.DeepEqual(pd, expectedpendingRounds[i]) {
+			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedpendingRounds[i], pd)
 		}
 	}
 }
@@ -2195,19 +2199,19 @@ func TestFunkyHashgraphBlocks(t *testing.T) {
 	}
 
 	//rounds 0,1, 2 and 3 should be decided
-	expectedpendingRounds := []pendingRound{
-		pendingRound{
+	expectedpendingRounds := []*PendingRound{
+		&PendingRound{
 			Index:   4,
 			Decided: false,
 		},
-		pendingRound{
+		&PendingRound{
 			Index:   5,
 			Decided: false,
 		},
 	}
-	for i, pd := range h.PendingRounds {
-		if !reflect.DeepEqual(*pd, expectedpendingRounds[i]) {
-			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedpendingRounds[i], *pd)
+	for i, pd := range h.PendingRounds.GetOrderedPendingRounds() {
+		if !reflect.DeepEqual(pd, expectedpendingRounds[i]) {
+			t.Fatalf("pendingRounds[%d] should be %v, not %v", i, expectedpendingRounds[i], pd)
 		}
 	}
 

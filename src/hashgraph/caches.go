@@ -182,3 +182,107 @@ func (c *PeerSetCache) GetFuture(baseRound int) (map[int][]*peers.Peer, error) {
 	}
 	return res, nil
 }
+
+//------------------------------------------------------------------------------
+
+type PendingRound struct {
+	Index   int
+	Decided bool
+}
+
+type OrderedPendingRounds []*PendingRound
+
+func (a OrderedPendingRounds) Len() int      { return len(a) }
+func (a OrderedPendingRounds) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a OrderedPendingRounds) Less(i, j int) bool {
+	return a[i].Index < a[j].Index
+}
+
+type PendingRoundsCache struct {
+	items       map[int]*PendingRound
+	sortedItems OrderedPendingRounds
+}
+
+func NewPendingRoundsCache() *PendingRoundsCache {
+	return &PendingRoundsCache{
+		items:       make(map[int]*PendingRound),
+		sortedItems: []*PendingRound{},
+	}
+}
+
+func (c *PendingRoundsCache) Queued(round int) bool {
+	_, ok := c.items[round]
+	return ok
+}
+
+func (c *PendingRoundsCache) Set(pendingRound *PendingRound) {
+	c.items[pendingRound.Index] = pendingRound
+	c.sortedItems = append(c.sortedItems, pendingRound)
+	sort.Sort(c.sortedItems)
+}
+
+func (c *PendingRoundsCache) GetOrderedPendingRounds() OrderedPendingRounds {
+	return c.sortedItems
+}
+
+func (c *PendingRoundsCache) Update(decidedRounds []int) {
+	for _, drn := range decidedRounds {
+		if dr, ok := c.items[drn]; ok {
+			dr.Decided = true
+		}
+	}
+}
+
+func (c *PendingRoundsCache) Clean(processedRounds []int) {
+	for _, pr := range processedRounds {
+		delete(c.items, pr)
+	}
+	newSortedItems := OrderedPendingRounds{}
+	for _, pr := range c.items {
+		newSortedItems = append(newSortedItems, pr)
+	}
+	sort.Sort(newSortedItems)
+	c.sortedItems = newSortedItems
+}
+
+//------------------------------------------------------------------------------
+
+type SigPool struct {
+	items map[string]BlockSignature
+}
+
+func NewSigPool() *SigPool {
+	return &SigPool{
+		items: make(map[string]BlockSignature),
+	}
+}
+
+func (sp *SigPool) Add(blockSignature BlockSignature) {
+	sp.items[blockSignature.Key()] = blockSignature
+}
+
+func (sp *SigPool) Remove(key string) {
+	delete(sp.items, key)
+}
+
+func (sp *SigPool) RemoveSlice(sigs []BlockSignature) {
+	for _, s := range sigs {
+		delete(sp.items, s.Key())
+	}
+}
+
+func (sp *SigPool) Len() int {
+	return len(sp.items)
+}
+
+func (sp *SigPool) Items() map[string]BlockSignature {
+	return sp.items
+}
+
+func (sp *SigPool) Slice() []BlockSignature {
+	res := []BlockSignature{}
+	for _, bs := range sp.items {
+		res = append(res, bs)
+	}
+	return res
+}

@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"sort"
 	"sync"
-	"time"
 
 	"github.com/mosaicnetworks/babble/src/crypto"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
@@ -30,6 +29,10 @@ type Core struct {
 	Head string
 	Seq  int
 
+	//AcceptedRound is the first Round to which this peer belongs. A node will
+	//not create SelfEvents before reaching AcceptedRound.
+	AcceptedRound int
+
 	/*
 		Events that are not tied to this node's Head. This is managed by
 		the Sync method. If the gossip condition is false (there is nothing
@@ -42,7 +45,7 @@ type Core struct {
 
 	transactionPool         [][]byte
 	internalTransactionPool []hg.InternalTransaction
-	blockSignaturePool      []hg.BlockSignature
+	selfBlockSignatures     *hg.SigPool
 
 	proxyCommitCallback proxy.CommitCallback
 
@@ -75,12 +78,13 @@ func NewCore(
 		peerSelector:            peerSelector,
 		transactionPool:         [][]byte{},
 		internalTransactionPool: []hg.InternalTransaction{},
-		blockSignaturePool:      []hg.BlockSignature{},
+		selfBlockSignatures:     hg.NewSigPool(),
 		promises:                make(map[string]*JoinPromise),
 		heads:                   make(map[uint32]*hg.Event),
 		logger:                  logEntry,
 		Head:                    "",
 		Seq:                     -1,
+		AcceptedRound:           -1,
 	}
 
 	core.hg = hg.NewHashgraph(store, core.Commit, logEntry)
@@ -168,14 +172,18 @@ func (c *Core) Bootstrap() error {
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 func (c *Core) SignAndInsertSelfEvent(event *hg.Event) error {
+	if c.hg.Store.LastRound() < c.AcceptedRound {
+		c.logger.Debugf("Too early to gossip (%d / %d)", c.hg.Store.LastRound(), c.AcceptedRound)
+		return nil
+	}
 	if err := event.Sign(c.key); err != nil {
 		return err
 	}
-	return c.InsertEvent(event, true)
+	return c.InsertEventAndRunConsensus(event, true)
 }
 
-func (c *Core) InsertEvent(event *hg.Event, setWireInfo bool) error {
-	if err := c.hg.InsertEvent(event, setWireInfo); err != nil {
+func (c *Core) InsertEventAndRunConsensus(event *hg.Event, setWireInfo bool) error {
+	if err := c.hg.InsertEventAndRunConsensus(event, setWireInfo); err != nil {
 		return err
 	}
 	if event.Creator() == c.HexID() {
@@ -220,7 +228,7 @@ func (c *Core) Commit(block *hg.Block) error {
 			return err
 		}
 
-		c.AddBlockSignatureToPool(sig)
+		c.selfBlockSignatures.Add(sig)
 
 		err = c.ProcessAcceptedInternalTransactions(block.RoundReceived(), commitResponse.InternalTransactions)
 		if err != nil {
@@ -353,7 +361,7 @@ func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 		"unknown_events":            len(unknownEvents),
 		"transaction_pool":          len(c.transactionPool),
 		"internal_transaction_pool": len(c.internalTransactionPool),
-		"block_signature_pool":      len(c.blockSignaturePool),
+		"self_signature_pool":       c.selfBlockSignatures.Len(),
 	}).Debug("Sync")
 
 	var otherHead *hg.Event
@@ -367,7 +375,7 @@ func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 			return err
 		}
 
-		if err := c.InsertEvent(ev, false); err != nil {
+		if err := c.InsertEventAndRunConsensus(ev, false); err != nil {
 			c.logger.WithError(err).Errorf("Inserting Event")
 			return err
 		}
@@ -397,7 +405,7 @@ func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 	if c.hg.PendingLoadedEvents > 0 ||
 		len(c.transactionPool) > 0 ||
 		len(c.internalTransactionPool) > 0 ||
-		len(c.blockSignaturePool) > 0 {
+		c.selfBlockSignatures.Len() > 0 {
 
 		return c.RecordHeads()
 	}
@@ -423,11 +431,14 @@ func (c *Core) RecordHeads() error {
 }
 
 func (c *Core) AddSelfEvent(otherHead string) error {
+	//Add own block signatures to next Event
+	sigs := c.selfBlockSignatures.Slice()
+
 	//create new event with self head and otherHead
 	//empty pools in its payload
 	newHead := hg.NewEvent(c.transactionPool,
 		c.internalTransactionPool,
-		c.blockSignaturePool,
+		sigs,
 		[]string{c.Head, otherHead},
 		c.PubKey(), c.Seq+1)
 
@@ -440,12 +451,12 @@ func (c *Core) AddSelfEvent(otherHead string) error {
 		"loaded_events":         c.hg.PendingLoadedEvents,
 		"transactions":          len(c.transactionPool),
 		"internal_transactions": len(c.internalTransactionPool),
-		"block_signatures":      len(c.blockSignaturePool),
+		"self_block_signatures": len(sigs),
 	}).Debug("Created Self-Event")
 
 	c.transactionPool = [][]byte{}
 	c.internalTransactionPool = []hg.InternalTransaction{}
-	c.blockSignaturePool = []hg.BlockSignature{}
+	c.selfBlockSignatures.RemoveSlice(sigs)
 
 	return nil
 }
@@ -479,11 +490,6 @@ func (c *Core) FastForward(peer string, block *hg.Block, frame *hg.Frame) error 
 		return err
 	}
 
-	err = c.RunConsensus()
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -512,48 +518,8 @@ func (c *Core) ToWire(events []*hg.Event) ([]hg.WireEvent, error) {
 	return wireEvents, nil
 }
 
-func (c *Core) RunConsensus() error {
-	start := time.Now()
-	err := c.hg.DivideRounds()
-	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("DivideRounds()")
-	if err != nil {
-		c.logger.WithField("error", err).Error("DivideRounds")
-		return err
-	}
-
-	start = time.Now()
-	err = c.hg.DecideFame()
-	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("DecideFame()")
-	if err != nil {
-		c.logger.WithField("error", err).Error("DecideFame")
-		return err
-	}
-
-	start = time.Now()
-	err = c.hg.DecideRoundReceived()
-	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("DecideRoundReceived()")
-	if err != nil {
-		c.logger.WithField("error", err).Error("DecideRoundReceived")
-		return err
-	}
-
-	start = time.Now()
-	err = c.hg.ProcessDecidedRounds()
-	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("ProcessDecidedRounds()")
-	if err != nil {
-		c.logger.WithField("error", err).Error("ProcessDecidedRounds")
-		return err
-	}
-
-	start = time.Now()
-	err = c.hg.ProcessSigPool()
-	c.logger.WithField("duration", time.Since(start).Nanoseconds()).Debug("ProcessSigPool()")
-	if err != nil {
-		c.logger.WithField("error", err).Error("ProcessSigPool()")
-		return err
-	}
-
-	return nil
+func (c *Core) ProcessSigPool() error {
+	return c.hg.ProcessSigPool()
 }
 
 func (c *Core) AddTransactions(txs [][]byte) {
@@ -573,10 +539,6 @@ func (c *Core) AddInternalTransaction(tx hg.InternalTransaction) *JoinPromise {
 
 	//return the promise
 	return promise
-}
-
-func (c *Core) AddBlockSignatureToPool(bs hg.BlockSignature) {
-	c.blockSignaturePool = append(c.blockSignaturePool, bs)
 }
 
 func (c *Core) GetHead() (*hg.Event, error) {

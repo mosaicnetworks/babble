@@ -117,6 +117,38 @@ func (s *BadgerStore) GetEvent(key string) (*Event, error) {
 	return s.inmemStore.GetEvent(key)
 }
 
+func (s *BadgerStore) ParticipantEvents(participant string, skip int) ([]string, error) {
+	return s.inmemStore.ParticipantEvents(participant, skip)
+}
+
+func (s *BadgerStore) ParticipantEvent(participant string, index int) (string, error) {
+	return s.inmemStore.ParticipantEvent(participant, index)
+}
+
+func (s *BadgerStore) GetRound(r int) (*RoundInfo, error) {
+	return s.inmemStore.GetRound(r)
+}
+
+func (s *BadgerStore) RoundWitnesses(r int) []string {
+	round, err := s.GetRound(r)
+	if err != nil {
+		return []string{}
+	}
+	return round.Witnesses()
+}
+
+func (s *BadgerStore) RoundEvents(r int) int {
+	round, err := s.GetRound(r)
+	if err != nil {
+		return 0
+	}
+	return len(round.CreatedEvents)
+}
+
+func (s *BadgerStore) GetFrame(rr int) (*Frame, error) {
+	return s.inmemStore.GetFrame(rr)
+}
+
 func (s *BadgerStore) GetPeerSet(round int) (peerSet *peers.PeerSet, err error) {
 	return s.inmemStore.GetPeerSet(round)
 }
@@ -226,51 +258,11 @@ func (s *BadgerStore) SetEvent(event *Event) error {
 	return s.dbSetEvents([]*Event{event})
 }
 
-func (s *BadgerStore) ParticipantEvents(participant string, skip int) ([]string, error) {
-	res, err := s.inmemStore.ParticipantEvents(participant, skip)
-	if err != nil {
-		res, err = s.dbParticipantEvents(participant, skip)
-	}
-	return res, err
-}
-
-func (s *BadgerStore) ParticipantEvent(participant string, index int) (string, error) {
-	result, err := s.inmemStore.ParticipantEvent(participant, index)
-	if err != nil {
-		result, err = s.dbParticipantEvent(participant, index)
-	}
-	return result, mapError(err, "ParticipantEvent", string(participantEventKey(participant, index)))
-}
-
-func (s *BadgerStore) GetRound(r int) (*RoundInfo, error) {
-	res, err := s.inmemStore.GetRound(r)
-	if err != nil {
-		res, err = s.dbGetRound(r)
-	}
-	return res, mapError(err, "Round", string(roundKey(r)))
-}
-
 func (s *BadgerStore) SetRound(r int, round *RoundInfo) error {
 	if err := s.inmemStore.SetRound(r, round); err != nil {
 		return err
 	}
 	return s.dbSetRound(r, round)
-}
-
-func (s *BadgerStore) RoundWitnesses(r int) []string {
-	round, err := s.GetRound(r)
-	if err != nil {
-		return []string{}
-	}
-	return round.Witnesses()
-}
-
-func (s *BadgerStore) RoundEvents(r int) int {
-	round, err := s.GetRound(r)
-	if err != nil {
-		return 0
-	}
-	return len(round.CreatedEvents)
 }
 
 func (s *BadgerStore) GetRoot(participant string) (*Root, error) {
@@ -294,14 +286,6 @@ func (s *BadgerStore) SetBlock(block *Block) error {
 		return err
 	}
 	return s.dbSetBlock(block)
-}
-
-func (s *BadgerStore) GetFrame(rr int) (*Frame, error) {
-	res, err := s.inmemStore.GetFrame(rr)
-	if err != nil {
-		res, err = s.dbGetFrame(rr)
-	}
-	return res, mapError(err, "Frame", string(frameKey(rr)))
 }
 
 func (s *BadgerStore) SetFrame(frame *Frame) error {

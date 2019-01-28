@@ -176,7 +176,7 @@ func TestFastForward(t *testing.T) {
 	nodes := initNodes(keys, peers, 1000, 1000, "inmem", logger, t)
 	defer shutdownNodes(nodes)
 
-	target := 10
+	target := 20
 	err := gossip(nodes[1:], target, false, 6*time.Second)
 	if err != nil {
 		t.Fatal(err)
@@ -265,7 +265,7 @@ func TestCatchUp(t *testing.T) {
 func TestFastSync(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(4)
-	nodes := initNodes(keys, peers, 100000, 100, "inmem", logger, t) //make cache high to draw graphs
+	nodes := initNodes(keys, peers, 100000, 400, "inmem", logger, t) //make cache high to draw graphs
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
@@ -309,7 +309,7 @@ func TestFastSync(t *testing.T) {
 
 	//Gossip some more
 	thirdTarget := secondTarget + 50
-	err = bombardAndWait(nodes, thirdTarget, 6*time.Second)
+	err = bombardAndWait(nodes, thirdTarget, 10*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}

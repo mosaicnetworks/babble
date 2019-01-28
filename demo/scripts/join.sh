@@ -33,8 +33,8 @@ docker create --name=node$N --net=babblenet --ip=172.77.5.$N mosaicnetworks/babb
     --service-listen="172.77.5.$N:80" \
     --sync-limit=1000 \
     --log="debug"
-    # --store \
-    
+    #    --store \
+
 docker cp $dest node$N:/.babble
 docker start node$N
 

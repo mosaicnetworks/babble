@@ -34,13 +34,13 @@ const (
 type Hashgraph struct {
 	Store                   Store                  //store of Events, Rounds, and Blocks
 	UndeterminedEvents      []string               //[index] => hash . FIFO queue of Events whose consensus order is not yet determined
-	PendingRounds           []*pendingRound        //FIFO queue of Rounds which have not attained consensus yet
+	PendingRounds           *PendingRoundsCache    //FIFO queue of Rounds which have not attained consensus yet
+	PendingSignatures       *SigPool               //Pool of Block signatures that need to be processed (matched with Blocks)
 	LastConsensusRound      *int                   //index of last consensus round
 	FirstConsensusRound     *int                   //index of first consensus round (only used in tests)
 	AnchorBlock             *int                   //index of last block with enough signatures
 	roundLowerBound         *int                   //rounds and events below this lower bound have a special treatement (cf fastsync)
 	LastCommitedRoundEvents int                    //number of events in round before LastConsensusRound
-	SigPool                 []BlockSignature       //Pool of Block signatures that need to be processed
 	ConsensusTransactions   int                    //number of consensus transactions
 	PendingLoadedEvents     int                    //number of loaded events that are not yet committed
 	commitCallback          InternalCommitCallback //commit block callback
@@ -67,6 +67,8 @@ func NewHashgraph(store Store, commitCallback InternalCommitCallback, logger *lo
 	cacheSize := store.CacheSize()
 	hashgraph := Hashgraph{
 		Store:             store,
+		PendingRounds:     NewPendingRoundsCache(),
+		PendingSignatures: NewSigPool(),
 		commitCallback:    commitCallback,
 		ancestorCache:     common.NewLRU(cacheSize, nil),
 		selfAncestorCache: common.NewLRU(cacheSize, nil),
@@ -666,32 +668,44 @@ func (h *Hashgraph) setWireInfo(event *Event) error {
 	return nil
 }
 
-func (h *Hashgraph) updatePendingRounds(decidedRounds map[int]int) {
-	for _, ur := range h.PendingRounds {
-		if _, ok := decidedRounds[ur.Index]; ok {
-			ur.Decided = true
-		}
-	}
-}
-
 //Remove processed Signatures from SigPool
-func (h *Hashgraph) removeProcessedSignatures(processedSignatures map[int]bool) {
-	newSigPool := []BlockSignature{}
-	for _, bs := range h.SigPool {
-		if _, ok := processedSignatures[bs.Index]; !ok {
-			newSigPool = append(newSigPool, bs)
-		}
+func (h *Hashgraph) removeProcessedSignatures(processedSignatures map[string]bool) {
+	for k := range processedSignatures {
+		h.PendingSignatures.Remove(k)
 	}
-	h.SigPool = newSigPool
 }
 
 /*******************************************************************************
 Public Methods
 *******************************************************************************/
 
+//InsertEventAndRunConsensus inserts an Event in the Hashgraph and call the
+//consensus methods.
+func (h *Hashgraph) InsertEventAndRunConsensus(event *Event, setWireInfo bool) error {
+	if err := h.InsertEvent(event, setWireInfo); err != nil {
+		return err
+	}
+	if err := h.DivideRounds(); err != nil {
+		return err
+	}
+	if err := h.DecideFame(); err != nil {
+		return err
+	}
+	if err := h.DecideRoundReceived(); err != nil {
+		return err
+	}
+	if err := h.ProcessDecidedRounds(); err != nil {
+		return err
+	}
+	return nil
+}
+
 //InsertEvent attempts to insert an Event in the DAG. It verifies the signature,
 //checks the ancestors are known, and prevents the introduction of forks.
 func (h *Hashgraph) InsertEvent(event *Event, setWireInfo bool) error {
+	//XXX TODO
+	//Check if creator belongs to round
+
 	//verify signature
 	if ok, err := event.Verify(); !ok {
 		if err != nil {
@@ -745,7 +759,10 @@ func (h *Hashgraph) InsertEvent(event *Event, setWireInfo bool) error {
 		h.PendingLoadedEvents++
 	}
 
-	h.SigPool = append(h.SigPool, event.BlockSignatures()...)
+	for _, bs := range event.BlockSignatures() {
+		h.logger.Debugf("Inserting pending signature %v", bs.Key())
+		h.PendingSignatures.Add(bs)
+	}
 
 	return nil
 }
@@ -781,9 +798,8 @@ func (h *Hashgraph) DivideRounds() error {
 				roundInfo = NewRoundInfo()
 			}
 
-			if !roundInfo.queued {
-				h.PendingRounds = append(h.PendingRounds, &pendingRound{roundNumber, false})
-				roundInfo.queued = true
+			if !h.PendingRounds.Queued(roundNumber) && !roundInfo.decided {
+				h.PendingRounds.Set(&PendingRound{roundNumber, false})
 			}
 
 			witness, err := h.witness(hash)
@@ -828,9 +844,9 @@ func (h *Hashgraph) DecideFame() error {
 		votes[x][y] = vote
 	}
 
-	decidedRounds := map[int]int{} //[round number] => index in h.PendingRounds
+	decidedRounds := []int{}
 
-	for pos, r := range h.PendingRounds {
+	for _, r := range h.PendingRounds.GetOrderedPendingRounds() {
 		roundIndex := r.Index
 
 		rRoundInfo, err := h.Store.GetRound(roundIndex)
@@ -932,7 +948,7 @@ func (h *Hashgraph) DecideFame() error {
 		}
 
 		if rRoundInfo.WitnessesDecided(rPeerSet) {
-			decidedRounds[roundIndex] = pos
+			decidedRounds = append(decidedRounds, roundIndex)
 		}
 
 		err = h.Store.SetRound(roundIndex, rRoundInfo)
@@ -941,7 +957,7 @@ func (h *Hashgraph) DecideFame() error {
 		}
 	}
 
-	h.updatePendingRounds(decidedRounds)
+	h.PendingRounds.Update(decidedRounds)
 	return nil
 }
 
@@ -957,6 +973,7 @@ func (h *Hashgraph) DecideRoundReceived() error {
 	*/
 	for _, x := range h.UndeterminedEvents {
 		received := false
+
 		r, err := h.round(x)
 		if err != nil {
 			return err
@@ -1010,6 +1027,7 @@ func (h *Hashgraph) DecideRoundReceived() error {
 				if err != nil {
 					return err
 				}
+
 				ex.SetRoundReceived(i)
 
 				err = h.Store.SetEvent(ex)
@@ -1021,6 +1039,11 @@ func (h *Hashgraph) DecideRoundReceived() error {
 				err = h.Store.SetRound(i, tr)
 				if err != nil {
 					return err
+				}
+
+				//Only count loaded Events of rounds above the lower bound
+				if h.roundLowerBound != nil && *h.roundLowerBound >= i && ex.IsLoaded() {
+					h.PendingLoadedEvents--
 				}
 
 				//break out of i loop
@@ -1045,12 +1068,12 @@ commit channel
 */
 func (h *Hashgraph) ProcessDecidedRounds() error {
 	//Defer removing processed Rounds from the PendingRounds Queue
-	processedIndex := 0
+	processedRounds := []int{}
 	defer func() {
-		h.PendingRounds = h.PendingRounds[processedIndex:]
+		h.PendingRounds.Clean(processedRounds)
 	}()
 
-	for _, r := range h.PendingRounds {
+	for _, r := range h.PendingRounds.GetOrderedPendingRounds() {
 		/*
 			After a Reset, round roundLowerBound (=LastConsensusRound) is added
 			to PendingRounds, but its ConsensusEvents (which are necessarily
@@ -1059,8 +1082,6 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 		*/
 		if h.roundLowerBound != nil && r.Index <= *h.roundLowerBound {
 			h.logger.WithField("round_received", r.Index).Debug("Skipping Pending Round")
-			h.PendingLoadedEvents = 0
-			processedIndex++
 			continue
 		}
 
@@ -1128,7 +1149,7 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 			h.logger.Debugf("No Events to commit for ConsensusRound %d", r.Index)
 		}
 
-		processedIndex++
+		processedRounds = append(processedRounds, r.Index)
 
 		if h.LastConsensusRound == nil || r.Index > *h.LastConsensusRound {
 			h.setLastConsensusRound(r.Index)
@@ -1268,12 +1289,9 @@ a known Block. If a Signature is valid, it is appended to the block and removed
 from the SignaturePool. The function also updates the AnchorBlock if necessary.
 */
 func (h *Hashgraph) ProcessSigPool() error {
-	processedSignatures := map[int]bool{} //index in SigPool => Processed?
-	defer h.removeProcessedSignatures(processedSignatures)
+	h.logger.WithField("pending_signatures", h.PendingSignatures.Len()).Debug("ProcessSigPool()")
 
-	h.logger.WithField("sig_pool", len(h.SigPool)).Debug("ProcessSigPool()")
-
-	for i, bs := range h.SigPool {
+	for _, bs := range h.PendingSignatures.Items() {
 		block, err := h.Store.GetBlock(bs.Index)
 		if err != nil {
 			h.logger.WithFields(logrus.Fields{
@@ -1294,11 +1312,10 @@ func (h *Hashgraph) ProcessSigPool() error {
 		}
 
 		//check if validator belongs to list of participants
-		validatorHex := fmt.Sprintf("0x%X", bs.Validator)
-		if _, ok := peerSet.ByPubKey[validatorHex]; !ok {
+		if _, ok := peerSet.ByPubKey[bs.ValidatorHex()]; !ok {
 			h.logger.WithFields(logrus.Fields{
 				"index":     bs.Index,
-				"validator": validatorHex,
+				"validator": bs.ValidatorHex(),
 			}).Warning("Verifying Block signature. Unknown validator")
 			continue
 		}
@@ -1314,7 +1331,7 @@ func (h *Hashgraph) ProcessSigPool() error {
 		if !valid {
 			h.logger.WithFields(logrus.Fields{
 				"index":     bs.Index,
-				"validator": peerSet.ByPubKey[validatorHex],
+				"validator": peerSet.ByPubKey[bs.ValidatorHex()],
 				"block":     block,
 			}).Warning("Verifying Block signature. Invalid signature")
 			continue
@@ -1333,7 +1350,9 @@ func (h *Hashgraph) ProcessSigPool() error {
 			return err
 		}
 
-		processedSignatures[i] = true
+		h.logger.Debugf("processed sig %v", bs.Key())
+
+		h.PendingSignatures.Remove(bs.Key())
 	}
 
 	return nil
@@ -1401,7 +1420,7 @@ func (h *Hashgraph) Reset(block *Block, frame *Frame) error {
 	h.AnchorBlock = nil
 
 	h.UndeterminedEvents = []string{}
-	h.PendingRounds = []*pendingRound{}
+	h.PendingRounds = NewPendingRoundsCache()
 	h.PendingLoadedEvents = 0
 	h.topologicalIndex = 0
 
@@ -1427,7 +1446,7 @@ func (h *Hashgraph) Reset(block *Block, frame *Frame) error {
 
 	//Insert Frame Events
 	for _, ev := range frame.Events {
-		if err := h.InsertEvent(ev, false); err != nil {
+		if err := h.InsertEventAndRunConsensus(ev, false); err != nil {
 			return err
 		}
 	}
@@ -1462,24 +1481,12 @@ func (h *Hashgraph) Bootstrap() error {
 
 		//Insert the Events in the Hashgraph
 		for _, e := range topologicalEvents {
-			if err := h.InsertEvent(e, true); err != nil {
+			if err := h.InsertEventAndRunConsensus(e, true); err != nil {
 				return err
 			}
 		}
 
-		//Compute the consensus order of Events
-		if err := h.DivideRounds(); err != nil {
-			return err
-		}
-		if err := h.DecideFame(); err != nil {
-			return err
-		}
-		if err := h.DecideRoundReceived(); err != nil {
-			return err
-		}
-		if err := h.ProcessDecidedRounds(); err != nil {
-			return err
-		}
+		//ProcessSigPool
 		if err := h.ProcessSigPool(); err != nil {
 			return err
 		}

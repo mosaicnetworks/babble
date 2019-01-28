@@ -139,7 +139,7 @@ func (n *Node) resetTimer() {
 		//Slow gossip if nothing interesting to say
 		if n.core.hg.PendingLoadedEvents == 0 &&
 			len(n.core.transactionPool) == 0 &&
-			len(n.core.blockSignaturePool) == 0 {
+			n.core.selfBlockSignatures.Len() == 0 {
 			ts = time.Duration(time.Second)
 		}
 
@@ -239,8 +239,7 @@ func (n *Node) fastForward() error {
 		return err
 	}
 
-	//XXX
-	//We should commit first to see which InternalTransactions are accepted
+	//XXX We should commit first to see which InternalTransactions are accepted
 	err = n.core.ProcessAcceptedInternalTransactions(resp.Block.RoundReceived(), resp.Block.InternalTransactions())
 	if err != nil {
 		n.logger.WithError(err).Error("Processing AnchorBlock InternalTransactions")
@@ -275,10 +274,7 @@ func (n *Node) join() error {
 		"peers":          len(resp.Peers),
 	}).Debug("JoinResponse")
 
-	//XXX
-	//This prevevents the node from FastForwarding to before the Round where it
-	//was accepted. WIP
-	time.Sleep(1000 * time.Millisecond)
+	n.core.AcceptedRound = resp.AcceptedRound
 
 	n.setState(CatchingUp)
 
@@ -289,17 +285,6 @@ func (n *Node) join() error {
 //calling routine (usually the babble routine) when it is time to exit the
 //Babbling state and return.
 func (n *Node) gossip(peer *peers.Peer, parentReturnCh chan struct{}) error {
-	var err error
-
-	//if gossip fails, do a monologue anyway, this creates a self-event, clears
-	//the pools, and processes consensus methods. Useful in avoiding dead-locks
-	//in dynamic-participants.
-	// defer func() {
-	// 	if err != nil {
-	// 		n.monologue()
-	// 	}
-	// }()
-
 	//pull
 	syncLimit, otherKnownEvents, err := n.pull(peer)
 	if err != nil {
@@ -343,14 +328,9 @@ func (n *Node) monologue() error {
 		return err
 	}
 
-	//Run consensus methods
-	start := time.Now()
-	err = n.core.RunConsensus()
-	elapsed := time.Since(start)
-	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed RunConsensus()")
-
+	err = n.core.ProcessSigPool()
 	if err != nil {
-		n.logger.WithError(err).Error("monologue, RunConsensus()")
+		n.logger.WithError(err).Error("monologue, ProcessSigPool()")
 		return err
 	}
 
@@ -399,36 +379,25 @@ func (n *Node) pull(peer *peers.Peer) (syncLimit bool, otherKnownEvents map[uint
 }
 
 func (n *Node) push(peer *peers.Peer, knownEvents map[uint32]int) error {
-
 	//Check SyncLimit
 	n.coreLock.Lock()
-
 	overSyncLimit := n.core.OverSyncLimit(knownEvents, n.conf.SyncLimit)
-
 	n.coreLock.Unlock()
 
 	if overSyncLimit {
 		n.logger.Debug("SyncLimit")
-
 		return nil
 	}
 
 	//Compute Diff
 	start := time.Now()
-
 	n.coreLock.Lock()
-
 	eventDiff, err := n.core.EventDiff(knownEvents)
-
 	n.coreLock.Unlock()
-
 	elapsed := time.Since(start)
-
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Diff()")
-
 	if err != nil {
 		n.logger.WithField("error", err).Error("Calculating Diff")
-
 		return err
 	}
 
@@ -463,22 +432,19 @@ func (n *Node) sync(fromID uint32, events []hg.WireEvent) error {
 	start := time.Now()
 	err := n.core.Sync(fromID, events)
 	elapsed := time.Since(start)
-	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed Sync()")
-
+	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Sync()")
 	if err != nil {
 		n.logger.WithError(err).Error()
 		return err
 	}
 
-	n.logger.Debug("Sync OK")
-
-	//Run consensus methods
+	//Process SignaturePool
 	start = time.Now()
-	err = n.core.RunConsensus()
+	err = n.core.ProcessSigPool()
 	elapsed = time.Since(start)
-	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Processed RunConsensus()")
-
+	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("ProcessSigPool()")
 	if err != nil {
+		n.logger.WithError(err).Error()
 		return err
 	}
 
