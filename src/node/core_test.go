@@ -11,38 +11,42 @@ import (
 	"github.com/mosaicnetworks/babble/src/crypto"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/peers"
+	"github.com/mosaicnetworks/babble/src/proxy"
 )
 
-func initCores(n int, t *testing.T) ([]Core, map[int]*ecdsa.PrivateKey, map[string]string) {
+func initCores(n int, t *testing.T) ([]*Core, map[uint32]*ecdsa.PrivateKey, map[string]string) {
 	cacheSize := 1000
 
-	cores := []Core{}
+	cores := []*Core{}
 	index := make(map[string]string)
-	participantKeys := map[int]*ecdsa.PrivateKey{}
+	participantKeys := map[uint32]*ecdsa.PrivateKey{}
+	pirs := []*peers.Peer{}
 
-	// participantKeys := []*ecdsa.PrivateKey{}
-	participants := peers.NewPeers()
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
 		pubHex := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey))
 		peer := peers.NewPeer(pubHex, "")
-		participants.AddPeer(peer)
-		participantKeys[peer.ID] = key
+		pirs = append(pirs, peer)
+		participantKeys[peer.ID()] = key
 	}
 
-	for i, peer := range participants.ToPeerSlice() {
-		core := NewCore(i,
-			participantKeys[peer.ID],
-			participants,
-			hg.NewInmemStore(participants, cacheSize),
-			nil,
+	peerSet := peers.NewPeerSet(pirs)
+
+	for i, peer := range peerSet.Peers {
+		core := NewCore(peer.ID(),
+			participantKeys[peer.ID()],
+			peerSet,
+			hg.NewInmemStore(cacheSize),
+			proxy.DummyCommitCallback,
 			common.NewTestLogger(t))
 
 		//Create and save the first Event
-		initialEvent := hg.NewEvent([][]byte(nil), nil,
-			[]string{fmt.Sprintf("Root%d", peer.ID), ""},
+		initialEvent := hg.NewEvent([][]byte(nil),
+			nil,
+			[]string{fmt.Sprintf("Root%d", peer.ID()), ""},
 			core.PubKey(),
 			0)
+
 		err := core.SignAndInsertSelfEvent(initialEvent)
 		if err != nil {
 			t.Fatal(err)
@@ -67,31 +71,34 @@ e01 |   |
 e0  e1  e2
 0   1   2
 */
-func initHashgraph(cores []Core, keys map[int]*ecdsa.PrivateKey, index map[string]string, participant int) {
+func initHashgraph(cores []*Core, keys map[uint32]*ecdsa.PrivateKey, index map[string]string, participant uint32) {
 	for i := 0; i < len(cores); i++ {
-		if i != participant {
+		if uint32(i) != participant {
 			event, _ := cores[i].GetEvent(index[fmt.Sprintf("e%d", i)])
-			if err := cores[participant].InsertEvent(event, true); err != nil {
+			if err := cores[participant].InsertEventAndRunConsensus(event, true); err != nil {
 				fmt.Printf("error inserting %s: %s\n", getName(index, event.Hex()), err)
 			}
 		}
 	}
 
-	event01 := hg.NewEvent([][]byte{}, nil,
+	event01 := hg.NewEvent([][]byte{},
+		nil,
 		[]string{index["e0"], index["e1"]}, //e0 and e1
 		cores[0].PubKey(), 1)
 	if err := insertEvent(cores, keys, index, event01, "e01", participant, common.Hash32(cores[0].pubKey)); err != nil {
 		fmt.Printf("error inserting e01: %s\n", err)
 	}
 
-	event20 := hg.NewEvent([][]byte{}, nil,
+	event20 := hg.NewEvent([][]byte{},
+		nil,
 		[]string{index["e2"], index["e01"]}, //e2 and e01
 		cores[2].PubKey(), 1)
 	if err := insertEvent(cores, keys, index, event20, "e20", participant, common.Hash32(cores[2].pubKey)); err != nil {
 		fmt.Printf("error inserting e20: %s\n", err)
 	}
 
-	event12 := hg.NewEvent([][]byte{}, nil,
+	event12 := hg.NewEvent([][]byte{},
+		nil,
 		[]string{index["e1"], index["e20"]}, //e1 and e20
 		cores[1].PubKey(), 1)
 	if err := insertEvent(cores, keys, index, event12, "e12", participant, common.Hash32(cores[1].pubKey)); err != nil {
@@ -99,8 +106,8 @@ func initHashgraph(cores []Core, keys map[int]*ecdsa.PrivateKey, index map[strin
 	}
 }
 
-func insertEvent(cores []Core, keys map[int]*ecdsa.PrivateKey, index map[string]string,
-	event hg.Event, name string, particant int, creator int) error {
+func insertEvent(cores []*Core, keys map[uint32]*ecdsa.PrivateKey, index map[string]string,
+	event *hg.Event, name string, particant uint32, creator uint32) error {
 
 	if particant == creator {
 		if err := cores[particant].SignAndInsertSelfEvent(event); err != nil {
@@ -110,7 +117,7 @@ func insertEvent(cores []Core, keys map[int]*ecdsa.PrivateKey, index map[string]
 		index[name] = cores[particant].Head
 	} else {
 		event.Sign(keys[creator])
-		if err := cores[particant].InsertEvent(event, true); err != nil {
+		if err := cores[particant].InsertEventAndRunConsensus(event, true); err != nil {
 			return err
 		}
 		index[name] = event.Hex()
@@ -156,6 +163,7 @@ func TestEventDiff(t *testing.T) {
 	}
 
 }
+
 func TestSync(t *testing.T) {
 	cores, _, index := initCores(3, t)
 
@@ -325,7 +333,7 @@ type play struct {
 	payload [][]byte
 }
 
-func initConsensusHashgraph(t *testing.T) []Core {
+func initConsensusHashgraph(t *testing.T) []*Core {
 	cores, _, _ := initCores(3, t)
 	playbook := []play{
 		play{from: 0, to: 1, payload: [][]byte{[]byte("e10")}},
@@ -383,7 +391,7 @@ func TestOverSyncLimit(t *testing.T) {
 	cores := initConsensusHashgraph(t)
 
 	//positive
-	known := map[int]int{
+	known := map[uint32]int{
 		common.Hash32(cores[0].pubKey): 1,
 		common.Hash32(cores[1].pubKey): 1,
 		common.Hash32(cores[2].pubKey): 1,
@@ -396,7 +404,7 @@ func TestOverSyncLimit(t *testing.T) {
 	}
 
 	//negative
-	known = map[int]int{
+	known = map[uint32]int{
 		common.Hash32(cores[0].pubKey): 6,
 		common.Hash32(cores[1].pubKey): 6,
 		common.Hash32(cores[2].pubKey): 6,
@@ -407,7 +415,7 @@ func TestOverSyncLimit(t *testing.T) {
 	}
 
 	//edge
-	known = map[int]int{
+	known = map[uint32]int{
 		common.Hash32(cores[0].pubKey): 2,
 		common.Hash32(cores[1].pubKey): 3,
 		common.Hash32(cores[2].pubKey): 3,
@@ -419,9 +427,6 @@ func TestOverSyncLimit(t *testing.T) {
 }
 
 /*
-
-
-
     |   |   |   |-----------------
 	|   w31 |   | R3
 	|	| \ |   |
@@ -458,7 +463,7 @@ func TestOverSyncLimit(t *testing.T) {
     |   e1  e2  e3
     0	1	2	3
 */
-func initFFHashgraph(cores []Core, t *testing.T) {
+func initFFHashgraph(cores []*Core, t *testing.T) {
 	playbook := []play{
 		play{from: 1, to: 2, payload: [][]byte{[]byte("e21")}},
 		play{from: 2, to: 3, payload: [][]byte{[]byte("e32")}},
@@ -600,7 +605,7 @@ func TestCoreFastForward(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		expectedKnown := map[int]int{
+		expectedKnown := map[uint32]int{
 			common.Hash32(cores[0].pubKey): -1,
 			common.Hash32(cores[1].pubKey): 1,
 			common.Hash32(cores[2].pubKey): 1,
@@ -626,24 +631,12 @@ func TestCoreFastForward(t *testing.T) {
 		if !reflect.DeepEqual(sBlock.Body, block.Body) {
 			t.Fatalf("Blocks defer")
 		}
-
-		// lastEventFrom0, _, err := cores[0].hg.Store.LastEventFrom(cores[0].hexID)
-		// if err != nil {
-		// 	t.Fatal(err)
-		// }
-		// if c0h := cores[0].Head; c0h != lastEventFrom0 {
-		// 	t.Fatalf("Head should be %s, not %s", lastEventFrom0, c0h)
-		// }
-
-		// if c0s := cores[0].Seq; c0s != 0 {
-		// 	t.Fatalf("Seq should be %d, not %d", 0, c0s)
-		// }
-
 	})
-
 }
 
-func synchronizeCores(cores []Core, from int, to int, payload [][]byte) error {
+/******************************************************************************/
+
+func synchronizeCores(cores []*Core, from int, to int, payload [][]byte) error {
 	knownByTo := cores[to].KnownEvents()
 	unknownByTo, err := cores[from].EventDiff(knownByTo)
 	if err != nil {
@@ -657,14 +650,14 @@ func synchronizeCores(cores []Core, from int, to int, payload [][]byte) error {
 
 	cores[to].AddTransactions(payload)
 
-	return cores[to].Sync(unknownWire)
+	return cores[to].Sync(cores[from].ID(), unknownWire)
 }
 
-func syncAndRunConsensus(cores []Core, from int, to int, payload [][]byte) error {
+func syncAndRunConsensus(cores []*Core, from int, to int, payload [][]byte) error {
 	if err := synchronizeCores(cores, from, to, payload); err != nil {
 		return err
 	}
-	cores[to].RunConsensus()
+	cores[to].ProcessSigPool()
 	return nil
 }
 

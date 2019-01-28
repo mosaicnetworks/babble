@@ -8,13 +8,19 @@ import (
 	"fmt"
 
 	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/peers"
 )
+
+/*******************************************************************************
+BlockBody
+*******************************************************************************/
 
 type BlockBody struct {
 	Index         int
 	RoundReceived int
 	StateHash     []byte
 	FrameHash     []byte
+	PeersHash     []byte
 	Transactions  [][]byte
 }
 
@@ -45,11 +51,13 @@ func (bb *BlockBody) Hash() ([]byte, error) {
 	return crypto.SHA256(hashBytes), nil
 }
 
-//------------------------------------------------------------------------------
+/*******************************************************************************
+BlockSignature
+*******************************************************************************/
 
 type BlockSignature struct {
 	Validator []byte
-	Index     int
+	Index     int //Block Index
 	Signature string
 }
 
@@ -82,43 +90,68 @@ func (bs *BlockSignature) ToWire() WireBlockSignature {
 	}
 }
 
+func (bs *BlockSignature) Key() string {
+	return fmt.Sprintf("%d-%s", bs.Index, bs.ValidatorHex())
+}
+
 type WireBlockSignature struct {
 	Index     int
 	Signature string
 }
 
-//------------------------------------------------------------------------------
+/*******************************************************************************
+Block
+*******************************************************************************/
 
 type Block struct {
 	Body       BlockBody
 	Signatures map[string]string // [validator hex] => signature
 
-	hash []byte
-	hex  string
+	hash    []byte
+	hex     string
+	peerSet *peers.PeerSet
 }
 
-func NewBlockFromFrame(blockIndex int, frame Frame) (Block, error) {
+func NewBlockFromFrame(blockIndex int, frame *Frame) (*Block, error) {
 	frameHash, err := frame.Hash()
 	if err != nil {
-		return Block{}, err
+		return nil, err
 	}
+
 	transactions := [][]byte{}
 	for _, e := range frame.Events {
 		transactions = append(transactions, e.Transactions()...)
 	}
-	return NewBlock(blockIndex, frame.Round, frameHash, transactions), nil
+
+	return NewBlock(blockIndex, frame.Round, frameHash, frame.Peers, transactions), nil
 }
 
-func NewBlock(blockIndex, roundReceived int, frameHash []byte, txs [][]byte) Block {
+func NewBlock(blockIndex,
+	roundReceived int,
+	frameHash []byte,
+	peerSlice []*peers.Peer,
+	txs [][]byte) *Block {
+
+	peerSet := peers.NewPeerSet(peerSlice)
+
+	peersHash, err := peerSet.Hash()
+	if err != nil {
+		return nil
+	}
+
 	body := BlockBody{
 		Index:         blockIndex,
 		RoundReceived: roundReceived,
+		StateHash:     []byte{},
 		FrameHash:     frameHash,
+		PeersHash:     peersHash,
 		Transactions:  txs,
 	}
-	return Block{
+
+	return &Block{
 		Body:       body,
 		Signatures: make(map[string]string),
+		peerSet:    peerSet,
 	}
 }
 
@@ -140,6 +173,10 @@ func (b *Block) StateHash() []byte {
 
 func (b *Block) FrameHash() []byte {
 	return b.Body.FrameHash
+}
+
+func (b *Block) PeersHash() []byte {
+	return b.Body.PeersHash
 }
 
 func (b *Block) GetSignatures() []BlockSignature {
@@ -213,7 +250,6 @@ func (b *Block) Hex() string {
 }
 
 func (b *Block) Sign(privKey *ecdsa.PrivateKey) (bs BlockSignature, err error) {
-
 	signBytes, err := b.Body.Hash()
 	if err != nil {
 		return bs, err
@@ -237,7 +273,6 @@ func (b *Block) SetSignature(bs BlockSignature) error {
 }
 
 func (b *Block) Verify(sig BlockSignature) (bool, error) {
-
 	signBytes, err := b.Body.Hash()
 	if err != nil {
 		return false, err

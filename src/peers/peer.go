@@ -1,19 +1,18 @@
 package peers
 
 import (
+	"bytes"
 	"encoding/hex"
+	"encoding/json"
 
 	"github.com/mosaicnetworks/babble/src/common"
 )
 
-const (
-	jsonPeerPath = "peers.json"
-)
-
 type Peer struct {
-	ID        int `json:"-"`
 	NetAddr   string
 	PubKeyHex string
+
+	id uint32
 }
 
 func NewPeer(pubKeyHex, netAddr string) *Peer {
@@ -21,46 +20,53 @@ func NewPeer(pubKeyHex, netAddr string) *Peer {
 		PubKeyHex: pubKeyHex,
 		NetAddr:   netAddr,
 	}
-
-	peer.computeID()
-
 	return peer
 }
 
-func (p *Peer) PubKeyBytes() ([]byte, error) {
-	return hex.DecodeString(p.PubKeyHex[2:])
+func (p *Peer) ID() uint32 {
+	if p.id == 0 {
+		pubKeyBytes := p.PubKeyBytes()
+		p.id = common.Hash32(pubKeyBytes)
+	}
+	return p.id
 }
 
-func (p *Peer) computeID() error {
-	// TODO: Use the decoded bytes from hex
-	pubKey, err := p.PubKeyBytes()
+func (p *Peer) PubKeyBytes() []byte {
+	res, _ := hex.DecodeString(p.PubKeyHex[2:])
+	return res
+}
 
-	if err != nil {
-		return err
+//json encoding excludes the ID field
+func (p *Peer) Marshal() ([]byte, error) {
+	var b bytes.Buffer
+
+	enc := json.NewEncoder(&b)
+
+	if err := enc.Encode(p); err != nil {
+		return nil, err
 	}
 
-	p.ID = common.Hash32(pubKey)
+	return b.Bytes(), nil
+}
+
+func (p *Peer) Unmarshal(data []byte) error {
+	b := bytes.NewBuffer(data)
+
+	dec := json.NewDecoder(b) //will read from b
+
+	if err := dec.Decode(p); err != nil {
+		return err
+	}
 
 	return nil
 }
 
-// PeerStore provides an interface for persistent storage and
-// retrieval of peers.
-type PeerStore interface {
-	// Peers returns the list of known peers.
-	Peers() (*Peers, error)
-
-	// SetPeers sets the list of known peers. This is invoked when a peer is
-	// added or removed.
-	SetPeers([]*Peer) error
-}
-
 // ExcludePeer is used to exclude a single peer from a list of peers.
-func ExcludePeer(peers []*Peer, peer string) (int, []*Peer) {
+func ExcludePeer(peers []*Peer, peer uint32) (int, []*Peer) {
 	index := -1
 	otherPeers := make([]*Peer, 0, len(peers))
 	for i, p := range peers {
-		if p.NetAddr != peer {
+		if p.ID() != peer {
 			otherPeers = append(otherPeers, p)
 		} else {
 			index = i

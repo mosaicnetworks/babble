@@ -20,7 +20,7 @@ do
     echo "Generating key pair for node$i"
     docker run  \
         -v $dest:/.babble \
-        --rm mosaicnetworks/babble keygen 
+        --rm mosaicnetworks/babble:0.4.1 keygen 
     echo "$IPBASE$i:$PORT" > $dest/addr
 done
 

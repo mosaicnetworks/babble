@@ -5,7 +5,6 @@ set -u
 NODES=${1:-4}
 COUNT=${2:-10}
 
-
 for i in `seq 1 $COUNT`; do
 	for n in `seq 1 $NODES`; do
         printf "Node$n Tx$i" | base64 | \

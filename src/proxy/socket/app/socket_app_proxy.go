@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/sirupsen/logrus"
 )
 
@@ -51,7 +52,7 @@ func (p *SocketAppProxy) SubmitCh() chan []byte {
 	return p.server.submitCh
 }
 
-func (p *SocketAppProxy) CommitBlock(block hashgraph.Block) ([]byte, error) {
+func (p *SocketAppProxy) CommitBlock(block hashgraph.Block) (proxy.CommitResponse, error) {
 	return p.client.CommitBlock(block)
 }
 

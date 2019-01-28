@@ -13,22 +13,21 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+/*******************************************************************************
+MOST OF THIS IS TAKEN FROM HASHICORP RAFT
+*******************************************************************************/
+
 const (
-	rpcSync uint8 = iota
+	rpcJoin uint8 = iota
+	rpcSync
 	rpcEagerSync
 	rpcFastForward
-
-	// DefaultTimeoutScale is the default TimeoutScale in a NetworkTransport.
-	DefaultTimeoutScale = 256 * 1024 // 256KB
 )
 
 var (
 	// ErrTransportShutdown is returned when operations on a transport are
 	// invoked after it's been terminated.
 	ErrTransportShutdown = errors.New("transport shutdown")
-
-	// ErrPipelineShutdown is returned when the pipeline is closed.
-	ErrPipelineShutdown = errors.New("append pipeline closed")
 )
 
 /*
@@ -60,7 +59,8 @@ type NetworkTransport struct {
 
 	stream StreamLayer
 
-	timeout time.Duration
+	timeout     time.Duration
+	joinTimeout time.Duration
 }
 
 // StreamLayer is used with the NetworkTransport to provide
@@ -86,8 +86,8 @@ func (n *netConn) Release() error {
 }
 
 // NewNetworkTransport creates a new network transport with the given dialer
-// and listener. The maxPool controls how many connections we will pool. The
-// timeout is used to apply I/O deadlines.
+// and listener. The maxPool controls how many connections we will pool (per
+// target). The timeout is used to apply I/O deadlines.
 func NewNetworkTransport(
 	stream StreamLayer,
 	maxPool int,
@@ -206,30 +206,30 @@ func (n *NetworkTransport) returnConn(conn *netConn) {
 
 // Sync implements the Transport interface.
 func (n *NetworkTransport) Sync(target string, args *SyncRequest, resp *SyncResponse) error {
-	return n.genericRPC(target, rpcSync, args, resp)
+	return n.genericRPC(target, rpcSync, n.timeout, args, resp)
 }
 
 // EagerSync implements the Transport interface.
 func (n *NetworkTransport) EagerSync(target string, args *EagerSyncRequest, resp *EagerSyncResponse) error {
-	return n.genericRPC(target, rpcEagerSync, args, resp)
+	return n.genericRPC(target, rpcEagerSync, n.timeout, args, resp)
 }
 
 // FastForward implements the Transport interface.
 func (n *NetworkTransport) FastForward(target string, args *FastForwardRequest, resp *FastForwardResponse) error {
-	return n.genericRPC(target, rpcFastForward, args, resp)
+	return n.genericRPC(target, rpcFastForward, n.timeout, args, resp)
 }
 
 // genericRPC handles a simple request/response RPC.
-func (n *NetworkTransport) genericRPC(target string, rpcType uint8, args interface{}, resp interface{}) error {
+func (n *NetworkTransport) genericRPC(target string, rpcType uint8, timeout time.Duration, args interface{}, resp interface{}) error {
 	// Get a conn
-	conn, err := n.getConn(target, n.timeout)
+	conn, err := n.getConn(target, timeout)
 	if err != nil {
 		return err
 	}
 
 	// Set a deadline
-	if n.timeout > 0 {
-		conn.conn.SetDeadline(time.Now().Add(n.timeout))
+	if timeout > 0 {
+		conn.conn.SetDeadline(time.Now().Add(timeout))
 	}
 
 	// Send the RPC

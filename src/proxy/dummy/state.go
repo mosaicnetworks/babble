@@ -5,6 +5,7 @@ import (
 
 	"github.com/mosaicnetworks/babble/src/crypto"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/sirupsen/logrus"
 )
 
@@ -37,16 +38,19 @@ func NewState(logger *logrus.Logger) *State {
 	return state
 }
 
-func (a *State) CommitHandler(block hashgraph.Block) ([]byte, error) {
+func (a *State) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, error) {
 	a.logger.WithField("block", block).Debug("CommitBlock")
 
 	err := a.commit(block)
-
 	if err != nil {
-		return nil, err
+		return proxy.CommitResponse{}, err
 	}
 
-	return a.stateHash, nil
+	response := proxy.CommitResponse{
+		StateHash: a.stateHash,
+	}
+
+	return response, nil
 }
 
 func (a *State) SnapshotHandler(blockIndex int) ([]byte, error) {
@@ -62,7 +66,6 @@ func (a *State) SnapshotHandler(blockIndex int) ([]byte, error) {
 }
 
 func (a *State) RestoreHandler(snapshot []byte) ([]byte, error) {
-	//XXX do something smart here
 	a.stateHash = snapshot
 
 	return a.stateHash, nil
@@ -86,7 +89,6 @@ func (a *State) commit(block hashgraph.Block) error {
 
 	a.stateHash = hash
 
-	//XXX do something smart here
 	a.snapshots[block.Index()] = hash
 
 	return nil

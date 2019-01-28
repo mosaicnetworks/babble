@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 
+	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/crypto"
 	h "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
@@ -18,7 +19,7 @@ type Babble struct {
 	Node      *node.Node
 	Transport net.Transport
 	Store     h.Store
-	Peers     *peers.Peers
+	Peers     *peers.PeerSet
 	Service   *service.Service
 }
 
@@ -35,7 +36,7 @@ func (b *Babble) initTransport() error {
 		b.Config.BindAddr,
 		nil,
 		b.Config.MaxPool,
-		b.Config.NodeConfig.HeartbeatTimeout,
+		b.Config.NodeConfig.TCPTimeout,
 		b.Config.Logger,
 	)
 
@@ -57,16 +58,12 @@ func (b *Babble) initPeers() error {
 		return nil
 	}
 
-	peerStore := peers.NewJSONPeers(b.Config.DataDir)
+	peerStore := peers.NewJSONPeerSet(b.Config.DataDir)
 
-	participants, err := peerStore.Peers()
+	participants, err := peerStore.PeerSet()
 
 	if err != nil {
 		return err
-	}
-
-	if participants.Len() < 2 {
-		return fmt.Errorf("peers.json should define at least two peers")
 	}
 
 	b.Peers = participants
@@ -76,7 +73,7 @@ func (b *Babble) initPeers() error {
 
 func (b *Babble) initStore() error {
 	if !b.Config.Store {
-		b.Store = h.NewInmemStore(b.Peers, b.Config.NodeConfig.CacheSize)
+		b.Store = h.NewInmemStore(b.Config.NodeConfig.CacheSize)
 
 		b.Config.Logger.Debug("created new in-mem store")
 	} else {
@@ -84,7 +81,7 @@ func (b *Babble) initStore() error {
 
 		b.Config.Logger.WithField("path", b.Config.BadgerDir()).Debug("Attempting to load or create database")
 
-		b.Store, err = h.LoadOrCreateBadgerStore(b.Peers, b.Config.NodeConfig.CacheSize, b.Config.BadgerDir())
+		b.Store, err = h.NewBadgerStore(b.Config.NodeConfig.CacheSize, b.Config.BadgerDir())
 
 		if err != nil {
 			return err
@@ -129,24 +126,17 @@ func (b *Babble) initKey() error {
 
 func (b *Babble) initNode() error {
 	key := b.Config.Key
-
-	nodePub := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey))
-	n, ok := b.Peers.ByPubKey[nodePub]
-
-	if !ok {
-		return fmt.Errorf("Cannot find self pubkey in peers.json")
-	}
-
-	nodeID := n.ID
+	pub := crypto.FromECDSAPub(&key.PublicKey)
+	id := common.Hash32(pub)
 
 	b.Config.Logger.WithFields(logrus.Fields{
 		"participants": b.Peers,
-		"id":           nodeID,
+		"id":           id,
 	}).Debug("PARTICIPANTS")
 
 	b.Node = node.NewNode(
 		&b.Config.NodeConfig,
-		nodeID,
+		id,
 		key,
 		b.Peers,
 		b.Store,

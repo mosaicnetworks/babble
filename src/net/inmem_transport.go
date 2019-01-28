@@ -77,7 +77,7 @@ func (i *InmemTransport) Sync(target string, args *SyncRequest, resp *SyncRespon
 	return nil
 }
 
-// Sync implements the Transport interface.
+// EagerSync implements the Transport interface.
 func (i *InmemTransport) EagerSync(target string, args *EagerSyncRequest, resp *EagerSyncResponse) error {
 	rpcResp, err := i.makeRPC(target, args, nil, i.timeout)
 	if err != nil {

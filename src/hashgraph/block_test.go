@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/peers"
 )
 
 func TestSignBlock(t *testing.T) {
@@ -12,6 +13,7 @@ func TestSignBlock(t *testing.T) {
 
 	block := NewBlock(0, 1,
 		[]byte("framehash"),
+		[]*peers.Peer{},
 		[][]byte{
 			[]byte("abc"),
 			[]byte("def"),
@@ -38,6 +40,7 @@ func TestAppendSignature(t *testing.T) {
 
 	block := NewBlock(0, 1,
 		[]byte("framehash"),
+		[]*peers.Peer{},
 		[][]byte{
 			[]byte("abc"),
 			[]byte("def"),

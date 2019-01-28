@@ -12,13 +12,20 @@ import (
 func TestParticipantEventsCache(t *testing.T) {
 	size := 10
 	testSize := 25
-	participants := peers.NewPeersFromSlice([]*peers.Peer{
+	participants := peers.NewPeerSet([]*peers.Peer{
 		peers.NewPeer("0xaa", ""),
 		peers.NewPeer("0xbb", ""),
 		peers.NewPeer("0xcc", ""),
 	})
 
-	pec := NewParticipantEventsCache(size, participants)
+	pec := NewParticipantEventsCache(size)
+
+	for _, p := range participants.Peers {
+		err := pec.AddPeer(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	items := make(map[string][]string)
 	for pk := range participants.ByPubKey {
@@ -117,13 +124,20 @@ func TestParticipantEventsCache(t *testing.T) {
 func TestParticipantEventsCacheEdge(t *testing.T) {
 	size := 10
 	testSize := 11
-	participants := peers.NewPeersFromSlice([]*peers.Peer{
+	participants := peers.NewPeerSet([]*peers.Peer{
 		peers.NewPeer("0xaa", ""),
 		peers.NewPeer("0xbb", ""),
 		peers.NewPeer("0xcc", ""),
 	})
 
-	pec := NewParticipantEventsCache(size, participants)
+	pec := NewParticipantEventsCache(size)
+
+	for _, p := range participants.Peers {
+		err := pec.AddPeer(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	items := make(map[string][]string)
 	for pk := range participants.ByPubKey {
@@ -153,3 +167,106 @@ func TestParticipantEventsCacheEdge(t *testing.T) {
 		}
 	}
 }
+
+func TestPeerSetCache(t *testing.T) {
+	peerSetCache := NewPeerSetCache()
+
+	peerSet0 := peers.NewPeerSet([]*peers.Peer{
+		peers.NewPeer("0xaa", ""),
+		peers.NewPeer("0xbb", ""),
+		peers.NewPeer("0xcc", ""),
+	})
+
+	err := peerSetCache.Set(0, peerSet0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	/**************************************************************************/
+
+	peerSet3 := peerSet0.WithNewPeer(peers.NewPeer("0xdd", ""))
+
+	err = peerSetCache.Set(3, peerSet3)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < 3; i++ {
+		ps, err := peerSetCache.Get(i)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(ps, peerSet0) {
+			t.Fatalf("PeerSet %d should be %v, not %v", i, peerSet0, ps)
+		}
+	}
+
+	for i := 3; i < 6; i++ {
+		ps, err := peerSetCache.Get(i)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(ps, peerSet3) {
+			t.Fatalf("PeerSet %d should be %v, not %v", i, peerSet3, ps)
+		}
+	}
+
+	/**************************************************************************/
+
+	peerSet2 := peerSet0.WithNewPeer(peers.NewPeer("0xee", ""))
+
+	err = peerSetCache.Set(2, peerSet2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ps2, err := peerSetCache.Get(2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(ps2, peerSet2) {
+		t.Fatalf("PeerSet %d should be %v, not %v", 2, peerSet2, ps2)
+	}
+
+	ps3, err := peerSetCache.Get(3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(ps3, peerSet3) {
+		t.Fatalf("PeerSet %d should be %v, not %v", 3, peerSet3, ps3)
+	}
+
+	/**************************************************************************/
+
+	err = peerSetCache.Set(2, peerSet2.WithNewPeer(peers.NewPeer("broken", "")))
+	if err == nil || !cm.Is(err, cm.KeyAlreadyExists) {
+		t.Fatalf("Resetting PeerSet 2 should throw a KeyAlreadyExists error")
+	}
+}
+
+//XXX We are not ready for this
+
+// func TestPeerSetCacheEdge(t *testing.T) {
+// 	peerSetCache := NewPeerSetCache()
+
+// 	_, err := peerSetCache.Get(4)
+// 	if err == nil || !cm.Is(err, cm.KeyNotFound) {
+// 		t.Fatalf("Attempting to Get from empty PeerSetCache should throw a TooLate error")
+// 	}
+
+// 	peerSet3 := peers.NewPeerSet([]*peers.Peer{
+// 		peers.NewPeer("0xaa", ""),
+// 		peers.NewPeer("0xbb", ""),
+// 		peers.NewPeer("0xcc", ""),
+// 	})
+
+// 	err = peerSetCache.Set(3, peerSet3)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+
+// 	_, err = peerSetCache.Get(2)
+// 	if err == nil || !cm.Is(err, cm.KeyNotFound) {
+// 		t.Fatalf("Attempting to Get from a Round before first known Round should throw a TooLate error")
+// 	}
+// }

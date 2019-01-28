@@ -36,18 +36,16 @@ func DefaultConfig() *Config {
 	logger.Level = logrus.DebugLevel
 
 	return &Config{
-		HeartbeatTimeout: 1000 * time.Millisecond,
+		HeartbeatTimeout: 10 * time.Millisecond,
 		TCPTimeout:       1000 * time.Millisecond,
-		CacheSize:        500,
-		SyncLimit:        100,
+		CacheSize:        5000,
+		SyncLimit:        1000,
 		Logger:           logger,
 	}
 }
 
 func TestConfig(t *testing.T) *Config {
 	config := DefaultConfig()
-
 	config.Logger = common.NewTestLogger(t)
-
 	return config
 }

@@ -8,7 +8,7 @@ application.
 //------------------------------------------------------------------------------
 
 type CommitHandler interface {
-	OnCommit([]byte) []byte
+	OnCommit([]byte) (stateHash []byte)
 }
 
 type ExceptionHandler interface {
