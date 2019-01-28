@@ -75,8 +75,8 @@ func connectProxy(cmd *cobra.Command, args []string) error {
 	fmt.Println("I !!!!!", i)
 
 	babblePort := 1337 + (i * 10)
-	proxyServPortStr := strconv.Itoa(babblePort + (i * 10) + 1)
-	proxyCliPortStr := strconv.Itoa(babblePort + (i * 10) + 2)
+	proxyServPortStr := strconv.Itoa(babblePort + 1)
+	proxyCliPortStr := strconv.Itoa(babblePort + 2)
 
 	logger := logrus.New()
 
