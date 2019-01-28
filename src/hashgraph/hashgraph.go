@@ -1289,9 +1289,6 @@ a known Block. If a Signature is valid, it is appended to the block and removed
 from the SignaturePool. The function also updates the AnchorBlock if necessary.
 */
 func (h *Hashgraph) ProcessSigPool() error {
-	processedSignatures := []BlockSignature{}
-	defer h.PendingSignatures.RemoveSlice(processedSignatures)
-
 	h.logger.WithField("pending_signatures", h.PendingSignatures.Len()).Debug("ProcessSigPool()")
 
 	for _, bs := range h.PendingSignatures.Items() {
@@ -1354,7 +1351,8 @@ func (h *Hashgraph) ProcessSigPool() error {
 		}
 
 		h.logger.Debugf("processed sig %v", bs.Key())
-		processedSignatures = append(processedSignatures, bs)
+
+		h.PendingSignatures.Remove(bs.Key())
 	}
 
 	return nil
