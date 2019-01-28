@@ -38,7 +38,8 @@ func (m *mobileApp) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, 
 	stateHash := m.commitHandler.OnCommit(blockBytes)
 
 	commitResponse := proxy.CommitResponse{
-		StateHash: stateHash,
+		StateHash:            stateHash,
+		InternalTransactions: block.InternalTransactions(),
 	}
 
 	return commitResponse, nil
