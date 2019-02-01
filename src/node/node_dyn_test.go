@@ -14,7 +14,7 @@ import (
 func TestMonologue(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(1)
-	nodes := initNodes(keys, peers, 100000, 1000, "inmem", logger, t)
+	nodes := initNodes(keys, peers, 100000, 1000, "inmem", 5*time.Millisecond, logger, t)
 	//defer drawGraphs(nodes, t)
 
 	target := 50
@@ -29,7 +29,7 @@ func TestMonologue(t *testing.T) {
 func TestJoinRequest(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(4)
-	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", logger, t)
+	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
@@ -45,7 +45,7 @@ func TestJoinRequest(t *testing.T) {
 		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
 		fmt.Sprint("127.0.0.1:4242"),
 	)
-	newNode := newNode(peer, key, peerSet, 1000, 1000, "inmem", logger, t)
+	newNode := newNode(peer, key, peerSet, 1000, 1000, "inmem", 5*time.Millisecond, logger, t)
 	defer newNode.Shutdown()
 
 	err = newNode.join()
@@ -65,7 +65,7 @@ func TestJoinRequest(t *testing.T) {
 func TestJoinFull(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(4)
-	initialNodes := initNodes(keys, peerSet, 1000000, 400, "inmem", logger, t)
+	initialNodes := initNodes(keys, peerSet, 1000000, 400, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(initialNodes)
 
 	target := 30
@@ -80,7 +80,7 @@ func TestJoinFull(t *testing.T) {
 		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
 		fmt.Sprint("127.0.0.1:4242"),
 	)
-	newNode := newNode(peer, key, peerSet, 1000000, 400, "inmem", logger, t)
+	newNode := newNode(peer, key, peerSet, 1000000, 400, "inmem", 5*time.Millisecond, logger, t)
 	defer newNode.Shutdown()
 
 	//Run parallel routine to check newNode eventually reaches CatchingUp state.
@@ -120,8 +120,7 @@ func TestOrganicGrowth(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(1)
 
-	node0 := newNode(peerSet.Peers[0], keys[0], peerSet, 1000000, 400, "inmem", logger, t)
-	node0.conf.HeartbeatTimeout = 100 * time.Millisecond
+	node0 := newNode(peerSet.Peers[0], keys[0], peerSet, 1000000, 400, "inmem", 10*time.Millisecond, logger, t)
 	defer node0.Shutdown()
 	node0.RunAsync(true)
 
@@ -137,8 +136,7 @@ func TestOrganicGrowth(t *testing.T) {
 			fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
 			fmt.Sprintf("127.0.0.1:%d", 4240+i),
 		)
-		newNode := newNode(peer, key, peerSet, 1000000, 400, "inmem", logger, t)
-		newNode.conf.HeartbeatTimeout = 100 * time.Millisecond
+		newNode := newNode(peer, key, peerSet, 1000000, 400, "inmem", 10*time.Millisecond, logger, t)
 
 		logger.Debugf("starting new node %d, %d", i, newNode.ID())
 		defer newNode.Shutdown()
@@ -159,38 +157,6 @@ func TestOrganicGrowth(t *testing.T) {
 		target = target + 40
 	}
 }
-
-// func TestPeerLeaveRequest(t *testing.T) {
-// 	logger := common.NewTestLogger(t)
-
-// 	keys, peerSet := initPeers(4)
-// 	nodes := initNodes(keys, peerSet, 1000, 1000, "inmem", logger, t)
-
-// 	runNodes(nodes, true)
-
-// 	target := 50
-
-// 	err := bombardAndWait(nodes, target, 3*time.Second)
-// 	if err != nil {
-// 		t.Fatal("Error bombarding: ", err)
-// 	}
-
-// 	nodes[1].Shutdown()
-// 	nodes = append([]*Node{nodes[0]}, nodes[2:]...)
-
-// 	target = 50
-
-// 	err = bombardAndWait(nodes, target, 3*time.Second)
-// 	if err != nil {
-// 		t.Fatal("Error bombarding: ", err)
-// 	}
-
-// 	for i := range nodes {
-// 		if nodes[i].core.peers.Len() != 3 {
-// 			t.Errorf("Node %d should have %d peers, not %d", i, 3, nodes[i].core.peers.Len())
-// 		}
-// 	}
-// }
 
 func checkPeerSets(nodes []*Node, t *testing.T) {
 	node0FP, err := nodes[0].core.hg.Store.GetFuturePeerSets(-1)

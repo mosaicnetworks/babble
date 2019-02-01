@@ -104,7 +104,7 @@ func TestAddTransaction(t *testing.T) {
 func TestGossip(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(4)
-	nodes := initNodes(keys, peers, 100000, 1000, "inmem", logger, t)
+	nodes := initNodes(keys, peers, 100000, 1000, "inmem", 5*time.Millisecond, logger, t)
 	//defer drawGraphs(nodes, t)
 
 	target := 50
@@ -119,7 +119,7 @@ func TestGossip(t *testing.T) {
 func TestMissingNodeGossip(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(4)
-	nodes := initNodes(keys, peers, 1000, 1000, "inmem", logger, t)
+	nodes := initNodes(keys, peers, 1000, 1000, "inmem", 5*time.Millisecond, logger, t)
 	//defer drawGraphs(nodes, t)
 
 	err := gossip(nodes[1:], 10, true, 6*time.Second)
@@ -133,7 +133,7 @@ func TestMissingNodeGossip(t *testing.T) {
 func TestSyncLimit(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(4)
-	nodes := initNodes(keys, peers, 1000, 1000, "inmem", logger, t)
+	nodes := initNodes(keys, peers, 1000, 1000, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
 
 	err := gossip(nodes, 10, false, 3*time.Second)
@@ -173,7 +173,7 @@ func TestSyncLimit(t *testing.T) {
 func TestFastForward(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(4)
-	nodes := initNodes(keys, peers, 1000, 1000, "inmem", logger, t)
+	nodes := initNodes(keys, peers, 1000, 1000, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
 
 	target := 20
@@ -218,18 +218,18 @@ func TestCatchUp(t *testing.T) {
 		to listen regardless of whether a node is running or not. We should
 		probably change this at some point.
 	*/
-	normalNodes := initNodes(keys[1:], peers, 1000000, 100, "inmem", logger, t)
+	normalNodes := initNodes(keys[1:], peers, 1000000, 100, "inmem", 50*time.Millisecond, logger, t)
 	defer shutdownNodes(normalNodes)
 	//defer drawGraphs(normalNodes, t)
 
-	target := 30
+	target := 10
 	err := gossip(normalNodes, target, false, 6*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
 	checkGossip(normalNodes, 0, t)
 
-	node0 := newNode(peers.Peers[0], keys[0], peers, 1000000, 100, "inmem", logger, t)
+	node0 := newNode(peers.Peers[0], keys[0], peers, 1000000, 100, "inmem", 10*time.Millisecond, logger, t)
 	defer node0.Shutdown()
 
 	//Run parallel routine to check node0 eventually reaches CatchingUp state.
@@ -252,8 +252,8 @@ func TestCatchUp(t *testing.T) {
 	nodes := append(normalNodes, node0)
 
 	//Gossip some more with all nodes
-	newTarget := target + 50
-	err = bombardAndWait(nodes, newTarget, 6*time.Second)
+	newTarget := target + 20
+	err = bombardAndWait(nodes, newTarget, 10*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,7 +265,7 @@ func TestCatchUp(t *testing.T) {
 func TestFastSync(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(4)
-	nodes := initNodes(keys, peers, 100000, 400, "inmem", logger, t) //make cache high to draw graphs
+	nodes := initNodes(keys, peers, 100000, 400, "inmem", 10*time.Millisecond, logger, t) //make cache high to draw graphs
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
@@ -321,7 +321,7 @@ func TestFastSync(t *testing.T) {
 func TestShutdown(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(4)
-	nodes := initNodes(keys, peers, 1000, 1000, "inmem", logger, t)
+	nodes := initNodes(keys, peers, 1000, 1000, "inmem", 5*time.Millisecond, logger, t)
 	runNodes(nodes, false)
 
 	nodes[0].Shutdown()
@@ -342,7 +342,7 @@ func TestBootstrapAllNodes(t *testing.T) {
 	//before shutting it down
 	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(4)
-	nodes := initNodes(keys, peers, 1000, 1000, "badger", logger, t)
+	nodes := initNodes(keys, peers, 1000, 1000, "badger", 5*time.Millisecond, logger, t)
 
 	err := gossip(nodes, 10, true, 3*time.Second)
 	if err != nil {
@@ -368,7 +368,7 @@ func BenchmarkGossip(b *testing.B) {
 	logger := common.NewTestLogger(b)
 	for n := 0; n < b.N; n++ {
 		keys, peers := initPeers(4)
-		nodes := initNodes(keys, peers, 1000, 1000, "inmem", logger, b)
+		nodes := initNodes(keys, peers, 1000, 1000, "inmem", 5*time.Millisecond, logger, b)
 		gossip(nodes, 50, true, 3*time.Second)
 	}
 }
@@ -403,11 +403,12 @@ func newNode(peer *peers.Peer,
 	cacheSize,
 	syncLimit int,
 	storeType string,
+	heartbeatTimeout time.Duration,
 	logger *logrus.Logger,
 	t testing.TB) *Node {
 
 	conf := NewConfig(
-		5*time.Millisecond,
+		heartbeatTimeout,
 		time.Second,
 		time.Second,
 		cacheSize,
@@ -454,6 +455,7 @@ func initNodes(keys []*ecdsa.PrivateKey,
 	cacheSize,
 	syncLimit int,
 	storeType string,
+	heartbeatTimeout time.Duration,
 	logger *logrus.Logger,
 	t testing.TB) []*Node {
 
@@ -467,7 +469,7 @@ func initNodes(keys []*ecdsa.PrivateKey,
 			t.Fatalf("Peer not found")
 		}
 
-		node := newNode(peer, k, peers, cacheSize, syncLimit, storeType, logger, t)
+		node := newNode(peer, k, peers, cacheSize, syncLimit, storeType, heartbeatTimeout, logger, t)
 
 		nodes = append(nodes, node)
 	}
