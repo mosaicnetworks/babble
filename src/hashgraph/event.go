@@ -159,10 +159,10 @@ func (e *Event) IsLoaded() bool {
 		return true
 	}
 
-	hasTransactions := e.Body.Transactions != nil &&
-		(len(e.Body.Transactions) > 0 || len(e.Body.InternalTransactions) > 0)
+	hasTransactions := e.Body.Transactions != nil && len(e.Body.Transactions) > 0
+	hasInternalTransactions := e.Body.InternalTransactions != nil && len(e.Body.InternalTransactions) > 0
 
-	return hasTransactions
+	return hasTransactions || hasInternalTransactions
 }
 
 //ecdsa sig

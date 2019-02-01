@@ -89,11 +89,6 @@ func NewCore(
 
 	core.hg = hg.NewHashgraph(store, core.Commit, logEntry)
 
-	/*
-		This will create roots and set PeerSet for round 0, which is not
-		necessarily correct; what if this is a node that only joins the cluster
-		on the go? Doesnt really matter because it's going to get Reset.
-	*/
 	core.hg.Init(peers)
 
 	return core
@@ -297,6 +292,13 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 		if p, ok := c.promises[tx.Hash()]; ok {
 			p.Respond(acceptedRound, peers.Peers)
 			delete(c.promises, tx.Hash())
+
+			//Creating a welcome transaction goes towards ensuring that nodes,
+			//belonging to the old peer-set, reach the new node's
+			//accepted-round, so the joining node won't have to wait before
+			//being allowed to gossip.
+			c.logger.Debug("queueing welcome transaction")
+			c.AddTransactions([][]byte{[]byte(fmt.Sprintf("Welcome %s", tx.Hash()))})
 		}
 	}
 
@@ -434,28 +436,35 @@ func (c *Core) AddSelfEvent(otherHead string) error {
 	//Add own block signatures to next Event
 	sigs := c.selfBlockSignatures.Slice()
 
-	//create new event with self head and otherHead
-	//empty pools in its payload
+	txs := len(c.transactionPool)
+	itxs := len(c.internalTransactionPool)
+
+	//create new event with self head and otherHead, and empty pools in its
+	//payload
 	newHead := hg.NewEvent(c.transactionPool,
 		c.internalTransactionPool,
 		sigs,
 		[]string{c.Head, otherHead},
 		c.PubKey(), c.Seq+1)
 
+	//Inserting the Event, and running consensus methods, can have a side-effect
+	//of adding items to the transaction pools (via the commit callback).
 	if err := c.SignAndInsertSelfEvent(newHead); err != nil {
 		c.logger.WithError(err).Errorf("Error inserting new head")
 		return err
 	}
 
 	c.logger.WithFields(logrus.Fields{
-		"loaded_events":         c.hg.PendingLoadedEvents,
-		"transactions":          len(c.transactionPool),
-		"internal_transactions": len(c.internalTransactionPool),
-		"self_block_signatures": len(sigs),
+		"index":                 newHead.Index(),
+		"transactions":          len(newHead.Transactions()),
+		"internal_transactions": len(newHead.InternalTransactions()),
+		"block_signatures":      len(newHead.BlockSignatures()),
 	}).Debug("Created Self-Event")
 
-	c.transactionPool = [][]byte{}
-	c.internalTransactionPool = []hg.InternalTransaction{}
+	//do not remove pool elements that were added by CommitCallback
+	c.transactionPool = c.transactionPool[txs:]
+	c.internalTransactionPool = c.internalTransactionPool[itxs:]
+
 	c.selfBlockSignatures.RemoveSlice(sigs)
 
 	return nil
