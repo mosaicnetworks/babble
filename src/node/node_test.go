@@ -270,7 +270,7 @@ func TestFastSync(t *testing.T) {
 	//defer drawGraphs(nodes, t)
 
 	target := 30
-	err := gossip(nodes, target, false, 6*time.Second)
+	err := gossip(nodes, target, false, 10*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -280,7 +280,7 @@ func TestFastSync(t *testing.T) {
 	node0.Shutdown()
 
 	secondTarget := target + 30
-	err = bombardAndWait(nodes[1:], secondTarget, 6*time.Second)
+	err = bombardAndWait(nodes[1:], secondTarget, 10*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -410,7 +410,7 @@ func newNode(peer *peers.Peer,
 	conf := NewConfig(
 		heartbeatTimeout,
 		time.Second,
-		time.Second,
+		3*time.Second,
 		cacheSize,
 		syncLimit,
 		logger,

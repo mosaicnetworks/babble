@@ -272,10 +272,10 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 		changed = true
 	}
 
-	//Why +4? We call it the RoundDecided; the round of the first witness that
-	//can decide the fame of a SuperMajority of witnesses from roundReceived,
-	//also accounting for Coin rounds. Cf whitepaper proofs.
-	acceptedRound := roundReceived + 4
+	//Why +6? According to lemmas 5.15 and 5.17 of the original whitepaper, all
+	//consistent hashgraphs will have decided the fame of round r witnesses by
+	//round r+5 or before; so it is safe to set the new peer-set at round r+6.
+	acceptedRound := roundReceived + 6
 
 	if changed {
 		err := c.hg.Store.SetPeerSet(acceptedRound, peers)

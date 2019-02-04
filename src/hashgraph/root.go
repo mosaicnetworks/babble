@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/mosaicnetworks/babble/src/crypto"
 	"github.com/ugorji/go/codec"
 )
 
@@ -139,13 +140,16 @@ func NewBaseRoot(creatorID uint32) *Root {
 //Init populates the private lookup maps
 func (root *Root) Init() {
 	root.pastByIndex = make(map[int]string)
-	for i, re := range root.Past {
-		root.pastByIndex[re.Index] = i
+	for h, re := range root.Past {
+		root.pastByIndex[re.Index] = h
 	}
 }
 
 //Insert adds a RootEvent to Past and updates lookup maps
 func (root *Root) Insert(re RootEvent) {
+	if root.pastByIndex == nil {
+		root.Init()
+	}
 	root.Past[re.Hash] = re
 	root.pastByIndex[re.Index] = re.Hash
 }
@@ -201,4 +205,12 @@ func (root *Root) Unmarshal(data []byte) error {
 	dec := codec.NewDecoder(b, jh)
 
 	return dec.Decode(root)
+}
+
+//XXX
+func (root *Root) Hash() string {
+	hashBytes, _ := root.Marshal()
+	hash := crypto.SHA256(hashBytes)
+	hex := fmt.Sprintf("0x%X", hash)
+	return hex
 }

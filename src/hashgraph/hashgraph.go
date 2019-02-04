@@ -23,7 +23,7 @@ const (
 	ROOT_DEPTH = 10
 
 	/*
-		COIN_ROUND_FREQ defines the frequency of coin rounds. The value 4 is
+		COIN_ROUND_FREQ defines the frequency of coin rounds. The value is
 		arbitrary. Do something smarter.
 	*/
 	COIN_ROUND_FREQ = float64(4)
@@ -683,18 +683,23 @@ Public Methods
 //consensus methods.
 func (h *Hashgraph) InsertEventAndRunConsensus(event *Event, setWireInfo bool) error {
 	if err := h.InsertEvent(event, setWireInfo); err != nil {
+		h.logger.WithError(err).Errorf("InsertEvent")
 		return err
 	}
 	if err := h.DivideRounds(); err != nil {
+		h.logger.WithError(err).Errorf("DivideRounds")
 		return err
 	}
 	if err := h.DecideFame(); err != nil {
+		h.logger.WithError(err).Errorf("DecideFame")
 		return err
 	}
 	if err := h.DecideRoundReceived(); err != nil {
+		h.logger.WithError(err).Errorf("DecideRoundReceived")
 		return err
 	}
 	if err := h.ProcessDecidedRounds(); err != nil {
+		h.logger.WithError(err).Errorf("ProcessDecidedRounds")
 		return err
 	}
 	return nil
@@ -1104,6 +1109,13 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 			return fmt.Errorf("Getting Frame %d: %v", r.Index, err)
 		}
 
+		//XXX
+		roots := []string{}
+		for _, r := range frame.Roots {
+			rj, _ := r.Marshal()
+			roots = append(roots, string(rj))
+		}
+
 		h.logger.WithFields(logrus.Fields{
 			"round_received":  r.Index,
 			"witnesses":       round.FamousWitnesses(),
@@ -1111,6 +1123,7 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 			"events":          len(frame.Events),
 			"peers":           len(frame.Peers),
 			"future_peersets": frame.FuturePeerSets,
+			"roots":           roots,
 		}).Debugf("Processing Decided Round")
 
 		if len(frame.Events) > 0 {

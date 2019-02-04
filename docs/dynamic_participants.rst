@@ -29,7 +29,7 @@ until it is added to a block and committed. However, unlike regular
 transactions, the InternalTransaction is actually interpreted by Babble to 
 modify the peer-set, if the application-layer accepts it. We shall see that, 
 according to Hashgraph dynamics, an accepted InternalTransaction, committed with 
-round-received R, only affects peer-sets for rounds R+4 and above. If the 
+round-received R, only affects peer-sets for rounds R+6 and above. If the 
 JoinRequest was successful, the new node will then go into the CatchingUp state 
 and fast-forward to the top of the Hashgraph, as described in [FastSync], to 
 join the gossip in the extended group. The functionality for removing peers has 
@@ -183,19 +183,24 @@ introduce in the algorithm as described in the original Hashgraph whitepaper:
                     else // else flip a coin 
                         y . vote ← middle bit of y . signature 
 
-R+4
+R+6
 ***
 
 When an InternalTransaction is committed, when should we start counting the new 
 peer-set in order to guarantee that all correct nodes will do the same thing? 
-The answer in R+4 where R is the round-received of the Event containing the 
+The answer in R+6 where R is the round-received of the Event containing the 
 InternalTransaction.
 
 We need only determine the lower-bound because the goal is obviously to change 
 the peer-set as soon as possible.
 
-The solution is basically contained in Lemma 5.17, and its proof, of the 
+The solution is basically contained in Lemmas 5.15 and 5.17 of the 
 `original hashgraph whitepaper <https://www.swirlds.com/downloads/SWIRLDS-TR-2016-01.pdf>`__:
+
+    Lemma 5.15.
+    If hashgraphs A and B are consistent, and A decides a Byzantine agreement 
+    election with result v in round r and B has not decided prior to r, then
+    B will decide v in round r + 2 or before.
 
     Lemma 5.17. 
     For any round number r, for any hashgraph that has at least one event in 
@@ -203,12 +208,11 @@ The solution is basically contained in Lemma 5.17, and its proof, of the
     decided to be famous by the consensus algorithm, and this decision will be 
     made by every witness in round r + 3, or earlier.
 
-If RoundReceived = R, then a strong majority of round R witnesses are decided, 
-and they are necessarily decided in round R+3 or earlier. Hence, everyone can 
-safely agree to update the peer-set for round R+4.
-
-ATTENTION: Consensus methods need to be run BEFORE any Event is appended in 
-round R+4, otherwise the peer-set change will not be accounted for. 
+If one hashgraph decides RoundReceived = R, then a strong majority of round R 
+witnesses are decided, and by Lemma 5.17 they are necessarily decided in round 
+R+3 or earlier. Hence, by Lemma 5.15, any other consistent hashgraph will have 
+decided by round R + 5 or earlier. It is then safe to set the new peer-set for
+round R + 6.
 
 
 

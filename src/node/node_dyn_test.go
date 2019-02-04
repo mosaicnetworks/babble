@@ -62,10 +62,11 @@ func TestJoinRequest(t *testing.T) {
 	checkGossip(nodes, 0, t)
 	checkPeerSets(nodes, t)
 }
+
 func TestJoinFull(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(4)
-	initialNodes := initNodes(keys, peerSet, 1000000, 400, "inmem", 5*time.Millisecond, logger, t)
+	initialNodes := initNodes(keys, peerSet, 1000000, 100, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(initialNodes)
 
 	target := 30
@@ -80,7 +81,7 @@ func TestJoinFull(t *testing.T) {
 		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
 		fmt.Sprint("127.0.0.1:4242"),
 	)
-	newNode := newNode(peer, key, peerSet, 1000000, 400, "inmem", 5*time.Millisecond, logger, t)
+	newNode := newNode(peer, key, peerSet, 1000000, 100, "inmem", 5*time.Millisecond, logger, t)
 	defer newNode.Shutdown()
 
 	//Run parallel routine to check newNode eventually reaches CatchingUp state.

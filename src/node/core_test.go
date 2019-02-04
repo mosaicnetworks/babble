@@ -642,26 +642,40 @@ func TestCoreFastForward(t *testing.T) {
 
 /*
 We introduce a JoinRequest at round 1, which is received at round 2, and updates
-the PeerSet at round 6 (2 + 4)
+the PeerSet at round 8 (2 + 6)
 
-
-Round 6
-P:[0,1,2,3]
+            |    | \  |
+Round 8     |    |   w82
+P:[0,1,2,3] |    | /  |
+            |   w81   |
+            |  / |    |
+            w80  |    |
+        -------\----------
+            |   l12   |
+            |    | \  |
+Round 7     |    |   w72
+P:[0,1,2]   |    | /  |
+            |   w71   |
+            |  / |    |
+            w70  |    |
+        -------\----------
+Round 6     |   k12   |
+P:[0,1,2]   |    | \  |
             |    |   w62
-			|    | /  |
- 			|   w61   |
+            |    | /  |
+            |   w61   |
             |  / |    |
             w60  |    |
         -------\----------
-	        |   j12   |
-            |    | \  |
+            |   j12   |
+            |    | \  |  AnchorBlock
 Round 5     |    |   w52
 P:[0,1,2]   |    | /  |
             |   w51   |
             |  / |    |
             w50  |    |
         -------\----------
-		    |   i12   |
+            |   i12   |
             |    | \  |
 Round 4     |    |   w42
 P:[0,1,2]   |    | /  |
@@ -669,45 +683,45 @@ P:[0,1,2]   |    | /  |
             |  / |    |
             w40  |    |
         -------\----------
-		    |   h12   |	AnchorBlock
-Round 3		|    | \  |
+            |   h12   |
+Round 3     |    | \  |
 P:[0,1,2]   |    |   w32
             |    |  / |
-			|   w31   |
-			| /  |    |
-		   w30   |    |
-		    |  \ |    |
-		------------------
-Round 2		|    |  \ |
-P:[0,1,2]	|    |   g21
-			|    | /  |
-			|   w21   |
-			| /  |    |
-		   w20   |    |
-		    |  \ |    |
-		    |    | \  |
-			|    |   w22
-		-----------/------
-Round 1		|   f10   |
-P:[0,1,2]	| /  |    |
-		   w10   |    |
-		    |  \ |    |
-		    |    | \  |
-		    |    |   w12*
-		    |    |  / |
-		    |   w11   |
-		 -----/------------
+            |   w31   |
+            | /  |    |
+           w30   |    |
+            |  \ |    |
+        ------------------
+Round 2     |    |  \ |
+P:[0,1,2]   |    |   g21
+            |    | /  |
+            |   w21   |
+            | /  |    |
+           w20   |    |
+            |  \ |    |
+            |    | \  |
+            |    |   w22
+        -----------/------
+Round 1     |   f10   |
+P:[0,1,2]   | /  |    |
+           w10   |    |
+            |  \ |    |
+            |    | \  |
+            |    |   w12*
+            |    |  / |
+            |   w11   |
+         -----/------------
 Round 0	   e12   |    |   Block 0
 P:[0,1,2]   |  \ |    |
-		    |    | \  |
-		    |    |   e21
-		    |    | /  |
-		    |   e10   |
-		    |  / |    |
-		   w00  w01  w02
-			|    |    |
-		    R0   R1   R2
-			0	 1	  2
+            |    | \  |
+            |    |   e21
+            |    | /  |
+            |   e10   |
+            |  / |    |
+           w00  w01  w02
+            |    |    |
+            R0   R1   R2
+            0    1    2
 */
 func initR2DynHashgraph(t *testing.T) (cores []*Core, bobPeer *peers.Peer, bobKey *ecdsa.PrivateKey) {
 	//Initialize first 3 cores. They will have the same PeerSet of 3.
@@ -747,6 +761,14 @@ func initR2DynHashgraph(t *testing.T) (cores []*Core, bobPeer *peers.Peer, bobKe
 		play{from: 1, to: 0, payload: [][]byte{[]byte("w60")}},
 		play{from: 0, to: 1, payload: [][]byte{[]byte("w61")}},
 		play{from: 1, to: 2, payload: [][]byte{[]byte("w62")}},
+		play{from: 2, to: 1, payload: [][]byte{[]byte("k12")}},
+		play{from: 1, to: 0, payload: [][]byte{[]byte("w70")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("w71")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("w72")}},
+		play{from: 2, to: 1, payload: [][]byte{[]byte("l12")}},
+		play{from: 1, to: 0, payload: [][]byte{[]byte("w80")}},
+		play{from: 0, to: 1, payload: [][]byte{[]byte("w81")}},
+		play{from: 1, to: 2, payload: [][]byte{[]byte("w82")}},
 	}
 
 	for k, play := range playbook {
@@ -767,11 +789,11 @@ func TestR2DynConsensus(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Logf("frame1: %v", frame1)
-		if lcr := c.hg.LastConsensusRound; lcr == nil || *lcr != 4 {
-			t.Fatalf("cores[%d] LastConsensusRound should be 4, not %d", i, *lcr)
+		if lcr := c.hg.LastConsensusRound; lcr == nil || *lcr != 6 {
+			t.Fatalf("cores[%d] LastConsensusRound should be 6, not %d", i, *lcr)
 		}
-		if ps, _ := c.hg.Store.GetPeerSet(6); ps.Len() != 4 {
-			t.Fatalf("cores[%d] PeerSet(6) should contain 4 peers, not %d", i, ps.Len())
+		if ps, _ := c.hg.Store.GetPeerSet(8); ps.Len() != 4 {
+			t.Fatalf("cores[%d] PeerSet(8) should contain 4 peers, not %d", i, ps.Len())
 		}
 	}
 }
@@ -800,7 +822,7 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 
 		Testing 2 scenarios:
 
-			- AnchorBlock: check that the AnchorBlock (Block 3) is selected
+			- AnchorBlock: check that the AnchorBlock (Block 5) is selected
 						   correctly and that FuturePeerSets works.
 
 			- Block 0: check that FastForwarding from a Round below the PeerSet
@@ -834,7 +856,7 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plays = append(plays, play{anchorBlock, anchorFrame, 3})
+	plays = append(plays, play{anchorBlock, anchorFrame, 6})
 
 	/***************************************************************************
 		Run the same test for both scenarios
@@ -889,9 +911,9 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 		}
 
 		expectedKnown := map[uint32]int{
-			common.Hash32(cores[0].pubKey): 7,
-			common.Hash32(cores[1].pubKey): 11,
-			common.Hash32(cores[2].pubKey): 8,
+			common.Hash32(cores[0].pubKey): 9,
+			common.Hash32(cores[1].pubKey): 15,
+			common.Hash32(cores[2].pubKey): 10,
 			common.Hash32(cores[3].pubKey): 0,
 		}
 
@@ -905,7 +927,7 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 
 		//The fame of witnesses of the FastForward's Block RoundReceived and
 		//below are not reprocessed after Reset. No need to test those rounds.
-		for i := p.roundLowerBound; i <= 5; i++ {
+		for i := p.roundLowerBound; i <= 8; i++ {
 			c3RI, err := cores[3].hg.Store.GetRound(i)
 			if err != nil {
 				t.Fatal(err)
@@ -943,7 +965,7 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 			Check PeerSets
 		***********************************************************************/
 
-		for i := p.roundLowerBound; i <= 5; i++ {
+		for i := p.roundLowerBound; i <= 8; i++ {
 			c3PS, err := cores[3].hg.Store.GetPeerSet(i)
 			if err != nil {
 				t.Fatal(err)
@@ -963,12 +985,12 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 			Check Consensus Rounds and Blocks
 		***********************************************************************/
 
-		if r := cores[3].GetLastConsensusRoundIndex(); r == nil || *r != 4 {
+		if r := cores[3].GetLastConsensusRoundIndex(); r == nil || *r != 6 {
 			t.Fatalf("Cores[3] last consensus Round should be 4, not %v", *r)
 		}
 
-		if lbi := cores[3].hg.Store.LastBlockIndex(); lbi != 3 {
-			t.Fatalf("Cores[3].hg.LastBlockIndex should be 3, not %d", lbi)
+		if lbi := cores[3].hg.Store.LastBlockIndex(); lbi != 5 {
+			t.Fatalf("Cores[3].hg.LastBlockIndex should be 5, not %d", lbi)
 		}
 	}
 
