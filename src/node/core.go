@@ -34,6 +34,13 @@ type Core struct {
 	AcceptedRound int
 
 	/*
+		TargetRound is the minimum Consensus Round that the node needs to reach.
+		It is useful to set this value to a joining peer's accepted-round to
+		prevent them from having to wait.
+	*/
+	TargetRound int
+
+	/*
 		Events that are not tied to this node's Head. This is managed by
 		the Sync method. If the gossip condition is false (there is nothing
 		interesting to record), items are added to heads; if the gossip
@@ -85,6 +92,7 @@ func NewCore(
 		Head:                    "",
 		Seq:                     -1,
 		AcceptedRound:           -1,
+		TargetRound:             -1,
 	}
 
 	core.hg = hg.NewHashgraph(store, core.Commit, logEntry)
@@ -292,14 +300,11 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 		if p, ok := c.promises[tx.Hash()]; ok {
 			p.Respond(acceptedRound, peers.Peers)
 			delete(c.promises, tx.Hash())
-
-			//Creating a welcome transaction goes towards ensuring that nodes,
-			//belonging to the old peer-set, reach the new node's
-			//accepted-round, so the joining node won't have to wait before
-			//being allowed to gossip.
-			c.logger.Debug("queueing welcome transaction")
-			c.AddTransactions([][]byte{[]byte(fmt.Sprintf("Welcome %s", tx.Hash()))})
 		}
+	}
+
+	if acceptedRound > c.TargetRound {
+		c.TargetRound = acceptedRound
 	}
 
 	return nil
@@ -359,13 +364,6 @@ func (c *Core) EventDiff(known map[uint32]int) (events []*hg.Event, err error) {
 //Sync decodes and inserts new Events into the Hashgraph. UnknownEvents are
 //expected to be in topoligical order.
 func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
-	c.logger.WithFields(logrus.Fields{
-		"unknown_events":            len(unknownEvents),
-		"transaction_pool":          len(c.transactionPool),
-		"internal_transaction_pool": len(c.internalTransactionPool),
-		"self_signature_pool":       c.selfBlockSignatures.Len(),
-	}).Debug("Sync")
-
 	var otherHead *hg.Event
 	for _, we := range unknownEvents {
 		ev, err := c.hg.ReadWireInfo(we)
@@ -402,13 +400,17 @@ func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 		c.heads[fromID] = otherHead
 	}
 
+	c.logger.WithFields(logrus.Fields{
+		"unknown_events":            len(unknownEvents),
+		"transaction_pool":          len(c.transactionPool),
+		"internal_transaction_pool": len(c.internalTransactionPool),
+		"self_signature_pool":       c.selfBlockSignatures.Len(),
+		"target_round":              c.TargetRound,
+	}).Debug("Sync")
+
 	//Create new event with self head and other head only if there are pending
 	//loaded events or the pools are not empty
-	if c.hg.PendingLoadedEvents > 0 ||
-		len(c.transactionPool) > 0 ||
-		len(c.internalTransactionPool) > 0 ||
-		c.selfBlockSignatures.Len() > 0 {
-
+	if c.Busy() {
 		return c.RecordHeads()
 	}
 
@@ -610,4 +612,12 @@ func (c *Core) GetLastCommitedRoundEventsCount() int {
 
 func (c *Core) GetLastBlockIndex() int {
 	return c.hg.Store.LastBlockIndex()
+}
+
+func (c *Core) Busy() bool {
+	return c.hg.PendingLoadedEvents > 0 ||
+		len(c.transactionPool) > 0 ||
+		len(c.internalTransactionPool) > 0 ||
+		c.selfBlockSignatures.Len() > 0 ||
+		(c.hg.LastConsensusRound != nil && *c.hg.LastConsensusRound < c.TargetRound)
 }

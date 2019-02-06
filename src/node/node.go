@@ -137,9 +137,7 @@ func (n *Node) resetTimer() {
 		ts := n.conf.HeartbeatTimeout
 
 		//Slow gossip if nothing interesting to say
-		if n.core.hg.PendingLoadedEvents == 0 &&
-			len(n.core.transactionPool) == 0 &&
-			n.core.selfBlockSignatures.Len() == 0 {
+		if !n.core.Busy() {
 			ts = time.Duration(time.Second)
 		}
 
