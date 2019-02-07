@@ -199,11 +199,19 @@ func (n *Node) fastForward() error {
 	//wait until sync routines finish
 	n.waitRoutines()
 
+	var err error
+	defer func() {
+		if err != nil {
+			n.logger.Debug("FastForward error, sleeping...")
+			time.Sleep(500 * time.Millisecond)
+		}
+	}()
+
 	//fastForwardRequest
 	peer := n.core.peerSelector.Next()
 
 	start := time.Now()
-	resp, err := n.requestFastForward(peer.NetAddr)
+	resp, err := n.requestFastForward(peer.NetAddr, n.core.AcceptedRound)
 	elapsed := time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestFastForward()")
 	if err != nil {

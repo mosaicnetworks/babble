@@ -175,10 +175,6 @@ func (c *Core) Bootstrap() error {
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 func (c *Core) SignAndInsertSelfEvent(event *hg.Event) error {
-	if c.hg.Store.LastRound() < c.AcceptedRound {
-		c.logger.Debugf("Too early to gossip (%d / %d)", c.hg.Store.LastRound(), c.AcceptedRound)
-		return nil
-	}
 	if err := event.Sign(c.key); err != nil {
 		return err
 	}
@@ -293,6 +289,10 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 
 		c.peers = peers
 		c.peerSelector = NewRandomPeerSelector(peers, c.id)
+
+		if acceptedRound > c.TargetRound {
+			c.TargetRound = acceptedRound
+		}
 	}
 
 	for _, tx := range txs {
@@ -301,10 +301,6 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 			p.Respond(acceptedRound, peers.Peers)
 			delete(c.promises, tx.Hash())
 		}
-	}
-
-	if acceptedRound > c.TargetRound {
-		c.TargetRound = acceptedRound
 	}
 
 	return nil
@@ -337,8 +333,7 @@ func (c *Core) EventDiff(known map[uint32]int) (events []*hg.Event, err error) {
 	//compare this to our view of events and fill unknown with events that we know of
 	// and the other doesnt
 	for id, ct := range known {
-		peer, ok := c.peers.ByID[id]
-
+		peer, ok := c.hg.Store.RepertoireByID()[id]
 		if !ok {
 			continue
 		}
@@ -364,6 +359,8 @@ func (c *Core) EventDiff(known map[uint32]int) (events []*hg.Event, err error) {
 //Sync decodes and inserts new Events into the Hashgraph. UnknownEvents are
 //expected to be in topoligical order.
 func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
+	c.logger.WithField("unknown_events", len(unknownEvents)).Debug("Sync")
+
 	var otherHead *hg.Event
 	for _, we := range unknownEvents {
 		ev, err := c.hg.ReadWireInfo(we)
@@ -401,7 +398,7 @@ func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 	}
 
 	c.logger.WithFields(logrus.Fields{
-		"unknown_events":            len(unknownEvents),
+		"loaded_events":             c.hg.PendingLoadedEvents,
 		"transaction_pool":          len(c.transactionPool),
 		"internal_transaction_pool": len(c.internalTransactionPool),
 		"self_signature_pool":       c.selfBlockSignatures.Len(),
@@ -435,9 +432,13 @@ func (c *Core) RecordHeads() error {
 }
 
 func (c *Core) AddSelfEvent(otherHead string) error {
+	if c.hg.Store.LastRound() < c.AcceptedRound {
+		c.logger.Debugf("Too early to gossip (%d / %d)", c.hg.Store.LastRound(), c.AcceptedRound)
+		return nil
+	}
+
 	//Add own block signatures to next Event
 	sigs := c.selfBlockSignatures.Slice()
-
 	txs := len(c.transactionPool)
 	itxs := len(c.internalTransactionPool)
 
@@ -466,7 +467,6 @@ func (c *Core) AddSelfEvent(otherHead string) error {
 	//do not remove pool elements that were added by CommitCallback
 	c.transactionPool = c.transactionPool[txs:]
 	c.internalTransactionPool = c.internalTransactionPool[itxs:]
-
 	c.selfBlockSignatures.RemoveSlice(sigs)
 
 	return nil

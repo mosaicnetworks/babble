@@ -66,7 +66,7 @@ func TestJoinRequest(t *testing.T) {
 func TestJoinFull(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(4)
-	initialNodes := initNodes(keys, peerSet, 1000000, 100, "inmem", 5*time.Millisecond, logger, t)
+	initialNodes := initNodes(keys, peerSet, 1000000, 400, "inmem", 10*time.Millisecond, logger, t)
 	defer shutdownNodes(initialNodes)
 
 	target := 30
@@ -81,7 +81,7 @@ func TestJoinFull(t *testing.T) {
 		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
 		fmt.Sprint("127.0.0.1:4242"),
 	)
-	newNode := newNode(peer, key, peerSet, 1000000, 100, "inmem", 5*time.Millisecond, logger, t)
+	newNode := newNode(peer, key, peerSet, 1000000, 400, "inmem", 10*time.Millisecond, logger, t)
 	defer newNode.Shutdown()
 
 	//Run parallel routine to check newNode eventually reaches CatchingUp state.
@@ -126,7 +126,7 @@ func TestOrganicGrowth(t *testing.T) {
 	node0.RunAsync(true)
 
 	nodes := []*Node{node0}
-	defer drawGraphs(nodes, t)
+	//defer drawGraphs(nodes, t)
 
 	target := 20
 	for i := 1; i <= 3; i++ {
@@ -143,7 +143,7 @@ func TestOrganicGrowth(t *testing.T) {
 		defer newNode.Shutdown()
 		newNode.RunAsync(true)
 
-		nodes := append(nodes, newNode)
+		nodes = append(nodes, newNode)
 
 		//Gossip some more
 		err := bombardAndWait(nodes, target, 10*time.Second)

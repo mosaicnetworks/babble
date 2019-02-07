@@ -270,6 +270,7 @@ func TestTransport_FastForward(t *testing.T) {
 
 		args := FastForwardRequest{
 			FromID: 0,
+			Round:  -1,
 		}
 		resp := FastForwardResponse{
 			FromID:   1,
