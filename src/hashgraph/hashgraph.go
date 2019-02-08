@@ -40,6 +40,7 @@ type Hashgraph struct {
 	FirstConsensusRound     *int                   //index of first consensus round (only used in tests)
 	AnchorBlock             *int                   //index of last block with enough signatures
 	roundLowerBound         *int                   //rounds and events below this lower bound have a special treatement (cf fastsync)
+	requiredAnchor          *int                   //round-received of Block that needs to be saved and committed, even if it contains no transactions
 	LastCommitedRoundEvents int                    //number of events in round before LastConsensusRound
 	ConsensusTransactions   int                    //number of consensus transactions
 	PendingLoadedEvents     int                    //number of loaded events that are not yet committed
@@ -1147,7 +1148,8 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 			}
 
 			if len(block.Transactions()) > 0 ||
-				len(block.InternalTransactions()) > 0 {
+				len(block.InternalTransactions()) > 0 ||
+				(h.requiredAnchor != nil && block.RoundReceived() == *h.requiredAnchor) {
 
 				if err := h.Store.SetBlock(block); err != nil {
 					return err
@@ -1403,6 +1405,14 @@ func (h *Hashgraph) SetAnchorBlock(block *Block) error {
 	}
 
 	return nil
+}
+
+func (h *Hashgraph) SetRequiredAnchor(round int) {
+	h.logger.WithField("round", round).Debug("SetRequiredAnchor")
+	if h.requiredAnchor == nil {
+		h.requiredAnchor = new(int)
+	}
+	*h.requiredAnchor = round
 }
 
 //GetAnchorBlockWithFrame returns the AnchorBlock and the corresponding Frame.

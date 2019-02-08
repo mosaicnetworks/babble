@@ -1,6 +1,7 @@
 nodes = 4
 txs = 10
 index = 5
+target = 1
 
 up: conf start watch
 
@@ -30,13 +31,17 @@ stop:
 demo: 
 	./scripts/demo.sh $(nodes)
 
-# send a bunch of transactions
+# send transactions to multiple nodes
 bombard: 
 	./scripts/bombard.sh $(nodes) $(txs)
+
+# send transactions to specific node
+send:
+	./scripts/send.sh $(target) $(txs)
 
 # create new peer and join
 join:
 	./scripts/join.sh $(index)
 
-.PHONY: up build conf start watch stop demo bombard join
+.PHONY: up build conf start watch stop demo bombard send join
 	

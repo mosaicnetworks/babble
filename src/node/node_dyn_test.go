@@ -153,7 +153,6 @@ func TestOrganicGrowth(t *testing.T) {
 
 		start := newNode.core.hg.FirstConsensusRound
 		checkGossip(nodes, *start, t)
-		checkPeerSets(nodes, t)
 
 		target = target + 40
 	}
@@ -170,9 +169,9 @@ func checkPeerSets(nodes []*Node, t *testing.T) {
 			t.Fatal(err)
 		}
 		if !reflect.DeepEqual(node0FP, nodeiFP) {
-			t.Logf("Node 0 FuturePeerSets: %v", node0FP)
-			t.Logf("Node %d FuturePeerSets: %v", i, nodeiFP)
-			t.Fatalf("FuturePeerSets defer")
+			t.Logf("Node 0 PeerSets: %v", node0FP)
+			t.Logf("Node %d PeerSets: %v", i, nodeiFP)
+			t.Fatalf("PeerSets defer")
 		}
 	}
 }

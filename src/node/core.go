@@ -172,6 +172,11 @@ func (c *Core) Bootstrap() error {
 	return c.hg.Bootstrap()
 }
 
+func (c *Core) SetPeerSet(ps *peers.PeerSet) {
+	c.peers = ps
+	c.peerSelector = NewRandomPeerSelector(c.peers, c.id)
+}
+
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 func (c *Core) SignAndInsertSelfEvent(event *hg.Event) error {
@@ -287,11 +292,15 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 			return fmt.Errorf("Udpating Store PeerSet: %s", err)
 		}
 
-		c.peers = peers
-		c.peerSelector = NewRandomPeerSelector(peers, c.id)
+		c.SetPeerSet(peers)
 
+		//A new peer has joined and it won't be able to participate in consensus
+		//until it fast-forwards to a round greater than its accepted-round.
+		//Hence, we force the other nodes to reach that round and create a
+		//corresponding anchor block.
 		if acceptedRound > c.TargetRound {
-			c.TargetRound = acceptedRound
+			c.TargetRound = acceptedRound + 1
+			c.hg.SetRequiredAnchor(acceptedRound + 1)
 		}
 	}
 
@@ -500,6 +509,8 @@ func (c *Core) FastForward(peer string, block *hg.Block, frame *hg.Frame) error 
 	if err != nil {
 		return err
 	}
+
+	c.SetPeerSet(peers.NewPeerSet(frame.Peers))
 
 	return nil
 }
