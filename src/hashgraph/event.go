@@ -227,20 +227,16 @@ func (e *Event) Hash() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		e.hash = hash
 	}
-
 	return e.hash, nil
 }
 
 func (e *Event) Hex() string {
 	if e.hex == "" {
 		hash, _ := e.Hash()
-
 		e.hex = fmt.Sprintf("0x%X", hash)
 	}
-
 	return e.hex
 }
 
@@ -248,7 +244,6 @@ func (e *Event) SetRound(r int) {
 	if e.round == nil {
 		e.round = new(int)
 	}
-
 	*e.round = r
 }
 
@@ -260,7 +255,6 @@ func (e *Event) SetLamportTimestamp(t int) {
 	if e.lamportTimestamp == nil {
 		e.lamportTimestamp = new(int)
 	}
-
 	*e.lamportTimestamp = t
 }
 
@@ -268,7 +262,6 @@ func (e *Event) SetRoundReceived(rr int) {
 	if e.roundReceived == nil {
 		e.roundReceived = new(int)
 	}
-
 	*e.roundReceived = rr
 }
 
@@ -388,4 +381,34 @@ func (we *WireEvent) BlockSignatures(validator []byte) []BlockSignature {
 	}
 
 	return nil
+}
+
+/*******************************************************************************
+FrameEvent
+******************************************************************************/
+
+//FrameEvent is a wrapper around a regular Event. It contains exported fields
+//Round, Witness, and LamportTimestamp.
+type FrameEvent struct {
+	Core             *Event //EventBody + Signature
+	Round            int
+	LamportTimestamp int
+	Witness          bool
+}
+
+//SortedFrameEvents implements sort.Interface for []FameEvent based on
+//the lamportTimestamp field.
+//THIS IS A TOTAL ORDER
+type SortedFrameEvents []*FrameEvent
+
+func (a SortedFrameEvents) Len() int      { return len(a) }
+func (a SortedFrameEvents) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a SortedFrameEvents) Less(i, j int) bool {
+	if a[i].LamportTimestamp != a[j].LamportTimestamp {
+		return a[i].LamportTimestamp < a[j].LamportTimestamp
+	}
+
+	wsi, _, _ := crypto.DecodeSignature(a[i].Core.Signature)
+	wsj, _, _ := crypto.DecodeSignature(a[j].Core.Signature)
+	return wsi.Cmp(wsj) < 0
 }

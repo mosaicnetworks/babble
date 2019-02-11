@@ -7,6 +7,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/crypto"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/peers"
@@ -135,23 +136,20 @@ func (c *Core) SetHeadAndSeq() error {
 		}
 	}
 
-	last, isRoot, err := c.hg.Store.LastEventFrom(c.HexID())
-	if err != nil {
+	last, err := c.hg.Store.LastEventFrom(c.HexID())
+	if err != nil && !common.Is(err, common.Empty) {
 		return err
 	}
 
-	if isRoot {
-		root, err := c.hg.Store.GetRoot(c.HexID())
-		if err != nil {
-			return err
-		}
-		head = root.GetHead().Hash
-		seq = root.GetHead().Index
-	} else {
+	head = ""
+	seq = -1
+
+	if last != "" {
 		lastEvent, err := c.GetEvent(last)
 		if err != nil {
 			return err
 		}
+
 		head = last
 		seq = lastEvent.Index()
 	}
@@ -162,7 +160,6 @@ func (c *Core) SetHeadAndSeq() error {
 	c.logger.WithFields(logrus.Fields{
 		"core.Head": c.Head,
 		"core.Seq":  c.Seq,
-		"is_root":   isRoot,
 	}).Debugf("SetHeadAndSeq")
 
 	return nil

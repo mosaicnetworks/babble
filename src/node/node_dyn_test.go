@@ -159,12 +159,12 @@ func TestOrganicGrowth(t *testing.T) {
 }
 
 func checkPeerSets(nodes []*Node, t *testing.T) {
-	node0FP, err := nodes[0].core.hg.Store.GetFuturePeerSets(-1)
+	node0FP, err := nodes[0].core.hg.Store.GetAllPeerSets()
 	if err != nil {
 		t.Fatal(err)
 	}
 	for i := range nodes[1:] {
-		nodeiFP, err := nodes[i].core.hg.Store.GetFuturePeerSets(-1)
+		nodeiFP, err := nodes[i].core.hg.Store.GetAllPeerSets()
 		if err != nil {
 			t.Fatal(err)
 		}

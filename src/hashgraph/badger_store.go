@@ -153,8 +153,8 @@ func (s *BadgerStore) GetPeerSet(round int) (peerSet *peers.PeerSet, err error) 
 	return s.inmemStore.GetPeerSet(round)
 }
 
-func (s *BadgerStore) GetFuturePeerSets(baseRound int) (map[int][]*peers.Peer, error) {
-	return s.inmemStore.GetFuturePeerSets(baseRound)
+func (s *BadgerStore) GetAllPeerSets() (map[int][]*peers.Peer, error) {
+	return s.inmemStore.GetAllPeerSets()
 }
 
 func (s *BadgerStore) RepertoireByPubKey() map[string]*peers.Peer {
@@ -165,15 +165,11 @@ func (s *BadgerStore) RepertoireByID() map[uint32]*peers.Peer {
 	return s.inmemStore.RepertoireByID()
 }
 
-func (s *BadgerStore) RootsBySelfParent() map[string]*Root {
-	return s.inmemStore.RootsBySelfParent()
-}
-
-func (s *BadgerStore) LastEventFrom(participant string) (last string, isRoot bool, err error) {
+func (s *BadgerStore) LastEventFrom(participant string) (last string, err error) {
 	return s.inmemStore.LastEventFrom(participant)
 }
 
-func (s *BadgerStore) LastConsensusEventFrom(participant string) (last string, isRoot bool, err error) {
+func (s *BadgerStore) LastConsensusEventFrom(participant string) (last string, err error) {
 	return s.inmemStore.LastConsensusEventFrom(participant)
 }
 
@@ -240,7 +236,7 @@ func (s *BadgerStore) AddParticipant(p *peers.Peer) error {
 
 	root, err := s.dbGetRoot(p.PubKeyHex)
 	if err != nil {
-		root = NewBaseRoot(p.ID())
+		root = NewRoot()
 		if err := s.dbSetRoot(p.PubKeyHex, root); err != nil {
 			return err
 		}

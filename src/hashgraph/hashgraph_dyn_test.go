@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/crypto"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
@@ -87,9 +86,9 @@ P:[0,1,2]   |  \ |    |
 func initR2DynHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 	nodes, index, orderedEvents, peerSet := initHashgraphNodes(3)
 
-	for i, peer := range peerSet.Peers {
+	for i := range peerSet.Peers {
 		name := fmt.Sprintf("w0%d", i)
-		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{rootSelfParent(peer.ID()), ""}, nodes[i].Pub, 0)
+		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{"", ""}, nodes[i].Pub, 0)
 		nodes[i].signAndAddEvent(event, name, index, orderedEvents)
 	}
 
@@ -109,7 +108,7 @@ func initR2DynHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 
 	playEvents(plays, nodes, index, orderedEvents)
 
-	hg := createHashgraph(false, orderedEvents, peerSet, common.NewTestLogger(t).WithField("test", "R2D"))
+	hg := createHashgraph(false, orderedEvents, peerSet, t)
 
 	/***************************************************************************
 		Add Participant 3; new Peerset for Round2
@@ -120,7 +119,7 @@ func initR2DynHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 	node3 := NewTestNode(key3)
 	nodes = append(nodes, node3)
 	peer3 := peers.NewPeer(node3.PubHex, "")
-	index["R3"] = rootSelfParent(peer3.ID())
+	index["R3"] = ""
 	newPeerSet := peerSet.WithNewPeer(peer3)
 
 	//Set Round 2 PeerSet
@@ -505,9 +504,9 @@ Round 0	   e12   |    |
 func initUsurperHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 	nodes, index, orderedEvents, peerSet := initHashgraphNodes(3)
 
-	for i, peer := range peerSet.Peers {
+	for i := range peerSet.Peers {
 		name := fmt.Sprintf("w0%d", i)
-		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{rootSelfParent(peer.ID()), ""}, nodes[i].Pub, 0)
+		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{"", ""}, nodes[i].Pub, 0)
 		nodes[i].signAndAddEvent(event, name, index, orderedEvents)
 	}
 
@@ -527,7 +526,7 @@ func initUsurperHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 
 	playEvents(plays, nodes, index, orderedEvents)
 
-	hg := createHashgraph(false, orderedEvents, peerSet, common.NewTestLogger(t).WithField("test", "USURPER"))
+	hg := createHashgraph(false, orderedEvents, peerSet, t)
 
 	/***************************************************************************
 		Add Participant 3 (the usurper); new Peerset for Round10
@@ -539,7 +538,7 @@ func initUsurperHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 	usurperNode := NewTestNode(key3)
 	nodes = append(nodes, usurperNode)
 	usurperPeer := peers.NewPeer(usurperNode.PubHex, "")
-	index["R3"] = rootSelfParent(usurperPeer.ID())
+	index["R3"] = ""
 	newPeerSet := peerSet.WithNewPeer(usurperPeer)
 
 	//Set Round 10 PeerSet
@@ -669,9 +668,9 @@ func TestUsurperDivideRounds(t *testing.T) {
 func initMonologueHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 	nodes, index, orderedEvents, peerSet := initHashgraphNodes(1)
 
-	for i, peer := range peerSet.Peers {
+	for i := range peerSet.Peers {
 		name := fmt.Sprintf("w0%d", i)
-		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{rootSelfParent(peer.ID()), ""}, nodes[i].Pub, 0)
+		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{"", ""}, nodes[i].Pub, 0)
 		nodes[i].signAndAddEvent(event, name, index, orderedEvents)
 	}
 
@@ -688,7 +687,7 @@ func initMonologueHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 
 	playEvents(plays, nodes, index, orderedEvents)
 
-	hg := createHashgraph(false, orderedEvents, peerSet, common.NewTestLogger(t).WithField("test", "MONOLOGUE"))
+	hg := createHashgraph(false, orderedEvents, peerSet, t)
 
 	return hg, index
 }

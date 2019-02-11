@@ -55,7 +55,7 @@ func (rim *RollingIndexMap) GetLast(key uint32) (interface{}, error) {
 	}
 	cached, _ := pe.GetLastWindow()
 	if len(cached) == 0 {
-		return "", NewStoreErr(rim.name, Empty, "")
+		return "", NewStoreErr(rim.name, Empty, fmt.Sprint(key))
 	}
 	return cached[len(cached)-1], nil
 }

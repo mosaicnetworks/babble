@@ -243,30 +243,3 @@ func TestPeerSetCache(t *testing.T) {
 		t.Fatalf("Resetting PeerSet 2 should throw a KeyAlreadyExists error")
 	}
 }
-
-//XXX We are not ready for this
-
-// func TestPeerSetCacheEdge(t *testing.T) {
-// 	peerSetCache := NewPeerSetCache()
-
-// 	_, err := peerSetCache.Get(4)
-// 	if err == nil || !cm.Is(err, cm.KeyNotFound) {
-// 		t.Fatalf("Attempting to Get from empty PeerSetCache should throw a TooLate error")
-// 	}
-
-// 	peerSet3 := peers.NewPeerSet([]*peers.Peer{
-// 		peers.NewPeer("0xaa", ""),
-// 		peers.NewPeer("0xbb", ""),
-// 		peers.NewPeer("0xcc", ""),
-// 	})
-
-// 	err = peerSetCache.Set(3, peerSet3)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-
-// 	_, err = peerSetCache.Get(2)
-// 	if err == nil || !cm.Is(err, cm.KeyNotFound) {
-// 		t.Fatalf("Attempting to Get from a Round before first known Round should throw a TooLate error")
-// 	}
-// }

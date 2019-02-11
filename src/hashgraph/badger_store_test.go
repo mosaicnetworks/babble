@@ -322,9 +322,9 @@ func TestDBFrameMethods(t *testing.T) {
 
 	peerSet, participants := initPeers(3)
 
-	events := []*Event{}
+	events := []*FrameEvent{}
 	roots := make(map[string]*Root)
-	for id, p := range participants {
+	for _, p := range participants {
 		event := NewEvent(
 			[][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], 0))},
 			[]InternalTransaction{},
@@ -333,9 +333,15 @@ func TestDBFrameMethods(t *testing.T) {
 			p.pubKey,
 			0)
 		event.Sign(p.privKey)
-		events = append(events, event)
+		frameEvent := &FrameEvent{
+			Core:             event,
+			Round:            1,
+			LamportTimestamp: 1,
+			Witness:          true,
+		}
+		events = append(events, frameEvent)
 
-		roots[p.hex] = NewBaseRoot(uint32(id))
+		roots[p.hex] = NewRoot()
 	}
 
 	frame := &Frame{
@@ -358,11 +364,6 @@ func TestDBFrameMethods(t *testing.T) {
 		//force computing of IDs for DeepEqual
 		for _, p := range storedFrame.Peers {
 			p.ID()
-		}
-
-		//force init Roots for deep DeepEqual
-		for _, r := range storedFrame.Roots {
-			r.Init()
 		}
 
 		if !reflect.DeepEqual(storedFrame, frame) {
@@ -437,8 +438,6 @@ func TestBadgerPeerSets(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		dRoot.Init()
 
 		if !reflect.DeepEqual(iRoot, dRoot) {
 			t.Fatalf("%s Inmem and DB Roots don't match", pub)
@@ -525,7 +524,7 @@ func TestBadgerEvents(t *testing.T) {
 
 	//check retrieving peerSet last
 	for _, p := range participants {
-		last, _, err := store.LastEventFrom(p.hex)
+		last, err := store.LastEventFrom(p.hex)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -699,9 +698,9 @@ func TestBadgerFrames(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	events := []*Event{}
+	events := []*FrameEvent{}
 	roots := make(map[string]*Root)
-	for id, p := range participants {
+	for _, p := range participants {
 		event := NewEvent(
 			[][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], 0))},
 			[]InternalTransaction{},
@@ -710,9 +709,12 @@ func TestBadgerFrames(t *testing.T) {
 			p.pubKey,
 			0)
 		event.Sign(p.privKey)
-		events = append(events, event)
+		frameEvent := &FrameEvent{
+			Core: event,
+		}
+		events = append(events, frameEvent)
 
-		roots[p.hex] = NewBaseRoot(uint32(id))
+		roots[p.hex] = NewRoot()
 	}
 
 	frame := &Frame{
@@ -732,10 +734,6 @@ func TestBadgerFrames(t *testing.T) {
 		}
 		if err != nil {
 			t.Fatal(err)
-		}
-
-		for _, r := range storedFrame.Roots {
-			r.Init()
 		}
 
 		if !reflect.DeepEqual(storedFrame, frame) {

@@ -45,7 +45,7 @@ func initCores(n int, t *testing.T) ([]*Core, map[uint32]*ecdsa.PrivateKey, map[
 		initialEvent := hg.NewEvent([][]byte(nil),
 			[]hg.InternalTransaction{},
 			nil,
-			[]string{fmt.Sprintf("Root%d", peer.ID()), ""},
+			[]string{"", ""},
 			core.PubKey(),
 			0)
 
@@ -166,7 +166,6 @@ func TestEventDiff(t *testing.T) {
 			t.Fatalf("element %d should be %s, not %s", i, expectedOrder[i], name)
 		}
 	}
-
 }
 
 func TestSync(t *testing.T) {
@@ -601,7 +600,13 @@ func TestCoreFastForward(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err = cores[0].FastForward(cores[1].hexID, block, frame)
+		//This operation clears the Events' private fields, which need to be
+		//recomputed (round, roundReceived, etc).
+		marshalledFrame, _ := frame.Marshal()
+		unmarshalledFrame := new(hg.Frame)
+		unmarshalledFrame.Unmarshal(marshalledFrame)
+
+		err = cores[0].FastForward(cores[1].hexID, block, unmarshalledFrame)
 		if err != nil {
 			t.Fatal(err)
 		}

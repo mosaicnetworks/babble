@@ -211,29 +211,31 @@ func TestTransport_FastForward(t *testing.T) {
 			Round: 10,
 			Peers: framePeers,
 			Roots: map[string]*hashgraph.Root{
-				"pub1": hashgraph.NewBaseRoot(framePeers[0].ID()),
-				"pub2": hashgraph.NewBaseRoot(framePeers[1].ID()),
+				"pub1": hashgraph.NewRoot(),
+				"pub2": hashgraph.NewRoot(),
 			},
-			Events: []*hashgraph.Event{
-				hashgraph.NewEvent(
-					[][]byte{
-						[]byte("tx1"),
-						[]byte("tx2"),
-					},
-					[]hashgraph.InternalTransaction{
-						hashgraph.NewInternalTransaction(hashgraph.PEER_ADD, *peers.NewPeer("pub3", "addr3")),
-					},
-					[]hashgraph.BlockSignature{
-						hashgraph.BlockSignature{
-							[]byte("pub1"),
-							0,
-							"the signature",
+			Events: []*hashgraph.FrameEvent{
+				&hashgraph.FrameEvent{
+					Core: hashgraph.NewEvent(
+						[][]byte{
+							[]byte("tx1"),
+							[]byte("tx2"),
 						},
-					},
-					[]string{"pub1", "pub2"},
-					[]byte("pub1"),
-					4,
-				),
+						[]hashgraph.InternalTransaction{
+							hashgraph.NewInternalTransaction(hashgraph.PEER_ADD, *peers.NewPeer("pub3", "addr3")),
+						},
+						[]hashgraph.BlockSignature{
+							hashgraph.BlockSignature{
+								[]byte("pub1"),
+								0,
+								"the signature",
+							},
+						},
+						[]string{"pub1", "pub2"},
+						[]byte("pub1"),
+						4,
+					),
+				},
 			},
 		}
 
