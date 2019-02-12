@@ -35,7 +35,6 @@ type EagerSyncResponse struct {
 
 type FastForwardRequest struct {
 	FromID uint32
-	Round  int
 }
 
 type FastForwardResponse struct {

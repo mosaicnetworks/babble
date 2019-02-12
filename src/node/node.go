@@ -211,7 +211,7 @@ func (n *Node) fastForward() error {
 	peer := n.core.peerSelector.Next()
 
 	start := time.Now()
-	resp, err := n.requestFastForward(peer.NetAddr, -1) //XXX
+	resp, err := n.requestFastForward(peer.NetAddr)
 	elapsed := time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestFastForward()")
 	if err != nil {

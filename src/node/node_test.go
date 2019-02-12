@@ -323,7 +323,7 @@ func TestReset(t *testing.T) {
 	keys, peers := initPeers(4)
 	nodes := initNodes(keys, peers, 100000, 100, "inmem", 10*time.Millisecond, logger, t) //make cache high to draw graphs
 	defer shutdownNodes(nodes)
-	defer drawGraphs(nodes, t)
+	//defer drawGraphs(nodes, t)
 
 	target := 50
 	err := gossip(nodes, target, false, 10*time.Second)

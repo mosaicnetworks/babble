@@ -36,15 +36,13 @@ func (n *Node) requestEagerSync(target string, events []hg.WireEvent) (net.Eager
 	return out, err
 }
 
-func (n *Node) requestFastForward(target string, round int) (net.FastForwardResponse, error) {
+func (n *Node) requestFastForward(target string) (net.FastForwardResponse, error) {
 	n.logger.WithFields(logrus.Fields{
 		"target": target,
-		"round":  round,
 	}).Debug("RequestFastForward()")
 
 	args := net.FastForwardRequest{
 		FromID: n.id,
-		Round:  round,
 	}
 
 	var out net.FastForwardResponse
@@ -171,8 +169,7 @@ func (n *Node) processEagerSyncRequest(rpc net.RPC, cmd *net.EagerSyncRequest) {
 
 func (n *Node) processFastForwardRequest(rpc net.RPC, cmd *net.FastForwardRequest) {
 	n.logger.WithFields(logrus.Fields{
-		"from":  cmd.FromID,
-		"round": cmd.Round,
+		"from": cmd.FromID,
 	}).Debug("process FastForwardRequest")
 
 	resp := &net.FastForwardResponse{
@@ -180,12 +177,6 @@ func (n *Node) processFastForwardRequest(rpc net.RPC, cmd *net.FastForwardReques
 	}
 
 	var respErr error
-
-	//Return an error if there is no anchor block with a round-received greater
-	//than the requested round, EXCEPT if the requested round has less than 4
-	//participants. This is a special case for the dynamic-membership
-	//bootstrapping process.
-	ps, _ := n.core.hg.Store.GetPeerSet(cmd.Round)
 
 	//Get latest Frame
 	n.coreLock.Lock()
@@ -195,14 +186,6 @@ func (n *Node) processFastForwardRequest(rpc net.RPC, cmd *net.FastForwardReques
 	if err != nil {
 		n.logger.WithError(err).Error("Getting Frame")
 		respErr = err
-	} else if block.RoundReceived() <= cmd.Round &&
-		ps.Len() >= 4 {
-		n.logger.WithFields(logrus.Fields{
-			"anchor_block_round": block.RoundReceived(),
-			"fast_forward_round": cmd.Round,
-		}).Debug("No anchor block above requested round")
-		respErr = fmt.Errorf("Latest anchor block round (%d) is below requested round (%d)", block.RoundReceived(), cmd.Round)
-
 	} else {
 		resp.Block = *block
 		resp.Frame = *frame

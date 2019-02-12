@@ -1,7 +1,6 @@
 nodes = 4
 txs = 10
-index = 5
-target = 1
+index = 1
 
 up: conf start watch
 
@@ -27,9 +26,9 @@ watch:
 stop: 
 	./scripts/stop-testnet.sh
 
-# open terminals to use the dummy chat application
-demo: 
-	./scripts/demo.sh $(nodes)
+# show dummy chat application
+show: 
+	./scripts/show.sh client$(index)
 
 # send transactions to multiple nodes
 bombard: 
@@ -37,11 +36,15 @@ bombard:
 
 # send transactions to specific node
 send:
-	./scripts/send.sh $(target) $(txs)
+	./scripts/send.sh $(index) $(txs)
 
 # create new peer and join
 join:
 	./scripts/join.sh $(index)
 
-.PHONY: up build conf start watch stop demo bombard send join
+# demo
+demo:
+	./scripts/demo.sh
+
+.PHONY: up build conf start watch stop show bombard send join demo
 	

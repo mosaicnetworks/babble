@@ -292,12 +292,10 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 		c.SetPeerSet(peers)
 
 		//A new peer has joined and it won't be able to participate in consensus
-		//until it fast-forwards to a round greater than its accepted-round.
-		//Hence, we force the other nodes to reach that round and create a
-		//corresponding anchor block.
+		//until it fast-forwards to its accepted-round. Hence, we force the
+		//other nodes to reach that round.
 		if acceptedRound > c.TargetRound {
-			c.TargetRound = acceptedRound + 1
-			c.hg.SetRequiredAnchor(acceptedRound + 1)
+			c.TargetRound = acceptedRound
 		}
 	}
 
@@ -439,7 +437,7 @@ func (c *Core) RecordHeads() error {
 
 func (c *Core) AddSelfEvent(otherHead string) error {
 	if c.hg.Store.LastRound() < c.AcceptedRound {
-		c.logger.Debugf("Too early to gossip (%d / %d)", c.hg.Store.LastRound(), c.AcceptedRound)
+		c.logger.Debugf("Too early to insert self-event (%d / %d)", c.hg.Store.LastRound(), c.AcceptedRound)
 		return nil
 	}
 
