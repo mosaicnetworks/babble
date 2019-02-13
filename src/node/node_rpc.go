@@ -217,28 +217,26 @@ func (n *Node) processJoinRequest(rpc net.RPC, cmd *net.JoinRequest) {
 	}).Debug("process JoinRequest")
 
 	var respErr error
-	var promiseResp JoinPromiseResponse
-
-	itx := hg.NewInternalTransaction(hg.PEER_ADD, cmd.Peer)
-
-	//Check already present or pending request
-	n.coreLock.Lock()
-
-	if _, ok := n.core.promises[itx.Hash()]; ok {
-		respErr := fmt.Errorf("Peer already has a pending request")
-		n.logger.WithError(respErr).Error()
-	}
+	var acceptedRound int
+	var peers []*peers.Peer
 
 	if _, ok := n.core.peers.ByPubKey[cmd.Peer.PubKeyHex]; ok {
-		respErr := fmt.Errorf("Peer is already part of the PeerSet")
-		n.logger.WithError(respErr).Error()
-	}
 
-	n.coreLock.Unlock()
+		n.logger.Debug("JoinRequest peer is already present")
 
-	//XXX run this by the App first
+		//Get current peerset and accepted round
+		lastConsensusRound := n.core.GetLastConsensusRoundIndex()
+		if lastConsensusRound != nil {
+			acceptedRound = *lastConsensusRound
+		}
 
-	if respErr == nil {
+		peers = n.core.peers.Peers
+
+	} else {
+		//XXX run this by the App first
+
+		itx := hg.NewInternalTransaction(hg.PEER_ADD, cmd.Peer)
+
 		//Dispatch the InternalTransaction
 		n.coreLock.Lock()
 		promise := n.core.AddInternalTransaction(itx)
@@ -248,19 +246,27 @@ func (n *Node) processJoinRequest(rpc net.RPC, cmd *net.JoinRequest) {
 		timeout := time.After(n.conf.JoinTimeout)
 		select {
 		case resp := <-promise.RespCh:
-			promiseResp = resp
+			acceptedRound = resp.AcceptedRound
+			peers = resp.Peers
 		case <-timeout:
 			respErr = fmt.Errorf("Timeout waiting for JoinRequest to go through consensus")
 			n.logger.WithError(respErr).Error()
 			break
 		}
+
 	}
 
 	resp := &net.JoinResponse{
 		FromID:        n.id,
-		AcceptedRound: promiseResp.AcceptedRound,
-		Peers:         promiseResp.Peers,
+		AcceptedRound: acceptedRound,
+		Peers:         peers,
 	}
+
+	n.logger.WithFields(logrus.Fields{
+		"accepted_round": resp.AcceptedRound,
+		"peers":          len(resp.Peers),
+		"rpc_err":        respErr,
+	}).Debug("Responding to JoinRequest")
 
 	rpc.Respond(resp, respErr)
 }
