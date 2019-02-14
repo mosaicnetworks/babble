@@ -230,6 +230,11 @@ func (s *BadgerStore) SetPeerSet(round int, peerSet *peers.PeerSet) error {
 }
 
 func (s *BadgerStore) AddParticipant(p *peers.Peer) error {
+	//update the cache
+	if err := s.inmemStore.AddParticipant(p); err != nil {
+		return err
+	}
+
 	if err := s.dbSetRepertoire(p); err != nil {
 		return err
 	}
