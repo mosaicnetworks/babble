@@ -26,7 +26,6 @@ func (g *Graph) GetParticipantEvents() (map[string]map[string]*hg.Event, error) 
 			return res, err
 		}
 
-		//XXX
 		start := -1
 		if l := len(root.Events); l > 0 {
 			start = root.Events[l-1].Core.Index()

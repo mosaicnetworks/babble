@@ -229,6 +229,13 @@ func (n *Node) fastForward() error {
 		"snapshot":             resp.Snapshot,
 	}).Debug("FastForwardResponse")
 
+	//update app from snapshot
+	err = n.proxy.Restore(resp.Snapshot)
+	if err != nil {
+		n.logger.WithError(err).Error("Restoring App from Snapshot")
+		return err
+	}
+
 	//prepare core. ie: fresh hashgraph
 	n.coreLock.Lock()
 	err = n.core.FastForward(peer.PubKeyHex, &resp.Block, &resp.Frame)
@@ -238,14 +245,8 @@ func (n *Node) fastForward() error {
 		return err
 	}
 
-	//update app from snapshot
-	err = n.proxy.Restore(resp.Snapshot)
-	if err != nil {
-		n.logger.WithError(err).Error("Restoring App from Snapshot")
-		return err
-	}
-
-	//XXX We should commit first to see which InternalTransactions are accepted
+	//Blocks only contain accepted InternalTransactions so it's ok to apply them
+	//without asking the application again.
 	err = n.core.ProcessAcceptedInternalTransactions(resp.Block.RoundReceived(), resp.Block.InternalTransactions())
 	if err != nil {
 		n.logger.WithError(err).Error("Processing AnchorBlock InternalTransactions")
