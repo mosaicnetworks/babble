@@ -17,6 +17,8 @@ const (
 
 	Joining
 
+	Leaving
+
 	Shutdown
 )
 
@@ -28,6 +30,8 @@ func (s NodeState) String() string {
 		return "CatchingUp"
 	case Joining:
 		return "Joining"
+	case Leaving:
+		return "Leaving"
 	case Shutdown:
 		return "Shutdown"
 	default:

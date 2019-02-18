@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/crypto"
@@ -508,6 +509,33 @@ func (c *Core) FastForward(peer string, block *hg.Block, frame *hg.Frame) error 
 	c.SetPeerSet(peers.NewPeerSet(frame.Peers))
 
 	return nil
+}
+
+func (c *Core) Leave(leaveTimeout time.Duration) error {
+	//XXX better logging
+	p, ok := c.peers.ByID[c.ID()]
+	if !ok {
+		return fmt.Errorf("Peer not found")
+	}
+
+	itx := hg.NewInternalTransaction(hg.PEER_REMOVE, *p)
+
+	promise := c.AddInternalTransaction(itx)
+
+	//Wait for the InternalTransaction to go through consensus
+	timeout := time.After(leaveTimeout)
+	select {
+	case resp := <-promise.RespCh:
+		c.logger.WithFields(logrus.Fields{
+			"leaving_round": resp.AcceptedRound,
+			"peers":         len(resp.Peers),
+		}).Debug("Succesfully left")
+		return nil
+	case <-timeout:
+		err := fmt.Errorf("Timeout waiting for LeaveRequest to go through consensus")
+		c.logger.WithError(err).Error()
+		return err
+	}
 }
 
 func (c *Core) FromWire(wireEvents []hg.WireEvent) ([]hg.Event, error) {

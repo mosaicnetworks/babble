@@ -3,8 +3,11 @@ package node
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"os"
+	"os/signal"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
@@ -123,6 +126,8 @@ func (n *Node) Run(gossip bool) {
 			n.fastForward()
 		case Joining:
 			n.join()
+		case Leaving:
+			n.leave()
 		case Shutdown:
 			return
 		}
@@ -146,6 +151,11 @@ func (n *Node) resetTimer() {
 }
 
 func (n *Node) doBackgroundWork() {
+	//XXX
+
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGINT)
+
 	for {
 		select {
 		case t := <-n.submitCh:
@@ -154,6 +164,10 @@ func (n *Node) doBackgroundWork() {
 			n.resetTimer()
 		case <-n.shutdownCh:
 			return
+		case <-c:
+			n.logger.Debug("Reacting to SIGINT")
+			n.leave()
+			os.Exit(1)
 		}
 	}
 }
@@ -285,6 +299,21 @@ func (n *Node) join() error {
 
 	n.setState(CatchingUp)
 
+	return nil
+}
+
+func (n *Node) leave() error {
+	//n.setState(Leaving)
+
+	n.logger.Debug("LEAVING")
+
+	err := n.core.Leave(n.conf.JoinTimeout)
+	if err != nil {
+		n.logger.WithError(err).Error("Leaving")
+		return err
+	}
+
+	n.setState(Shutdown)
 	return nil
 }
 

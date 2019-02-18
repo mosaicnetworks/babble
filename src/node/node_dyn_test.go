@@ -63,6 +63,37 @@ func TestJoinRequest(t *testing.T) {
 	checkPeerSets(nodes, t)
 }
 
+func TestLeaveRequest(t *testing.T) {
+	logger := common.NewTestLogger(t)
+	keys, peerSet := initPeers(4)
+	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", 5*time.Millisecond, logger, t)
+	defer shutdownNodes(nodes)
+	//defer drawGraphs(nodes, t)
+
+	target := 30
+	err := gossip(nodes, target, false, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes, 0, t)
+
+	leavingNode := nodes[3]
+
+	err = leavingNode.leave()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	//Gossip some more
+	secondTarget := target + 50
+	err = bombardAndWait(nodes[0:3], secondTarget, 6*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes[0:3], 0, t)
+	checkPeerSets(nodes[0:3], t)
+}
+
 func TestJoinFull(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(4)
