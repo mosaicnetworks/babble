@@ -126,8 +126,6 @@ func (n *Node) Run(gossip bool) {
 			n.fastForward()
 		case Joining:
 			n.join()
-		case Leaving:
-			n.leave()
 		case Shutdown:
 			return
 		}
@@ -152,7 +150,6 @@ func (n *Node) resetTimer() {
 
 func (n *Node) doBackgroundWork() {
 	//XXX
-
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGINT)
 
@@ -165,8 +162,8 @@ func (n *Node) doBackgroundWork() {
 		case <-n.shutdownCh:
 			return
 		case <-c:
-			n.logger.Debug("Reacting to SIGINT")
-			n.leave()
+			n.logger.Debug("Reacting to SIGINT - LEAVE")
+			n.Leave()
 			os.Exit(1)
 		}
 	}
@@ -302,9 +299,7 @@ func (n *Node) join() error {
 	return nil
 }
 
-func (n *Node) leave() error {
-	//n.setState(Leaving)
-
+func (n *Node) Leave() error {
 	n.logger.Debug("LEAVING")
 
 	err := n.core.Leave(n.conf.JoinTimeout)

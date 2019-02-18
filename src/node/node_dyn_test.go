@@ -79,7 +79,7 @@ func TestLeaveRequest(t *testing.T) {
 
 	leavingNode := nodes[3]
 
-	err = leavingNode.leave()
+	err = leavingNode.Leave()
 	if err != nil {
 		t.Fatal(err)
 	}

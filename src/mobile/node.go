@@ -93,6 +93,10 @@ func (n *Node) Run(async bool) {
 	}
 }
 
+func (n *Node) Leave() {
+	n.node.Leave()
+}
+
 func (n *Node) Shutdown() {
 	n.node.Shutdown()
 }
