@@ -530,11 +530,28 @@ func (c *Core) Leave(leaveTimeout time.Duration) error {
 			"leaving_round": resp.AcceptedRound,
 			"peers":         len(resp.Peers),
 		}).Debug("Succesfully left")
-		return nil
 	case <-timeout:
 		err := fmt.Errorf("Timeout waiting for LeaveRequest to go through consensus")
 		c.logger.WithError(err).Error()
 		return err
+	}
+
+	//Wait for node to reach accepted round
+	timeout = time.After(leaveTimeout)
+	for {
+		select {
+		case <-timeout:
+			err := fmt.Errorf("Timeout waiting for node to reach AcceptedRound")
+			c.logger.WithError(err).Error()
+			return err
+		default:
+			if c.hg.LastConsensusRound != nil && *c.hg.LastConsensusRound < c.TargetRound {
+				c.logger.Debugf("Waiting to reach AcceptedRound: %d/%d", *c.hg.LastConsensusRound, c.TargetRound)
+				time.Sleep(100 * time.Millisecond)
+			} else {
+				return nil
+			}
+		}
 	}
 }
 

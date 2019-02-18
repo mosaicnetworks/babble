@@ -42,9 +42,13 @@ send:
 join:
 	./scripts/join.sh $(index)
 
+# leave cleanly - removing itself from peer-set
+leave:
+	./scripts/leave.sh $(index)
+
 # demo
 demo:
 	./scripts/demo.sh
 
-.PHONY: up build conf start watch stop show bombard send join demo
+.PHONY: up build conf start watch stop show bombard send join leave demo
 	
