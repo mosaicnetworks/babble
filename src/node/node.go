@@ -33,6 +33,7 @@ type Node struct {
 	proxy    proxy.AppProxy
 	submitCh chan []byte
 
+	sigintCh   chan os.Signal
 	shutdownCh chan struct{}
 
 	controlTimer *ControlTimer
@@ -52,6 +53,9 @@ func NewNode(conf *Config,
 	trans net.Transport,
 	proxy proxy.AppProxy,
 ) *Node {
+	//Prepare sigintCh to relay SIGINT system calls
+	sigintCh := make(chan os.Signal)
+	signal.Notify(sigintCh, os.Interrupt, syscall.SIGINT)
 
 	node := Node{
 		id:           id,
@@ -62,6 +66,7 @@ func NewNode(conf *Config,
 		netCh:        trans.Consumer(),
 		proxy:        proxy,
 		submitCh:     proxy.SubmitCh(),
+		sigintCh:     sigintCh,
 		shutdownCh:   make(chan struct{}),
 		controlTimer: NewRandomControlTimer(),
 	}
@@ -149,10 +154,6 @@ func (n *Node) resetTimer() {
 }
 
 func (n *Node) doBackgroundWork() {
-	//XXX
-	c := make(chan os.Signal)
-	signal.Notify(c, os.Interrupt, syscall.SIGINT)
-
 	for {
 		select {
 		case t := <-n.submitCh:
@@ -161,10 +162,10 @@ func (n *Node) doBackgroundWork() {
 			n.resetTimer()
 		case <-n.shutdownCh:
 			return
-		case <-c:
+		case <-n.sigintCh:
 			n.logger.Debug("Reacting to SIGINT - LEAVE")
 			n.Leave()
-			os.Exit(1)
+			os.Exit(0)
 		}
 	}
 }

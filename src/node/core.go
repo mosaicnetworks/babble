@@ -505,10 +505,9 @@ func (c *Core) FastForward(peer string, block *hg.Block, frame *hg.Frame) error 
 }
 
 func (c *Core) Leave(leaveTimeout time.Duration) error {
-	//XXX better logging
 	p, ok := c.peers.ByID[c.ID()]
 	if !ok {
-		return fmt.Errorf("Peer not found")
+		return fmt.Errorf("Leaving: Peer not found")
 	}
 
 	itx := hg.NewInternalTransaction(hg.PEER_REMOVE, *p)
@@ -522,7 +521,7 @@ func (c *Core) Leave(leaveTimeout time.Duration) error {
 		c.logger.WithFields(logrus.Fields{
 			"leaving_round": resp.AcceptedRound,
 			"peers":         len(resp.Peers),
-		}).Debug("Succesfully left")
+		}).Debug("LeaveRequest processed")
 	case <-timeout:
 		err := fmt.Errorf("Timeout waiting for LeaveRequest to go through consensus")
 		c.logger.WithError(err).Error()
@@ -534,12 +533,12 @@ func (c *Core) Leave(leaveTimeout time.Duration) error {
 	for {
 		select {
 		case <-timeout:
-			err := fmt.Errorf("Timeout waiting for node to reach AcceptedRound")
+			err := fmt.Errorf("Timeout waiting for leaving node to reach TargetRound")
 			c.logger.WithError(err).Error()
 			return err
 		default:
 			if c.hg.LastConsensusRound != nil && *c.hg.LastConsensusRound < c.TargetRound {
-				c.logger.Debugf("Waiting to reach AcceptedRound: %d/%d", *c.hg.LastConsensusRound, c.TargetRound)
+				c.logger.Debugf("Waiting to reach TargetRound: %d/%d", *c.hg.LastConsensusRound, c.TargetRound)
 				time.Sleep(100 * time.Millisecond)
 			} else {
 				return nil
