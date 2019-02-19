@@ -44,8 +44,9 @@ func TestJoinRequest(t *testing.T) {
 	peer := peers.NewPeer(
 		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
 		fmt.Sprint("127.0.0.1:4242"),
+		"monika",
 	)
-	newNode := newNode(peer, key, peerSet, 1000, 1000, "inmem", 5*time.Millisecond, logger, t)
+	newNode := newNode(peer, key, "new node", peerSet, 1000, 1000, "inmem", 5*time.Millisecond, logger, t)
 	defer newNode.Shutdown()
 
 	err = newNode.join()
@@ -111,8 +112,9 @@ func TestJoinFull(t *testing.T) {
 	peer := peers.NewPeer(
 		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
 		fmt.Sprint("127.0.0.1:4242"),
+		"monika",
 	)
-	newNode := newNode(peer, key, peerSet, 1000000, 400, "inmem", 10*time.Millisecond, logger, t)
+	newNode := newNode(peer, key, "new node", peerSet, 1000000, 400, "inmem", 10*time.Millisecond, logger, t)
 	defer newNode.Shutdown()
 
 	//Run parallel routine to check newNode eventually reaches CatchingUp state.
@@ -152,7 +154,7 @@ func TestOrganicGrowth(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(1)
 
-	node0 := newNode(peerSet.Peers[0], keys[0], peerSet, 1000000, 400, "inmem", 10*time.Millisecond, logger, t)
+	node0 := newNode(peerSet.Peers[0], keys[0], "new node", peerSet, 1000000, 400, "inmem", 10*time.Millisecond, logger, t)
 	defer node0.Shutdown()
 	node0.RunAsync(true)
 
@@ -167,8 +169,9 @@ func TestOrganicGrowth(t *testing.T) {
 		peer := peers.NewPeer(
 			fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
 			fmt.Sprintf("127.0.0.1:%d", 4240+i),
+			"monika",
 		)
-		newNode := newNode(peer, key, peerSet, 1000000, 400, "inmem", 10*time.Millisecond, logger, t)
+		newNode := newNode(peer, key, "new node", peerSet, 1000000, 400, "inmem", 10*time.Millisecond, logger, t)
 
 		logger.Debugf("starting new node %d, %d", i, newNode.ID())
 		defer newNode.Shutdown()

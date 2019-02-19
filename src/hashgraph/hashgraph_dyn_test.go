@@ -118,7 +118,7 @@ func initR2DynHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 	key3, _ := crypto.GenerateECDSAKey()
 	node3 := NewTestNode(key3)
 	nodes = append(nodes, node3)
-	peer3 := peers.NewPeer(node3.PubHex, "")
+	peer3 := peers.NewPeer(node3.PubHex, "", "")
 	index["R3"] = ""
 	newPeerSet := peerSet.WithNewPeer(peer3)
 
@@ -537,7 +537,7 @@ func initUsurperHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 	key3, _ := crypto.GenerateECDSAKey()
 	usurperNode := NewTestNode(key3)
 	nodes = append(nodes, usurperNode)
-	usurperPeer := peers.NewPeer(usurperNode.PubHex, "")
+	usurperPeer := peers.NewPeer(usurperNode.PubHex, "", "")
 	index["R3"] = ""
 	newPeerSet := peerSet.WithNewPeer(usurperPeer)
 

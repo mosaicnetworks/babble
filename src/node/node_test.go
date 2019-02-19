@@ -38,7 +38,7 @@ func TestAddTransaction(t *testing.T) {
 	peer0Proxy := dummy.NewInmemDummyClient(testLogger)
 	defer peer0Trans.Close()
 
-	node0 := NewNode(config, peers[0].ID(), keys[0], p,
+	node0 := NewNode(config, peers[0].ID(), keys[0], "node0", p,
 		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
 		peer0Proxy)
@@ -53,7 +53,7 @@ func TestAddTransaction(t *testing.T) {
 	peer1Proxy := dummy.NewInmemDummyClient(testLogger)
 	defer peer1Trans.Close()
 
-	node1 := NewNode(TestConfig(t), peers[1].ID(), keys[1], p,
+	node1 := NewNode(TestConfig(t), peers[1].ID(), keys[1], "node1", p,
 		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
 		peer1Proxy)
@@ -229,7 +229,7 @@ func TestCatchUp(t *testing.T) {
 	}
 	checkGossip(normalNodes, 0, t)
 
-	node0 := newNode(peers.Peers[0], keys[0], peers, 1000000, 100, "inmem", 10*time.Millisecond, logger, t)
+	node0 := newNode(peers.Peers[0], keys[0], "speedy gonzales", peers, 1000000, 100, "inmem", 10*time.Millisecond, logger, t)
 	defer node0.Shutdown()
 
 	//Run parallel routine to check node0 eventually reaches CatchingUp state.
@@ -436,6 +436,7 @@ func initPeers(n int) ([]*ecdsa.PrivateKey, *peers.PeerSet) {
 		peer := peers.NewPeer(
 			fmt.Sprintf("0x%X", crypto.FromECDSAPub(&keys[i].PublicKey)),
 			fmt.Sprintf("127.0.0.1:%d", ip),
+			fmt.Sprintf("node%d", i),
 		)
 		pirs = append(pirs, peer)
 		ip++
@@ -448,6 +449,7 @@ func initPeers(n int) ([]*ecdsa.PrivateKey, *peers.PeerSet) {
 
 func newNode(peer *peers.Peer,
 	k *ecdsa.PrivateKey,
+	moniker string,
 	peers *peers.PeerSet,
 	cacheSize,
 	syncLimit int,
@@ -487,6 +489,7 @@ func newNode(peer *peers.Peer,
 	node := NewNode(conf,
 		peer.ID(),
 		k,
+		moniker,
 		peers,
 		store,
 		trans,
@@ -518,7 +521,16 @@ func initNodes(keys []*ecdsa.PrivateKey,
 			t.Fatalf("Peer not found")
 		}
 
-		node := newNode(peer, k, peers, cacheSize, syncLimit, storeType, heartbeatTimeout, logger, t)
+		node := newNode(peer,
+			k,
+			fmt.Sprintf("node%d", k),
+			peers,
+			cacheSize,
+			syncLimit,
+			storeType,
+			heartbeatTimeout,
+			logger,
+			t)
 
 		nodes = append(nodes, node)
 	}
@@ -538,6 +550,7 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 	conf := oldNode.conf
 	id := oldNode.id
 	key := oldNode.core.key
+	moniker := oldNode.moniker
 	peers := oldNode.core.peers
 
 	var store hg.Store
@@ -558,7 +571,7 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 	}
 	prox := dummy.NewInmemDummyClient(logger)
 
-	newNode := NewNode(conf, id, key, peers, store, trans, prox)
+	newNode := NewNode(conf, id, key, moniker, peers, store, trans, prox)
 
 	if err := newNode.Init(); err != nil {
 		t.Fatal(err)

@@ -129,16 +129,30 @@ func (b *Babble) initNode() error {
 	key := b.Config.Key
 	pub := crypto.FromECDSAPub(&key.PublicKey)
 	id := common.Hash32(pub)
+	moniker := b.Config.Moniker
+
+	p, ok := b.Peers.ByID[id]
+	if ok {
+		if p.Moniker != moniker {
+			b.Config.Logger.WithFields(logrus.Fields{
+				"json_moniker": p.Moniker,
+				"cli_moniker":  moniker,
+			}).Debugf("Using moniker from peers.json file")
+			moniker = p.Moniker
+		}
+	}
 
 	b.Config.Logger.WithFields(logrus.Fields{
 		"participants": b.Peers,
 		"id":           id,
+		"moniker":      moniker,
 	}).Debug("PARTICIPANTS")
 
 	b.Node = node.NewNode(
 		&b.Config.NodeConfig,
 		id,
 		key,
+		moniker,
 		b.Peers,
 		b.Store,
 		b.Transport,

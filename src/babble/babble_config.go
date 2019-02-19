@@ -21,6 +21,7 @@ type BabbleConfig struct {
 	MaxPool     int    `mapstructure:"max-pool"`
 	Store       bool   `mapstructure:"store"`
 	LogLevel    string `mapstructure:"log"`
+	Moniker     string `mapstructure:"moniker"`
 
 	LoadPeers bool
 	Proxy     proxy.AppProxy
@@ -30,15 +31,15 @@ type BabbleConfig struct {
 
 func NewDefaultConfig() *BabbleConfig {
 	config := &BabbleConfig{
+		NodeConfig: *node.DefaultConfig(),
 		DataDir:    DefaultDataDir(),
 		BindAddr:   ":1337",
-		Proxy:      nil,
-		Logger:     logrus.New(),
 		MaxPool:    2,
-		NodeConfig: *node.DefaultConfig(),
 		Store:      false,
 		LoadPeers:  true,
+		Proxy:      nil,
 		Key:        nil,
+		Logger:     logrus.New(),
 	}
 
 	config.NodeConfig.Logger = config.Logger

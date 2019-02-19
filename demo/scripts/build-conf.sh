@@ -35,7 +35,8 @@ do
 
     printf "\t{\n" >> $PFILE
     printf "\t\t\"NetAddr\":\"$(cat $DEST/node$i/addr)\",\n" >> $PFILE
-    printf "\t\t\"PubKeyHex\":\"$(cat $DEST/node$i/key.pub)\"\n" >> $PFILE
+    printf "\t\t\"PubKeyHex\":\"$(cat $DEST/node$i/key.pub)\",\n" >> $PFILE
+    printf "\t\t\"Moniker\":\"node$i\"\n" >> $PFILE
     printf "\t}%s\n"  $com >> $PFILE
 
 done

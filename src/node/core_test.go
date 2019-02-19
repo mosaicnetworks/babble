@@ -26,7 +26,7 @@ func initCores(n int, t *testing.T) ([]*Core, map[uint32]*ecdsa.PrivateKey, map[
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
 		pubHex := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey))
-		peer := peers.NewPeer(pubHex, "")
+		peer := peers.NewPeer(pubHex, "", "")
 		pirs = append(pirs, peer)
 		participantKeys[peer.ID()] = key
 	}
@@ -735,7 +735,7 @@ func initR2DynHashgraph(t *testing.T) (cores []*Core, bobPeer *peers.Peer, bobKe
 	//Initialize the joining Peer (bob)
 	bobKey, _ = crypto.GenerateECDSAKey()
 	bobPubHex := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&bobKey.PublicKey))
-	bobPeer = peers.NewPeer(bobPubHex, "")
+	bobPeer = peers.NewPeer(bobPubHex, "", "")
 
 	//Insert a JoinRequest in a Round0 Event
 	playbook := []play{

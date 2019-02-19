@@ -67,6 +67,7 @@ func AddRunFlags(cmd *cobra.Command) {
 
 	cmd.Flags().String("datadir", config.Babble.DataDir, "Top-level directory for configuration and data")
 	cmd.Flags().String("log", config.Babble.LogLevel, "debug, info, warn, error, fatal, panic")
+	cmd.Flags().String("moniker", config.Babble.Moniker, "Optional name")
 
 	// Network
 	cmd.Flags().StringP("listen", "l", config.Babble.BindAddr, "Listen IP:Port for babble node")
@@ -114,6 +115,7 @@ func loadConfig(cmd *cobra.Command, args []string) error {
 		"babble.Store":                 config.Babble.Store,
 		"babble.LoadPeers":             config.Babble.LoadPeers,
 		"babble.LogLevel":              config.Babble.LogLevel,
+		"babble.Moniker":               config.Babble.Moniker,
 		"babble.Node.HeartbeatTimeout": config.Babble.NodeConfig.HeartbeatTimeout,
 		"babble.Node.TCPTimeout":       config.Babble.NodeConfig.TCPTimeout,
 		"babble.Node.JoinTimeout":      config.Babble.NodeConfig.JoinTimeout,

@@ -86,8 +86,8 @@ func TestSocketProxyClient(t *testing.T) {
 				[]byte(fmt.Sprintf("block %d transaction", i)),
 			},
 			[]hashgraph.InternalTransaction{
-				hashgraph.NewInternalTransaction(hashgraph.PEER_ADD, *peers.NewPeer("node0", "paris")),
-				hashgraph.NewInternalTransaction(hashgraph.PEER_REMOVE, *peers.NewPeer("node1", "london")),
+				hashgraph.NewInternalTransaction(hashgraph.PEER_ADD, *peers.NewPeer("node0", "paris", "")),
+				hashgraph.NewInternalTransaction(hashgraph.PEER_REMOVE, *peers.NewPeer("node1", "london", "")),
 			},
 		)
 	}

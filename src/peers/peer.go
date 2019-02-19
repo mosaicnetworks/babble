@@ -11,14 +11,16 @@ import (
 type Peer struct {
 	NetAddr   string
 	PubKeyHex string
+	Moniker   string
 
 	id uint32
 }
 
-func NewPeer(pubKeyHex, netAddr string) *Peer {
+func NewPeer(pubKeyHex, netAddr, moniker string) *Peer {
 	peer := &Peer{
 		PubKeyHex: pubKeyHex,
 		NetAddr:   netAddr,
+		Moniker:   moniker,
 	}
 	return peer
 }

@@ -199,8 +199,8 @@ func TestTransport_FastForward(t *testing.T) {
 		//Prepare the response Frame and corresponding Block
 
 		framePeers := []*peers.Peer{
-			peers.NewPeer("pub1", "addr1"),
-			peers.NewPeer("pub2", "addr2"),
+			peers.NewPeer("pub1", "addr1", "monika"),
+			peers.NewPeer("pub2", "addr2", "monika"),
 		}
 
 		//Marshalling/Unmarshalling clears private fiels, so we precompute the
@@ -222,7 +222,7 @@ func TestTransport_FastForward(t *testing.T) {
 							[]byte("tx2"),
 						},
 						[]hashgraph.InternalTransaction{
-							hashgraph.NewInternalTransaction(hashgraph.PEER_ADD, *peers.NewPeer("pub3", "addr3")),
+							hashgraph.NewInternalTransaction(hashgraph.PEER_ADD, *peers.NewPeer("pub3", "addr3", "monika")),
 						},
 						[]hashgraph.BlockSignature{
 							hashgraph.BlockSignature{
@@ -331,8 +331,8 @@ func TestTransport_Join(t *testing.T) {
 
 		//node1 asks to join node2
 		testPeers := []*peers.Peer{
-			peers.NewPeer("node1", "addr1"),
-			peers.NewPeer("node2", "addr2"),
+			peers.NewPeer("node1", "addr1", "monika"),
+			peers.NewPeer("node2", "addr2", "monika"),
 		}
 
 		unmarshalledPeers := []*peers.Peer{}

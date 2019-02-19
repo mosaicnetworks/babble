@@ -87,7 +87,7 @@ func initHashgraphNodes(n int) ([]TestNode, map[string]string, *[]*Event, *peers
 		key, _ := crypto.GenerateECDSAKey()
 		pub := crypto.FromECDSAPub(&key.PublicKey)
 		pubHex := fmt.Sprintf("0x%X", pub)
-		p := peers.NewPeer(pubHex, "")
+		p := peers.NewPeer(pubHex, "", "")
 		pirs = append(pirs, p)
 		keys[pubHex] = key
 		nodes = append(nodes, NewTestNode(key))
@@ -337,7 +337,7 @@ func TestFork(t *testing.T) {
 		key, _ := crypto.GenerateECDSAKey()
 		node := NewTestNode(key)
 		nodes = append(nodes, node)
-		pirs = append(pirs, peers.NewPeer(node.PubHex, ""))
+		pirs = append(pirs, peers.NewPeer(node.PubHex, "", ""))
 	}
 
 	peerSet := peers.NewPeerSet(pirs)
@@ -890,8 +890,8 @@ func initBlockHashgraph(t *testing.T) (*Hashgraph, []TestNode, map[string]string
 		peerSet.Peers,
 		[][]byte{[]byte("block tx")},
 		[]InternalTransaction{
-			NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1", "paris")),
-			NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2", "london")),
+			NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1", "paris", "peer1")),
+			NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2", "london", "peer2")),
 		})
 
 	err := hashgraph.Store.SetBlock(block)

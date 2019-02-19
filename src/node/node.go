@@ -23,7 +23,9 @@ type Node struct {
 	conf   *Config
 	logger *logrus.Entry
 
-	id       uint32
+	id      uint32
+	moniker string
+
 	core     *Core
 	coreLock sync.Mutex
 
@@ -48,6 +50,7 @@ type Node struct {
 func NewNode(conf *Config,
 	id uint32,
 	key *ecdsa.PrivateKey,
+	moniker string,
 	peers *peers.PeerSet,
 	store hg.Store,
 	trans net.Transport,
@@ -59,6 +62,7 @@ func NewNode(conf *Config,
 
 	node := Node{
 		id:           id,
+		moniker:      moniker,
 		conf:         conf,
 		logger:       conf.Logger.WithField("this_id", id),
 		core:         NewCore(id, key, peers, store, proxy.CommitBlock, conf.Logger),
@@ -79,7 +83,6 @@ func NewNode(conf *Config,
 func (n *Node) Init() error {
 	if n.needBoostrap {
 		n.logger.Debug("Bootstrap")
-
 		if err := n.core.Bootstrap(); err != nil {
 			return err
 		}
@@ -88,11 +91,9 @@ func (n *Node) Init() error {
 	_, ok := n.core.peers.ByID[n.id]
 	if ok {
 		n.logger.Debug("Node belongs to PeerSet => Babbling")
-
 		if err := n.core.SetHeadAndSeq(); err != nil {
 			n.core.SetHeadAndSeq()
 		}
-
 		n.setState(Babbling)
 	} else {
 		n.logger.Debug("Node does not belong to PeerSet => Joining")
@@ -551,6 +552,7 @@ func (n *Node) GetStats() map[string]string {
 		"round_events":           strconv.Itoa(n.core.GetLastCommitedRoundEventsCount()),
 		"id":                     fmt.Sprint(n.id),
 		"state":                  n.getState().String(),
+		"moniker":                n.moniker,
 	}
 	return s
 }
@@ -572,6 +574,7 @@ func (n *Node) logStats() {
 		"round_events":           stats["round_events"],
 		"id":                     stats["id"],
 		"state":                  stats["state"],
+		"moniker":                stats["moniker"],
 	}).Debug("Stats")
 }
 

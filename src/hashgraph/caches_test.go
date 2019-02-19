@@ -13,9 +13,9 @@ func TestParticipantEventsCache(t *testing.T) {
 	size := 10
 	testSize := 25
 	participants := peers.NewPeerSet([]*peers.Peer{
-		peers.NewPeer("0xaa", ""),
-		peers.NewPeer("0xbb", ""),
-		peers.NewPeer("0xcc", ""),
+		peers.NewPeer("0xaa", "", ""),
+		peers.NewPeer("0xbb", "", ""),
+		peers.NewPeer("0xcc", "", ""),
 	})
 
 	pec := NewParticipantEventsCache(size)
@@ -125,9 +125,9 @@ func TestParticipantEventsCacheEdge(t *testing.T) {
 	size := 10
 	testSize := 11
 	participants := peers.NewPeerSet([]*peers.Peer{
-		peers.NewPeer("0xaa", ""),
-		peers.NewPeer("0xbb", ""),
-		peers.NewPeer("0xcc", ""),
+		peers.NewPeer("0xaa", "", ""),
+		peers.NewPeer("0xbb", "", ""),
+		peers.NewPeer("0xcc", "", ""),
 	})
 
 	pec := NewParticipantEventsCache(size)
@@ -172,9 +172,9 @@ func TestPeerSetCache(t *testing.T) {
 	peerSetCache := NewPeerSetCache()
 
 	peerSet0 := peers.NewPeerSet([]*peers.Peer{
-		peers.NewPeer("0xaa", ""),
-		peers.NewPeer("0xbb", ""),
-		peers.NewPeer("0xcc", ""),
+		peers.NewPeer("0xaa", "", ""),
+		peers.NewPeer("0xbb", "", ""),
+		peers.NewPeer("0xcc", "", ""),
 	})
 
 	err := peerSetCache.Set(0, peerSet0)
@@ -184,7 +184,7 @@ func TestPeerSetCache(t *testing.T) {
 
 	/**************************************************************************/
 
-	peerSet3 := peerSet0.WithNewPeer(peers.NewPeer("0xdd", ""))
+	peerSet3 := peerSet0.WithNewPeer(peers.NewPeer("0xdd", "", ""))
 
 	err = peerSetCache.Set(3, peerSet3)
 	if err != nil {
@@ -213,7 +213,7 @@ func TestPeerSetCache(t *testing.T) {
 
 	/**************************************************************************/
 
-	peerSet2 := peerSet0.WithNewPeer(peers.NewPeer("0xee", ""))
+	peerSet2 := peerSet0.WithNewPeer(peers.NewPeer("0xee", "", ""))
 
 	err = peerSetCache.Set(2, peerSet2)
 	if err != nil {
@@ -238,7 +238,7 @@ func TestPeerSetCache(t *testing.T) {
 
 	/**************************************************************************/
 
-	err = peerSetCache.Set(2, peerSet2.WithNewPeer(peers.NewPeer("broken", "")))
+	err = peerSetCache.Set(2, peerSet2.WithNewPeer(peers.NewPeer("broken", "", "")))
 	if err == nil || !cm.Is(err, cm.KeyAlreadyExists) {
 		t.Fatalf("Resetting PeerSet 2 should throw a KeyAlreadyExists error")
 	}

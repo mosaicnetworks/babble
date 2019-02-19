@@ -14,7 +14,7 @@ type MobileConfig struct {
 	SyncLimit  int    //Max Events per sync
 	Store      bool   //Use badger store
 	LogLevel   string //debug, info, warn, error, fatal, panic
-
+	Moniker    string //optional name
 }
 
 func NewMobileConfig(heartbeat int,
@@ -23,7 +23,8 @@ func NewMobileConfig(heartbeat int,
 	cacheSize int,
 	syncLimit int,
 	store bool,
-	logLevel string) *MobileConfig {
+	logLevel string,
+	moniker string) *MobileConfig {
 
 	return &MobileConfig{
 		Heartbeat:  heartbeat,
@@ -33,6 +34,7 @@ func NewMobileConfig(heartbeat int,
 		SyncLimit:  syncLimit,
 		Store:      store,
 		LogLevel:   logLevel,
+		Moniker:    moniker,
 	}
 }
 
@@ -56,6 +58,7 @@ func (c *MobileConfig) toBabbleConfig() *babble.BabbleConfig {
 	babbleConfig.MaxPool = c.MaxPool
 	babbleConfig.Store = c.Store
 	babbleConfig.LogLevel = c.LogLevel
+	babbleConfig.Moniker = c.Moniker
 
 	babbleConfig.NodeConfig.HeartbeatTimeout = time.Duration(c.Heartbeat) * time.Millisecond
 	babbleConfig.NodeConfig.TCPTimeout = time.Duration(c.TCPTimeout) * time.Millisecond

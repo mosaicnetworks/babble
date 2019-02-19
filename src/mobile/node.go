@@ -120,3 +120,15 @@ func (n *Node) GetPeers() string {
 
 	return buf.String()
 }
+
+func (n *Node) GetStats() string {
+	stats := n.node.GetStats()
+
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	if err := enc.Encode(stats); err != nil {
+		return ""
+	}
+
+	return buf.String()
+}

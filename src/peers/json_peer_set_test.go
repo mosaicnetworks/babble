@@ -40,6 +40,7 @@ func TestJSONPeerSet(t *testing.T) {
 		peer := &Peer{
 			NetAddr:   fmt.Sprintf("addr%d", i),
 			PubKeyHex: fmt.Sprintf("0x%X", scrypto.FromECDSAPub(&key.PublicKey)),
+			Moniker:   fmt.Sprintf("peer%d", i),
 		}
 		peers = append(peers, peer)
 		keys[peer.NetAddr] = key
@@ -67,6 +68,10 @@ func TestJSONPeerSet(t *testing.T) {
 		if peerSlice[i].NetAddr != newPeerSlice[i].NetAddr {
 			t.Fatalf("peers[%d] NetAddr should be %s, not %s", i,
 				newPeerSlice[i].NetAddr, peerSlice[i].NetAddr)
+		}
+		if peerSlice[i].Moniker != newPeerSlice[i].Moniker {
+			t.Fatalf("peers[%d] Moniker should be %s, not %s", i,
+				newPeerSlice[i].Moniker, peerSlice[i].Moniker)
 		}
 		if peerSlice[i].PubKeyHex != newPeerSlice[i].PubKeyHex {
 			t.Fatalf("peers[%d] PubKeyHex should be %s, not %s", i,

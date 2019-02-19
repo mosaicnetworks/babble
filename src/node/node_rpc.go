@@ -54,7 +54,10 @@ func (n *Node) requestFastForward(target string) (net.FastForwardResponse, error
 
 func (n *Node) requestJoin(target string) (net.JoinResponse, error) {
 	args := net.JoinRequest{
-		Peer: *peers.NewPeer(n.core.HexID(), n.trans.LocalAddr()),
+		Peer: *peers.NewPeer(
+			n.core.HexID(),
+			n.trans.LocalAddr(),
+			n.moniker),
 	}
 
 	var out net.JoinResponse

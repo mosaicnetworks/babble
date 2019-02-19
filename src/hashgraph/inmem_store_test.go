@@ -24,7 +24,7 @@ func initPeers(n int) (*peers.PeerSet, []participant) {
 	for i := 0; i < n; i++ {
 		key, _ := crypto.GenerateECDSAKey()
 		pubKey := crypto.FromECDSAPub(&key.PublicKey)
-		peer := peers.NewPeer(fmt.Sprintf("0x%X", pubKey), "")
+		peer := peers.NewPeer(fmt.Sprintf("0x%X", pubKey), "", "")
 		pirs = append(pirs, peer)
 		participants = append(participants, participant{peer.ID(), key, pubKey, peer.PubKeyHex})
 	}
@@ -211,8 +211,8 @@ func TestInmemBlocks(t *testing.T) {
 		[]byte("tx5"),
 	}
 	internalTransactions := []InternalTransaction{
-		NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1", "paris")),
-		NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2", "london")),
+		NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1", "paris", "")),
+		NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2", "london", "")),
 	}
 	frameHash := []byte("this is the frame hash")
 

@@ -251,8 +251,8 @@ func TestDBBlockMethods(t *testing.T) {
 		[]byte("tx5"),
 	}
 	internalTransactions := []InternalTransaction{
-		NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1", "paris")),
-		NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2", "london")),
+		NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1Pub", "paris", "peer1")),
+		NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2Pub", "london", "peer2")),
 	}
 	frameHash := []byte("this is the frame hash")
 
@@ -610,8 +610,8 @@ func TestBadgerBlocks(t *testing.T) {
 		[]byte("tx5"),
 	}
 	internalTransactions := []InternalTransaction{
-		NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1", "paris")),
-		NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2", "london")),
+		NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1", "paris", "peer1")),
+		NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2", "london", "peer2")),
 	}
 	frameHash := []byte("this is the frame hash")
 	block := NewBlock(index, roundReceived, frameHash, []*peers.Peer{}, transactions, internalTransactions)

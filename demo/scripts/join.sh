@@ -26,6 +26,7 @@ docker run -d --name=client$N --net=babblenet --ip=172.77.10.$N -it mosaicnetwor
     --log="debug" 
 
 docker create --name=node$N --net=babblenet --ip=172.77.5.$N mosaicnetworks/babble:0.4.0 run \
+    --moniker="node$N" \
     --cache-size=50000 \
     --listen="172.77.5.$N:1337" \
     --proxy-listen="172.77.5.$N:1338" \

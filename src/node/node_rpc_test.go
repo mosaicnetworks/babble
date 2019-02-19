@@ -26,7 +26,7 @@ func TestProcessSync(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
-	node0 := NewNode(config, peers[0].ID(), keys[0], p,
+	node0 := NewNode(config, peers[0].ID(), keys[0], "node0", p,
 		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
 		dummy.NewInmemDummyClient(testLogger))
@@ -40,7 +40,7 @@ func TestProcessSync(t *testing.T) {
 	}
 	defer peer1Trans.Close()
 
-	node1 := NewNode(config, peers[1].ID(), keys[1], p,
+	node1 := NewNode(config, peers[1].ID(), keys[1], "node1", p,
 		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
 		dummy.NewInmemDummyClient(testLogger))
@@ -122,7 +122,7 @@ func TestProcessEagerSync(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
-	node0 := NewNode(config, peers[0].ID(), keys[0], p,
+	node0 := NewNode(config, peers[0].ID(), keys[0], "node0", p,
 		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
 		dummy.NewInmemDummyClient(testLogger))
@@ -136,7 +136,7 @@ func TestProcessEagerSync(t *testing.T) {
 	}
 	defer peer1Trans.Close()
 
-	node1 := NewNode(config, peers[1].ID(), keys[1], p,
+	node1 := NewNode(config, peers[1].ID(), keys[1], "node1", p,
 		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
 		dummy.NewInmemDummyClient(testLogger))
@@ -198,7 +198,7 @@ func TestProcessFastForward(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
-	node0 := NewNode(config, peers[0].ID(), keys[0], p,
+	node0 := NewNode(config, peers[0].ID(), keys[0], "node0", p,
 		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
 		dummy.NewInmemDummyClient(testLogger))
@@ -212,7 +212,7 @@ func TestProcessFastForward(t *testing.T) {
 	}
 	defer peer1Trans.Close()
 
-	node1 := NewNode(config, peers[1].ID(), keys[1], p,
+	node1 := NewNode(config, peers[1].ID(), keys[1], "node1", p,
 		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
 		dummy.NewInmemDummyClient(testLogger))

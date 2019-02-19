@@ -58,11 +58,21 @@ func (s *InmemStore) SetPeerSet(round int, peerSet *peers.PeerSet) error {
 	}
 
 	for _, p := range peerSet.Peers {
-		if _, ok := s.participantEventsCache.participants.ByID[p.ID()]; !ok {
-			if err := s.participantEventsCache.AddPeer(p); err != nil {
-				return err
-			}
+		s.addParticipant(p)
+	}
+
+	return nil
+}
+
+func (s *InmemStore) addParticipant(p *peers.Peer) error {
+	if _, ok := s.participantEventsCache.participants.ByID[p.ID()]; !ok {
+		if err := s.participantEventsCache.AddPeer(p); err != nil {
+			return err
 		}
+	}
+
+	if _, ok := s.roots[p.PubKeyHex]; !ok {
+		s.roots[p.PubKeyHex] = NewRoot()
 	}
 
 	return nil
