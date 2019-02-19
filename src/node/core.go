@@ -124,35 +124,28 @@ func (c *Core) HexID() string {
 }
 
 func (c *Core) SetHeadAndSeq() error {
-	var head string
-	var seq int
+	head := ""
+	seq := -1
 
-	//Add self if not in Repertoire yet
-	if _, ok := c.hg.Store.RepertoireByID()[c.ID()]; !ok {
+	_, ok := c.hg.Store.RepertoireByID()[c.ID()]
+
+	if ok {
+		last, err := c.hg.Store.LastEventFrom(c.HexID())
+		if err != nil && !common.Is(err, common.Empty) {
+			return err
+		}
+
+		if last != "" {
+			lastEvent, err := c.GetEvent(last)
+			if err != nil {
+				return err
+			}
+
+			head = last
+			seq = lastEvent.Index()
+		}
+	} else {
 		c.logger.Debug("Not in repertoire yet.")
-		err := c.hg.Store.AddParticipant(peers.NewPeer(c.HexID(), ""))
-		if err != nil {
-			c.logger.WithError(err).Error("Error adding self to Store")
-			return err
-		}
-	}
-
-	last, err := c.hg.Store.LastEventFrom(c.HexID())
-	if err != nil && !common.Is(err, common.Empty) {
-		return err
-	}
-
-	head = ""
-	seq = -1
-
-	if last != "" {
-		lastEvent, err := c.GetEvent(last)
-		if err != nil {
-			return err
-		}
-
-		head = last
-		seq = lastEvent.Index()
 	}
 
 	c.Head = head

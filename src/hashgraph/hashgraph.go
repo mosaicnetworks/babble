@@ -1103,6 +1103,7 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 			"events":         len(frame.Events),
 			"peers":          len(frame.Peers),
 			"peer_sets":      len(frame.PeerSets),
+			"roots":          len(frame.Roots),
 		}).Debugf("Processing Decided Round")
 
 		if len(frame.Events) > 0 {
@@ -1201,11 +1202,17 @@ func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 	}
 
 	/*
-		Every participant needs a Root in the Frame. For the participants that
-		have no Events in this Frame, we create a Root from their last consensus
-		Event, or their last known Root
+		Every participant, that was known before roundReceived, needs a Root in
+		the Frame. For the participants that have no Events in this Frame, we
+		create a Root from their last consensus Event, or their last known Root
 	*/
-	for _, p := range peerSet.PubKeys() {
+	for p, peer := range h.Store.RepertoireByPubKey() {
+		//Ignore if participant wasn't added before roundReceived
+		firstRound, ok := h.Store.FirstRound(peer.ID())
+		if !ok || firstRound > roundReceived {
+			continue
+		}
+
 		if _, ok := roots[p]; !ok {
 			var root *Root
 

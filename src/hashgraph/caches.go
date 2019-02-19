@@ -2,6 +2,7 @@ package hashgraph
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 
@@ -115,14 +116,20 @@ func (pec *ParticipantEventsCache) Known() map[uint32]int {
 //------------------------------------------------------------------------------
 
 type PeerSetCache struct {
-	rounds   sort.IntSlice
-	peerSets map[int]*peers.PeerSet
+	rounds             sort.IntSlice
+	peerSets           map[int]*peers.PeerSet
+	repertoireByPubKey map[string]*peers.Peer
+	repertoireByID     map[uint32]*peers.Peer
+	firstRounds        map[uint32]int
 }
 
 func NewPeerSetCache() *PeerSetCache {
 	return &PeerSetCache{
-		rounds:   sort.IntSlice{},
-		peerSets: make(map[int]*peers.PeerSet),
+		rounds:             sort.IntSlice{},
+		peerSets:           make(map[int]*peers.PeerSet),
+		repertoireByPubKey: make(map[string]*peers.Peer),
+		repertoireByID:     make(map[uint32]*peers.Peer),
+		firstRounds:        make(map[uint32]int),
 	}
 }
 
@@ -130,9 +137,21 @@ func (c *PeerSetCache) Set(round int, peerSet *peers.PeerSet) error {
 	if _, ok := c.peerSets[round]; ok {
 		return cm.NewStoreErr("PeerSetCache", cm.KeyAlreadyExists, strconv.Itoa(round))
 	}
+
 	c.peerSets[round] = peerSet
+
 	c.rounds = append(c.rounds, round)
 	c.rounds.Sort()
+
+	for _, p := range peerSet.Peers {
+		c.repertoireByPubKey[p.PubKeyHex] = p
+		c.repertoireByID[p.ID()] = p
+		fr, ok := c.firstRounds[p.ID()]
+		if !ok || fr > round {
+			c.firstRounds[p.ID()] = round
+		}
+	}
+
 	return nil
 
 }
@@ -169,6 +188,22 @@ func (c *PeerSetCache) GetAll() (map[int][]*peers.Peer, error) {
 		res[r] = c.peerSets[r].Peers
 	}
 	return res, nil
+}
+
+func (c *PeerSetCache) RepertoireByID() map[uint32]*peers.Peer {
+	return c.repertoireByID
+}
+
+func (c *PeerSetCache) RepertoireByPubKey() map[string]*peers.Peer {
+	return c.repertoireByPubKey
+}
+
+func (c *PeerSetCache) FirstRound(id uint32) (int, bool) {
+	fr, ok := c.firstRounds[id]
+	if ok {
+		return fr, true
+	}
+	return math.MaxInt32, false
 }
 
 //------------------------------------------------------------------------------

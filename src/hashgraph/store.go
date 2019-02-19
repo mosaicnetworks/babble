@@ -7,7 +7,7 @@ type Store interface {
 	GetPeerSet(int) (*peers.PeerSet, error)
 	SetPeerSet(int, *peers.PeerSet) error
 	GetAllPeerSets() (map[int][]*peers.Peer, error)
-	AddParticipant(*peers.Peer) error
+	FirstRound(uint32) (int, bool)
 	RepertoireByPubKey() map[string]*peers.Peer
 	RepertoireByID() map[uint32]*peers.Peer
 	GetEvent(string) (*Event, error)

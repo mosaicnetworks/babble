@@ -428,20 +428,6 @@ func TestBadgerPeerSets(t *testing.T) {
 		if !reflect.DeepEqual(p, peer) {
 			t.Fatalf("repertoire[%s] should be %#v, not %#v", pub, peer, p)
 		}
-
-		iRoot, err := store.inmemStore.GetRoot(pub)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		dRoot, err := store.dbGetRoot(pub)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if !reflect.DeepEqual(iRoot, dRoot) {
-			t.Fatalf("%s Inmem and DB Roots don't match", pub)
-		}
 	}
 }
 

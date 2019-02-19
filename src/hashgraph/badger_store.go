@@ -157,6 +157,10 @@ func (s *BadgerStore) GetAllPeerSets() (map[int][]*peers.Peer, error) {
 	return s.inmemStore.GetAllPeerSets()
 }
 
+func (s *BadgerStore) FirstRound(id uint32) (int, bool) {
+	return s.inmemStore.FirstRound(id)
+}
+
 func (s *BadgerStore) RepertoireByPubKey() map[string]*peers.Peer {
 	return s.inmemStore.RepertoireByPubKey()
 }
@@ -220,7 +224,7 @@ func (s *BadgerStore) SetPeerSet(round int, peerSet *peers.PeerSet) error {
 
 	//Extend Repertoire and Roots
 	for _, p := range peerSet.Peers {
-		err := s.AddParticipant(p)
+		err := s.addParticipant(p)
 		if err != nil {
 			return err
 		}
@@ -229,12 +233,7 @@ func (s *BadgerStore) SetPeerSet(round int, peerSet *peers.PeerSet) error {
 	return nil
 }
 
-func (s *BadgerStore) AddParticipant(p *peers.Peer) error {
-	//update the cache
-	if err := s.inmemStore.AddParticipant(p); err != nil {
-		return err
-	}
-
+func (s *BadgerStore) addParticipant(p *peers.Peer) error {
 	if err := s.dbSetRepertoire(p); err != nil {
 		return err
 	}
