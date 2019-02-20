@@ -528,23 +528,27 @@ func (c *Core) Leave(leaveTimeout time.Duration) error {
 		return err
 	}
 
-	//Wait for node to reach accepted round
-	timeout = time.After(leaveTimeout)
-	for {
-		select {
-		case <-timeout:
-			err := fmt.Errorf("Timeout waiting for leaving node to reach TargetRound")
-			c.logger.WithError(err).Error()
-			return err
-		default:
-			if c.hg.LastConsensusRound != nil && *c.hg.LastConsensusRound < c.TargetRound {
-				c.logger.Debugf("Waiting to reach TargetRound: %d/%d", *c.hg.LastConsensusRound, c.TargetRound)
-				time.Sleep(100 * time.Millisecond)
-			} else {
-				return nil
+	if c.peers.Len() > 1 {
+		//Wait for node to reach accepted round
+		timeout = time.After(leaveTimeout)
+		for {
+			select {
+			case <-timeout:
+				err := fmt.Errorf("Timeout waiting for leaving node to reach TargetRound")
+				c.logger.WithError(err).Error()
+				return err
+			default:
+				if c.hg.LastConsensusRound != nil && *c.hg.LastConsensusRound < c.TargetRound {
+					c.logger.Debugf("Waiting to reach TargetRound: %d/%d", *c.hg.LastConsensusRound, c.TargetRound)
+					time.Sleep(100 * time.Millisecond)
+				} else {
+					return nil
+				}
 			}
 		}
 	}
+
+	return nil
 }
 
 func (c *Core) FromWire(wireEvents []hg.WireEvent) ([]hg.Event, error) {

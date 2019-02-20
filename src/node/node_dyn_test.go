@@ -65,6 +65,176 @@ func TestJoinRequest(t *testing.T) {
 }
 
 func TestLeaveRequest(t *testing.T) {
+	n := 1
+	f := func() {
+		logger := common.NewTestLogger(t)
+		keys, peerSet := initPeers(n)
+		nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", 5*time.Millisecond, logger, t)
+		defer shutdownNodes(nodes)
+		//defer drawGraphs(nodes, t)
+
+		target := 30
+		err := gossip(nodes, target, false, 3*time.Second)
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkGossip(nodes, 0, t)
+
+		leavingNode := nodes[n-1]
+
+		err = leavingNode.Leave()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if n == 1 {
+			return
+		}
+
+		//Gossip some more
+		secondTarget := target + 50
+		err = bombardAndWait(nodes[0:n-1], secondTarget, 6*time.Second)
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkGossip(nodes[0:n-1], 0, t)
+		checkPeerSets(nodes[0:n-1], t)
+	}
+
+	for n <= 4 {
+		f()
+		n++
+	}
+}
+
+func TestSuccessiveJoinRequest(t *testing.T) {
+	logger := common.NewTestLogger(t)
+	keys, peerSet := initPeers(1)
+
+	node0 := newNode(peerSet.Peers[0], keys[0], "new node", peerSet, 1000000, 400, "inmem", 10*time.Millisecond, logger, t)
+	defer node0.Shutdown()
+	node0.RunAsync(true)
+
+	nodes := []*Node{node0}
+	//defer drawGraphs(nodes, t)
+
+	target := 20
+	for i := 1; i <= 3; i++ {
+		peerSet := peers.NewPeerSet(node0.GetPeers())
+
+		key, _ := crypto.GenerateECDSAKey()
+		peer := peers.NewPeer(
+			fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
+			fmt.Sprintf("127.0.0.1:%d", 4240+i),
+			"monika",
+		)
+		newNode := newNode(peer, key, "new node", peerSet, 1000000, 400, "inmem", 10*time.Millisecond, logger, t)
+
+		logger.Debugf("starting new node %d, %d", i, newNode.ID())
+		defer newNode.Shutdown()
+		newNode.RunAsync(true)
+
+		nodes = append(nodes, newNode)
+
+		//Gossip some more
+		err := bombardAndWait(nodes, target, 10*time.Second)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		start := newNode.core.hg.FirstConsensusRound
+		checkGossip(nodes, *start, t)
+
+		target = target + 40
+	}
+}
+
+func TestSuccessiveLeaveRequest(t *testing.T) {
+	n := 4
+
+	logger := common.NewTestLogger(t)
+	keys, peerSet := initPeers(n)
+	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", 5*time.Millisecond, logger, t)
+	defer shutdownNodes(nodes)
+
+	target := 0
+
+	f := func() {
+		//defer drawGraphs(nodes, t)
+		target += 30
+		err := gossip(nodes, target, false, 3*time.Second)
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkGossip(nodes, 0, t)
+
+		leavingNode := nodes[n-1]
+
+		err = leavingNode.Leave()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if n == 1 {
+			return
+		}
+
+		nodes = nodes[0 : n-1]
+
+		//Gossip some more
+		target += 50
+		err = bombardAndWait(nodes, target, 6*time.Second)
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkGossip(nodes, 0, t)
+		checkPeerSets(nodes, t)
+	}
+
+	for n > 0 {
+		f()
+		n--
+	}
+}
+
+func TestSimultaneusLeaveRequest(t *testing.T) {
+	logger := common.NewTestLogger(t)
+	keys, peerSet := initPeers(4)
+	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", 5*time.Millisecond, logger, t)
+	defer shutdownNodes(nodes)
+	//defer drawGraphs(nodes, t)
+
+	target := 30
+	err := gossip(nodes, target, false, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes, 0, t)
+
+	leavingNode := nodes[3]
+	leavingNode2 := nodes[2]
+
+	err = leavingNode.Leave()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = leavingNode2.Leave()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	//Gossip some more
+	secondTarget := target + 50
+	err = bombardAndWait(nodes[0:2], secondTarget, 6*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes[0:2], 0, t)
+	checkPeerSets(nodes[0:2], t)
+}
+
+func TestJoinLeaveRequest(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(4)
 	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", 5*time.Millisecond, logger, t)
@@ -85,14 +255,52 @@ func TestLeaveRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	key, _ := crypto.GenerateECDSAKey()
+	peer := peers.NewPeer(
+		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
+		fmt.Sprint("127.0.0.1:4242"),
+		"new node",
+	)
+	newNode := newNode(peer, key, peer.Moniker, peerSet, 1000000, 400, "inmem", 10*time.Millisecond, logger, t)
+	defer newNode.Shutdown()
+
+	// Run parallel routine to check newNode eventually reaches CatchingUp state.
+	timeout := time.After(6 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-timeout:
+				t.Fatalf("Timeout waiting for newNode to enter CatchingUp state")
+			default:
+			}
+			if newNode.getState() == CatchingUp {
+				break
+			}
+		}
+	}()
+
+	newNode.RunAsync(true)
+
+	// remove leaving node
+	nodes = nodes[0:3]
+
+	// add new node
+	// nodes = append(nodes, newNode)
+
 	//Gossip some more
 	secondTarget := target + 50
-	err = bombardAndWait(nodes[0:3], secondTarget, 6*time.Second)
+	err = bombardAndWait(nodes, secondTarget, 6*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
-	checkGossip(nodes[0:3], 0, t)
-	checkPeerSets(nodes[0:3], t)
+	checkGossip(nodes, 0, t)
+	checkPeerSets(nodes, t)
+
+	peerSet2 := nodes[0].GetPeers()
+
+	if len(peerSet2) != 4 {
+		t.Fatalf("Invalid peerSet size")
+	}
 }
 
 func TestJoinFull(t *testing.T) {
@@ -148,48 +356,6 @@ func TestJoinFull(t *testing.T) {
 	start := newNode.core.hg.FirstConsensusRound
 	checkGossip(nodes, *start, t)
 	checkPeerSets(nodes, t)
-}
-
-func TestOrganicGrowth(t *testing.T) {
-	logger := common.NewTestLogger(t)
-	keys, peerSet := initPeers(1)
-
-	node0 := newNode(peerSet.Peers[0], keys[0], "new node", peerSet, 1000000, 400, "inmem", 10*time.Millisecond, logger, t)
-	defer node0.Shutdown()
-	node0.RunAsync(true)
-
-	nodes := []*Node{node0}
-	//defer drawGraphs(nodes, t)
-
-	target := 20
-	for i := 1; i <= 3; i++ {
-		peerSet := peers.NewPeerSet(node0.GetPeers())
-
-		key, _ := crypto.GenerateECDSAKey()
-		peer := peers.NewPeer(
-			fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
-			fmt.Sprintf("127.0.0.1:%d", 4240+i),
-			"monika",
-		)
-		newNode := newNode(peer, key, "new node", peerSet, 1000000, 400, "inmem", 10*time.Millisecond, logger, t)
-
-		logger.Debugf("starting new node %d, %d", i, newNode.ID())
-		defer newNode.Shutdown()
-		newNode.RunAsync(true)
-
-		nodes = append(nodes, newNode)
-
-		//Gossip some more
-		err := bombardAndWait(nodes, target, 10*time.Second)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		start := newNode.core.hg.FirstConsensusRound
-		checkGossip(nodes, *start, t)
-
-		target = target + 40
-	}
 }
 
 func checkPeerSets(nodes []*Node, t *testing.T) {
