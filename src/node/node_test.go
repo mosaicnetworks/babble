@@ -229,7 +229,7 @@ func TestCatchUp(t *testing.T) {
 	}
 	checkGossip(normalNodes, 0, t)
 
-	node0 := newNode(peers.Peers[0], keys[0], "speedy gonzales", peers, 1000000, 100, "inmem", 10*time.Millisecond, logger, t)
+	node0 := newNode(peers.Peers[0], keys[0], peers, 1000000, 100, "inmem", 10*time.Millisecond, logger, t)
 	defer node0.Shutdown()
 
 	//Run parallel routine to check node0 eventually reaches CatchingUp state.
@@ -310,55 +310,6 @@ func TestFastSync(t *testing.T) {
 	//Gossip some more
 	thirdTarget := secondTarget + 50
 	err = bombardAndWait(nodes, thirdTarget, 10*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	start := node0.core.hg.FirstConsensusRound
-	checkGossip(nodes, *start, t)
-}
-
-func TestReset(t *testing.T) {
-	logger := common.NewTestLogger(t)
-	keys, peers := initPeers(4)
-	nodes := initNodes(keys, peers, 100000, 100, "inmem", 10*time.Millisecond, logger, t) //make cache high to draw graphs
-	defer shutdownNodes(nodes)
-	//defer drawGraphs(nodes, t)
-
-	target := 50
-	err := gossip(nodes, target, false, 10*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	checkGossip(nodes, 0, t)
-
-	node0 := nodes[0]
-	node0.Shutdown()
-
-	//Can't re-run it; have to reinstantiate a new node.
-	node0 = recycleNode(node0, logger, t)
-	nodes[0] = node0
-
-	//Run parallel routine to check node0 eventually reaches CatchingUp state.
-	timeout := time.After(6 * time.Second)
-	go func() {
-		for {
-			select {
-			case <-timeout:
-				t.Fatalf("Timeout waiting for node0 to enter CatchingUp state")
-			default:
-			}
-			if node0.getState() == CatchingUp {
-				break
-			}
-		}
-	}()
-
-	node0.RunAsync(true)
-
-	//Gossip some more
-	secondTarget := target + 50
-	err = bombardAndWait(nodes, secondTarget, 10*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -449,7 +400,6 @@ func initPeers(n int) ([]*ecdsa.PrivateKey, *peers.PeerSet) {
 
 func newNode(peer *peers.Peer,
 	k *ecdsa.PrivateKey,
-	moniker string,
 	peers *peers.PeerSet,
 	cacheSize,
 	syncLimit int,
@@ -489,7 +439,7 @@ func newNode(peer *peers.Peer,
 	node := NewNode(conf,
 		peer.ID(),
 		k,
-		moniker,
+		peer.Moniker,
 		peers,
 		store,
 		trans,
@@ -523,7 +473,6 @@ func initNodes(keys []*ecdsa.PrivateKey,
 
 		node := newNode(peer,
 			k,
-			fmt.Sprintf("node%d", k),
 			peers,
 			cacheSize,
 			syncLimit,
