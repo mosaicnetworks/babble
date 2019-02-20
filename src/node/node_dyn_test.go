@@ -65,46 +65,34 @@ func TestJoinRequest(t *testing.T) {
 }
 
 func TestLeaveRequest(t *testing.T) {
-	n := 1
-	f := func() {
-		logger := common.NewTestLogger(t)
-		keys, peerSet := initPeers(n)
-		nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", 5*time.Millisecond, logger, t)
-		defer shutdownNodes(nodes)
-		//defer drawGraphs(nodes, t)
+	logger := common.NewTestLogger(t)
+	keys, peerSet := initPeers(4)
+	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", 5*time.Millisecond, logger, t)
+	defer shutdownNodes(nodes)
+	//defer drawGraphs(nodes, t)
 
-		target := 30
-		err := gossip(nodes, target, false, 3*time.Second)
-		if err != nil {
-			t.Fatal(err)
-		}
-		checkGossip(nodes, 0, t)
+	target := 30
+	err := gossip(nodes, target, false, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes, 0, t)
 
-		leavingNode := nodes[n-1]
+	leavingNode := nodes[3]
 
-		err = leavingNode.Leave()
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if n == 1 {
-			return
-		}
-
-		//Gossip some more
-		secondTarget := target + 50
-		err = bombardAndWait(nodes[0:n-1], secondTarget, 6*time.Second)
-		if err != nil {
-			t.Fatal(err)
-		}
-		checkGossip(nodes[0:n-1], 0, t)
-		checkPeerSets(nodes[0:n-1], t)
+	err = leavingNode.Leave()
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	for n <= 4 {
-		f()
-		n++
+	//Gossip some more
+	secondTarget := target + 50
+	err = bombardAndWait(nodes[0:3], secondTarget, 6*time.Second)
+	if err != nil {
+		t.Fatal(err)
 	}
+	checkGossip(nodes[0:3], 0, t)
+	checkPeerSets(nodes[0:3], t)
 }
 
 func TestSuccessiveJoinRequest(t *testing.T) {
