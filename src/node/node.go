@@ -310,7 +310,8 @@ func (n *Node) Leave() error {
 		return err
 	}
 
-	n.setState(Shutdown)
+	n.Shutdown()
+
 	return nil
 }
 
