@@ -356,16 +356,19 @@ func (n *Node) monologue() error {
 	n.coreLock.Lock()
 	defer n.coreLock.Unlock()
 
-	err := n.core.AddSelfEvent("")
-	if err != nil {
-		n.logger.WithError(err).Error("monologue, AddSelfEvent()")
-		return err
-	}
+	//XXX
+	if n.core.Busy() {
+		err := n.core.AddSelfEvent("")
+		if err != nil {
+			n.logger.WithError(err).Error("monologue, AddSelfEvent()")
+			return err
+		}
 
-	err = n.core.ProcessSigPool()
-	if err != nil {
-		n.logger.WithError(err).Error("monologue, ProcessSigPool()")
-		return err
+		err = n.core.ProcessSigPool()
+		if err != nil {
+			n.logger.WithError(err).Error("monologue, ProcessSigPool()")
+			return err
+		}
 	}
 
 	return nil

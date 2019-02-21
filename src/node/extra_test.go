@@ -12,55 +12,6 @@ import (
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
-func TestResetExtra(t *testing.T) {
-	logger := common.NewTestLogger(t)
-	keys, peers := initPeers(4)
-	nodes := initNodes(keys, peers, 100000, 100, "inmem", 10*time.Millisecond, logger, t) //make cache high to draw graphs
-	defer shutdownNodes(nodes)
-	//defer drawGraphs(nodes, t)
-
-	target := 50
-	err := gossip(nodes, target, false, 10*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	checkGossip(nodes, 0, t)
-
-	node0 := nodes[0]
-	node0.Shutdown()
-
-	//Can't re-run it; have to reinstantiate a new node.
-	node0 = recycleNode(node0, logger, t)
-	nodes[0] = node0
-
-	//Run parallel routine to check node0 eventually reaches CatchingUp state.
-	timeout := time.After(6 * time.Second)
-	go func() {
-		for {
-			select {
-			case <-timeout:
-				t.Fatalf("Timeout waiting for node0 to enter CatchingUp state")
-			default:
-			}
-			if node0.getState() == CatchingUp {
-				break
-			}
-		}
-	}()
-
-	node0.RunAsync(true)
-
-	//Gossip some more
-	secondTarget := target + 50
-	err = bombardAndWait(nodes, secondTarget, 10*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	start := node0.core.hg.FirstConsensusRound
-	checkGossip(nodes, *start, t)
-}
-
 func TestSuccessiveJoinRequestExtra(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(1)
