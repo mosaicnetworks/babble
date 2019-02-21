@@ -114,6 +114,7 @@ func TestSuccessiveLeaveRequestExtra(t *testing.T) {
 	target := 0
 
 	f := func() {
+		t.Logf("SUCCESSIVE LEAVE n=%d", n)
 		//defer drawGraphs(nodes, t)
 		target += 30
 		err := gossip(nodes, target, false, 3*time.Second)

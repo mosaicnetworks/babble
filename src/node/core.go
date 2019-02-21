@@ -283,6 +283,8 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 			return fmt.Errorf("Udpating Store PeerSet: %s", err)
 		}
 
+		//XXX should not be set immediately. We need a smarter way for core to
+		//know which peerset to use depending on which round the hg is at.
 		c.SetPeerSet(peers)
 
 		//A new peer has joined and it won't be able to participate in consensus
@@ -528,7 +530,7 @@ func (c *Core) Leave(leaveTimeout time.Duration) error {
 		return err
 	}
 
-	if c.peers.Len() > 1 {
+	if c.peers.Len() >= 1 {
 		//Wait for node to reach accepted round
 		timeout = time.After(leaveTimeout)
 		for {

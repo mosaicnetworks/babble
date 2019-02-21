@@ -3,7 +3,7 @@
 breakCounter=0
 for i in `seq 1 100`
 do
-    go test -run TestReset > ~/gossip.logs
+    go test -run SuccessiveLeave > ~/gossip.logs
     if grep "FAIL" ~/gossip.logs 
     then
 	echo "FAIL"
