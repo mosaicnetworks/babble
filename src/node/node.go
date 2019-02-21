@@ -304,13 +304,13 @@ func (n *Node) join() error {
 func (n *Node) Leave() error {
 	n.logger.Debug("LEAVING")
 
+	defer n.Shutdown()
+
 	err := n.core.Leave(n.conf.JoinTimeout)
 	if err != nil {
 		n.logger.WithError(err).Error("Leaving")
 		return err
 	}
-
-	n.Shutdown()
 
 	return nil
 }

@@ -12,7 +12,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
-func TestReset(t *testing.T) {
+func TestResetExtra(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(4)
 	nodes := initNodes(keys, peers, 100000, 100, "inmem", 10*time.Millisecond, logger, t) //make cache high to draw graphs
@@ -61,7 +61,7 @@ func TestReset(t *testing.T) {
 	checkGossip(nodes, *start, t)
 }
 
-func TestSuccessiveJoinRequest(t *testing.T) {
+func TestSuccessiveJoinRequestExtra(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(1)
 
@@ -103,7 +103,7 @@ func TestSuccessiveJoinRequest(t *testing.T) {
 	}
 }
 
-func TestSuccessiveLeaveRequest(t *testing.T) {
+func TestSuccessiveLeaveRequestExtra(t *testing.T) {
 	n := 4
 
 	logger := common.NewTestLogger(t)
@@ -151,7 +151,7 @@ func TestSuccessiveLeaveRequest(t *testing.T) {
 	}
 }
 
-func TestSimultaneusLeaveRequest(t *testing.T) {
+func TestSimultaneusLeaveRequestExtra(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(4)
 	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", 5*time.Millisecond, logger, t)
@@ -188,7 +188,7 @@ func TestSimultaneusLeaveRequest(t *testing.T) {
 	checkPeerSets(nodes[0:2], t)
 }
 
-func TestJoinLeaveRequest(t *testing.T) {
+func TestJoinLeaveRequestExtra(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(4)
 	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", 5*time.Millisecond, logger, t)
