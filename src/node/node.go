@@ -284,7 +284,6 @@ func (n *Node) join() error {
 
 	if err != nil {
 		n.logger.Error("Cannot join:", peer.NetAddr, err)
-		n.setState(Shutdown)
 		return err
 	}
 

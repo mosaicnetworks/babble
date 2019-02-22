@@ -72,7 +72,7 @@ func AddRunFlags(cmd *cobra.Command) {
 	// Network
 	cmd.Flags().StringP("listen", "l", config.Babble.BindAddr, "Listen IP:Port for babble node")
 	cmd.Flags().DurationP("timeout", "t", config.Babble.NodeConfig.TCPTimeout, "TCP Timeout")
-	cmd.Flags().DurationP("join_timeout", "j", config.Babble.NodeConfig.JoinTimeout, "Join Timeout")
+	cmd.Flags().DurationP("join-timeout", "j", config.Babble.NodeConfig.JoinTimeout, "Join Timeout")
 	cmd.Flags().Int("max-pool", config.Babble.MaxPool, "Connection pool size max")
 
 	// Proxy
