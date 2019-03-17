@@ -33,6 +33,5 @@ type Store interface {
 	SetFrame(*Frame) error
 	Reset(*Frame) error
 	Close() error
-	NeedBoostrap() bool // Was the store loaded from existing db
 	StorePath() string
 }

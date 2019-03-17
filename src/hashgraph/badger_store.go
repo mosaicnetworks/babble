@@ -2,7 +2,6 @@ package hashgraph
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/dgraph-io/badger"
 	cm "github.com/mosaicnetworks/babble/src/common"
@@ -20,19 +19,14 @@ const (
 )
 
 type BadgerStore struct {
-	inmemStore   *InmemStore
-	db           *badger.DB
-	path         string
-	needBoostrap bool
+	inmemStore *InmemStore
+	db         *badger.DB
+	path       string
 }
 
 //NewBadgerStore opens an existing database or creates a new one if nothing is
 //found in path.
 func NewBadgerStore(cacheSize int, path string) (*BadgerStore, error) {
-	needBootstrap := false
-	if _, err := os.Stat(path); err == nil {
-		needBootstrap = true
-	}
 
 	opts := badger.DefaultOptions
 	opts.Dir = path
@@ -45,10 +39,9 @@ func NewBadgerStore(cacheSize int, path string) (*BadgerStore, error) {
 	}
 
 	store := &BadgerStore{
-		inmemStore:   NewInmemStore(cacheSize),
-		db:           handle,
-		path:         path,
-		needBoostrap: needBootstrap,
+		inmemStore: NewInmemStore(cacheSize),
+		db:         handle,
+		path:       path,
 	}
 	return store, nil
 }
@@ -325,10 +318,6 @@ func (s *BadgerStore) Close() error {
 		return err
 	}
 	return s.db.Close()
-}
-
-func (s *BadgerStore) NeedBoostrap() bool {
-	return s.needBoostrap
 }
 
 func (s *BadgerStore) StorePath() string {

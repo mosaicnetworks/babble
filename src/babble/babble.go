@@ -3,6 +3,7 @@ package babble
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"os"
 
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/crypto"
@@ -74,25 +75,39 @@ func (b *Babble) initPeers() error {
 
 func (b *Babble) initStore() error {
 	if !b.Config.Store {
+		b.Config.Logger.Debug("Creating InmemStore")
 		b.Store = h.NewInmemStore(b.Config.NodeConfig.CacheSize)
-
-		b.Config.Logger.Debug("created new in-mem store")
 	} else {
-		var err error
+		b.Config.Logger.WithField("path", b.Config.BadgerDir()).Debug("badgerdb")
 
-		b.Config.Logger.WithField("path", b.Config.BadgerDir()).Debug("Attempting to load or create database")
+		bootstrap := b.Config.NodeConfig.Bootstrap
+		dbpath := b.Config.BadgerDir()
+		i := 1
 
-		b.Store, err = h.NewBadgerStore(b.Config.NodeConfig.CacheSize, b.Config.BadgerDir())
+		for {
+			if _, err := os.Stat(dbpath); err == nil {
+				b.Config.Logger.Debugf("%s already exists", dbpath)
 
+				if bootstrap {
+					break
+				}
+
+				dbpath = fmt.Sprintf("%s(%d)", b.Config.BadgerDir(), i)
+				b.Config.Logger.Debug("No Bootstrap - using new db %s", dbpath)
+				i++
+			} else {
+				break
+			}
+		}
+
+		b.Config.Logger.WithField("path", dbpath).Debug("Creating BadgerStore")
+
+		dbStore, err := h.NewBadgerStore(b.Config.NodeConfig.CacheSize, dbpath)
 		if err != nil {
 			return err
 		}
 
-		if b.Store.NeedBoostrap() {
-			b.Config.Logger.Debug("loaded badger store from existing database")
-		} else {
-			b.Config.Logger.Debug("created new badger store from fresh database")
-		}
+		b.Store = dbStore
 	}
 
 	return nil

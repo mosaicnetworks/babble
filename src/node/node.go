@@ -43,8 +43,6 @@ type Node struct {
 	start        time.Time
 	syncRequests int
 	syncErrors   int
-
-	needBoostrap bool
 }
 
 func NewNode(conf *Config,
@@ -75,13 +73,11 @@ func NewNode(conf *Config,
 		controlTimer: NewRandomControlTimer(),
 	}
 
-	node.needBoostrap = store.NeedBoostrap()
-
 	return &node
 }
 
 func (n *Node) Init() error {
-	if n.needBoostrap {
+	if n.conf.Bootstrap {
 		n.logger.Debug("Bootstrap")
 		if err := n.core.Bootstrap(); err != nil {
 			return err

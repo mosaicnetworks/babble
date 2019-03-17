@@ -14,6 +14,7 @@ type Config struct {
 	JoinTimeout      time.Duration `mapstructure:"join_timeout"`
 	CacheSize        int           `mapstructure:"cache-size"`
 	SyncLimit        int           `mapstructure:"sync-limit"`
+	Bootstrap        bool          `mapstructure:"bootstrap"`
 	Logger           *logrus.Logger
 }
 

@@ -426,7 +426,7 @@ func newNode(peer *peers.Peer,
 	var store hg.Store
 	switch storeType {
 	case "badger":
-		path, _ := ioutil.TempDir("", "badger")
+		path, _ := ioutil.TempDir("test_data", "badger")
 		store, err = hg.NewBadgerStore(conf.CacheSize, path)
 		if err != nil {
 			t.Fatalf("failed to create BadgerStore for peer %d: %s", peer.ID(), err)
@@ -519,6 +519,8 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 		t.Fatal(err)
 	}
 	prox := dummy.NewInmemDummyClient(logger)
+
+	conf.Bootstrap = true
 
 	newNode := NewNode(conf, id, key, moniker, peers, store, trans, prox)
 

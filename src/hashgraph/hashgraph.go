@@ -1424,9 +1424,11 @@ func (h *Hashgraph) Reset(block *Block, frame *Frame) error {
 
 /*
 Bootstrap loads all Events from the Store's DB (if there is one) and feeds
-them to the Hashgraph (in topological order) for consensus ordering. After this
-method call, the Hashgraph should be in a state coherent with the 'tip' of the
-Hashgraph
+them to the Hashgraph consensus methods in topological order. It is assumed that
+no events are skipped/lost when loading from the database - WE CAN ONLY
+BOOTSTRAP FROM 0. As Events are inserted and processed, Blocks will be created
+and committed to the App layer (via the commit callback), so it is also assumed
+that the application state was reset.
 */
 func (h *Hashgraph) Bootstrap() error {
 	if badgerStore, ok := h.Store.(*BadgerStore); ok {
