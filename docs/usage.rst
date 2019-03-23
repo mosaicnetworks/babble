@@ -176,26 +176,30 @@ Let us take a look at the help provided by the Babble CLI:
 
 ::
 
-  Run node
-  
-  Usage:
-    babble run [flags]
-  
-  Flags:
-        --cache-size int          Number of items in LRU caches (default 500)
-    -c, --client-connect string   IP:Port to connect to client (default "127.0.0.1:1339")
-        --datadir string          Top-level directory for configuration and data (default "/home/martin/.babble")
-        --heartbeat duration      Time between gossips (default 1s)
-    -h, --help                    help for run
-    -l, --listen string           Listen IP:Port for babble node (default ":1337")
-        --log string              debug, info, warn, error, fatal, panic
-        --max-pool int            Connection pool size max (default 2)
-    -p, --proxy-listen string     Listen IP:Port for babble proxy (default "127.0.0.1:1338")
-    -s, --service-listen string   Listen IP:Port for HTTP service
-        --standalone              Do not create a proxy
-        --store                   Use badgerDB instead of in-mem DB
-        --sync-limit int          Max number of events for sync (default 100)
-    -t, --timeout duration        TCP Timeout (default 1s)
+    Run node
+
+    Usage:
+      babble run [flags]
+
+    Flags:
+          --bootstrap               Load from database
+          --cache-size int          Number of items in LRU caches (default 5000)
+      -c, --client-connect string   IP:Port to connect to client (default "127.0.0.1:1339")
+          --datadir string          Top-level directory for configuration and data (default "/home/martin/.babble")
+          --heartbeat duration      Time between gossips (default 10ms)
+      -h, --help                    help for run
+      -j, --join-timeout duration   Join Timeout (default 10s)
+      -l, --listen string           Listen IP:Port for babble node (default ":1337")
+          --log string              debug, info, warn, error, fatal, panic
+          --max-pool int            Connection pool size max (default 2)
+          --moniker string          Optional name
+      -p, --proxy-listen string     Listen IP:Port for babble proxy (default "127.0.0.1:1338")
+      -s, --service-listen string   Listen IP:Port for HTTP service
+          --standalone              Do not create a proxy
+          --store                   Use badgerDB instead of in-mem DB
+          --sync-limit int          Max number of events for sync (default 1000)
+      -t, --timeout duration        TCP Timeout (default 1s)
+
   
 	
 So we have just seen what the ``datadir`` flag does. The ``listen`` flag 
@@ -216,10 +220,11 @@ the Hashgraph and Blockchain data store. This is controlled by the optional
 
 Finally, we can choose to run Babble with a database backend or only with an 
 in-memory cache. With the ``store`` flag set, Babble will look for a database 
-file in ``datadir``/babdger_db. If the file exists, the node will load the 
-database and bootstrap itself to a state consistent with the database and it 
-will be able to proceed with the consensus algorithm from there. If the file 
-does not exist yet, it will be created and the node will start from a clean 
+file in ``datadir``/babdger_db. If the file exists, and the ``--boostrap`` flag
+is set, the node will load the database and bootstrap itself to a state 
+consistent with the database and it will be able to proceed with the consensus 
+algorithm from there. If the file does not exist yet, or the ``--bootstrap`` 
+flag is not set, a new one will be created and the node will start from a clean 
 state. 
 
 Here is how the Docker demo starts Babble nodes together wth the Dummy 

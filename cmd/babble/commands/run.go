@@ -85,6 +85,7 @@ func AddRunFlags(cmd *cobra.Command) {
 
 	// Store
 	cmd.Flags().Bool("store", config.Babble.Store, "Use badgerDB instead of in-mem DB")
+	cmd.Flags().Bool("bootstrap", config.Babble.NodeConfig.Bootstrap, "Load from database")
 	cmd.Flags().Int("cache-size", config.Babble.NodeConfig.CacheSize, "Number of items in LRU caches")
 
 	// Node configuration
