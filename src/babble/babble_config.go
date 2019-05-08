@@ -12,6 +12,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const DefaultKeyfile = "priv_key"
+
 type BabbleConfig struct {
 	NodeConfig node.Config `mapstructure:",squash"`
 
@@ -49,6 +51,10 @@ func NewDefaultConfig() *BabbleConfig {
 
 func (c *BabbleConfig) BadgerDir() string {
 	return filepath.Join(c.DataDir, "badger_db")
+}
+
+func (c *BabbleConfig) Keyfile() string {
+	return filepath.Join(c.DataDir, DefaultKeyfile)
 }
 
 func DefaultDataDir() string {

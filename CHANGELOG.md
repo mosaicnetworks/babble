@@ -2,13 +2,22 @@
 
 SECURITY:
 
+* keygen: Use JSON representation of private key, rather that X509/PEM. 
+
 FEATURES:
 
+* crypto: Support secp256k1 curve (from P256) which is also used by Ethereum 
+          and Bitcoin.
+
 IMPROVEMENTS:
-- node: Gossip condition. Two-speed heartbeat timer. Nodes always gossip but 
-  slow down when there are no uncommitted transactions in the hg.
    
 BUG FIXES:
+
+## v0.4.1 (January 28, 2019)
+
+IMPROVEMENTS:
+
+* Bug fixes and refactoring pulled from develop branch
 
 ## v0.4.0 (October 14, 2018)
 
@@ -35,13 +44,3 @@ FEATURES:
 Lamport timestamps.
 * hashgraph: Introduced the concept of Frames and Roots to enable initializing a
 hashgraph from a "non-zero" state.
-* node: Added FastSync protocol to enable nodes to catch up with other nodes 
-without downloading the entire hashgraph. 
-* proxy: Introduce Snapshot/Restore functionality.
-
-IMPROVEMENTS:
-
-* hashgraph: Refactored the consensus methods around the concept of Frames.
-* hashgraph: Removed special case for "initial" Events, and make use of Roots 
-instead. 
-* docs: Added sections on Babble and FastSync.

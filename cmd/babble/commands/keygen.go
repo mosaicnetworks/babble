@@ -13,7 +13,7 @@ import (
 var (
 	privKeyFile           string
 	pubKeyFile            string
-	defaultPrivateKeyFile = fmt.Sprintf("%s/priv_key.pem", config.Babble.DataDir)
+	defaultPrivateKeyFile = fmt.Sprintf("%s/priv_key", config.Babble.DataDir)
 	defaultPublicKeyFile  = fmt.Sprintf("%s/key.pub", config.Babble.DataDir)
 )
 
@@ -32,28 +32,27 @@ func NewKeygenCmd() *cobra.Command {
 
 //AddKeygenFlags adds flags to the keygen command
 func AddKeygenFlags(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&privKeyFile, "pem", defaultPrivateKeyFile, "File where the private key will be written")
+	cmd.Flags().StringVar(&privKeyFile, "priv", defaultPrivateKeyFile, "File where the private key will be written")
 	cmd.Flags().StringVar(&pubKeyFile, "pub", defaultPublicKeyFile, "File where the public key will be written")
 }
 
 func keygen(cmd *cobra.Command, args []string) error {
-	pemDump, err := crypto.GeneratePemKey()
+	if _, err := os.Stat(privKeyFile); err == nil {
+		return fmt.Errorf("A key already lives under: %s", path.Dir(privKeyFile))
+	}
 
+	key, err := crypto.GenerateECDSAKey()
 	if err != nil {
-		return fmt.Errorf("Error generating PemDump")
+		return fmt.Errorf("Error generating ECDSA key")
 	}
 
 	if err := os.MkdirAll(path.Dir(privKeyFile), 0700); err != nil {
 		return fmt.Errorf("Writing private key: %s", err)
 	}
 
-	_, err = os.Stat(privKeyFile)
+	jsonKey := crypto.NewJSONKey(privKeyFile)
 
-	if err == nil {
-		return fmt.Errorf("A key already lives under: %s", path.Dir(privKeyFile))
-	}
-
-	if err := ioutil.WriteFile(privKeyFile, []byte(pemDump.PrivateKey), 0666); err != nil {
+	if err := jsonKey.WriteKey(key); err != nil {
 		return fmt.Errorf("Writing private key: %s", err)
 	}
 
@@ -63,7 +62,9 @@ func keygen(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Writing public key: %s", err)
 	}
 
-	if err := ioutil.WriteFile(pubKeyFile, []byte(pemDump.PublicKey), 0666); err != nil {
+	pub := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey))
+
+	if err := ioutil.WriteFile(pubKeyFile, []byte(pub), 0600); err != nil {
 		return fmt.Errorf("Writing public key: %s", err)
 	}
 

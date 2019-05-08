@@ -115,24 +115,25 @@ func (b *Babble) initStore() error {
 
 func (b *Babble) initKey() error {
 	if b.Config.Key == nil {
-		pemKey := crypto.NewPemKey(b.Config.DataDir)
+		jsonKey := crypto.NewJSONKey(b.Config.Keyfile())
 
-		privKey, err := pemKey.ReadKey()
+		privKey, err := jsonKey.ReadKey()
 
 		if err != nil {
 			b.Config.Logger.Warn("Cannot read private key from file", err)
 
-			privKey, err = Keygen(b.Config.DataDir)
-
+			privKey, err = crypto.GenerateECDSAKey()
 			if err != nil {
-				b.Config.Logger.Error("Cannot generate a new private key", err)
-
+				b.Config.Logger.Error("Error generating a new ECDSA key")
 				return err
 			}
 
-			pem, _ := crypto.ToPemKey(privKey)
+			if err := jsonKey.WriteKey(privKey); err != nil {
+				b.Config.Logger.Error("Error saving private key", err)
+				return err
+			}
 
-			b.Config.Logger.Info("Created a new key:", pem.PublicKey)
+			b.Config.Logger.Debug("Generated a new private key")
 		}
 
 		b.Config.Key = privKey

@@ -9,8 +9,9 @@ dest=$DEST/node$N
 mkdir -p $dest
 echo "Generating key pair for node$N"
 docker run  \
+    -u $(id -u) \
     -v $dest:/.babble \
-    --rm mosaicnetworks/babble:0.4.0 keygen 
+    --rm mosaicnetworks/babble:0.4.2 keygen 
 
 # get up-to-date peers.json
 echo "Fetching peers.json from node1"
@@ -25,7 +26,7 @@ docker run -d --name=client$N --net=babblenet --ip=172.77.10.$N -it mosaicnetwor
     --discard \
     --log="debug" 
 
-docker create --name=node$N --net=babblenet --ip=172.77.5.$N mosaicnetworks/babble:0.4.0 run \
+docker create --name=node$N --net=babblenet --ip=172.77.5.$N mosaicnetworks/babble:0.4.2 run \
     --moniker="node$N" \
     --cache-size=50000 \
     --listen="172.77.5.$N:1337" \

@@ -19,8 +19,9 @@ do
     mkdir -p $dest
     echo "Generating key pair for node$i"
     docker run  \
+        -u $(id -u) \
         -v $dest:/.babble \
-        --rm mosaicnetworks/babble:0.4.0 keygen 
+        --rm mosaicnetworks/babble:0.4.2 keygen 
     echo "$IPBASE$i:$PORT" > $dest/addr
 done
 
