@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/common"
-	"github.com/mosaicnetworks/babble/src/crypto"
+	bkeys "github.com/mosaicnetworks/babble/src/crypto/keys"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
 	"github.com/mosaicnetworks/babble/src/peers"
@@ -38,7 +38,9 @@ func TestAddTransaction(t *testing.T) {
 	peer0Proxy := dummy.NewInmemDummyClient(testLogger)
 	defer peer0Trans.Close()
 
-	node0 := NewNode(config, peers[0].ID(), keys[0], "node0", p,
+	node0 := NewNode(config,
+		NewValidator(keys[0], peers[0].Moniker),
+		p,
 		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
 		peer0Proxy)
@@ -53,7 +55,9 @@ func TestAddTransaction(t *testing.T) {
 	peer1Proxy := dummy.NewInmemDummyClient(testLogger)
 	defer peer1Trans.Close()
 
-	node1 := NewNode(TestConfig(t), peers[1].ID(), keys[1], "node1", p,
+	node1 := NewNode(TestConfig(t),
+		NewValidator(keys[1], peers[1].Moniker),
+		p,
 		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
 		peer1Proxy)
@@ -69,7 +73,7 @@ func TestAddTransaction(t *testing.T) {
 
 	node0KnownEvents := node0.core.KnownEvents()
 	args := net.SyncRequest{
-		FromID: node0.id,
+		FromID: node0.validator.ID(),
 		Known:  node0KnownEvents,
 	}
 
@@ -148,11 +152,11 @@ func TestSyncLimit(t *testing.T) {
 	}
 
 	args := net.SyncRequest{
-		FromID: nodes[0].id,
+		FromID: nodes[0].validator.ID(),
 		Known:  node0KnownEvents,
 	}
 	expectedResp := net.SyncResponse{
-		FromID:    nodes[1].id,
+		FromID:    nodes[1].validator.ID(),
 		SyncLimit: true,
 	}
 
@@ -382,10 +386,10 @@ func initPeers(n int) ([]*ecdsa.PrivateKey, *peers.PeerSet) {
 	pirs := []*peers.Peer{}
 
 	for i := 0; i < n; i++ {
-		key, _ := crypto.GenerateECDSAKey()
+		key, _ := bkeys.GenerateECDSAKey()
 		keys = append(keys, key)
 		peer := peers.NewPeer(
-			fmt.Sprintf("0x%X", crypto.FromECDSAPub(&keys[i].PublicKey)),
+			bkeys.PublicKeyHex(&keys[i].PublicKey),
 			fmt.Sprintf("127.0.0.1:%d", ip),
 			fmt.Sprintf("node%d", i),
 		)
@@ -437,9 +441,7 @@ func newNode(peer *peers.Peer,
 
 	prox := dummy.NewInmemDummyClient(logger)
 	node := NewNode(conf,
-		peer.ID(),
-		k,
-		peer.Moniker,
+		NewValidator(k, peer.Moniker),
 		peers,
 		store,
 		trans,
@@ -464,7 +466,7 @@ func initNodes(keys []*ecdsa.PrivateKey,
 	nodes := []*Node{}
 
 	for _, k := range keys {
-		pubKey := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&k.PublicKey))
+		pubKey := bkeys.PublicKeyHex(&k.PublicKey)
 
 		peer, ok := peers.ByPubKey[pubKey]
 		if !ok {
@@ -497,9 +499,8 @@ func recycleNodes(oldNodes []*Node, logger *logrus.Logger, t *testing.T) []*Node
 
 func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 	conf := oldNode.conf
-	id := oldNode.id
-	key := oldNode.core.key
-	moniker := oldNode.moniker
+	key := oldNode.validator.Key
+	moniker := oldNode.validator.Moniker
 	peers := oldNode.core.peers
 
 	var store hg.Store
@@ -522,7 +523,7 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 
 	conf.Bootstrap = true
 
-	newNode := NewNode(conf, id, key, moniker, peers, store, trans, prox)
+	newNode := NewNode(conf, NewValidator(key, moniker), peers, store, trans, prox)
 
 	if err := newNode.Init(); err != nil {
 		t.Fatal(err)

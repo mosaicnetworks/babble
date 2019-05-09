@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/common"
-	"github.com/mosaicnetworks/babble/src/crypto"
+	bkeys "github.com/mosaicnetworks/babble/src/crypto/keys"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
@@ -27,9 +27,9 @@ func TestSuccessiveJoinRequestExtra(t *testing.T) {
 	for i := 1; i <= 3; i++ {
 		peerSet := peers.NewPeerSet(node0.GetPeers())
 
-		key, _ := crypto.GenerateECDSAKey()
+		key, _ := bkeys.GenerateECDSAKey()
 		peer := peers.NewPeer(
-			fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
+			bkeys.PublicKeyHex(&key.PublicKey),
 			fmt.Sprintf("127.0.0.1:%d", 4240+i),
 			"monika",
 		)
@@ -161,9 +161,9 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	key, _ := crypto.GenerateECDSAKey()
+	key, _ := bkeys.GenerateECDSAKey()
 	peer := peers.NewPeer(
-		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
+		bkeys.PublicKeyHex(&key.PublicKey),
 		fmt.Sprint("127.0.0.1:4242"),
 		"new node",
 	)

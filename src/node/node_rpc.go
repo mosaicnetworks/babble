@@ -12,7 +12,7 @@ import (
 
 func (n *Node) requestSync(target string, known map[uint32]int) (net.SyncResponse, error) {
 	args := net.SyncRequest{
-		FromID: n.id,
+		FromID: n.validator.ID(),
 		Known:  known,
 	}
 
@@ -25,7 +25,7 @@ func (n *Node) requestSync(target string, known map[uint32]int) (net.SyncRespons
 
 func (n *Node) requestEagerSync(target string, events []hg.WireEvent) (net.EagerSyncResponse, error) {
 	args := net.EagerSyncRequest{
-		FromID: n.id,
+		FromID: n.validator.ID(),
 		Events: events,
 	}
 
@@ -42,7 +42,7 @@ func (n *Node) requestFastForward(target string) (net.FastForwardResponse, error
 	}).Debug("RequestFastForward()")
 
 	args := net.FastForwardRequest{
-		FromID: n.id,
+		FromID: n.validator.ID(),
 	}
 
 	var out net.FastForwardResponse
@@ -55,9 +55,9 @@ func (n *Node) requestFastForward(target string) (net.FastForwardResponse, error
 func (n *Node) requestJoin(target string) (net.JoinResponse, error) {
 	args := net.JoinRequest{
 		Peer: *peers.NewPeer(
-			n.core.HexID(),
+			n.validator.PublicKeyHex(),
 			n.trans.LocalAddr(),
-			n.moniker),
+			n.validator.Moniker),
 	}
 
 	var out net.JoinResponse
@@ -90,7 +90,7 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 	}).Debug("process SyncRequest")
 
 	resp := &net.SyncResponse{
-		FromID: n.id,
+		FromID: n.validator.ID(),
 	}
 
 	var respErr error
@@ -163,7 +163,7 @@ func (n *Node) processEagerSyncRequest(rpc net.RPC, cmd *net.EagerSyncRequest) {
 	}
 
 	resp := &net.EagerSyncResponse{
-		FromID:  n.id,
+		FromID:  n.validator.ID(),
 		Success: success,
 	}
 
@@ -176,7 +176,7 @@ func (n *Node) processFastForwardRequest(rpc net.RPC, cmd *net.FastForwardReques
 	}).Debug("process FastForwardRequest")
 
 	resp := &net.FastForwardResponse{
-		FromID: n.id,
+		FromID: n.validator.ID(),
 	}
 
 	var respErr error
@@ -223,7 +223,7 @@ func (n *Node) processJoinRequest(rpc net.RPC, cmd *net.JoinRequest) {
 	var acceptedRound int
 	var peers []*peers.Peer
 
-	if _, ok := n.core.peers.ByPubKey[cmd.Peer.PubKeyHex]; ok {
+	if _, ok := n.core.peers.ByPubKey[cmd.Peer.PubKeyString()]; ok {
 
 		n.logger.Debug("JoinRequest peer is already present")
 
@@ -260,7 +260,7 @@ func (n *Node) processJoinRequest(rpc net.RPC, cmd *net.JoinRequest) {
 	}
 
 	resp := &net.JoinResponse{
-		FromID:        n.id,
+		FromID:        n.validator.ID(),
 		AcceptedRound: acceptedRound,
 		Peers:         peers,
 	}

@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/crypto/keys"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
@@ -88,7 +88,7 @@ func initR2DynHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 
 	for i := range peerSet.Peers {
 		name := fmt.Sprintf("w0%d", i)
-		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{"", ""}, nodes[i].Pub, 0)
+		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{"", ""}, nodes[i].PubBytes, 0)
 		nodes[i].signAndAddEvent(event, name, index, orderedEvents)
 	}
 
@@ -115,7 +115,7 @@ func initR2DynHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 	***************************************************************************/
 
 	//create new node
-	key3, _ := crypto.GenerateECDSAKey()
+	key3, _ := keys.GenerateECDSAKey()
 	node3 := NewTestNode(key3)
 	nodes = append(nodes, node3)
 	peer3 := peers.NewPeer(node3.PubHex, "", "")
@@ -506,7 +506,7 @@ func initUsurperHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 
 	for i := range peerSet.Peers {
 		name := fmt.Sprintf("w0%d", i)
-		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{"", ""}, nodes[i].Pub, 0)
+		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{"", ""}, nodes[i].PubBytes, 0)
 		nodes[i].signAndAddEvent(event, name, index, orderedEvents)
 	}
 
@@ -534,7 +534,7 @@ func initUsurperHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 	***************************************************************************/
 
 	//create new node
-	key3, _ := crypto.GenerateECDSAKey()
+	key3, _ := keys.GenerateECDSAKey()
 	usurperNode := NewTestNode(key3)
 	nodes = append(nodes, usurperNode)
 	usurperPeer := peers.NewPeer(usurperNode.PubHex, "", "")
@@ -670,7 +670,7 @@ func initMonologueHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 
 	for i := range peerSet.Peers {
 		name := fmt.Sprintf("w0%d", i)
-		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{"", ""}, nodes[i].Pub, 0)
+		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{"", ""}, nodes[i].PubBytes, 0)
 		nodes[i].signAndAddEvent(event, name, index, orderedEvents)
 	}
 

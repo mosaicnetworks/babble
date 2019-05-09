@@ -231,10 +231,10 @@ func (s *BadgerStore) addParticipant(p *peers.Peer) error {
 		return err
 	}
 
-	root, err := s.dbGetRoot(p.PubKeyHex)
+	root, err := s.dbGetRoot(p.PubKeyString())
 	if err != nil {
 		root = NewRoot()
-		if err := s.dbSetRoot(p.PubKeyHex, root); err != nil {
+		if err := s.dbSetRoot(p.PubKeyString(), root); err != nil {
 			return err
 		}
 	}
@@ -348,7 +348,7 @@ func (s *BadgerStore) dbGetRepertoire() (map[string]*peers.Peer, error) {
 				return err
 			}
 
-			repertoire[peer.PubKeyHex] = peer
+			repertoire[peer.PubKeyString()] = peer
 		}
 		return nil
 	})
@@ -364,7 +364,7 @@ func (s *BadgerStore) dbSetRepertoire(peer *peers.Peer) error {
 	tx := s.db.NewTransaction(true)
 	defer tx.Discard()
 
-	key := repertoireKey(peer.PubKeyHex)
+	key := repertoireKey(peer.PubKeyString())
 	val, err := peer.Marshal()
 	if err != nil {
 		return err

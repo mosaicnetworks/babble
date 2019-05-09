@@ -2,12 +2,11 @@
 
 SECURITY:
 
-* keygen: Use JSON representation of private key, rather that X509/PEM. 
+* keygen: Use plain-text representation of private key, rather that X509/PEM. 
 
 FEATURES:
 
-* crypto: Support secp256k1 curve (from P256) which is also used by Ethereum 
-          and Bitcoin.
+* crypto: Use secp256k1 curve which is also used by Ethereum and Bitcoin.
 
 IMPROVEMENTS:
    

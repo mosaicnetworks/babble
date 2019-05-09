@@ -1,7 +1,6 @@
 package node
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 	"reflect"
 	"sort"
@@ -9,7 +8,6 @@ import (
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/common"
-	"github.com/mosaicnetworks/babble/src/crypto"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/mosaicnetworks/babble/src/proxy"
@@ -17,11 +15,9 @@ import (
 )
 
 type Core struct {
-	id     uint32
-	key    *ecdsa.PrivateKey
-	pubKey []byte
-	hexID  string
-	hg     *hg.Hashgraph
+	validator *Validator
+
+	hg *hg.Hashgraph
 
 	peers        *peers.PeerSet //[PubKey] => id
 	peerSelector PeerSelector
@@ -64,8 +60,7 @@ type Core struct {
 }
 
 func NewCore(
-	id uint32,
-	key *ecdsa.PrivateKey,
+	validator *Validator,
 	peers *peers.PeerSet,
 	store hg.Store,
 	proxyCommitCallback proxy.CommitCallback,
@@ -75,13 +70,12 @@ func NewCore(
 		logger = logrus.New()
 		logger.Level = logrus.DebugLevel
 	}
-	logEntry := logger.WithField("id", id)
+	logEntry := logger.WithField("id", validator.ID())
 
-	peerSelector := NewRandomPeerSelector(peers, id)
+	peerSelector := NewRandomPeerSelector(peers, validator.ID())
 
 	core := &Core{
-		id:                      id,
-		key:                     key,
+		validator:               validator,
 		proxyCommitCallback:     proxyCommitCallback,
 		peers:                   peers,
 		peerSelector:            peerSelector,
@@ -104,33 +98,14 @@ func NewCore(
 	return core
 }
 
-func (c *Core) ID() uint32 {
-	return c.id
-}
-
-func (c *Core) PubKey() []byte {
-	if c.pubKey == nil {
-		c.pubKey = crypto.FromECDSAPub(&c.key.PublicKey)
-	}
-	return c.pubKey
-}
-
-func (c *Core) HexID() string {
-	if c.hexID == "" {
-		pubKey := c.PubKey()
-		c.hexID = fmt.Sprintf("0x%X", pubKey)
-	}
-	return c.hexID
-}
-
 func (c *Core) SetHeadAndSeq() error {
 	head := ""
 	seq := -1
 
-	_, ok := c.hg.Store.RepertoireByID()[c.ID()]
+	_, ok := c.hg.Store.RepertoireByID()[c.validator.ID()]
 
 	if ok {
-		last, err := c.hg.Store.LastEventFrom(c.HexID())
+		last, err := c.hg.Store.LastEventFrom(c.validator.PublicKeyHex())
 		if err != nil && !common.Is(err, common.Empty) {
 			return err
 		}
@@ -165,13 +140,13 @@ func (c *Core) Bootstrap() error {
 
 func (c *Core) SetPeerSet(ps *peers.PeerSet) {
 	c.peers = ps
-	c.peerSelector = NewRandomPeerSelector(c.peers, c.id)
+	c.peerSelector = NewRandomPeerSelector(c.peers, c.validator.ID())
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 func (c *Core) SignAndInsertSelfEvent(event *hg.Event) error {
-	if err := event.Sign(c.key); err != nil {
+	if err := event.Sign(c.validator.Key); err != nil {
 		return err
 	}
 	return c.InsertEventAndRunConsensus(event, true)
@@ -181,7 +156,7 @@ func (c *Core) InsertEventAndRunConsensus(event *hg.Event, setWireInfo bool) err
 	if err := c.hg.InsertEventAndRunConsensus(event, setWireInfo); err != nil {
 		return err
 	}
-	if event.Creator() == c.HexID() {
+	if event.Creator() == c.validator.PublicKeyHex() {
 		c.Head = event.Hex()
 		c.Seq = event.Index()
 	}
@@ -235,7 +210,7 @@ func (c *Core) Commit(block *hg.Block) error {
 }
 
 func (c *Core) SignBlock(block *hg.Block) (hg.BlockSignature, error) {
-	sig, err := block.Sign(c.key)
+	sig, err := block.Sign(c.validator.Key)
 	if err != nil {
 		return hg.BlockSignature{}, err
 	}
@@ -339,7 +314,7 @@ func (c *Core) EventDiff(known map[uint32]int) (events []*hg.Event, err error) {
 		}
 
 		//get participant Events with index > ct
-		participantEvents, err := c.hg.Store.ParticipantEvents(peer.PubKeyHex, ct)
+		participantEvents, err := c.hg.Store.ParticipantEvents(peer.PubKeyString(), ct)
 		if err != nil {
 			return []*hg.Event{}, err
 		}
@@ -448,7 +423,8 @@ func (c *Core) AddSelfEvent(otherHead string) error {
 		c.internalTransactionPool,
 		sigs,
 		[]string{c.Head, otherHead},
-		c.PubKey(), c.Seq+1)
+		c.validator.PublicKeyBytes(),
+		c.Seq+1)
 
 	//Inserting the Event, and running consensus methods, can have a side-effect
 	//of adding items to the transaction pools (via the commit callback).
@@ -507,7 +483,7 @@ func (c *Core) FastForward(peer string, block *hg.Block, frame *hg.Frame) error 
 }
 
 func (c *Core) Leave(leaveTimeout time.Duration) error {
-	p, ok := c.peers.ByID[c.ID()]
+	p, ok := c.peers.ByID[c.validator.ID()]
 	if !ok {
 		return fmt.Errorf("Leaving: Peer not found")
 	}

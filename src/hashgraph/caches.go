@@ -5,6 +5,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"strings"
 
 	cm "github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/peers"
@@ -45,10 +46,12 @@ func (pec *ParticipantEventsCache) AddPeer(peer *peers.Peer) error {
 	return pec.rim.AddKey(peer.ID())
 }
 
+//particant is the CASE-INSENSITIVE string hex representation of the public key.
 func (pec *ParticipantEventsCache) participantID(participant string) (uint32, error) {
-	peer, ok := pec.participants.ByPubKey[participant]
+	pUpper := strings.ToUpper(participant)
+	peer, ok := pec.participants.ByPubKey[pUpper]
 	if !ok {
-		return 0, cm.NewStoreErr("ParticipantEvents", cm.UnknownParticipant, participant)
+		return 0, cm.NewStoreErr("ParticipantEvents", cm.UnknownParticipant, pUpper)
 	}
 
 	return peer.ID(), nil
@@ -144,7 +147,7 @@ func (c *PeerSetCache) Set(round int, peerSet *peers.PeerSet) error {
 	c.rounds.Sort()
 
 	for _, p := range peerSet.Peers {
-		c.repertoireByPubKey[p.PubKeyHex] = p
+		c.repertoireByPubKey[p.PubKeyString()] = p
 		c.repertoireByID[p.ID()] = p
 		fr, ok := c.firstRounds[p.ID()]
 		if !ok || fr > round {

@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/crypto/keys"
 )
 
 func createDummyEventBody() EventBody {
@@ -55,8 +55,8 @@ func TestMarshallBody(t *testing.T) {
 }
 
 func TestSignEvent(t *testing.T) {
-	privateKey, _ := crypto.GenerateECDSAKey()
-	publicKeyBytes := crypto.FromECDSAPub(&privateKey.PublicKey)
+	privateKey, _ := keys.GenerateECDSAKey()
+	publicKeyBytes := keys.FromPublicKey(&privateKey.PublicKey)
 
 	body := createDummyEventBody()
 	body.Creator = publicKeyBytes
@@ -76,8 +76,8 @@ func TestSignEvent(t *testing.T) {
 }
 
 func TestMarshallEvent(t *testing.T) {
-	privateKey, _ := crypto.GenerateECDSAKey()
-	publicKeyBytes := crypto.FromECDSAPub(&privateKey.PublicKey)
+	privateKey, _ := keys.GenerateECDSAKey()
+	publicKeyBytes := keys.FromPublicKey(&privateKey.PublicKey)
 
 	body := createDummyEventBody()
 	body.Creator = publicKeyBytes
@@ -103,8 +103,8 @@ func TestMarshallEvent(t *testing.T) {
 }
 
 func TestWireEvent(t *testing.T) {
-	privateKey, _ := crypto.GenerateECDSAKey()
-	publicKeyBytes := crypto.FromECDSAPub(&privateKey.PublicKey)
+	privateKey, _ := keys.GenerateECDSAKey()
+	publicKeyBytes := keys.FromPublicKey(&privateKey.PublicKey)
 
 	body := createDummyEventBody()
 	body.Creator = publicKeyBytes

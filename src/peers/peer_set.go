@@ -3,9 +3,9 @@ package peers
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"math"
 
+	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/crypto"
 )
 
@@ -32,7 +32,7 @@ func NewPeerSet(peers []*Peer) *PeerSet {
 	}
 
 	for _, peer := range peers {
-		peerSet.ByPubKey[peer.PubKeyHex] = peer
+		peerSet.ByPubKey[peer.PubKeyString()] = peer
 		peerSet.ByID[peer.ID()] = peer
 	}
 
@@ -83,7 +83,7 @@ func (c *PeerSet) PubKeys() []string {
 	res := []string{}
 
 	for _, peer := range c.Peers {
-		res = append(res, peer.PubKeyHex)
+		res = append(res, peer.PubKeyString())
 	}
 
 	return res
@@ -125,7 +125,7 @@ func (c *PeerSet) Hash() ([]byte, error) {
 func (c *PeerSet) Hex() string {
 	if len(c.hex) == 0 {
 		hash, _ := c.Hash()
-		c.hex = fmt.Sprintf("0x%X", hash)
+		c.hex = common.EncodeToString(hash)
 	}
 	return c.hex
 }

@@ -71,8 +71,8 @@ func (s *InmemStore) addParticipant(p *peers.Peer) error {
 		}
 	}
 
-	if _, ok := s.roots[p.PubKeyHex]; !ok {
-		s.roots[p.PubKeyHex] = NewRoot()
+	if _, ok := s.roots[p.PubKeyString()]; !ok {
+		s.roots[p.PubKeyString()] = NewRoot()
 	}
 
 	return nil

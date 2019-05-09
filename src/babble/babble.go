@@ -1,12 +1,10 @@
 package babble
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 	"os"
 
-	"github.com/mosaicnetworks/babble/src/common"
-	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/crypto/keys"
 	h "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
 	"github.com/mosaicnetworks/babble/src/node"
@@ -63,7 +61,6 @@ func (b *Babble) initPeers() error {
 	peerStore := peers.NewJSONPeerSet(b.Config.DataDir)
 
 	participants, err := peerStore.PeerSet()
-
 	if err != nil {
 		return err
 	}
@@ -115,20 +112,20 @@ func (b *Babble) initStore() error {
 
 func (b *Babble) initKey() error {
 	if b.Config.Key == nil {
-		jsonKey := crypto.NewJSONKey(b.Config.Keyfile())
+		simpleKeyfile := keys.NewSimpleKeyfile(b.Config.Keyfile())
 
-		privKey, err := jsonKey.ReadKey()
+		privKey, err := simpleKeyfile.ReadKey()
 
 		if err != nil {
-			b.Config.Logger.Warn("Cannot read private key from file", err)
+			b.Config.Logger.Warn(fmt.Sprintf("Cannot read private key from file: %v", err))
 
-			privKey, err = crypto.GenerateECDSAKey()
+			privKey, err = keys.GenerateECDSAKey()
 			if err != nil {
 				b.Config.Logger.Error("Error generating a new ECDSA key")
 				return err
 			}
 
-			if err := jsonKey.WriteKey(privKey); err != nil {
+			if err := simpleKeyfile.WriteKey(privKey); err != nil {
 				b.Config.Logger.Error("Error saving private key", err)
 				return err
 			}
@@ -142,33 +139,29 @@ func (b *Babble) initKey() error {
 }
 
 func (b *Babble) initNode() error {
-	key := b.Config.Key
-	pub := crypto.FromECDSAPub(&key.PublicKey)
-	id := common.Hash32(pub)
-	moniker := b.Config.Moniker
 
-	p, ok := b.Peers.ByID[id]
+	validator := node.NewValidator(b.Config.Key, b.Config.Moniker)
+
+	p, ok := b.Peers.ByID[validator.ID()]
 	if ok {
-		if p.Moniker != moniker {
+		if p.Moniker != validator.Moniker {
 			b.Config.Logger.WithFields(logrus.Fields{
 				"json_moniker": p.Moniker,
-				"cli_moniker":  moniker,
+				"cli_moniker":  validator.Moniker,
 			}).Debugf("Using moniker from peers.json file")
-			moniker = p.Moniker
+			validator.Moniker = p.Moniker
 		}
 	}
 
 	b.Config.Logger.WithFields(logrus.Fields{
 		"participants": b.Peers,
-		"id":           id,
-		"moniker":      moniker,
+		"id":           validator.ID(),
+		"moniker":      validator.Moniker,
 	}).Debug("PARTICIPANTS")
 
 	b.Node = node.NewNode(
 		&b.Config.NodeConfig,
-		id,
-		key,
-		moniker,
+		validator,
 		b.Peers,
 		b.Store,
 		b.Transport,
@@ -227,26 +220,4 @@ func (b *Babble) Run() {
 	}
 
 	b.Node.Run(true)
-}
-
-func Keygen(datadir string) (*ecdsa.PrivateKey, error) {
-	pemKey := crypto.NewPemKey(datadir)
-
-	_, err := pemKey.ReadKey()
-
-	if err == nil {
-		return nil, fmt.Errorf("Another key already lives under %s", datadir)
-	}
-
-	privKey, err := crypto.GenerateECDSAKey()
-
-	if err != nil {
-		return nil, err
-	}
-
-	if err := pemKey.WriteKey(privKey); err != nil {
-		return nil, err
-	}
-
-	return privKey, nil
 }

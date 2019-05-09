@@ -26,7 +26,9 @@ func TestProcessSync(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
-	node0 := NewNode(config, peers[0].ID(), keys[0], "node0", p,
+	node0 := NewNode(config,
+		NewValidator(keys[0], peers[0].Moniker),
+		p,
 		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
 		dummy.NewInmemDummyClient(testLogger))
@@ -40,7 +42,9 @@ func TestProcessSync(t *testing.T) {
 	}
 	defer peer1Trans.Close()
 
-	node1 := NewNode(config, peers[1].ID(), keys[1], "node1", p,
+	node1 := NewNode(config,
+		NewValidator(keys[1], peers[1].Moniker),
+		p,
 		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
 		dummy.NewInmemDummyClient(testLogger))
@@ -64,11 +68,11 @@ func TestProcessSync(t *testing.T) {
 	}
 
 	args := net.SyncRequest{
-		FromID: node0.id,
+		FromID: node0.validator.ID(),
 		Known:  node0KnownEvents,
 	}
 	expectedResp := net.SyncResponse{
-		FromID: node1.id,
+		FromID: node1.validator.ID(),
 		Events: unknownWireEvents,
 		Known:  node1KnownEvents,
 	}
@@ -122,7 +126,9 @@ func TestProcessEagerSync(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
-	node0 := NewNode(config, peers[0].ID(), keys[0], "node0", p,
+	node0 := NewNode(config,
+		NewValidator(keys[0], peers[0].Moniker),
+		p,
 		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
 		dummy.NewInmemDummyClient(testLogger))
@@ -136,7 +142,9 @@ func TestProcessEagerSync(t *testing.T) {
 	}
 	defer peer1Trans.Close()
 
-	node1 := NewNode(config, peers[1].ID(), keys[1], "node1", p,
+	node1 := NewNode(config,
+		NewValidator(keys[1], peers[1].Moniker),
+		p,
 		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
 		dummy.NewInmemDummyClient(testLogger))
@@ -159,11 +167,11 @@ func TestProcessEagerSync(t *testing.T) {
 	}
 
 	args := net.EagerSyncRequest{
-		FromID: node0.id,
+		FromID: node0.validator.ID(),
 		Events: unknownWireEvents,
 	}
 	expectedResp := net.EagerSyncResponse{
-		FromID:  node1.id,
+		FromID:  node1.validator.ID(),
 		Success: true,
 	}
 
@@ -198,7 +206,9 @@ func TestProcessFastForward(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
-	node0 := NewNode(config, peers[0].ID(), keys[0], "node0", p,
+	node0 := NewNode(config,
+		NewValidator(keys[0], peers[0].Moniker),
+		p,
 		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
 		dummy.NewInmemDummyClient(testLogger))
@@ -212,7 +222,9 @@ func TestProcessFastForward(t *testing.T) {
 	}
 	defer peer1Trans.Close()
 
-	node1 := NewNode(config, peers[1].ID(), keys[1], "node1", p,
+	node1 := NewNode(config,
+		NewValidator(keys[1], peers[1].Moniker),
+		p,
 		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
 		dummy.NewInmemDummyClient(testLogger))
@@ -223,7 +235,7 @@ func TestProcessFastForward(t *testing.T) {
 	//Manually prepare FastForwardRequest. We expect a 'No Anchor Block' error
 
 	args := net.FastForwardRequest{
-		FromID: node0.id,
+		FromID: node0.validator.ID(),
 	}
 
 	//Make actual FastForwardRequest and check FastForwardResponse

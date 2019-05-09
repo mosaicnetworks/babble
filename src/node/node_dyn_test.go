@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/common"
-	"github.com/mosaicnetworks/babble/src/crypto"
+	bkeys "github.com/mosaicnetworks/babble/src/crypto/keys"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
@@ -40,9 +40,9 @@ func TestJoinRequest(t *testing.T) {
 	}
 	checkGossip(nodes, 0, t)
 
-	key, _ := crypto.GenerateECDSAKey()
+	key, _ := bkeys.GenerateECDSAKey()
 	peer := peers.NewPeer(
-		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
+		bkeys.PublicKeyHex(&key.PublicKey),
 		fmt.Sprint("127.0.0.1:4242"),
 		"monika",
 	)
@@ -108,9 +108,9 @@ func TestJoinFull(t *testing.T) {
 	}
 	checkGossip(initialNodes, 0, t)
 
-	key, _ := crypto.GenerateECDSAKey()
+	key, _ := bkeys.GenerateECDSAKey()
 	peer := peers.NewPeer(
-		fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
+		bkeys.PublicKeyHex(&key.PublicKey),
 		fmt.Sprint("127.0.0.1:4242"),
 		"monika",
 	)

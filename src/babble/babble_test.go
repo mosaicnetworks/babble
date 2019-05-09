@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/mosaicnetworks/babble/src/crypto"
+	bkeys "github.com/mosaicnetworks/babble/src/crypto/keys"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
@@ -25,10 +25,10 @@ func TestInitStore(t *testing.T) {
 	keys := map[string]*ecdsa.PrivateKey{}
 	peerSlice := []*peers.Peer{}
 	for i := 0; i < 3; i++ {
-		key, _ := crypto.GenerateECDSAKey()
+		key, _ := bkeys.GenerateECDSAKey()
 		peer := &peers.Peer{
 			NetAddr:   fmt.Sprintf("addr%d", i),
-			PubKeyHex: fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey)),
+			PubKeyHex: bkeys.PublicKeyHex(&key.PublicKey),
 			Moniker:   fmt.Sprintf("peer%d", i),
 		}
 		peerSlice = append(peerSlice, peer)
@@ -58,5 +58,4 @@ func TestInitStore(t *testing.T) {
 	if _, err := os.Stat("test_data/badger_db(1)"); os.IsNotExist(err) {
 		t.Fatal(err)
 	}
-
 }

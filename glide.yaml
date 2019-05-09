@@ -13,3 +13,7 @@ import:
   version: v1.1.1
   subpackages:
   - codec
+- package: github.com/btcsuite/btcd
+  version: BTCD_0_12_0_BETA 
+  subpackages:
+  - btcec

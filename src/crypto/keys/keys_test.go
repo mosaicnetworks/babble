@@ -1,4 +1,4 @@
-package crypto
+package keys
 
 import (
 	"io/ioutil"
@@ -6,9 +6,11 @@ import (
 	"path"
 	"reflect"
 	"testing"
+
+	bcrypto "github.com/mosaicnetworks/babble/src/crypto"
 )
 
-func TestJSON(t *testing.T) {
+func TestSimpleKeyfile(t *testing.T) {
 
 	t.Logf("wordBits: %d", wordBits)
 	t.Logf("wordBytes: %d", wordBytes)
@@ -21,11 +23,10 @@ func TestJSON(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	// Create the JSON key
-	jsonKey := NewJSONKey(path.Join(dir, "priv_key"))
+	simpleKeyfile := NewSimpleKeyfile(path.Join(dir, "priv_key"))
 
 	// Try a read, should get nothing
-	key, err := jsonKey.ReadKey()
+	key, err := simpleKeyfile.ReadKey()
 	if err == nil {
 		t.Fatalf("ReadKey should generate an error")
 	}
@@ -33,17 +34,19 @@ func TestJSON(t *testing.T) {
 		t.Fatalf("key is not nil")
 	}
 
-	// Initialize a key
+	// Initialize a key and try a write
 	key, _ = GenerateECDSAKey()
-	if err := jsonKey.WriteKey(key); err != nil {
+
+	if err := simpleKeyfile.WriteKey(key); err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
 	// Try a read, should get key
-	nKey, err := jsonKey.ReadKey()
+	nKey, err := simpleKeyfile.ReadKey()
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+
 	if !reflect.DeepEqual(*nKey, *key) {
 		t.Fatalf("Keys do not match")
 	}
@@ -54,7 +57,7 @@ func TestSignatureEncoding(t *testing.T) {
 
 	msg := "J'aime mieux forger mon ame que la meubler"
 	msgBytes := []byte(msg)
-	msgHashBytes := SHA256(msgBytes)
+	msgHashBytes := bcrypto.SHA256(msgBytes)
 
 	r, s, _ := Sign(privKey, msgHashBytes)
 

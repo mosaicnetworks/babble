@@ -3,8 +3,8 @@ package hashgraph
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 
+	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/crypto"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
@@ -69,7 +69,7 @@ func (t *InternalTransaction) Unmarshal(data []byte) error {
 func (t *InternalTransaction) Hash() string {
 	hashBytes, _ := t.Marshal()
 	hash := crypto.SHA256(hashBytes)
-	return fmt.Sprintf("0x%x", hash)
+	return common.EncodeToString(hash)
 }
 
 func (t *InternalTransaction) Accept() {

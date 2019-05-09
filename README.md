@@ -1,6 +1,6 @@
 # BABBLE
 ## BFT Consensus platform for distributed applications.
-
+        
 [![CircleCI](https://circleci.com/gh/mosaicnetworks/babble.svg?style=svg)](https://circleci.com/gh/mosaicnetworks/babble)
 
 Babble allows many computers to behave as one. It uses Peer to Peer (P2P) 

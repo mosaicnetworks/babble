@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/mosaicnetworks/babble/src/common"
-	"github.com/mosaicnetworks/babble/src/crypto"
+	bkeys "github.com/mosaicnetworks/babble/src/crypto/keys"
 	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/sirupsen/logrus"
 )
@@ -22,22 +22,24 @@ var (
 )
 
 type TestNode struct {
-	ID     uint32
-	Pub    []byte
-	PubHex string
-	Key    *ecdsa.PrivateKey
-	Events []*Event
+	PubID    uint32
+	PubBytes []byte
+	PubHex   string
+	Key      *ecdsa.PrivateKey
+	Events   []*Event
 }
 
 func NewTestNode(key *ecdsa.PrivateKey) TestNode {
-	pub := crypto.FromECDSAPub(&key.PublicKey)
-	ID := common.Hash32(pub)
+	pubBytes := bkeys.FromPublicKey(&key.PublicKey)
+	pubID := bkeys.PublicKeyID(&key.PublicKey)
+	pubHex := bkeys.PublicKeyHex(&key.PublicKey)
+
 	node := TestNode{
-		ID:     ID,
-		Key:    key,
-		Pub:    pub,
-		PubHex: fmt.Sprintf("0x%X", pub),
-		Events: []*Event{},
+		PubID:    pubID,
+		PubBytes: pubBytes,
+		PubHex:   pubHex,
+		Key:      key,
+		Events:   []*Event{},
 	}
 	return node
 }
@@ -84,9 +86,8 @@ func initHashgraphNodes(n int) ([]TestNode, map[string]string, *[]*Event, *peers
 	pirs := []*peers.Peer{}
 
 	for i := 0; i < n; i++ {
-		key, _ := crypto.GenerateECDSAKey()
-		pub := crypto.FromECDSAPub(&key.PublicKey)
-		pubHex := fmt.Sprintf("0x%X", pub)
+		key, _ := bkeys.GenerateECDSAKey()
+		pubHex := bkeys.PublicKeyHex(&key.PublicKey)
 		p := peers.NewPeer(pubHex, "", "")
 		pirs = append(pirs, p)
 		keys[pubHex] = key
@@ -104,7 +105,7 @@ func playEvents(plays []play, nodes []TestNode, index map[string]string, ordered
 			nil,
 			p.sigPayload,
 			[]string{index[p.selfParent], index[p.otherParent]},
-			nodes[p.to].Pub,
+			nodes[p.to].PubBytes,
 			p.index)
 		nodes[p.to].signAndAddEvent(e, p.name, index, orderedEvents)
 	}
@@ -334,7 +335,7 @@ func TestFork(t *testing.T) {
 	pirs := []*peers.Peer{}
 
 	for i := 0; i < n; i++ {
-		key, _ := crypto.GenerateECDSAKey()
+		key, _ := bkeys.GenerateECDSAKey()
 		node := NewTestNode(key)
 		nodes = append(nodes, node)
 		pirs = append(pirs, peers.NewPeer(node.PubHex, "", ""))
@@ -347,14 +348,14 @@ func TestFork(t *testing.T) {
 	hashgraph.Init(peerSet)
 
 	for i, node := range nodes {
-		event := NewEvent(nil, nil, nil, []string{"", ""}, node.Pub, 0)
+		event := NewEvent(nil, nil, nil, []string{"", ""}, node.PubBytes, 0)
 		event.Sign(node.Key)
 		index[fmt.Sprintf("e%d", i)] = event.Hex()
 		hashgraph.InsertEvent(event, true)
 	}
 
 	//a and e2 need to have different hashes
-	eventA := NewEvent([][]byte{[]byte("yo")}, nil, nil, []string{"", ""}, nodes[2].Pub, 0)
+	eventA := NewEvent([][]byte{[]byte("yo")}, nil, nil, []string{"", ""}, nodes[2].PubBytes, 0)
 	eventA.Sign(nodes[2].Key)
 	index["a"] = eventA.Hex()
 	if err := hashgraph.InsertEvent(eventA, true); err == nil {
@@ -363,7 +364,7 @@ func TestFork(t *testing.T) {
 
 	event01 := NewEvent(nil, nil, nil,
 		[]string{index["e0"], index["a"]}, //e0 and a
-		nodes[0].Pub, 1)
+		nodes[0].PubBytes, 1)
 	event01.Sign(nodes[0].Key)
 	index["e01"] = event01.Hex()
 	if err := hashgraph.InsertEvent(event01, true); err == nil {
@@ -372,7 +373,7 @@ func TestFork(t *testing.T) {
 
 	event20 := NewEvent(nil, nil, nil,
 		[]string{index["e2"], index["e01"]}, //e2 and e01
-		nodes[2].Pub, 1)
+		nodes[2].PubBytes, 1)
 	event20.Sign(nodes[2].Key)
 	index["e20"] = event20.Hex()
 	if err := hashgraph.InsertEvent(event20, true); err == nil {
@@ -876,7 +877,7 @@ func initBlockHashgraph(t *testing.T) (*Hashgraph, []TestNode, map[string]string
 	nodes, index, orderedEvents, peerSet := initHashgraphNodes(n)
 
 	for i := range peerSet.Peers {
-		event := NewEvent(nil, nil, nil, []string{"", ""}, nodes[i].Pub, 0)
+		event := NewEvent(nil, nil, nil, []string{"", ""}, nodes[i].PubBytes, 0)
 		nodes[i].signAndAddEvent(event, fmt.Sprintf("e%d", i), index, orderedEvents)
 	}
 
@@ -945,7 +946,7 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 				nil,
 				p.sigPayload,
 				[]string{index[p.selfParent], index[p.otherParent]},
-				nodes[p.to].Pub,
+				nodes[p.to].PubBytes,
 				p.index)
 			e.Sign(nodes[p.to].Key)
 			index[p.name] = e.Hex()
@@ -986,7 +987,7 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 
 		//unknown block
 		unknownBlockSig := BlockSignature{
-			Validator: nodes[2].Pub,
+			Validator: nodes[2].PubBytes,
 			Index:     1,
 			Signature: sig.Signature,
 		}
@@ -996,7 +997,7 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 			nil,
 			p.sigPayload,
 			[]string{index[p.selfParent], index[p.otherParent]},
-			nodes[p.to].Pub,
+			nodes[p.to].PubBytes,
 			p.index)
 		e.Sign(nodes[p.to].Key)
 		index[p.name] = e.Hex()
@@ -1018,7 +1019,7 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 
 		//wrong validator
 		//Validator should be same as Event creator (node 0)
-		key, _ := crypto.GenerateECDSAKey()
+		key, _ := bkeys.GenerateECDSAKey()
 		badNode := NewTestNode(key)
 		badNodeSig, _ := block.Sign(badNode.Key)
 
@@ -1028,7 +1029,7 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 			nil,
 			p.sigPayload,
 			[]string{index[p.selfParent], index[p.otherParent]},
-			nodes[p.to].Pub,
+			nodes[p.to].PubBytes,
 			p.index)
 		e.Sign(nodes[p.to].Key)
 		index[p.name] = e.Hex()
@@ -1638,7 +1639,7 @@ func TestGetFrame(t *testing.T) {
 				}
 				root.Insert(re)
 			}
-			expectedRoots[peerSet.Peers[i].PubKeyHex] = root
+			expectedRoots[peerSet.Peers[i].PubKeyString()] = root
 		}
 
 		frame, err := h.GetFrame(2)
@@ -2029,7 +2030,7 @@ func initFunkyHashgraph(full bool, t testing.TB) (*Hashgraph, map[string]string)
 
 	for i := range participants.Peers {
 		name := fmt.Sprintf("w0%d", i)
-		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{"", ""}, nodes[i].Pub, 0)
+		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{"", ""}, nodes[i].PubBytes, 0)
 		nodes[i].signAndAddEvent(event, name, index, orderedEvents)
 	}
 
@@ -2362,7 +2363,7 @@ func initSparseHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 
 	for i := range participants.Peers {
 		name := fmt.Sprintf("w0%d", i)
-		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{"", ""}, nodes[i].Pub, 0)
+		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{"", ""}, nodes[i].PubBytes, 0)
 		nodes[i].signAndAddEvent(event, name, index, orderedEvents)
 	}
 
@@ -2521,7 +2522,7 @@ func getDiff(h *Hashgraph, known map[uint32]int, t *testing.T) []*Event {
 	peerSet, _ := h.Store.GetPeerSet(0)
 	diff := []*Event{}
 	for id, ct := range known {
-		pk := peerSet.ByID[id].PubKeyHex
+		pk := peerSet.ByID[id].PubKeyString()
 		//get participant Events with index > ct
 		participantEvents, err := h.Store.ParticipantEvents(pk, ct)
 		if err != nil {

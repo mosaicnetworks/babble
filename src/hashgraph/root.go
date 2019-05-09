@@ -3,8 +3,8 @@ package hashgraph
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 
+	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/crypto"
 )
 
@@ -53,5 +53,5 @@ func (root *Root) Hash() (string, error) {
 		return "", err
 	}
 	hash := crypto.SHA256(hashBytes)
-	return fmt.Sprintf("0x%X", hash), nil
+	return common.EncodeToString(hash), nil
 }

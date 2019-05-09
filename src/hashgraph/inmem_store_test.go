@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/crypto/keys"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
@@ -22,11 +22,11 @@ func initPeers(n int) (*peers.PeerSet, []participant) {
 	participants := []participant{}
 
 	for i := 0; i < n; i++ {
-		key, _ := crypto.GenerateECDSAKey()
-		pubKey := crypto.FromECDSAPub(&key.PublicKey)
-		peer := peers.NewPeer(fmt.Sprintf("0x%X", pubKey), "", "")
+		key, _ := keys.GenerateECDSAKey()
+		pubKey := keys.FromPublicKey(&key.PublicKey)
+		peer := peers.NewPeer(keys.PublicKeyHex(&key.PublicKey), "", "")
 		pirs = append(pirs, peer)
-		participants = append(participants, participant{peer.ID(), key, pubKey, peer.PubKeyHex})
+		participants = append(participants, participant{peer.ID(), key, pubKey, peer.PubKeyString()})
 	}
 
 	peerSet := peers.NewPeerSet(pirs)
@@ -211,8 +211,8 @@ func TestInmemBlocks(t *testing.T) {
 		[]byte("tx5"),
 	}
 	internalTransactions := []InternalTransaction{
-		NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1", "paris", "")),
-		NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2", "london", "")),
+		NewInternalTransaction(PEER_ADD, *peers.NewPeer("0XBAAAAAAAD", "paris", "")),
+		NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("0XB16B00B5", "london", "")),
 	}
 	frameHash := []byte("this is the frame hash")
 

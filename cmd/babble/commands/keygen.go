@@ -6,7 +6,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/crypto/keys"
 	"github.com/spf13/cobra"
 )
 
@@ -41,7 +41,7 @@ func keygen(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("A key already lives under: %s", path.Dir(privKeyFile))
 	}
 
-	key, err := crypto.GenerateECDSAKey()
+	key, err := keys.GenerateECDSAKey()
 	if err != nil {
 		return fmt.Errorf("Error generating ECDSA key")
 	}
@@ -50,7 +50,7 @@ func keygen(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Writing private key: %s", err)
 	}
 
-	jsonKey := crypto.NewJSONKey(privKeyFile)
+	jsonKey := keys.NewSimpleKeyfile(privKeyFile)
 
 	if err := jsonKey.WriteKey(key); err != nil {
 		return fmt.Errorf("Writing private key: %s", err)
@@ -62,7 +62,7 @@ func keygen(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Writing public key: %s", err)
 	}
 
-	pub := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey))
+	pub := keys.PublicKeyHex(&key.PublicKey)
 
 	if err := ioutil.WriteFile(pubKeyFile, []byte(pub), 0600); err != nil {
 		return fmt.Errorf("Writing public key: %s", err)

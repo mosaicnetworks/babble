@@ -1,15 +1,14 @@
 package hashgraph
 
 import (
-	"fmt"
 	"testing"
 
-	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/crypto/keys"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
 func TestSignBlock(t *testing.T) {
-	privateKey, _ := crypto.GenerateECDSAKey()
+	privateKey, _ := keys.GenerateECDSAKey()
 
 	block := NewBlock(0, 1,
 		[]byte("framehash"),
@@ -39,8 +38,7 @@ func TestSignBlock(t *testing.T) {
 }
 
 func TestAppendSignature(t *testing.T) {
-	privateKey, _ := crypto.GenerateECDSAKey()
-	pubKeyBytes := crypto.FromECDSAPub(&privateKey.PublicKey)
+	privateKey, _ := keys.GenerateECDSAKey()
 
 	block := NewBlock(0, 1,
 		[]byte("framehash"),
@@ -65,7 +63,7 @@ func TestAppendSignature(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	blockSignature, err := block.GetSignature(fmt.Sprintf("0x%X", pubKeyBytes))
+	blockSignature, err := block.GetSignature(keys.PublicKeyHex(&privateKey.PublicKey))
 	if err != nil {
 		t.Fatal(err)
 	}

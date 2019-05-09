@@ -1,7 +1,6 @@
 package node
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 	"os"
 	"os/signal"
@@ -23,8 +22,7 @@ type Node struct {
 	conf   *Config
 	logger *logrus.Entry
 
-	id      uint32
-	moniker string
+	validator *Validator
 
 	core     *Core
 	coreLock sync.Mutex
@@ -46,9 +44,7 @@ type Node struct {
 }
 
 func NewNode(conf *Config,
-	id uint32,
-	key *ecdsa.PrivateKey,
-	moniker string,
+	validator *Validator,
 	peers *peers.PeerSet,
 	store hg.Store,
 	trans net.Transport,
@@ -59,11 +55,10 @@ func NewNode(conf *Config,
 	signal.Notify(sigintCh, os.Interrupt, syscall.SIGINT)
 
 	node := Node{
-		id:           id,
-		moniker:      moniker,
+		validator:    validator,
 		conf:         conf,
-		logger:       conf.Logger.WithField("this_id", id),
-		core:         NewCore(id, key, peers, store, proxy.CommitBlock, conf.Logger),
+		logger:       conf.Logger.WithField("this_id", validator.ID()),
+		core:         NewCore(validator, peers, store, proxy.CommitBlock, conf.Logger),
 		trans:        trans,
 		netCh:        trans.Consumer(),
 		proxy:        proxy,
@@ -84,7 +79,7 @@ func (n *Node) Init() error {
 		}
 	}
 
-	_, ok := n.core.peers.ByID[n.id]
+	_, ok := n.core.peers.ByID[n.validator.ID()]
 	if ok {
 		n.logger.Debug("Node belongs to PeerSet => Babbling")
 		if err := n.core.SetHeadAndSeq(); err != nil {
@@ -247,7 +242,7 @@ func (n *Node) fastForward() error {
 
 	//prepare core. ie: fresh hashgraph
 	n.coreLock.Lock()
-	err = n.core.FastForward(peer.PubKeyHex, &resp.Block, &resp.Frame)
+	err = n.core.FastForward(peer.PubKeyString(), &resp.Block, &resp.Frame)
 	n.coreLock.Unlock()
 	if err != nil {
 		n.logger.WithError(err).Error("Fast Forwarding Hashgraph")
@@ -549,9 +544,9 @@ func (n *Node) GetStats() map[string]string {
 		"events_per_second":      strconv.FormatFloat(consensusEventsPerSecond, 'f', 2, 64),
 		"rounds_per_second":      strconv.FormatFloat(consensusRoundsPerSecond, 'f', 2, 64),
 		"round_events":           strconv.Itoa(n.core.GetLastCommitedRoundEventsCount()),
-		"id":                     fmt.Sprint(n.id),
+		"id":                     fmt.Sprint(n.validator.ID()),
 		"state":                  n.getState().String(),
-		"moniker":                n.moniker,
+		"moniker":                n.validator.Moniker,
 	}
 	return s
 }
@@ -598,7 +593,7 @@ func (n *Node) GetEvents() (map[uint32]int, error) {
 }
 
 func (n *Node) ID() uint32 {
-	return n.id
+	return n.validator.ID()
 }
 
 func (n *Node) GetPeers() []*peers.Peer {

@@ -21,7 +21,7 @@ func (g *Graph) GetParticipantEvents() (map[string]map[string]*hg.Event, error) 
 	repertoire := g.Node.core.hg.Store.RepertoireByPubKey()
 
 	for _, p := range repertoire {
-		root, err := store.GetRoot(p.PubKeyHex)
+		root, err := store.GetRoot(p.PubKeyString())
 		if err != nil {
 			return res, err
 		}
@@ -31,12 +31,12 @@ func (g *Graph) GetParticipantEvents() (map[string]map[string]*hg.Event, error) 
 			start = root.Events[l-1].Core.Index()
 		}
 
-		evs, err := store.ParticipantEvents(p.PubKeyHex, start)
+		evs, err := store.ParticipantEvents(p.PubKeyString(), start)
 		if err != nil {
 			return res, err
 		}
 
-		res[p.PubKeyHex] = make(map[string]*hg.Event)
+		res[p.PubKeyString()] = make(map[string]*hg.Event)
 
 		for _, e := range evs {
 			event, err := store.GetEvent(e)
@@ -46,7 +46,7 @@ func (g *Graph) GetParticipantEvents() (map[string]map[string]*hg.Event, error) 
 
 			hash := event.Hex()
 
-			res[p.PubKeyHex][hash] = event
+			res[p.PubKeyString()][hash] = event
 		}
 	}
 

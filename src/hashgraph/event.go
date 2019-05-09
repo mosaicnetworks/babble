@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/json"
-	"fmt"
 
+	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/crypto/keys"
 )
 
 /*******************************************************************************
@@ -124,7 +125,7 @@ func NewEvent(transactions [][]byte,
 
 func (e *Event) Creator() string {
 	if e.creator == "" {
-		e.creator = fmt.Sprintf("0x%X", e.Body.Creator)
+		e.creator = common.EncodeToString(e.Body.Creator)
 	}
 	return e.creator
 }
@@ -172,31 +173,31 @@ func (e *Event) Sign(privKey *ecdsa.PrivateKey) error {
 		return err
 	}
 
-	R, S, err := crypto.Sign(privKey, signBytes)
+	R, S, err := keys.Sign(privKey, signBytes)
 	if err != nil {
 		return err
 	}
 
-	e.Signature = crypto.EncodeSignature(R, S)
+	e.Signature = keys.EncodeSignature(R, S)
 
 	return err
 }
 
 func (e *Event) Verify() (bool, error) {
 	pubBytes := e.Body.Creator
-	pubKey := crypto.ToECDSAPub(pubBytes)
+	pubKey := keys.ToPublicKey(pubBytes)
 
 	signBytes, err := e.Body.Hash()
 	if err != nil {
 		return false, err
 	}
 
-	r, s, err := crypto.DecodeSignature(e.Signature)
+	r, s, err := keys.DecodeSignature(e.Signature)
 	if err != nil {
 		return false, err
 	}
 
-	return crypto.Verify(pubKey, signBytes, r, s), nil
+	return keys.Verify(pubKey, signBytes, r, s), nil
 }
 
 //json encoding of body and signature
@@ -235,7 +236,7 @@ func (e *Event) Hash() ([]byte, error) {
 func (e *Event) Hex() string {
 	if e.hex == "" {
 		hash, _ := e.Hash()
-		e.hex = fmt.Sprintf("0x%X", hash)
+		e.hex = common.EncodeToString(hash)
 	}
 	return e.hex
 }
@@ -339,8 +340,8 @@ func (a ByLamportTimestamp) Less(i, j int) bool {
 		return it < jt
 	}
 
-	wsi, _, _ := crypto.DecodeSignature(a[i].Signature)
-	wsj, _, _ := crypto.DecodeSignature(a[j].Signature)
+	wsi, _, _ := keys.DecodeSignature(a[i].Signature)
+	wsj, _, _ := keys.DecodeSignature(a[j].Signature)
 	return wsi.Cmp(wsj) < 0
 }
 
@@ -408,7 +409,7 @@ func (a SortedFrameEvents) Less(i, j int) bool {
 		return a[i].LamportTimestamp < a[j].LamportTimestamp
 	}
 
-	wsi, _, _ := crypto.DecodeSignature(a[i].Core.Signature)
-	wsj, _, _ := crypto.DecodeSignature(a[j].Core.Signature)
+	wsi, _, _ := keys.DecodeSignature(a[i].Core.Signature)
+	wsj, _, _ := keys.DecodeSignature(a[j].Core.Signature)
 	return wsi.Cmp(wsj) < 0
 }

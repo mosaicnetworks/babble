@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/mosaicnetworks/babble/src/common"
-	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/crypto/keys"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/mosaicnetworks/babble/src/proxy"
@@ -24,9 +24,8 @@ func initCores(n int, t *testing.T) ([]*Core, map[uint32]*ecdsa.PrivateKey, map[
 	pirs := []*peers.Peer{}
 
 	for i := 0; i < n; i++ {
-		key, _ := crypto.GenerateECDSAKey()
-		pubHex := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&key.PublicKey))
-		peer := peers.NewPeer(pubHex, "", "")
+		key, _ := keys.GenerateECDSAKey()
+		peer := peers.NewPeer(keys.PublicKeyHex(&key.PublicKey), "", "")
 		pirs = append(pirs, peer)
 		participantKeys[peer.ID()] = key
 	}
@@ -34,8 +33,10 @@ func initCores(n int, t *testing.T) ([]*Core, map[uint32]*ecdsa.PrivateKey, map[
 	peerSet := peers.NewPeerSet(pirs)
 
 	for i, peer := range peerSet.Peers {
-		core := NewCore(peer.ID(),
-			participantKeys[peer.ID()],
+		key, _ := participantKeys[peer.ID()]
+
+		core := NewCore(
+			NewValidator(key, peer.Moniker),
 			peerSet,
 			hg.NewInmemStore(cacheSize),
 			proxy.DummyCommitCallback,
@@ -46,7 +47,7 @@ func initCores(n int, t *testing.T) ([]*Core, map[uint32]*ecdsa.PrivateKey, map[
 			[]hg.InternalTransaction{},
 			nil,
 			[]string{"", ""},
-			core.PubKey(),
+			core.validator.PublicKeyBytes(),
 			0)
 
 		err := core.SignAndInsertSelfEvent(initialEvent)
@@ -87,8 +88,8 @@ func initHashgraph(cores []*Core, keys map[uint32]*ecdsa.PrivateKey, index map[s
 		[]hg.InternalTransaction{},
 		nil,
 		[]string{index["e0"], index["e1"]}, //e0 and e1
-		cores[0].PubKey(), 1)
-	if err := insertEvent(cores, keys, index, event01, "e01", participant, common.Hash32(cores[0].pubKey)); err != nil {
+		cores[0].validator.PublicKeyBytes(), 1)
+	if err := insertEvent(cores, keys, index, event01, "e01", participant, cores[0].validator.ID()); err != nil {
 		fmt.Printf("error inserting e01: %s\n", err)
 	}
 
@@ -96,8 +97,8 @@ func initHashgraph(cores []*Core, keys map[uint32]*ecdsa.PrivateKey, index map[s
 		[]hg.InternalTransaction{},
 		nil,
 		[]string{index["e2"], index["e01"]}, //e2 and e01
-		cores[2].PubKey(), 1)
-	if err := insertEvent(cores, keys, index, event20, "e20", participant, common.Hash32(cores[2].pubKey)); err != nil {
+		cores[2].validator.PublicKeyBytes(), 1)
+	if err := insertEvent(cores, keys, index, event20, "e20", participant, cores[2].validator.ID()); err != nil {
 		fmt.Printf("error inserting e20: %s\n", err)
 	}
 
@@ -105,8 +106,8 @@ func initHashgraph(cores []*Core, keys map[uint32]*ecdsa.PrivateKey, index map[s
 		[]hg.InternalTransaction{},
 		nil,
 		[]string{index["e1"], index["e20"]}, //e1 and e20
-		cores[1].PubKey(), 1)
-	if err := insertEvent(cores, keys, index, event12, "e12", participant, common.Hash32(cores[1].pubKey)); err != nil {
+		cores[1].validator.PublicKeyBytes(), 1)
+	if err := insertEvent(cores, keys, index, event12, "e12", participant, cores[1].validator.ID()); err != nil {
 		fmt.Printf("error inserting e12: %s\n", err)
 	}
 }
@@ -193,13 +194,13 @@ func TestSync(t *testing.T) {
 	*/
 
 	knownBy0 := cores[0].KnownEvents()
-	if k := knownBy0[common.Hash32(cores[0].pubKey)]; k != 1 {
+	if k := knownBy0[cores[0].validator.ID()]; k != 1 {
 		t.Fatalf("core 0 should have last-index 1 for core 0, not %d", k)
 	}
-	if k := knownBy0[common.Hash32(cores[1].pubKey)]; k != 0 {
+	if k := knownBy0[cores[1].validator.ID()]; k != 0 {
 		t.Fatalf("core 0 should have last-index 0 for core 1, not %d", k)
 	}
-	if k := knownBy0[common.Hash32(cores[2].pubKey)]; k != -1 {
+	if k := knownBy0[cores[2].validator.ID()]; k != -1 {
 		t.Fatalf("core 0 should have last-index -1 for core 2, not %d", k)
 	}
 	core0Head, _ := cores[0].GetHead()
@@ -231,13 +232,13 @@ func TestSync(t *testing.T) {
 	*/
 
 	knownBy2 := cores[2].KnownEvents()
-	if k := knownBy2[common.Hash32(cores[0].pubKey)]; k != 1 {
+	if k := knownBy2[cores[0].validator.ID()]; k != 1 {
 		t.Fatalf("core 2 should have last-index 1 for core 0, not %d", k)
 	}
-	if k := knownBy2[common.Hash32(cores[1].pubKey)]; k != 0 {
+	if k := knownBy2[cores[1].validator.ID()]; k != 0 {
 		t.Fatalf("core 2 should have last-index 0 core 1, not %d", k)
 	}
-	if k := knownBy2[common.Hash32(cores[2].pubKey)]; k != 1 {
+	if k := knownBy2[cores[2].validator.ID()]; k != 1 {
 		t.Fatalf("core 2 should have last-index 1 for core 2, not %d", k)
 	}
 	core2Head, _ := cores[2].GetHead()
@@ -271,13 +272,13 @@ func TestSync(t *testing.T) {
 	*/
 
 	knownBy1 := cores[1].KnownEvents()
-	if k := knownBy1[common.Hash32(cores[0].pubKey)]; k != 1 {
+	if k := knownBy1[cores[0].validator.ID()]; k != 1 {
 		t.Fatalf("core 1 should have last-index 1 for core 0, not %d", k)
 	}
-	if k := knownBy1[common.Hash32(cores[1].pubKey)]; k != 1 {
+	if k := knownBy1[cores[1].validator.ID()]; k != 1 {
 		t.Fatalf("core 1 should have last-index 1 for core 1, not %d", k)
 	}
-	if k := knownBy1[common.Hash32(cores[2].pubKey)]; k != 1 {
+	if k := knownBy1[cores[2].validator.ID()]; k != 1 {
 		t.Fatalf("core 1 should have last-index 1 for core 2, not %d", k)
 	}
 	core1Head, _ := cores[1].GetHead()
@@ -397,9 +398,9 @@ func TestOverSyncLimit(t *testing.T) {
 
 	//positive
 	known := map[uint32]int{
-		common.Hash32(cores[0].pubKey): 1,
-		common.Hash32(cores[1].pubKey): 1,
-		common.Hash32(cores[2].pubKey): 1,
+		cores[0].validator.ID(): 1,
+		cores[1].validator.ID(): 1,
+		cores[2].validator.ID(): 1,
 	}
 
 	syncLimit := 10
@@ -410,9 +411,9 @@ func TestOverSyncLimit(t *testing.T) {
 
 	//negative
 	known = map[uint32]int{
-		common.Hash32(cores[0].pubKey): 6,
-		common.Hash32(cores[1].pubKey): 6,
-		common.Hash32(cores[2].pubKey): 6,
+		cores[0].validator.ID(): 6,
+		cores[1].validator.ID(): 6,
+		cores[2].validator.ID(): 6,
 	}
 
 	if cores[0].OverSyncLimit(known, syncLimit) {
@@ -421,9 +422,9 @@ func TestOverSyncLimit(t *testing.T) {
 
 	//edge
 	known = map[uint32]int{
-		common.Hash32(cores[0].pubKey): 2,
-		common.Hash32(cores[1].pubKey): 3,
-		common.Hash32(cores[2].pubKey): 3,
+		cores[0].validator.ID(): 2,
+		cores[1].validator.ID(): 3,
+		cores[2].validator.ID(): 3,
 	}
 	if cores[0].OverSyncLimit(known, syncLimit) {
 		t.Fatalf("OverSyncLimit(%v, %v) should return false", known, syncLimit)
@@ -574,7 +575,7 @@ func TestCoreFastForward(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err = cores[0].FastForward(cores[1].hexID, block, frame)
+		err = cores[0].FastForward(cores[1].validator.PublicKeyHex(), block, frame)
 		//We should get an error because AnchorBlock doesnt contain enough
 		//signatures
 		if err == nil {
@@ -606,7 +607,7 @@ func TestCoreFastForward(t *testing.T) {
 		unmarshalledFrame := new(hg.Frame)
 		unmarshalledFrame.Unmarshal(marshalledFrame)
 
-		err = cores[0].FastForward(cores[1].hexID, block, unmarshalledFrame)
+		err = cores[0].FastForward(cores[1].validator.PublicKeyHex(), block, unmarshalledFrame)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -617,10 +618,10 @@ func TestCoreFastForward(t *testing.T) {
 		}
 
 		expectedKnown := map[uint32]int{
-			common.Hash32(cores[0].pubKey): -1,
-			common.Hash32(cores[1].pubKey): 1,
-			common.Hash32(cores[2].pubKey): 1,
-			common.Hash32(cores[3].pubKey): 1,
+			cores[0].validator.ID(): -1,
+			cores[1].validator.ID(): 1,
+			cores[2].validator.ID(): 1,
+			cores[3].validator.ID(): 1,
 		}
 
 		if !reflect.DeepEqual(knownBy0, expectedKnown) {
@@ -733,8 +734,8 @@ func initR2DynHashgraph(t *testing.T) (cores []*Core, bobPeer *peers.Peer, bobKe
 	cores, _, _ = initCores(3, t)
 
 	//Initialize the joining Peer (bob)
-	bobKey, _ = crypto.GenerateECDSAKey()
-	bobPubHex := fmt.Sprintf("0x%X", crypto.FromECDSAPub(&bobKey.PublicKey))
+	bobKey, _ = keys.GenerateECDSAKey()
+	bobPubHex := keys.PublicKeyHex(&bobKey.PublicKey)
 	bobPeer = peers.NewPeer(bobPubHex, "", "")
 
 	//Insert a JoinRequest in a Round0 Event
@@ -811,8 +812,8 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	bobCore := NewCore(bobPeer.ID(),
-		bobKey,
+	bobCore := NewCore(
+		NewValidator(bobKey, bobPeer.Moniker),
 		initPeerSet,
 		hg.NewInmemStore(1000),
 		proxy.DummyCommitCallback,
@@ -895,7 +896,7 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err = cores[3].FastForward(cores[2].hexID, &unmarshalledBlock, &unmarshalledFrame)
+		err = cores[3].FastForward(cores[2].validator.PublicKeyHex(), &unmarshalledBlock, &unmarshalledFrame)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -916,10 +917,10 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 		}
 
 		expectedKnown := map[uint32]int{
-			common.Hash32(cores[0].pubKey): 9,
-			common.Hash32(cores[1].pubKey): 15,
-			common.Hash32(cores[2].pubKey): 10,
-			common.Hash32(cores[3].pubKey): 0,
+			cores[0].validator.ID(): 9,
+			cores[1].validator.ID(): 15,
+			cores[2].validator.ID(): 10,
+			cores[3].validator.ID(): 0,
 		}
 
 		if !reflect.DeepEqual(knownBy3, expectedKnown) {
@@ -1021,7 +1022,7 @@ func synchronizeCores(cores []*Core, from int, to int, payload [][]byte, interna
 		cores[to].AddInternalTransaction(it)
 	}
 
-	return cores[to].Sync(cores[from].ID(), unknownWire)
+	return cores[to].Sync(cores[from].validator.ID(), unknownWire)
 }
 
 func syncAndRunConsensus(cores []*Core, from int, to int, payload [][]byte, internalTxs []hg.InternalTransaction) error {

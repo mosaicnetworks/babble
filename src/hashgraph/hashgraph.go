@@ -1,7 +1,6 @@
 package hashgraph
 
 import (
-	"encoding/hex"
 	"fmt"
 	"math"
 	"reflect"
@@ -1477,13 +1476,13 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 		return nil, fmt.Errorf("Creator %d not found", wevent.Body.CreatorID)
 	}
 
-	creatorBytes, err := hex.DecodeString(creator.PubKeyHex[2:])
+	creatorBytes, err := common.DecodeFromString(creator.PubKeyString())
 	if err != nil {
 		return nil, err
 	}
 
 	if wevent.Body.SelfParentIndex >= 0 {
-		selfParent, err = h.Store.ParticipantEvent(creator.PubKeyHex, wevent.Body.SelfParentIndex)
+		selfParent, err = h.Store.ParticipantEvent(creator.PubKeyString(), wevent.Body.SelfParentIndex)
 		if err != nil {
 			return nil, err
 		}
@@ -1495,7 +1494,7 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 			return nil, fmt.Errorf("Participant %d not found", wevent.Body.OtherParentCreatorID)
 		}
 
-		otherParent, err = h.Store.ParticipantEvent(otherParentCreator.PubKeyHex, wevent.Body.OtherParentIndex)
+		otherParent, err = h.Store.ParticipantEvent(otherParentCreator.PubKeyString(), wevent.Body.OtherParentIndex)
 		if err != nil {
 			return nil, fmt.Errorf("OtherParent (creator: %d, index: %d) not found", wevent.Body.OtherParentCreatorID, wevent.Body.OtherParentIndex)
 		}
@@ -1537,7 +1536,7 @@ func (h *Hashgraph) CheckBlock(block *Block, peerSet *peers.PeerSet) error {
 
 	validSignatures := 0
 	for _, s := range block.GetSignatures() {
-		validatorHex := fmt.Sprintf("0x%X", s.Validator)
+		validatorHex := s.ValidatorHex()
 		if _, ok := peerSet.ByPubKey[validatorHex]; !ok {
 			h.logger.WithFields(logrus.Fields{
 				"validator": validatorHex,
@@ -1593,7 +1592,7 @@ func (h *Hashgraph) setAnchorBlock(i int) {
 *******************************************************************************/
 
 func middleBit(ehex string) bool {
-	hash, err := hex.DecodeString(ehex[2:])
+	hash, err := common.DecodeFromString(ehex)
 	if err != nil {
 		fmt.Printf("ERROR decoding hex string: %s\n", err)
 	}

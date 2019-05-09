@@ -2,10 +2,11 @@ package peers
 
 import (
 	"bytes"
-	"encoding/hex"
 	"encoding/json"
+	"strings"
 
 	"github.com/mosaicnetworks/babble/src/common"
+	"github.com/mosaicnetworks/babble/src/crypto/keys"
 )
 
 type Peer struct {
@@ -25,16 +26,24 @@ func NewPeer(pubKeyHex, netAddr, moniker string) *Peer {
 	return peer
 }
 
+//XXX Not very nice
 func (p *Peer) ID() uint32 {
 	if p.id == 0 {
 		pubKeyBytes := p.PubKeyBytes()
-		p.id = common.Hash32(pubKeyBytes)
+		p.id = keys.Hash32(pubKeyBytes)
 	}
 	return p.id
 }
 
+//PubKeyString returns the upper-case version of PubKeyHex. It is used for
+//indexing in maps with string keys.
+//XXX do something nicer
+func (p *Peer) PubKeyString() string {
+	return strings.ToUpper(p.PubKeyHex)
+}
+
 func (p *Peer) PubKeyBytes() []byte {
-	res, _ := hex.DecodeString(p.PubKeyHex[2:])
+	res, _ := common.DecodeFromString(p.PubKeyHex)
 	return res
 }
 

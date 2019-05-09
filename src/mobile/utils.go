@@ -4,14 +4,18 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/crypto/keys"
 )
 
 func GetPrivPublKeys() string {
-	pemDump, err := crypto.GeneratePemKey()
+	key, err := keys.GenerateECDSAKey()
 	if err != nil {
-		fmt.Println("Error generating PemDump")
+		fmt.Println("Error generating new key")
 		os.Exit(2)
 	}
-	return pemDump.PublicKey + "=!@#@!=" + pemDump.PrivateKey
+
+	priv := keys.PrivateKeyHex(key)
+	pub := keys.PublicKeyHex(&key.PublicKey)
+
+	return pub + "=!@#@!=" + priv
 }

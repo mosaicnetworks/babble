@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/mosaicnetworks/babble/src/babble"
-	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/crypto/keys"
 	"github.com/mosaicnetworks/babble/src/node"
 	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/mosaicnetworks/babble/src/proxy"
@@ -31,7 +31,6 @@ func New(privKey string,
 	config *MobileConfig) *Node {
 
 	babbleConfig := config.toBabbleConfig()
-	babbleConfig.BindAddr = nodeAddr
 
 	babbleConfig.Logger.WithFields(logrus.Fields{
 		"nodeAddr": nodeAddr,
@@ -42,10 +41,9 @@ func New(privKey string,
 	babbleConfig.BindAddr = nodeAddr
 
 	//Check private key
-	pemKey := &crypto.PemKey{}
-	key, err := pemKey.ReadKeyFromBuf([]byte(privKey))
+	key, err := keys.ParsePrivateKey([]byte(privKey))
 	if err != nil {
-		exceptionHandler.OnException(fmt.Sprintf("Failed to read private key: %s", err))
+		exceptionHandler.OnException(fmt.Sprintf("Failed to parse private key: %s", err))
 		return nil
 	}
 
@@ -64,8 +62,9 @@ func New(privKey string,
 	babbleConfig.LoadPeers = false
 
 	//mobileApp implements the ProxyHandler interface, and we use it to
-	//instantiates an InmemProxy
+	//instantiate an InmemProxy
 	mobileApp := newMobileApp(commitHandler, exceptionHandler, babbleConfig.Logger)
+
 	babbleConfig.Proxy = inmem.NewInmemProxy(mobileApp, babbleConfig.Logger)
 
 	engine := babble.NewBabble(babbleConfig)
