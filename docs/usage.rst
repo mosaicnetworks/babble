@@ -89,12 +89,12 @@ which defaults to ``~/.babble`` on linux/osx. This directory must contain two
 files:
 
  - ``peers.json``  : Lists all the participants in the network.
- - ``priv_key.pem``: Contains the private key of the validator runnning the node. 
+ - ``priv_key``: Contains the private key of the validator runnning the node. 
 
 Every participant has a cryptographic key-pair that is used to encrypt, sign and 
 verify messages. The private key is secret but the public key is used by other 
 nodes to verify messages signed with the private key. The encryption scheme used 
-by Babble is ECDSA with the P256 curve.
+by Babble is ECDSA with the secp256k1 curve (like Bitcoin and Ethereum).
 
 To run a Babble network, it is necessary to predefine who the participants are 
 going to be. Each participant will generate a key-pair and decide which network 
@@ -115,27 +115,9 @@ running ``babble keygen`` to create a key-pair:
 ::
 
   babble keygen
-  Your private key has been saved to: /home/martin/.babble/priv_key.pem
+  Your private key has been saved to: /home/martin/.babble/priv_key
   Your public key has been saved to: /home/martin/.babble/key.pub
  
-The private key looks something like this:
-
-::
-
-  -----BEGIN EC PRIVATE KEY-----
-  MHcCAQEEIJ3orqofiSXu07mD+f46gZFK3EKSTqhXsbLVmA/aLmyqoAoGCCqGSM49
-  AwEHoUQDQgAEXgNNc8hJdWrntlFcpg2WpakRsTpNi0W8DgsC7bRQCd9szAdO6298
-  Z5V0D5k2ZO3ulw+KcXyJNE+EN/QSvfDRfA==
-  -----END EC PRIVATE KEY-----
-
-and the corresponding public key looks like this:
-
-::
-
-  0x045E034D73C849756AE7B6515CA60D96A5A911B13A4D8B45BC0E0B02EDB45009DF6CCC074EEB6F7C6795740F993664EDEE970F8A717C89344F8437F412BDF0D17C
-
-**DO NOT REUSE THESE KEYS**
-
 Next, I am going to copy the public key (key.pub) and communicate it to whoever 
 is responsible for producing the peers.json file. At the same time, I will tell 
 them that I am going to be listening on 172.77.5.2:1337.
