@@ -46,6 +46,7 @@ func TestJoinRequest(t *testing.T) {
 		fmt.Sprint("127.0.0.1:4242"),
 		"monika",
 	)
+
 	newNode := newNode(peer, key, peerSet, 1000, 1000, "inmem", 5*time.Millisecond, logger, t)
 	defer newNode.Shutdown()
 
@@ -60,6 +61,7 @@ func TestJoinRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	checkGossip(nodes, 0, t)
 	checkPeerSets(nodes, t)
 }

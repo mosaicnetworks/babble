@@ -419,13 +419,13 @@ func initRoundHashgraph(t *testing.T) (*Hashgraph, map[string]string) {
 
 	//Set Rounds manually; this would normally be handled by DivideRounds()
 	round0Witnesses := make(map[string]RoundEvent)
-	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: Undefined}
-	round0Witnesses[index["e1"]] = RoundEvent{Witness: true, Famous: Undefined}
-	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: Undefined}
+	round0Witnesses[index["e0"]] = RoundEvent{Witness: true, Famous: common.Undefined}
+	round0Witnesses[index["e1"]] = RoundEvent{Witness: true, Famous: common.Undefined}
+	round0Witnesses[index["e2"]] = RoundEvent{Witness: true, Famous: common.Undefined}
 	h.Store.SetRound(0, &RoundInfo{CreatedEvents: round0Witnesses})
 
 	round1Witnesses := make(map[string]RoundEvent)
-	round1Witnesses[index["f1"]] = RoundEvent{Witness: true, Famous: Undefined}
+	round1Witnesses[index["f1"]] = RoundEvent{Witness: true, Famous: common.Undefined}
 	h.Store.SetRound(1, &RoundInfo{CreatedEvents: round1Witnesses})
 
 	return h, index
@@ -736,21 +736,21 @@ func TestDivideRounds(t *testing.T) {
 	expectedRounds := map[int]*RoundInfo{
 		0: &RoundInfo{
 			CreatedEvents: map[string]RoundEvent{
-				index["e0"]:  RoundEvent{Witness: true, Famous: Undefined},
-				index["e1"]:  RoundEvent{Witness: true, Famous: Undefined},
-				index["e2"]:  RoundEvent{Witness: true, Famous: Undefined},
-				index["e10"]: RoundEvent{Witness: false, Famous: Undefined},
-				index["s20"]: RoundEvent{Witness: false, Famous: Undefined},
-				index["e21"]: RoundEvent{Witness: false, Famous: Undefined},
-				index["s00"]: RoundEvent{Witness: false, Famous: Undefined},
-				index["e02"]: RoundEvent{Witness: false, Famous: Undefined},
-				index["s10"]: RoundEvent{Witness: false, Famous: Undefined},
+				index["e0"]:  RoundEvent{Witness: true, Famous: common.Undefined},
+				index["e1"]:  RoundEvent{Witness: true, Famous: common.Undefined},
+				index["e2"]:  RoundEvent{Witness: true, Famous: common.Undefined},
+				index["e10"]: RoundEvent{Witness: false, Famous: common.Undefined},
+				index["s20"]: RoundEvent{Witness: false, Famous: common.Undefined},
+				index["e21"]: RoundEvent{Witness: false, Famous: common.Undefined},
+				index["s00"]: RoundEvent{Witness: false, Famous: common.Undefined},
+				index["e02"]: RoundEvent{Witness: false, Famous: common.Undefined},
+				index["s10"]: RoundEvent{Witness: false, Famous: common.Undefined},
 			},
 		},
 		1: &RoundInfo{
 			CreatedEvents: map[string]RoundEvent{
-				index["f1"]:  RoundEvent{Witness: true, Famous: Undefined},
-				index["s11"]: RoundEvent{Witness: false, Famous: Undefined},
+				index["f1"]:  RoundEvent{Witness: true, Famous: common.Undefined},
+				index["s11"]: RoundEvent{Witness: false, Famous: common.Undefined},
 			},
 		},
 	}
@@ -1153,45 +1153,45 @@ func TestDivideRoundsBis(t *testing.T) {
 
 	expectedCreatedEvents := map[int]map[string]RoundEvent{
 		0: map[string]RoundEvent{
-			index["e0"]:   RoundEvent{Witness: true, Famous: Undefined},
-			index["e1"]:   RoundEvent{Witness: true, Famous: Undefined},
-			index["e2"]:   RoundEvent{Witness: true, Famous: Undefined},
-			index["e10"]:  RoundEvent{Witness: false, Famous: Undefined},
-			index["e21"]:  RoundEvent{Witness: false, Famous: Undefined},
-			index["e21b"]: RoundEvent{Witness: false, Famous: Undefined},
-			index["e02"]:  RoundEvent{Witness: false, Famous: Undefined},
+			index["e0"]:   RoundEvent{Witness: true, Famous: common.Undefined},
+			index["e1"]:   RoundEvent{Witness: true, Famous: common.Undefined},
+			index["e2"]:   RoundEvent{Witness: true, Famous: common.Undefined},
+			index["e10"]:  RoundEvent{Witness: false, Famous: common.Undefined},
+			index["e21"]:  RoundEvent{Witness: false, Famous: common.Undefined},
+			index["e21b"]: RoundEvent{Witness: false, Famous: common.Undefined},
+			index["e02"]:  RoundEvent{Witness: false, Famous: common.Undefined},
 		},
 		1: map[string]RoundEvent{
-			index["f1"]:   RoundEvent{Witness: true, Famous: Undefined},
-			index["f1b"]:  RoundEvent{Witness: false, Famous: Undefined},
-			index["f0"]:   RoundEvent{Witness: true, Famous: Undefined},
-			index["f2"]:   RoundEvent{Witness: true, Famous: Undefined},
-			index["f10"]:  RoundEvent{Witness: false, Famous: Undefined},
-			index["f21"]:  RoundEvent{Witness: false, Famous: Undefined},
-			index["f0x"]:  RoundEvent{Witness: false, Famous: Undefined},
-			index["f02"]:  RoundEvent{Witness: false, Famous: Undefined},
-			index["f02b"]: RoundEvent{Witness: false, Famous: Undefined},
+			index["f1"]:   RoundEvent{Witness: true, Famous: common.Undefined},
+			index["f1b"]:  RoundEvent{Witness: false, Famous: common.Undefined},
+			index["f0"]:   RoundEvent{Witness: true, Famous: common.Undefined},
+			index["f2"]:   RoundEvent{Witness: true, Famous: common.Undefined},
+			index["f10"]:  RoundEvent{Witness: false, Famous: common.Undefined},
+			index["f21"]:  RoundEvent{Witness: false, Famous: common.Undefined},
+			index["f0x"]:  RoundEvent{Witness: false, Famous: common.Undefined},
+			index["f02"]:  RoundEvent{Witness: false, Famous: common.Undefined},
+			index["f02b"]: RoundEvent{Witness: false, Famous: common.Undefined},
 		},
 		2: map[string]RoundEvent{
-			index["g1"]:  RoundEvent{Witness: true, Famous: Undefined},
-			index["g0"]:  RoundEvent{Witness: true, Famous: Undefined},
-			index["g2"]:  RoundEvent{Witness: true, Famous: Undefined},
-			index["g10"]: RoundEvent{Witness: false, Famous: Undefined},
-			index["g21"]: RoundEvent{Witness: false, Famous: Undefined},
-			index["g02"]: RoundEvent{Witness: false, Famous: Undefined},
+			index["g1"]:  RoundEvent{Witness: true, Famous: common.Undefined},
+			index["g0"]:  RoundEvent{Witness: true, Famous: common.Undefined},
+			index["g2"]:  RoundEvent{Witness: true, Famous: common.Undefined},
+			index["g10"]: RoundEvent{Witness: false, Famous: common.Undefined},
+			index["g21"]: RoundEvent{Witness: false, Famous: common.Undefined},
+			index["g02"]: RoundEvent{Witness: false, Famous: common.Undefined},
 		},
 		3: map[string]RoundEvent{
-			index["h1"]:  RoundEvent{Witness: true, Famous: Undefined},
-			index["h0"]:  RoundEvent{Witness: true, Famous: Undefined},
-			index["h2"]:  RoundEvent{Witness: true, Famous: Undefined},
-			index["h10"]: RoundEvent{Witness: false, Famous: Undefined},
-			index["h21"]: RoundEvent{Witness: false, Famous: Undefined},
-			index["h02"]: RoundEvent{Witness: false, Famous: Undefined},
+			index["h1"]:  RoundEvent{Witness: true, Famous: common.Undefined},
+			index["h0"]:  RoundEvent{Witness: true, Famous: common.Undefined},
+			index["h2"]:  RoundEvent{Witness: true, Famous: common.Undefined},
+			index["h10"]: RoundEvent{Witness: false, Famous: common.Undefined},
+			index["h21"]: RoundEvent{Witness: false, Famous: common.Undefined},
+			index["h02"]: RoundEvent{Witness: false, Famous: common.Undefined},
 		},
 		4: map[string]RoundEvent{
-			index["i1"]: RoundEvent{Witness: true, Famous: Undefined},
-			index["i0"]: RoundEvent{Witness: true, Famous: Undefined},
-			index["i2"]: RoundEvent{Witness: true, Famous: Undefined},
+			index["i1"]: RoundEvent{Witness: true, Famous: common.Undefined},
+			index["i0"]: RoundEvent{Witness: true, Famous: common.Undefined},
+			index["i2"]: RoundEvent{Witness: true, Famous: common.Undefined},
 		},
 	}
 
@@ -1268,45 +1268,45 @@ func TestDecideFame(t *testing.T) {
 
 	expectedCreatedEvents := map[int]map[string]RoundEvent{
 		0: map[string]RoundEvent{
-			index["e0"]:   RoundEvent{Witness: true, Famous: True},
-			index["e1"]:   RoundEvent{Witness: true, Famous: True},
-			index["e2"]:   RoundEvent{Witness: true, Famous: True},
-			index["e10"]:  RoundEvent{Witness: false, Famous: Undefined},
-			index["e21"]:  RoundEvent{Witness: false, Famous: Undefined},
-			index["e21b"]: RoundEvent{Witness: false, Famous: Undefined},
-			index["e02"]:  RoundEvent{Witness: false, Famous: Undefined},
+			index["e0"]:   RoundEvent{Witness: true, Famous: common.True},
+			index["e1"]:   RoundEvent{Witness: true, Famous: common.True},
+			index["e2"]:   RoundEvent{Witness: true, Famous: common.True},
+			index["e10"]:  RoundEvent{Witness: false, Famous: common.Undefined},
+			index["e21"]:  RoundEvent{Witness: false, Famous: common.Undefined},
+			index["e21b"]: RoundEvent{Witness: false, Famous: common.Undefined},
+			index["e02"]:  RoundEvent{Witness: false, Famous: common.Undefined},
 		},
 		1: map[string]RoundEvent{
-			index["f1"]:   RoundEvent{Witness: true, Famous: True},
-			index["f1b"]:  RoundEvent{Witness: false, Famous: Undefined},
-			index["f0"]:   RoundEvent{Witness: true, Famous: True},
-			index["f2"]:   RoundEvent{Witness: true, Famous: True},
-			index["f10"]:  RoundEvent{Witness: false, Famous: Undefined},
-			index["f21"]:  RoundEvent{Witness: false, Famous: Undefined},
-			index["f0x"]:  RoundEvent{Witness: false, Famous: Undefined},
-			index["f02"]:  RoundEvent{Witness: false, Famous: Undefined},
-			index["f02b"]: RoundEvent{Witness: false, Famous: Undefined},
+			index["f1"]:   RoundEvent{Witness: true, Famous: common.True},
+			index["f1b"]:  RoundEvent{Witness: false, Famous: common.Undefined},
+			index["f0"]:   RoundEvent{Witness: true, Famous: common.True},
+			index["f2"]:   RoundEvent{Witness: true, Famous: common.True},
+			index["f10"]:  RoundEvent{Witness: false, Famous: common.Undefined},
+			index["f21"]:  RoundEvent{Witness: false, Famous: common.Undefined},
+			index["f0x"]:  RoundEvent{Witness: false, Famous: common.Undefined},
+			index["f02"]:  RoundEvent{Witness: false, Famous: common.Undefined},
+			index["f02b"]: RoundEvent{Witness: false, Famous: common.Undefined},
 		},
 		2: map[string]RoundEvent{
-			index["g1"]:  RoundEvent{Witness: true, Famous: True},
-			index["g0"]:  RoundEvent{Witness: true, Famous: True},
-			index["g2"]:  RoundEvent{Witness: true, Famous: True},
-			index["g10"]: RoundEvent{Witness: false, Famous: Undefined},
-			index["g21"]: RoundEvent{Witness: false, Famous: Undefined},
-			index["g02"]: RoundEvent{Witness: false, Famous: Undefined},
+			index["g1"]:  RoundEvent{Witness: true, Famous: common.True},
+			index["g0"]:  RoundEvent{Witness: true, Famous: common.True},
+			index["g2"]:  RoundEvent{Witness: true, Famous: common.True},
+			index["g10"]: RoundEvent{Witness: false, Famous: common.Undefined},
+			index["g21"]: RoundEvent{Witness: false, Famous: common.Undefined},
+			index["g02"]: RoundEvent{Witness: false, Famous: common.Undefined},
 		},
 		3: map[string]RoundEvent{
-			index["h1"]:  RoundEvent{Witness: true, Famous: Undefined},
-			index["h0"]:  RoundEvent{Witness: true, Famous: Undefined},
-			index["h2"]:  RoundEvent{Witness: true, Famous: Undefined},
-			index["h10"]: RoundEvent{Witness: false, Famous: Undefined},
-			index["h21"]: RoundEvent{Witness: false, Famous: Undefined},
-			index["h02"]: RoundEvent{Witness: false, Famous: Undefined},
+			index["h1"]:  RoundEvent{Witness: true, Famous: common.Undefined},
+			index["h0"]:  RoundEvent{Witness: true, Famous: common.Undefined},
+			index["h2"]:  RoundEvent{Witness: true, Famous: common.Undefined},
+			index["h10"]: RoundEvent{Witness: false, Famous: common.Undefined},
+			index["h21"]: RoundEvent{Witness: false, Famous: common.Undefined},
+			index["h02"]: RoundEvent{Witness: false, Famous: common.Undefined},
 		},
 		4: map[string]RoundEvent{
-			index["i1"]: RoundEvent{Witness: true, Famous: Undefined},
-			index["i0"]: RoundEvent{Witness: true, Famous: Undefined},
-			index["i2"]: RoundEvent{Witness: true, Famous: Undefined},
+			index["i1"]: RoundEvent{Witness: true, Famous: common.Undefined},
+			index["i0"]: RoundEvent{Witness: true, Famous: common.Undefined},
+			index["i2"]: RoundEvent{Witness: true, Famous: common.Undefined},
 		},
 	}
 

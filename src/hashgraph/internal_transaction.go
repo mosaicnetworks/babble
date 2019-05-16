@@ -23,7 +23,7 @@ const (
 type InternalTransaction struct {
 	Type     TransactionType
 	Peer     peers.Peer
-	Accepted Trilean
+	Accepted common.Trilean
 }
 
 func NewInternalTransaction(tType TransactionType, peer peers.Peer) InternalTransaction {
@@ -66,16 +66,31 @@ func (t *InternalTransaction) Unmarshal(data []byte) error {
 	return nil
 }
 
+//Hash returns a hash of the InternalTransaction, excluding the Accepted field.
+//This hash is used by /node/core as a key in a map to track internal
+//transactions, so it should not include the Accepted field because it changes.
 func (t *InternalTransaction) Hash() string {
-	hashBytes, _ := t.Marshal()
+	tx := InternalTransaction{
+		Type: t.Type,
+		Peer: t.Peer,
+	}
+	hashBytes, _ := tx.Marshal()
 	hash := crypto.SHA256(hashBytes)
 	return common.EncodeToString(hash)
 }
 
-func (t *InternalTransaction) Accept() {
-	t.Accepted = True
+func (t *InternalTransaction) AsAccepted() InternalTransaction {
+	return InternalTransaction{
+		Type:     t.Type,
+		Peer:     t.Peer,
+		Accepted: common.True,
+	}
 }
 
-func (t *InternalTransaction) Refuse() {
-	t.Accepted = False
+func (t *InternalTransaction) AsRefuse() InternalTransaction {
+	return InternalTransaction{
+		Type:     t.Type,
+		Peer:     t.Peer,
+		Accepted: common.False,
+	}
 }

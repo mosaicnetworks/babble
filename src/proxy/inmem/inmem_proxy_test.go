@@ -23,13 +23,16 @@ func (p *TestProxy) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, 
 
 	p.transactions = append(p.transactions, block.Transactions()...)
 
+	processedInternalTransactions := []hashgraph.InternalTransaction{}
 	for _, it := range block.InternalTransactions() {
-		it.Accept()
+		processedInternalTransactions = append(processedInternalTransactions, it.AsAccepted())
 	}
+
 	response := proxy.CommitResponse{
 		StateHash:            []byte("statehash"),
-		InternalTransactions: block.InternalTransactions(),
+		InternalTransactions: processedInternalTransactions,
 	}
+
 	return response, nil
 }
 

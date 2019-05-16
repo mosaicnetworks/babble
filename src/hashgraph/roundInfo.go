@@ -3,23 +3,10 @@ package hashgraph
 import (
 	"bytes"
 
+	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/ugorji/go/codec"
 )
-
-type Trilean int
-
-const (
-	Undefined Trilean = iota
-	True
-	False
-)
-
-var trileans = []string{"Undefined", "True", "False"}
-
-func (t Trilean) String() string {
-	return trileans[t]
-}
 
 type pendingRound struct {
 	Index   int
@@ -28,7 +15,7 @@ type pendingRound struct {
 
 type RoundEvent struct {
 	Witness bool
-	Famous  Trilean
+	Famous  common.Trilean
 }
 
 type RoundInfo struct {
@@ -67,9 +54,9 @@ func (r *RoundInfo) SetFame(x string, f bool) {
 	}
 
 	if f {
-		e.Famous = True
+		e.Famous = common.True
 	} else {
-		e.Famous = False
+		e.Famous = common.False
 	}
 
 	r.CreatedEvents[x] = e
@@ -90,9 +77,9 @@ func (r *RoundInfo) WitnessesDecided(peerSet *peers.PeerSet) bool {
 
 	c := 0
 	for _, e := range r.CreatedEvents {
-		if e.Witness && e.Famous != Undefined {
+		if e.Witness && e.Famous != common.Undefined {
 			c++
-		} else if e.Witness && e.Famous == Undefined {
+		} else if e.Witness && e.Famous == common.Undefined {
 			return false
 		}
 	}
@@ -118,7 +105,7 @@ func (r *RoundInfo) Witnesses() []string {
 func (r *RoundInfo) FamousWitnesses() []string {
 	res := []string{}
 	for x, e := range r.CreatedEvents {
-		if e.Witness && e.Famous == True {
+		if e.Witness && e.Famous == common.True {
 			res = append(res, x)
 		}
 	}
@@ -127,7 +114,7 @@ func (r *RoundInfo) FamousWitnesses() []string {
 
 func (r *RoundInfo) IsDecided(witness string) bool {
 	w, ok := r.CreatedEvents[witness]
-	return ok && w.Witness && w.Famous != Undefined
+	return ok && w.Witness && w.Famous != common.Undefined
 }
 
 func (r *RoundInfo) Marshal() ([]byte, error) {

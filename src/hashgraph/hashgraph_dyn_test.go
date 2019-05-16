@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/crypto/keys"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
@@ -293,52 +294,52 @@ func TestR2DynDecideFame(t *testing.T) {
 
 	expectedEvents := map[int]map[string]RoundEvent{
 		0: map[string]RoundEvent{
-			"w00": RoundEvent{Witness: true, Famous: True},
-			"w01": RoundEvent{Witness: true, Famous: True},
-			"w02": RoundEvent{Witness: true, Famous: True},
-			"e10": RoundEvent{Witness: false, Famous: Undefined},
-			"e21": RoundEvent{Witness: false, Famous: Undefined},
-			"e12": RoundEvent{Witness: false, Famous: Undefined},
+			"w00": RoundEvent{Witness: true, Famous: common.True},
+			"w01": RoundEvent{Witness: true, Famous: common.True},
+			"w02": RoundEvent{Witness: true, Famous: common.True},
+			"e10": RoundEvent{Witness: false, Famous: common.Undefined},
+			"e21": RoundEvent{Witness: false, Famous: common.Undefined},
+			"e12": RoundEvent{Witness: false, Famous: common.Undefined},
 		},
 		1: map[string]RoundEvent{
-			"w10": RoundEvent{Witness: true, Famous: True},
-			"w11": RoundEvent{Witness: true, Famous: True},
-			"w12": RoundEvent{Witness: true, Famous: True},
-			"f10": RoundEvent{Witness: false, Famous: Undefined},
+			"w10": RoundEvent{Witness: true, Famous: common.True},
+			"w11": RoundEvent{Witness: true, Famous: common.True},
+			"w12": RoundEvent{Witness: true, Famous: common.True},
+			"f10": RoundEvent{Witness: false, Famous: common.Undefined},
 		},
 		2: map[string]RoundEvent{
-			"w20": RoundEvent{Witness: true, Famous: True},
-			"w21": RoundEvent{Witness: true, Famous: True},
-			"w22": RoundEvent{Witness: true, Famous: True},
-			"g21": RoundEvent{Witness: false, Famous: Undefined},
+			"w20": RoundEvent{Witness: true, Famous: common.True},
+			"w21": RoundEvent{Witness: true, Famous: common.True},
+			"w22": RoundEvent{Witness: true, Famous: common.True},
+			"g21": RoundEvent{Witness: false, Famous: common.Undefined},
 		},
 		3: map[string]RoundEvent{
-			"w30": RoundEvent{Witness: true, Famous: True},
-			"w31": RoundEvent{Witness: true, Famous: True},
-			"w32": RoundEvent{Witness: true, Famous: True},
-			"w33": RoundEvent{Witness: true, Famous: True},
+			"w30": RoundEvent{Witness: true, Famous: common.True},
+			"w31": RoundEvent{Witness: true, Famous: common.True},
+			"w32": RoundEvent{Witness: true, Famous: common.True},
+			"w33": RoundEvent{Witness: true, Famous: common.True},
 		},
 		4: map[string]RoundEvent{
-			"w40": RoundEvent{Witness: true, Famous: True},
-			"w41": RoundEvent{Witness: true, Famous: True},
-			"w42": RoundEvent{Witness: true, Famous: True},
-			"w43": RoundEvent{Witness: true, Famous: True},
+			"w40": RoundEvent{Witness: true, Famous: common.True},
+			"w41": RoundEvent{Witness: true, Famous: common.True},
+			"w42": RoundEvent{Witness: true, Famous: common.True},
+			"w43": RoundEvent{Witness: true, Famous: common.True},
 		},
 		5: map[string]RoundEvent{
-			"w51": RoundEvent{Witness: true, Famous: True},
-			"w52": RoundEvent{Witness: true, Famous: True},
-			"w53": RoundEvent{Witness: true, Famous: True},
-			"j31": RoundEvent{Witness: false, Famous: Undefined},
+			"w51": RoundEvent{Witness: true, Famous: common.True},
+			"w52": RoundEvent{Witness: true, Famous: common.True},
+			"w53": RoundEvent{Witness: true, Famous: common.True},
+			"j31": RoundEvent{Witness: false, Famous: common.Undefined},
 		},
 		6: map[string]RoundEvent{
-			"w61": RoundEvent{Witness: true, Famous: Undefined},
-			"w62": RoundEvent{Witness: true, Famous: Undefined},
-			"w63": RoundEvent{Witness: true, Famous: Undefined},
-			"h23": RoundEvent{Witness: false, Famous: Undefined},
+			"w61": RoundEvent{Witness: true, Famous: common.Undefined},
+			"w62": RoundEvent{Witness: true, Famous: common.Undefined},
+			"w63": RoundEvent{Witness: true, Famous: common.Undefined},
+			"h23": RoundEvent{Witness: false, Famous: common.Undefined},
 		},
 		7: map[string]RoundEvent{
 			//created
-			"w71": RoundEvent{Witness: true, Famous: Undefined},
+			"w71": RoundEvent{Witness: true, Famous: common.Undefined},
 		},
 	}
 
@@ -770,31 +771,31 @@ func TestMonologueDecideFame(t *testing.T) {
 
 	expectedEvents := map[int]map[string]RoundEvent{
 		0: map[string]RoundEvent{
-			"w00": RoundEvent{Witness: true, Famous: True},
+			"w00": RoundEvent{Witness: true, Famous: common.True},
 		},
 		1: map[string]RoundEvent{
-			"w10": RoundEvent{Witness: true, Famous: True},
+			"w10": RoundEvent{Witness: true, Famous: common.True},
 		},
 		2: map[string]RoundEvent{
-			"w20": RoundEvent{Witness: true, Famous: True},
+			"w20": RoundEvent{Witness: true, Famous: common.True},
 		},
 		3: map[string]RoundEvent{
-			"w30": RoundEvent{Witness: true, Famous: True},
+			"w30": RoundEvent{Witness: true, Famous: common.True},
 		},
 		4: map[string]RoundEvent{
-			"w40": RoundEvent{Witness: true, Famous: True},
+			"w40": RoundEvent{Witness: true, Famous: common.True},
 		},
 		5: map[string]RoundEvent{
-			"w50": RoundEvent{Witness: true, Famous: True},
+			"w50": RoundEvent{Witness: true, Famous: common.True},
 		},
 		6: map[string]RoundEvent{
-			"w60": RoundEvent{Witness: true, Famous: True},
+			"w60": RoundEvent{Witness: true, Famous: common.True},
 		},
 		7: map[string]RoundEvent{
-			"w70": RoundEvent{Witness: true, Famous: Undefined},
+			"w70": RoundEvent{Witness: true, Famous: common.Undefined},
 		},
 		8: map[string]RoundEvent{
-			"w80": RoundEvent{Witness: true, Famous: Undefined},
+			"w80": RoundEvent{Witness: true, Famous: common.Undefined},
 		},
 	}
 

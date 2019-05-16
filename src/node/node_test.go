@@ -415,7 +415,7 @@ func newNode(peer *peers.Peer,
 	conf := NewConfig(
 		heartbeatTimeout,
 		time.Second,
-		3*time.Second,
+		5*time.Second,
 		cacheSize,
 		syncLimit,
 		logger,

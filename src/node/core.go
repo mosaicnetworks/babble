@@ -233,18 +233,22 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 
 	changed := false
 	for _, tx := range txs {
-		//update the PeerSet placholder
-		switch tx.Type {
-		case hg.PEER_ADD:
-			c.logger.WithField("peer", tx.Peer).Debug("adding peer")
-			peers = peers.WithNewPeer(&tx.Peer)
-		case hg.PEER_REMOVE:
-			c.logger.WithField("peer", tx.Peer).Debug("removing peer")
-			peers = peers.WithRemovedPeer(&tx.Peer)
-		default:
+		if tx.Accepted == common.True {
+			//update the PeerSet placeholder
+			switch tx.Type {
+			case hg.PEER_ADD:
+				c.logger.WithField("peer", tx.Peer).Debug("adding peer")
+				peers = peers.WithNewPeer(&tx.Peer)
+			case hg.PEER_REMOVE:
+				c.logger.WithField("peer", tx.Peer).Debug("removing peer")
+				peers = peers.WithRemovedPeer(&tx.Peer)
+			default:
+			}
+			changed = true
+		} else {
+			c.logger.WithField("peer", tx.Peer).Debugf("InternalTransaction not accepted. Got %v", tx.Accepted)
 		}
 
-		changed = true
 	}
 
 	//Why +6? According to lemmas 5.15 and 5.17 of the original whitepaper, all

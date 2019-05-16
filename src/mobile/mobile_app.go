@@ -37,9 +37,15 @@ func (m *mobileApp) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, 
 
 	stateHash := m.commitHandler.OnCommit(blockBytes)
 
+	processedInternalTransactions := []hashgraph.InternalTransaction{}
+	for _, it := range block.InternalTransactions() {
+		pit := it.AsAccepted()
+		processedInternalTransactions = append(processedInternalTransactions, pit)
+	}
+
 	commitResponse := proxy.CommitResponse{
 		StateHash:            stateHash,
-		InternalTransactions: block.InternalTransactions(),
+		InternalTransactions: processedInternalTransactions,
 	}
 
 	return commitResponse, nil

@@ -49,6 +49,7 @@ func TestSuccessiveJoinRequestExtra(t *testing.T) {
 
 		start := newNode.core.hg.FirstConsensusRound
 		checkGossip(nodes, *start, t)
+		checkPeerSets(nodes, t)
 
 		target = target + 40
 	}
