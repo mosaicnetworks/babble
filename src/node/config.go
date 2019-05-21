@@ -15,6 +15,7 @@ type Config struct {
 	JoinTimeout      time.Duration `mapstructure:"join_timeout"`
 	CacheSize        int           `mapstructure:"cache-size"`
 	SyncLimit        int           `mapstructure:"sync-limit"`
+	EnableFastSync   bool          `mapstructure:"enable-fast-sync"`
 	Bootstrap        bool          `mapstructure:"bootstrap"`
 	Logger           *logrus.Logger
 }
@@ -25,6 +26,7 @@ func NewConfig(heartbeat time.Duration,
 	joinTimeout time.Duration,
 	cacheSize int,
 	syncLimit int,
+	enableFastSync bool,
 	logger *logrus.Logger) *Config {
 
 	return &Config{
@@ -33,6 +35,7 @@ func NewConfig(heartbeat time.Duration,
 		JoinTimeout:      joinTimeout,
 		CacheSize:        cacheSize,
 		SyncLimit:        syncLimit,
+		EnableFastSync:   enableFastSync,
 		Logger:           logger,
 	}
 }
@@ -48,6 +51,7 @@ func DefaultConfig() *Config {
 		JoinTimeout:      10000 * time.Millisecond,
 		CacheSize:        5000,
 		SyncLimit:        1000,
+		EnableFastSync:   true,
 		Logger:           logger,
 	}
 }

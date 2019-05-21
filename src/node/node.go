@@ -16,6 +16,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+//Node defines a babble node
 type Node struct {
 	nodeState
 
@@ -43,6 +44,7 @@ type Node struct {
 	syncErrors   int
 }
 
+//NewNode is a factory method that returns a Node instance
 func NewNode(conf *Config,
 	validator *Validator,
 	peers *peers.PeerSet,
@@ -71,6 +73,7 @@ func NewNode(conf *Config,
 	return &node
 }
 
+//Init intialises the node
 func (n *Node) Init() error {
 	if n.conf.Bootstrap {
 		n.logger.Debug("Bootstrap")
@@ -94,12 +97,14 @@ func (n *Node) Init() error {
 	return nil
 }
 
+//RunAsync calls Run as a separate thread
 func (n *Node) RunAsync(gossip bool) {
 	n.logger.WithField("gossip", gossip).Debug("runasync")
 
 	go n.Run(gossip)
 }
 
+//Run invokes the main loop of the node
 func (n *Node) Run(gossip bool) {
 	//The ControlTimer allows the background routines to control the
 	//heartbeat timer when the node is in the Babbling state. The timer should
@@ -129,6 +134,7 @@ func (n *Node) Run(gossip bool) {
 	}
 }
 
+//ResetTimer
 func (n *Node) resetTimer() {
 	n.coreLock.Lock()
 	defer n.coreLock.Unlock()
@@ -197,6 +203,7 @@ func (n *Node) babble(gossip bool) {
 	}
 }
 
+//fastForward enacts "CatchingUp"
 func (n *Node) fastForward() error {
 	n.logger.Debug("CATCHING-UP")
 
@@ -408,7 +415,7 @@ func (n *Node) pull(peer *peers.Peer) (syncLimit bool, otherKnownEvents map[uint
 func (n *Node) push(peer *peers.Peer, knownEvents map[uint32]int) error {
 	//Check SyncLimit
 	n.coreLock.Lock()
-	overSyncLimit := n.core.OverSyncLimit(knownEvents, n.conf.SyncLimit)
+	overSyncLimit := n.core.OverSyncLimit(knownEvents, n.conf.SyncLimit, n.conf.EnableFastSync)
 	n.coreLock.Unlock()
 
 	if overSyncLimit {

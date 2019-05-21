@@ -299,7 +299,11 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 //OverSyncLimit checks if the number of unknown events exceeds the syncLimit
-func (c *Core) OverSyncLimit(knownEvents map[uint32]int, syncLimit int) bool {
+func (c *Core) OverSyncLimit(knownEvents map[uint32]int, syncLimit int, enableSyncLimit bool) bool {
+	if !enableSyncLimit {
+		return false
+	}
+
 	totUnknown := 0
 	myKnownEvents := c.KnownEvents()
 	for i, li := range myKnownEvents {

@@ -404,8 +404,9 @@ func TestOverSyncLimit(t *testing.T) {
 	}
 
 	syncLimit := 10
+	enableSyncLimit := true
 
-	if !cores[0].OverSyncLimit(known, syncLimit) {
+	if !cores[0].OverSyncLimit(known, syncLimit, enableSyncLimit) {
 		t.Fatalf("OverSyncLimit(%v, %v) should return true", known, syncLimit)
 	}
 
@@ -416,7 +417,7 @@ func TestOverSyncLimit(t *testing.T) {
 		cores[2].validator.ID(): 6,
 	}
 
-	if cores[0].OverSyncLimit(known, syncLimit) {
+	if cores[0].OverSyncLimit(known, syncLimit, enableSyncLimit) {
 		t.Fatalf("OverSyncLimit(%v, %v) should return false", known, syncLimit)
 	}
 
@@ -426,7 +427,7 @@ func TestOverSyncLimit(t *testing.T) {
 		cores[1].validator.ID(): 3,
 		cores[2].validator.ID(): 3,
 	}
-	if cores[0].OverSyncLimit(known, syncLimit) {
+	if cores[0].OverSyncLimit(known, syncLimit, enableSyncLimit) {
 		t.Fatalf("OverSyncLimit(%v, %v) should return false", known, syncLimit)
 	}
 

@@ -91,6 +91,7 @@ func AddRunFlags(cmd *cobra.Command) {
 	// Node configuration
 	cmd.Flags().Duration("heartbeat", config.Babble.NodeConfig.HeartbeatTimeout, "Time between gossips")
 	cmd.Flags().Int("sync-limit", config.Babble.NodeConfig.SyncLimit, "Max number of events for sync")
+	cmd.Flags().Bool("enable-fast-sync", config.Babble.NodeConfig.EnableFastSync, "Enable Fast Sync (default yes)")
 }
 
 func loadConfig(cmd *cobra.Command, args []string) error {
@@ -122,6 +123,7 @@ func loadConfig(cmd *cobra.Command, args []string) error {
 		"babble.Node.JoinTimeout":      config.Babble.NodeConfig.JoinTimeout,
 		"babble.Node.CacheSize":        config.Babble.NodeConfig.CacheSize,
 		"babble.Node.SyncLimit":        config.Babble.NodeConfig.SyncLimit,
+		"babble.Node.EnableFastSync":   config.Babble.NodeConfig.EnableFastSync,
 		"ProxyAddr":                    config.ProxyAddr,
 		"ClientAddr":                   config.ClientAddr,
 		"Standalone":                   config.Standalone,
