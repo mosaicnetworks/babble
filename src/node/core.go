@@ -14,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+//Core is the core Node object
 type Core struct {
 	validator *Validator
 
@@ -59,6 +60,7 @@ type Core struct {
 	logger *logrus.Entry
 }
 
+//NewCore returns a new Core object
 func NewCore(
 	validator *Validator,
 	peers *peers.PeerSet,
@@ -98,6 +100,7 @@ func NewCore(
 	return core
 }
 
+//SetHeadAndSeq sets the Head and Seq of a Core object
 func (c *Core) SetHeadAndSeq() error {
 	head := ""
 	seq := -1
@@ -134,10 +137,12 @@ func (c *Core) SetHeadAndSeq() error {
 	return nil
 }
 
+//Bootstrap calls the Hashgraph Bootstrap
 func (c *Core) Bootstrap() error {
 	return c.hg.Bootstrap()
 }
 
+//SetPeerSet sets the peers property and a New RandomPeerSelector
 func (c *Core) SetPeerSet(ps *peers.PeerSet) {
 	c.peers = ps
 	c.peerSelector = NewRandomPeerSelector(c.peers, c.validator.ID())
@@ -145,6 +150,7 @@ func (c *Core) SetPeerSet(ps *peers.PeerSet) {
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+//SignAndInsertSelfEvent signs a HashGraph Event, inserts it and runs consensus
 func (c *Core) SignAndInsertSelfEvent(event *hg.Event) error {
 	if err := event.Sign(c.validator.Key); err != nil {
 		return err
@@ -152,6 +158,7 @@ func (c *Core) SignAndInsertSelfEvent(event *hg.Event) error {
 	return c.InsertEventAndRunConsensus(event, true)
 }
 
+//InsertEventAndRunConsensus Inserts a hashgraph event and runds consensus
 func (c *Core) InsertEventAndRunConsensus(event *hg.Event, setWireInfo bool) error {
 	if err := c.hg.InsertEventAndRunConsensus(event, setWireInfo); err != nil {
 		return err
@@ -163,12 +170,14 @@ func (c *Core) InsertEventAndRunConsensus(event *hg.Event, setWireInfo bool) err
 	return nil
 }
 
+//KnownEvents returns known events from the Hashgraph store
 func (c *Core) KnownEvents() map[uint32]int {
 	return c.hg.Store.KnownEvents()
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+//Commit the Block to the App
 func (c *Core) Commit(block *hg.Block) error {
 	//Commit the Block to the App
 	commitResponse, err := c.proxyCommitCallback(*block)
@@ -209,6 +218,7 @@ func (c *Core) Commit(block *hg.Block) error {
 	return err
 }
 
+//SignBlock signs the block
 func (c *Core) SignBlock(block *hg.Block) (hg.BlockSignature, error) {
 	sig, err := block.Sign(c.validator.Key)
 	if err != nil {
@@ -228,6 +238,7 @@ func (c *Core) SignBlock(block *hg.Block) (hg.BlockSignature, error) {
 	return sig, nil
 }
 
+//ProcessAcceptedInternalTransactions processes the accepted internal transactions
 func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.InternalTransaction) error {
 	peers := c.peers
 
@@ -287,6 +298,7 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+//OverSyncLimit checks if the number of unknown events exceeds the syncLimit
 func (c *Core) OverSyncLimit(knownEvents map[uint32]int, syncLimit int) bool {
 	totUnknown := 0
 	myKnownEvents := c.KnownEvents()
@@ -301,11 +313,12 @@ func (c *Core) OverSyncLimit(knownEvents map[uint32]int, syncLimit int) bool {
 	return false
 }
 
+//GetAnchorBlockWithFrame returns GetAnchorBlockWithFrame from the hashgraph
 func (c *Core) GetAnchorBlockWithFrame() (*hg.Block, *hg.Frame, error) {
 	return c.hg.GetAnchorBlockWithFrame()
 }
 
-//returns events that c knowns about and are not in 'known'
+//EventDiff returns events that c knowns about and are not in 'known'
 func (c *Core) EventDiff(known map[uint32]int) (events []*hg.Event, err error) {
 	unknown := []*hg.Event{}
 	//known represents the index of the last event known for every participant
@@ -393,6 +406,7 @@ func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 	return nil
 }
 
+//RecordHeads adds heads as SelfEvents
 func (c *Core) RecordHeads() error {
 	c.logger.WithField("heads", len(c.heads)).Debug("RecordHeads()")
 
@@ -410,6 +424,7 @@ func (c *Core) RecordHeads() error {
 	return nil
 }
 
+//AddSelfEvent adds a self event
 func (c *Core) AddSelfEvent(otherHead string) error {
 	if c.hg.Store.LastRound() < c.AcceptedRound {
 		c.logger.Debugf("Too early to insert self-event (%d / %d)", c.hg.Store.LastRound(), c.AcceptedRound)
@@ -452,6 +467,7 @@ func (c *Core) AddSelfEvent(otherHead string) error {
 	return nil
 }
 
+//FastForward is used whilst in catchingUp state to apply past blocks and frames
 func (c *Core) FastForward(peer string, block *hg.Block, frame *hg.Frame) error {
 	peerSet := peers.NewPeerSet(frame.Peers)
 
@@ -486,6 +502,7 @@ func (c *Core) FastForward(peer string, block *hg.Block, frame *hg.Frame) error 
 	return nil
 }
 
+//Leave causes the node to leave the network
 func (c *Core) Leave(leaveTimeout time.Duration) error {
 	p, ok := c.peers.ByID[c.validator.ID()]
 	if !ok {
@@ -533,6 +550,7 @@ func (c *Core) Leave(leaveTimeout time.Duration) error {
 	return nil
 }
 
+//FromWire takes Wire Events and returns HashGraph Events
 func (c *Core) FromWire(wireEvents []hg.WireEvent) ([]hg.Event, error) {
 	events := make([]hg.Event, len(wireEvents), len(wireEvents))
 
@@ -548,6 +566,7 @@ func (c *Core) FromWire(wireEvents []hg.WireEvent) ([]hg.Event, error) {
 	return events, nil
 }
 
+//ToWire takes HashGraph Events and returns Wire Events
 func (c *Core) ToWire(events []*hg.Event) ([]hg.WireEvent, error) {
 	wireEvents := make([]hg.WireEvent, len(events), len(events))
 
@@ -558,14 +577,17 @@ func (c *Core) ToWire(events []*hg.Event) ([]hg.WireEvent, error) {
 	return wireEvents, nil
 }
 
+//ProcessSigPool calls Hashgraph ProcessSigPool
 func (c *Core) ProcessSigPool() error {
 	return c.hg.ProcessSigPool()
 }
 
+//AddTransactions appends transactions to the transaction pool
 func (c *Core) AddTransactions(txs [][]byte) {
 	c.transactionPool = append(c.transactionPool, txs...)
 }
 
+//AddInternalTransaction adds an internal transaction
 func (c *Core) AddInternalTransaction(tx hg.InternalTransaction) *JoinPromise {
 	//create promise
 	promise := NewJoinPromise(tx)
@@ -581,14 +603,17 @@ func (c *Core) AddInternalTransaction(tx hg.InternalTransaction) *JoinPromise {
 	return promise
 }
 
+//GetHead returns the head from the hashgraph store
 func (c *Core) GetHead() (*hg.Event, error) {
 	return c.hg.Store.GetEvent(c.Head)
 }
 
+//GetEvent returns an event from the hashgrapg store
 func (c *Core) GetEvent(hash string) (*hg.Event, error) {
 	return c.hg.Store.GetEvent(hash)
 }
 
+//GetEventTransactions returns the transactions for an event
 func (c *Core) GetEventTransactions(hash string) ([][]byte, error) {
 	var txs [][]byte
 	ex, err := c.GetEvent(hash)
@@ -599,22 +624,27 @@ func (c *Core) GetEventTransactions(hash string) ([][]byte, error) {
 	return txs, nil
 }
 
+//GetConsensusEvents returns consensus events from the hashgragh store
 func (c *Core) GetConsensusEvents() []string {
 	return c.hg.Store.ConsensusEvents()
 }
 
+//GetConsensusEventsCount returns the count of consensus events from the hashgragh store
 func (c *Core) GetConsensusEventsCount() int {
 	return c.hg.Store.ConsensusEventsCount()
 }
 
+//GetUndeterminedEvents returns undetermined events from the hashgraph
 func (c *Core) GetUndeterminedEvents() []string {
 	return c.hg.UndeterminedEvents
 }
 
+//GetPendingLoadedEvents returns pendign loading events from the hashgraph
 func (c *Core) GetPendingLoadedEvents() int {
 	return c.hg.PendingLoadedEvents
 }
 
+//GetConsensusTransactions returns the transaction from the events returned by GetConsensusEvents()
 func (c *Core) GetConsensusTransactions() ([][]byte, error) {
 	txs := [][]byte{}
 	for _, e := range c.GetConsensusEvents() {
@@ -627,22 +657,27 @@ func (c *Core) GetConsensusTransactions() ([][]byte, error) {
 	return txs, nil
 }
 
+//GetLastConsensusRoundIndex returns the Last Consensus Round from the hashgraph
 func (c *Core) GetLastConsensusRoundIndex() *int {
 	return c.hg.LastConsensusRound
 }
 
+//GetConsensusTransactionsCount return ConsensusTransacions from the hashgraph
 func (c *Core) GetConsensusTransactionsCount() int {
 	return c.hg.ConsensusTransactions
 }
 
+//GetLastCommitedRoundEventsCount returns LastCommitedRoundEvents from the hashgraph
 func (c *Core) GetLastCommitedRoundEventsCount() int {
 	return c.hg.LastCommitedRoundEvents
 }
 
+//GetLastBlockIndex returns last block index from the hashgraph store
 func (c *Core) GetLastBlockIndex() int {
 	return c.hg.Store.LastBlockIndex()
 }
 
+//Busy returns a boolean that denotes whether there is incomplete processing
 func (c *Core) Busy() bool {
 	return c.hg.PendingLoadedEvents > 0 ||
 		len(c.transactionPool) > 0 ||

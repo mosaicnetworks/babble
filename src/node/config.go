@@ -8,6 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+//Config is a Configuration Object Definition
 type Config struct {
 	HeartbeatTimeout time.Duration `mapstructure:"heartbeat"`
 	TCPTimeout       time.Duration `mapstructure:"timeout"`
@@ -18,6 +19,7 @@ type Config struct {
 	Logger           *logrus.Logger
 }
 
+//NewConfig eturns a new Config Object
 func NewConfig(heartbeat time.Duration,
 	timeout time.Duration,
 	joinTimeout time.Duration,
@@ -35,6 +37,7 @@ func NewConfig(heartbeat time.Duration,
 	}
 }
 
+//DefaultConfig returns a Default Config Object
 func DefaultConfig() *Config {
 	logger := logrus.New()
 	logger.Level = logrus.DebugLevel
@@ -49,6 +52,7 @@ func DefaultConfig() *Config {
 	}
 }
 
+//TestConfig returns a Preset Test Configuration
 func TestConfig(t *testing.T) *Config {
 	config := DefaultConfig()
 	config.Logger = common.NewTestLogger(t)
