@@ -58,7 +58,7 @@ func (b *Babble) initPeers() error {
 		return nil
 	}
 
-	peerStore := peers.NewJSONPeerSet(b.Config.DataDir)
+	peerStore := peers.NewJSONPeerSet(b.Config.DataDir, true)
 
 	participants, err := peerStore.PeerSet()
 	if err != nil {

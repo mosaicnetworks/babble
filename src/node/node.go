@@ -293,7 +293,9 @@ func (n *Node) join() error {
 
 	n.core.AcceptedRound = resp.AcceptedRound
 
-	n.setState(CatchingUp)
+	// This has been changed so that all nodes have an initial babbling state.
+	// If the node meets the fastforward consitions it will switch over soon enough.
+	n.setState(Babbling)
 
 	return nil
 }
