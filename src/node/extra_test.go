@@ -16,7 +16,7 @@ func TestSuccessiveJoinRequestExtra(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(1)
 
-	node0 := newNode(peerSet.Peers[0], keys[0], peerSet, 1000000, 400, "inmem", 10*time.Millisecond, logger, t)
+	node0 := newNode(peerSet.Peers[0], keys[0], peerSet, 1000000, 400, true, "inmem", 10*time.Millisecond, logger, t)
 	defer node0.Shutdown()
 	node0.RunAsync(true)
 
@@ -33,7 +33,7 @@ func TestSuccessiveJoinRequestExtra(t *testing.T) {
 			fmt.Sprintf("127.0.0.1:%d", 4240+i),
 			"monika",
 		)
-		newNode := newNode(peer, key, peerSet, 1000000, 400, "inmem", 10*time.Millisecond, logger, t)
+		newNode := newNode(peer, key, peerSet, 1000000, 400, true, "inmem", 10*time.Millisecond, logger, t)
 
 		logger.Debugf("starting new node %d, %d", i, newNode.ID())
 		defer newNode.Shutdown()
@@ -60,7 +60,7 @@ func TestSuccessiveLeaveRequestExtra(t *testing.T) {
 
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(n)
-	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", 5*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peerSet, 1000000, 1000, true, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
 
 	target := 0
@@ -107,7 +107,7 @@ func TestSuccessiveLeaveRequestExtra(t *testing.T) {
 func TestSimultaneusLeaveRequestExtra(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(4)
-	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", 5*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peerSet, 1000000, 1000, true, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
@@ -144,7 +144,7 @@ func TestSimultaneusLeaveRequestExtra(t *testing.T) {
 func TestJoinLeaveRequestExtra(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(4)
-	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", 5*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peerSet, 1000000, 1000, true, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
@@ -168,11 +168,11 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 		fmt.Sprint("127.0.0.1:4242"),
 		"new node",
 	)
-	newNode := newNode(peer, key, peerSet, 1000000, 400, "inmem", 10*time.Millisecond, logger, t)
+	newNode := newNode(peer, key, peerSet, 1000000, 400, true, "inmem", 10*time.Millisecond, logger, t)
 	defer newNode.Shutdown()
 
 	// Run parallel routine to check newNode eventually reaches CatchingUp state.
-	timeout := time.After(6 * time.Second)
+	timeout := time.After(6 * time.Second) //TODO this process has been amended - may not be in CatchingUp state
 	go func() {
 		for {
 			select {

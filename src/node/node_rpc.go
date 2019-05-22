@@ -97,7 +97,7 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 
 	//Check sync limit
 	n.coreLock.Lock()
-	overSyncLimit := n.core.OverSyncLimit(cmd.Known, n.conf.SyncLimit)
+	overSyncLimit := n.core.OverSyncLimit(cmd.Known, n.conf.SyncLimit, n.conf.EnableFastSync)
 	n.coreLock.Unlock()
 
 	if overSyncLimit {

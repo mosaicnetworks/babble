@@ -22,7 +22,7 @@ func TestJSONPeerSet(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	// Create the store
-	store := NewJSONPeerSet(dir)
+	store := NewJSONPeerSet(dir, true)
 
 	// Try a read, should get nothing
 	peerSet, err := store.PeerSet()

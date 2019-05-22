@@ -14,7 +14,7 @@ import (
 func TestMonologue(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(1)
-	nodes := initNodes(keys, peers, 100000, 1000, "inmem", 5*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peers, 100000, 1000, true, "inmem", 5*time.Millisecond, logger, t)
 	//defer drawGraphs(nodes, t)
 
 	target := 50
@@ -29,7 +29,7 @@ func TestMonologue(t *testing.T) {
 func TestJoinRequest(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(4)
-	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", 5*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peerSet, 1000000, 1000, true, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
@@ -47,7 +47,7 @@ func TestJoinRequest(t *testing.T) {
 		"monika",
 	)
 
-	newNode := newNode(peer, key, peerSet, 1000, 1000, "inmem", 5*time.Millisecond, logger, t)
+	newNode := newNode(peer, key, peerSet, 1000, 1000, true, "inmem", 5*time.Millisecond, logger, t)
 	defer newNode.Shutdown()
 
 	err = newNode.join()
@@ -69,7 +69,7 @@ func TestJoinRequest(t *testing.T) {
 func TestLeaveRequest(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(4)
-	nodes := initNodes(keys, peerSet, 1000000, 1000, "inmem", 5*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peerSet, 1000000, 1000, true, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
@@ -100,7 +100,7 @@ func TestLeaveRequest(t *testing.T) {
 func TestJoinFull(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(4)
-	initialNodes := initNodes(keys, peerSet, 1000000, 400, "inmem", 10*time.Millisecond, logger, t)
+	initialNodes := initNodes(keys, peerSet, 1000000, 400, true, "inmem", 10*time.Millisecond, logger, t)
 	defer shutdownNodes(initialNodes)
 
 	target := 30
@@ -116,7 +116,7 @@ func TestJoinFull(t *testing.T) {
 		fmt.Sprint("127.0.0.1:4242"),
 		"monika",
 	)
-	newNode := newNode(peer, key, peerSet, 1000000, 400, "inmem", 10*time.Millisecond, logger, t)
+	newNode := newNode(peer, key, peerSet, 1000000, 400, true, "inmem", 10*time.Millisecond, logger, t)
 	defer newNode.Shutdown()
 
 	//Run parallel routine to check newNode eventually reaches CatchingUp state.

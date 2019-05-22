@@ -16,6 +16,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+//Node defines a babble node
 type Node struct {
 	nodeState
 
@@ -43,6 +44,7 @@ type Node struct {
 	syncErrors   int
 }
 
+//NewNode is a factory method that returns a Node instance
 func NewNode(conf *Config,
 	validator *Validator,
 	peers *peers.PeerSet,
@@ -71,6 +73,7 @@ func NewNode(conf *Config,
 	return &node
 }
 
+//Init intialises the node
 func (n *Node) Init() error {
 	if n.conf.Bootstrap {
 		n.logger.Debug("Bootstrap")
@@ -94,12 +97,14 @@ func (n *Node) Init() error {
 	return nil
 }
 
+//RunAsync calls Run as a separate thread
 func (n *Node) RunAsync(gossip bool) {
 	n.logger.WithField("gossip", gossip).Debug("runasync")
 
 	go n.Run(gossip)
 }
 
+//Run invokes the main loop of the node
 func (n *Node) Run(gossip bool) {
 	//The ControlTimer allows the background routines to control the
 	//heartbeat timer when the node is in the Babbling state. The timer should
@@ -129,6 +134,7 @@ func (n *Node) Run(gossip bool) {
 	}
 }
 
+//ResetTimer
 func (n *Node) resetTimer() {
 	n.coreLock.Lock()
 	defer n.coreLock.Unlock()
@@ -197,6 +203,7 @@ func (n *Node) babble(gossip bool) {
 	}
 }
 
+//fastForward enacts "CatchingUp"
 func (n *Node) fastForward() error {
 	n.logger.Debug("CATCHING-UP")
 
@@ -286,11 +293,14 @@ func (n *Node) join() error {
 
 	n.core.AcceptedRound = resp.AcceptedRound
 
-	n.setState(CatchingUp)
+	// This has been changed so that all nodes have an initial babbling state.
+	// If the node meets the fastforward consitions it will switch over soon enough.
+	n.setState(Babbling)
 
 	return nil
 }
 
+//Leave causes the node to leave the network
 func (n *Node) Leave() error {
 	n.logger.Debug("LEAVING")
 
@@ -305,7 +315,7 @@ func (n *Node) Leave() error {
 	return nil
 }
 
-//This function is usually called in a go-routine and needs to inform the
+//gossip is usually called in a go-routine and needs to inform the
 //calling routine (usually the babble routine) when it is time to exit the
 //Babbling state and return.
 func (n *Node) gossip(peer *peers.Peer, parentReturnCh chan struct{}) error {
@@ -408,7 +418,7 @@ func (n *Node) pull(peer *peers.Peer) (syncLimit bool, otherKnownEvents map[uint
 func (n *Node) push(peer *peers.Peer, knownEvents map[uint32]int) error {
 	//Check SyncLimit
 	n.coreLock.Lock()
-	overSyncLimit := n.core.OverSyncLimit(knownEvents, n.conf.SyncLimit)
+	overSyncLimit := n.core.OverSyncLimit(knownEvents, n.conf.SyncLimit, n.conf.EnableFastSync)
 	n.coreLock.Unlock()
 
 	if overSyncLimit {
@@ -485,6 +495,7 @@ func (n *Node) addTransaction(tx []byte) {
 	n.core.AddTransactions([][]byte{tx})
 }
 
+//Shutdown shuts down the node
 func (n *Node) Shutdown() {
 	if n.getState() != Shutdown {
 		n.logger.Debug("Shutdown")
@@ -509,6 +520,7 @@ func (n *Node) Shutdown() {
 	}
 }
 
+//GetStats returns stats
 func (n *Node) GetStats() map[string]string {
 	toString := func(i *int) string {
 		if i == nil {
@@ -572,6 +584,7 @@ func (n *Node) logStats() {
 	}).Debug("Stats")
 }
 
+//SyncRate returns the Sync Rate
 func (n *Node) SyncRate() float64 {
 	var syncErrorRate float64
 
@@ -582,20 +595,24 @@ func (n *Node) SyncRate() float64 {
 	return 1 - syncErrorRate
 }
 
+//GetBlock returns a block
 func (n *Node) GetBlock(blockIndex int) (*hg.Block, error) {
 	return n.core.hg.Store.GetBlock(blockIndex)
 }
 
+//GetEvents returns a map of known events
 func (n *Node) GetEvents() (map[uint32]int, error) {
 	res := n.core.KnownEvents()
 
 	return res, nil
 }
 
+//ID returns the validator ID
 func (n *Node) ID() uint32 {
 	return n.validator.ID()
 }
 
+//GetPeers returns the peers
 func (n *Node) GetPeers() []*peers.Peer {
 	return n.core.peers.Peers
 }

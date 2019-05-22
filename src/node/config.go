@@ -8,21 +8,25 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+//Config is a Configuration Object Definition
 type Config struct {
 	HeartbeatTimeout time.Duration `mapstructure:"heartbeat"`
 	TCPTimeout       time.Duration `mapstructure:"timeout"`
 	JoinTimeout      time.Duration `mapstructure:"join_timeout"`
 	CacheSize        int           `mapstructure:"cache-size"`
 	SyncLimit        int           `mapstructure:"sync-limit"`
+	EnableFastSync   bool          `mapstructure:"enable-fast-sync"`
 	Bootstrap        bool          `mapstructure:"bootstrap"`
 	Logger           *logrus.Logger
 }
 
+//NewConfig eturns a new Config Object
 func NewConfig(heartbeat time.Duration,
 	timeout time.Duration,
 	joinTimeout time.Duration,
 	cacheSize int,
 	syncLimit int,
+	enableFastSync bool,
 	logger *logrus.Logger) *Config {
 
 	return &Config{
@@ -31,10 +35,12 @@ func NewConfig(heartbeat time.Duration,
 		JoinTimeout:      joinTimeout,
 		CacheSize:        cacheSize,
 		SyncLimit:        syncLimit,
+		EnableFastSync:   enableFastSync,
 		Logger:           logger,
 	}
 }
 
+//DefaultConfig returns a Default Config Object
 func DefaultConfig() *Config {
 	logger := logrus.New()
 	logger.Level = logrus.DebugLevel
@@ -45,10 +51,12 @@ func DefaultConfig() *Config {
 		JoinTimeout:      10000 * time.Millisecond,
 		CacheSize:        5000,
 		SyncLimit:        1000,
+		EnableFastSync:   true,
 		Logger:           logger,
 	}
 }
 
+//TestConfig returns a Preset Test Configuration
 func TestConfig(t *testing.T) *Config {
 	config := DefaultConfig()
 	config.Logger = common.NewTestLogger(t)

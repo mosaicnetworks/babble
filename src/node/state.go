@@ -10,15 +10,15 @@ import (
 type NodeState uint32
 
 const (
-	// Babbling is the initial state of a Babble node.
+	//Babbling is the initial state of a Babble node.
 	Babbling NodeState = iota
-
+	//CatchingUp implements Fast Sync
 	CatchingUp
-
+	//Joining is joining
 	Joining
-
+	//Leaving is leaving
 	Leaving
-
+	//Shutdown is shutdown
 	Shutdown
 )
 
