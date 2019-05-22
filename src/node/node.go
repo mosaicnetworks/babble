@@ -18,7 +18,7 @@ import (
 
 //Node defines a babble node
 type Node struct {
-	nodeState
+	state
 
 	conf   *Config
 	logger *logrus.Entry
