@@ -5,16 +5,19 @@ import (
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
+//JoinPromiseResponse is a struct returned by a Join Promise
 type JoinPromiseResponse struct {
 	AcceptedRound int
 	Peers         []*peers.Peer
 }
 
+//JoinPromise is a struct for an asynchronous response to a Join Request
 type JoinPromise struct {
 	Tx     hashgraph.InternalTransaction
 	RespCh chan JoinPromiseResponse
 }
 
+//NewJoinPromise is a factory method for a JoinPromise
 func NewJoinPromise(tx hashgraph.InternalTransaction) *JoinPromise {
 	return &JoinPromise{
 		Tx: tx,
@@ -24,6 +27,7 @@ func NewJoinPromise(tx hashgraph.InternalTransaction) *JoinPromise {
 	}
 }
 
+//Respond handles sending a JoinPromiseResponse to a JoinPromise
 func (p *JoinPromise) Respond(acceptedRound int, peers []*peers.Peer) {
 	p.RespCh <- JoinPromiseResponse{acceptedRound, peers}
 }

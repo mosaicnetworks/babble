@@ -300,6 +300,7 @@ func (n *Node) join() error {
 	return nil
 }
 
+//Leave causes the node to leave the network
 func (n *Node) Leave() error {
 	n.logger.Debug("LEAVING")
 
@@ -314,7 +315,7 @@ func (n *Node) Leave() error {
 	return nil
 }
 
-//This function is usually called in a go-routine and needs to inform the
+//gossip is usually called in a go-routine and needs to inform the
 //calling routine (usually the babble routine) when it is time to exit the
 //Babbling state and return.
 func (n *Node) gossip(peer *peers.Peer, parentReturnCh chan struct{}) error {
@@ -494,6 +495,7 @@ func (n *Node) addTransaction(tx []byte) {
 	n.core.AddTransactions([][]byte{tx})
 }
 
+//Shutdown shuts down the node
 func (n *Node) Shutdown() {
 	if n.getState() != Shutdown {
 		n.logger.Debug("Shutdown")
@@ -518,6 +520,7 @@ func (n *Node) Shutdown() {
 	}
 }
 
+//GetStats returns stats
 func (n *Node) GetStats() map[string]string {
 	toString := func(i *int) string {
 		if i == nil {
@@ -581,6 +584,7 @@ func (n *Node) logStats() {
 	}).Debug("Stats")
 }
 
+//SyncRate returns the Sync Rate
 func (n *Node) SyncRate() float64 {
 	var syncErrorRate float64
 
@@ -591,20 +595,24 @@ func (n *Node) SyncRate() float64 {
 	return 1 - syncErrorRate
 }
 
+//GetBlock returns a block
 func (n *Node) GetBlock(blockIndex int) (*hg.Block, error) {
 	return n.core.hg.Store.GetBlock(blockIndex)
 }
 
+//GetEvents returns a map of known events
 func (n *Node) GetEvents() (map[uint32]int, error) {
 	res := n.core.KnownEvents()
 
 	return res, nil
 }
 
+//ID returns the validator ID
 func (n *Node) ID() uint32 {
 	return n.validator.ID()
 }
 
+//GetPeers returns the peers
 func (n *Node) GetPeers() []*peers.Peer {
 	return n.core.peers.Peers
 }
