@@ -161,29 +161,29 @@ Let us take a look at the help provided by the Babble CLI:
     Run node
 
     Usage:
-      babble run [flags]
+        babble run [flags]
 
     Flags:
-          --bootstrap               Load from database
-          --cache-size int          Number of items in LRU caches (default 5000)
-      -c, --client-connect string   IP:Port to connect to client (default "127.0.0.1:1339")
-          --datadir string          Top-level directory for configuration and data (default "/home/martin/.babble")
-          --heartbeat duration      Time between gossips (default 10ms)
-      -h, --help                    help for run
-      -j, --join-timeout duration   Join Timeout (default 10s)
-      -l, --listen string           Listen IP:Port for babble node (default ":1337")
-          --log string              debug, info, warn, error, fatal, panic
-          --max-pool int            Connection pool size max (default 2)
-          --moniker string          Optional name
-      -p, --proxy-listen string     Listen IP:Port for babble proxy (default "127.0.0.1:1338")
-      -s, --service-listen string   Listen IP:Port for HTTP service
-          --standalone              Do not create a proxy
-          --store                   Use badgerDB instead of in-mem DB
-          --sync-limit int          Max number of events for sync (default 1000)
-      -t, --timeout duration        TCP Timeout (default 1s)
+            --bootstrap               Load from database
+            --cache-size int          Number of items in LRU caches (default 5000)
+        -c, --client-connect string   IP:Port to connect to client (default "127.0.0.1:1339")
+            --datadir string          Top-level directory for configuration and data (default "/home/jon/.babble")
+            --enable-fast-sync        Enable Fast Sync (default true)
+            --heartbeat duration      Time between gossips (default 10ms)
+        -h, --help                    Help for run
+        -j, --join-timeout duration   Join Timeout (default 10s)
+        -l, --listen string           Listen IP:Port for babble node (default ":1337")
+            --log string              debug, info, warn, error, fatal, panic
+            --max-pool int            Connection pool size max (default 2)
+            --moniker string          Optional name
+        -p, --proxy-listen string     Listen IP:Port for babble proxy (default "127.0.0.1:1338")
+        -s, --service-listen string   Listen IP:Port for HTTP service
+            --standalone              Do not create a proxy
+            --store                   Use badgerDB instead of in-mem DB
+            --sync-limit int          Max number of events for sync (default 1000)
+        -t, --timeout duration        TCP Timeout (default 1s)
 
-  
-	
+  	
 So we have just seen what the ``datadir`` flag does. The ``listen`` flag 
 corresponds to the NetAddr in the peers.json file; that is the endpoint that 
 Babble uses to communicate with other Babble nodes.
