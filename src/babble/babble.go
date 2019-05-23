@@ -105,7 +105,7 @@ func (b *Babble) initStore() error {
 				}
 
 				dbpath = fmt.Sprintf("%s(%d)", b.Config.BadgerDir(), i)
-				b.Config.Logger.Debug("No Bootstrap - using new db %s", dbpath)
+				b.Config.Logger.Debugf("No Bootstrap - using new db %s", dbpath)
 				i++
 			} else {
 				break

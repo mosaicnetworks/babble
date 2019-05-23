@@ -248,20 +248,20 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 
 	changed := false
 	for _, tx := range txs {
-		if tx.Accepted == common.True {
+		if tx.Body.Accepted == common.True {
 			//update the PeerSet placeholder
-			switch tx.Type {
+			switch tx.Body.Type {
 			case hg.PEER_ADD:
-				c.logger.WithField("peer", tx.Peer).Debug("adding peer")
-				peers = peers.WithNewPeer(&tx.Peer)
+				c.logger.WithField("peer", tx.Body.Peer).Debug("adding peer")
+				peers = peers.WithNewPeer(&tx.Body.Peer)
 			case hg.PEER_REMOVE:
-				c.logger.WithField("peer", tx.Peer).Debug("removing peer")
-				peers = peers.WithRemovedPeer(&tx.Peer)
+				c.logger.WithField("peer", tx.Body.Peer).Debug("removing peer")
+				peers = peers.WithRemovedPeer(&tx.Body.Peer)
 			default:
 			}
 			changed = true
 		} else {
-			c.logger.WithField("peer", tx.Peer).Debugf("InternalTransaction not accepted. Got %v", tx.Accepted)
+			c.logger.WithField("peer", tx.Body.Peer).Debugf("InternalTransaction not accepted. Got %v", tx.Body.Accepted)
 		}
 
 	}
