@@ -41,6 +41,7 @@ func NewPeerSet(peers []*Peer) *PeerSet {
 	return peerSet
 }
 
+//NewPeerSetFromPeerSliceBytes creates a new PeerSet from a peerSlice in Bytes format
 func NewPeerSetFromPeerSliceBytes(peerSliceBytes []byte) (*PeerSet, error) {
 	//Decode Peer slice
 	peers := []*Peer{}
@@ -63,7 +64,7 @@ func (peerSet *PeerSet) WithNewPeer(peer *Peer) *PeerSet {
 	return newPeerSet
 }
 
-//WithRemovedPeer returns a new PeerSet with a list of peers exluding the
+//WithRemovedPeer returns a new PeerSet with a list of peers excluding the
 //provided one
 func (peerSet *PeerSet) WithRemovedPeer(peer *Peer) *PeerSet {
 	peers := []*Peer{}
@@ -79,10 +80,10 @@ func (peerSet *PeerSet) WithRemovedPeer(peer *Peer) *PeerSet {
 /* ToSlice Methods */
 
 //PubKeys returns the PeerSet's slice of public keys
-func (c *PeerSet) PubKeys() []string {
+func (peerSet *PeerSet) PubKeys() []string {
 	res := []string{}
 
-	for _, peer := range c.Peers {
+	for _, peer := range peerSet.Peers {
 		res = append(res, peer.PubKeyString())
 	}
 
@@ -90,10 +91,10 @@ func (c *PeerSet) PubKeys() []string {
 }
 
 //IDs returns the PeerSet's slice of IDs
-func (c *PeerSet) IDs() []uint32 {
+func (peerSet *PeerSet) IDs() []uint32 {
 	res := []uint32{}
 
-	for _, peer := range c.Peers {
+	for _, peer := range peerSet.Peers {
 		res = append(res, peer.ID())
 	}
 
@@ -103,37 +104,38 @@ func (c *PeerSet) IDs() []uint32 {
 /* Utilities */
 
 //Len returns the number of Peers in the PeerSet
-func (c *PeerSet) Len() int {
-	return len(c.ByPubKey)
+func (peerSet *PeerSet) Len() int {
+	return len(peerSet.ByPubKey)
 }
 
 //Hash uniquely identifies a PeerSet. It is computed by sorting the peers set
 //by ID, and hashing (SHA256) their public keys together, one by one.
-func (c *PeerSet) Hash() ([]byte, error) {
-	if len(c.hash) == 0 {
+func (peerSet *PeerSet) Hash() ([]byte, error) {
+	if len(peerSet.hash) == 0 {
 		hash := []byte{}
-		for _, p := range c.Peers {
+		for _, p := range peerSet.Peers {
 			pk := p.PubKeyBytes()
 			hash = crypto.SimpleHashFromTwoHashes(hash, pk)
 		}
-		c.hash = hash
+		peerSet.hash = hash
 	}
-	return c.hash, nil
+	return peerSet.hash, nil
 }
 
 //Hex is the hexadecimal representation of Hash
-func (c *PeerSet) Hex() string {
-	if len(c.hex) == 0 {
-		hash, _ := c.Hash()
-		c.hex = common.EncodeToString(hash)
+func (peerSet *PeerSet) Hex() string {
+	if len(peerSet.hex) == 0 {
+		hash, _ := peerSet.Hash()
+		peerSet.hex = common.EncodeToString(hash)
 	}
-	return c.hex
+	return peerSet.hex
 }
 
-func (c *PeerSet) Marshal() ([]byte, error) {
+//Marshal marshals the peerset
+func (peerSet *PeerSet) Marshal() ([]byte, error) {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
-	if err := enc.Encode(c.Peers); err != nil {
+	if err := enc.Encode(peerSet.Peers); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
@@ -141,27 +143,28 @@ func (c *PeerSet) Marshal() ([]byte, error) {
 
 //SuperMajority return the number of peers that forms a strong majortiy (+2/3)
 //in the PeerSet
-func (c *PeerSet) SuperMajority() int {
-	if c.superMajority == nil {
-		val := 2*c.Len()/3 + 1
-		c.superMajority = &val
+func (peerSet *PeerSet) SuperMajority() int {
+	if peerSet.superMajority == nil {
+		val := 2*peerSet.Len()/3 + 1
+		peerSet.superMajority = &val
 	}
-	return *c.superMajority
+	return *peerSet.superMajority
 }
 
-func (c *PeerSet) TrustCount() int {
-	if c.trustCount == nil {
+//TrustCount calculates the Trust Count for a peerset
+func (peerSet *PeerSet) TrustCount() int {
+	if peerSet.trustCount == nil {
 		val := 0
-		if len(c.Peers) > 1 {
-			val = int(math.Ceil(float64(c.Len()) / float64(3)))
+		if len(peerSet.Peers) > 1 {
+			val = int(math.Ceil(float64(peerSet.Len()) / float64(3)))
 		}
-		c.trustCount = &val
+		peerSet.trustCount = &val
 	}
-	return *c.trustCount
+	return *peerSet.trustCount
 }
 
-func (c *PeerSet) clearCache() {
-	c.hash = []byte{}
-	c.hex = ""
-	c.superMajority = nil
+func (peerSet *PeerSet) clearCache() {
+	peerSet.hash = []byte{}
+	peerSet.hex = ""
+	peerSet.superMajority = nil
 }

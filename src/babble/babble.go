@@ -14,12 +14,13 @@ import (
 )
 
 type Babble struct {
-	Config    *BabbleConfig
-	Node      *node.Node
-	Transport net.Transport
-	Store     h.Store
-	Peers     *peers.PeerSet
-	Service   *service.Service
+	Config       *BabbleConfig
+	Node         *node.Node
+	Transport    net.Transport
+	Store        h.Store
+	Peers        *peers.PeerSet
+	GenesisPeers *peers.PeerSet
+	Service      *service.Service
 }
 
 func NewBabble(config *BabbleConfig) *Babble {
@@ -58,11 +59,25 @@ func (b *Babble) initPeers() error {
 		return nil
 	}
 
+	// peers.json
 	peerStore := peers.NewJSONPeerSet(b.Config.DataDir, true)
 
 	participants, err := peerStore.PeerSet()
 	if err != nil {
 		return err
+	}
+
+	b.Peers = participants
+
+	// Set Genesis Peer Set from peers.genesis.json
+
+	genesisPeerStore := peers.NewJSONPeerSet(b.Config.DataDir, false)
+
+	genesisParticipants, err := genesisPeerStore.PeerSet()
+	if err != nil { // If there is any error, the current peer set is used as the genesis peer set
+		b.GenesisPeers = participants
+	} else {
+		b.GenesisPeers = genesisParticipants
 	}
 
 	b.Peers = participants
@@ -163,6 +178,7 @@ func (b *Babble) initNode() error {
 		&b.Config.NodeConfig,
 		validator,
 		b.Peers,
+		b.GenesisPeers,
 		b.Store,
 		b.Transport,
 		b.Config.Proxy,

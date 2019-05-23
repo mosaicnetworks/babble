@@ -24,6 +24,8 @@ type Core struct {
 	peerSelector PeerSelector
 	selectorLock sync.Mutex
 
+	genesisPeers *peers.PeerSet
+
 	//Hash and Index of this instance's head Event
 	Head string
 	Seq  int
@@ -60,10 +62,11 @@ type Core struct {
 	logger *logrus.Entry
 }
 
-//NewCore returns a new Core object
+//NewCore is a factory method that returns a new Core object
 func NewCore(
 	validator *Validator,
 	peers *peers.PeerSet,
+	genesisPeers *peers.PeerSet,
 	store hg.Store,
 	proxyCommitCallback proxy.CommitCallback,
 	logger *logrus.Logger) *Core {
@@ -80,6 +83,7 @@ func NewCore(
 		validator:               validator,
 		proxyCommitCallback:     proxyCommitCallback,
 		peers:                   peers,
+		genesisPeers:            genesisPeers,
 		peerSelector:            peerSelector,
 		transactionPool:         [][]byte{},
 		internalTransactionPool: []hg.InternalTransaction{},
