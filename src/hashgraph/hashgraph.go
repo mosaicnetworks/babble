@@ -404,7 +404,8 @@ func (h *Hashgraph) roundDiff(x, y string) (int, error) {
 }
 
 //Check the SelfParent is the Creator's last known Event
-func (h *Hashgraph) checkSelfParent(event *Event) error {
+//returns error, warning
+func (h *Hashgraph) checkSelfParent(event *Event) (err, warn error) {
 	selfParent := event.SelfParent()
 	creator := event.Creator()
 
@@ -412,18 +413,20 @@ func (h *Hashgraph) checkSelfParent(event *Event) error {
 	if err != nil {
 		//First Event
 		if common.Is(err, common.Empty) && selfParent == "" {
-			return nil
+			return nil, nil
 		}
-		return err
+		return err, nil
 	}
 
 	selfParentLegit := selfParent == creatorLastKnown
 
+	//If you find this line using grep, the appearance of this event in the logs
+	//is to be expected in normal operation and may not be a cause for concern.
 	if !selfParentLegit {
-		return fmt.Errorf("Self-parent not last known event by creator")
+		return nil, fmt.Errorf("Self-parent not last known event by creator")
 	}
 
-	return nil
+	return nil, nil
 }
 
 //Check if we know the OtherParent
@@ -671,13 +674,21 @@ func (h *Hashgraph) InsertEvent(event *Event, setWireInfo bool) error {
 		return fmt.Errorf("Invalid Event signature")
 	}
 
-	if err := h.checkSelfParent(event); err != nil {
+	if err, warn := h.checkSelfParent(event); err != nil {
 		h.logger.WithFields(logrus.Fields{
 			"event":       event.Hex(),
 			"creator":     event.Creator(),
 			"self_parent": event.SelfParent(),
 		}).WithError(err).Errorf("CheckSelfParent")
 		return err
+	} else { // Warning is not returned - single log line
+		if warn != nil {
+			h.logger.WithFields(logrus.Fields{
+				"event":       event.Hex(),
+				"creator":     event.Creator(),
+				"self_parent": event.SelfParent(),
+			}).WithError(warn).Warnf("CheckSelfParent")
+		}
 	}
 
 	if err := h.checkOtherParent(event); err != nil {
