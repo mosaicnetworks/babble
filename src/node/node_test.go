@@ -23,7 +23,7 @@ import (
 var ip = 9990
 
 func TestAddTransaction(t *testing.T) {
-	keys, p := initPeers(2)
+	keys, p := initPeers(t, 2)
 	testLogger := common.NewTestLogger(t)
 	config := TestConfig(t)
 
@@ -38,9 +38,12 @@ func TestAddTransaction(t *testing.T) {
 	peer0Proxy := dummy.NewInmemDummyClient(testLogger)
 	defer peer0Trans.Close()
 
+	genesisPeerSet := createNewCopyPeerSet(t, p.Peers)
+
 	node0 := NewNode(config,
 		NewValidator(keys[0], peers[0].Moniker),
 		p,
+		genesisPeerSet,
 		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
 		peer0Proxy)
@@ -58,6 +61,7 @@ func TestAddTransaction(t *testing.T) {
 	node1 := NewNode(TestConfig(t),
 		NewValidator(keys[1], peers[1].Moniker),
 		p,
+		genesisPeerSet,
 		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
 		peer1Proxy)
@@ -107,8 +111,11 @@ func TestAddTransaction(t *testing.T) {
 
 func TestGossip(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	keys, peers := initPeers(4)
-	nodes := initNodes(keys, peers, 100000, 1000, true, "inmem", 5*time.Millisecond, logger, t)
+	keys, peers := initPeers(t, 4)
+
+	genesisPeerSet := createNewCopyPeerSet(t, peers.Peers)
+
+	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	//defer drawGraphs(nodes, t)
 
 	target := 50
@@ -122,8 +129,11 @@ func TestGossip(t *testing.T) {
 
 func TestMissingNodeGossip(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	keys, peers := initPeers(4)
-	nodes := initNodes(keys, peers, 1000, 1000, true, "inmem", 5*time.Millisecond, logger, t)
+	keys, peers := initPeers(t, 4)
+
+	genesisPeerSet := createNewCopyPeerSet(t, peers.Peers)
+
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	//defer drawGraphs(nodes, t)
 
 	err := gossip(nodes[1:], 10, true, 6*time.Second)
@@ -136,8 +146,11 @@ func TestMissingNodeGossip(t *testing.T) {
 
 func TestSyncLimit(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	keys, peers := initPeers(4)
-	nodes := initNodes(keys, peers, 1000, 1000, true, "inmem", 5*time.Millisecond, logger, t)
+	keys, peers := initPeers(t, 4)
+
+	genesisPeerSet := createNewCopyPeerSet(t, peers.Peers)
+
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
 
 	err := gossip(nodes, 10, false, 3*time.Second)
@@ -176,8 +189,11 @@ func TestSyncLimit(t *testing.T) {
 
 func TestFastForward(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	keys, peers := initPeers(4)
-	nodes := initNodes(keys, peers, 1000, 1000, true, "inmem", 5*time.Millisecond, logger, t)
+	keys, peers := initPeers(t, 4)
+
+	genesisPeerSet := createNewCopyPeerSet(t, peers.Peers)
+
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
 
 	target := 20
@@ -213,7 +229,9 @@ func TestFastForward(t *testing.T) {
 
 func TestCatchUp(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	keys, peers := initPeers(4)
+	keys, peers := initPeers(t, 4)
+
+	genesisPeerSet := createNewCopyPeerSet(t, peers.Peers)
 
 	/*
 		We don't initialize the first node; it will stay passive during the
@@ -222,7 +240,7 @@ func TestCatchUp(t *testing.T) {
 		to listen regardless of whether a node is running or not. We should
 		probably change this at some point.
 	*/
-	normalNodes := initNodes(keys[1:], peers, 1000000, 100, true, "inmem", 50*time.Millisecond, logger, t)
+	normalNodes := initNodes(keys[1:], peers, genesisPeerSet, 1000000, 100, 5, true, "inmem", 50*time.Millisecond, logger, t)
 	defer shutdownNodes(normalNodes)
 	//defer drawGraphs(normalNodes, t)
 
@@ -233,7 +251,7 @@ func TestCatchUp(t *testing.T) {
 	}
 	checkGossip(normalNodes, 0, t)
 
-	node0 := newNode(peers.Peers[0], keys[0], peers, 1000000, 100, true, "inmem", 10*time.Millisecond, logger, t)
+	node0 := newNode(peers.Peers[0], keys[0], peers, genesisPeerSet, 1000000, 100, 5, true, "inmem", 10*time.Millisecond, logger, t)
 	defer node0.Shutdown()
 
 	//Run parallel routine to check node0 eventually reaches CatchingUp state.
@@ -268,8 +286,11 @@ func TestCatchUp(t *testing.T) {
 
 func TestFastSync(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	keys, peers := initPeers(4)
-	nodes := initNodes(keys, peers, 100000, 400, true, "inmem", 10*time.Millisecond, logger, t) //make cache high to draw graphs
+	keys, peers := initPeers(t, 4)
+
+	genesisPeerSet := createNewCopyPeerSet(t, peers.Peers)
+
+	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 400, 5, true, "inmem", 10*time.Millisecond, logger, t) //make cache high to draw graphs
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
@@ -324,8 +345,11 @@ func TestFastSync(t *testing.T) {
 
 func TestShutdown(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	keys, peers := initPeers(4)
-	nodes := initNodes(keys, peers, 1000, 1000, true, "inmem", 5*time.Millisecond, logger, t)
+	keys, peers := initPeers(t, 4)
+
+	genesisPeerSet := createNewCopyPeerSet(t, peers.Peers)
+
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	runNodes(nodes, false)
 
 	nodes[0].Shutdown()
@@ -345,8 +369,10 @@ func TestBootstrapAllNodes(t *testing.T) {
 	//create a first network with BadgerStore and wait till it reaches 10 blocks
 	//before shutting it down
 	logger := common.NewTestLogger(t)
-	keys, peers := initPeers(4)
-	nodes := initNodes(keys, peers, 1000, 1000, true, "badger", 5*time.Millisecond, logger, t)
+	keys, peers := initPeers(t, 4)
+	genesisPeerSet := createNewCopyPeerSet(t, peers.Peers)
+
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 10, true, "badger", 6*time.Millisecond, logger, t)
 
 	err := gossip(nodes, 10, true, 3*time.Second)
 	if err != nil {
@@ -371,17 +397,177 @@ func TestBootstrapAllNodes(t *testing.T) {
 func BenchmarkGossip(b *testing.B) {
 	logger := common.NewTestLogger(b)
 	for n := 0; n < b.N; n++ {
-		keys, peers := initPeers(4)
-		nodes := initNodes(keys, peers, 1000, 1000, true, "inmem", 5*time.Millisecond, logger, b)
+		keys, peers := initPeers(b, 4)
+
+		genesisPeerSet := createNewCopyPeerSet(b, peers.Peers)
+
+		nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, b)
 		gossip(nodes, 50, true, 3*time.Second)
 	}
+}
+
+//TestChangingPeers is a complex test. The broad brush outline of the process is as follows:
+//
+//	1 Construct a network of 5 nodes and build a history of transactions.
+//	2 Remove a validator from the peer list
+//  3 Build more history
+//  4 Add a new validator and sync without using fast sync
+//		i.e. apply the whole hashgraph
+//  5 Build more history
+//	6 Add another validator and sync without fast sync
+//  7 Add more history and check that all peers have the same state
+//  8 Shutdown cleanly
+//
+//	Nodes 0 to 3 are always on
+//  Node 4 is removed in step 2
+//  Node 5 is added in step 4
+//  Node 6 is added in step 6
+//
+func TestChangingPeers(t *testing.T) {
+	logger := common.NewTestLogger(t)
+
+	// Step 1 - Create 5 nodes
+	keys, peers := initPeers(t, 7)
+
+	peers01234 := createNewCopyPeerSet(t, peers.Peers[0:5])                               // Initial //prs is an alias for peers, which is already used extensively as a variable
+	peers01235 := createNewCopyPeerSet(t, append(peers.Peers[0:4], peers.Peers[5:6]...))  // Step 4
+	peers012356 := createNewCopyPeerSet(t, append(peers.Peers[0:4], peers.Peers[5:7]...)) // Step 6
+
+	genesisPeerSet := createNewCopyPeerSet(t, peers01234.Peers)
+
+	logPeerList(t, peers01234, "Peers01234")
+	logPeerList(t, peers01235, "Peers01235")
+	logPeerList(t, peers012356, "Peers012356")
+	logPeerList(t, genesisPeerSet, "genesisPeerSet")
+
+	// 5 nodes are live
+	nodes01234 := initNodes(keys[0:5], peers01234, genesisPeerSet, 100000, 400, 15, false, "inmem", 10*time.Millisecond, logger, t) //make cache high to draw graphs
+	defer shutdownNodesSlice(t, nodes01234, []uint{0, 1, 2, 3})
+	//defer drawGraphs(nodes, t)
+
+	// Step 1b - gossip and build history
+	target := 5
+	err := gossip(nodes01234, target, false, 10*time.Second)
+	if err != nil {
+		t.Fatal("Step 1b gossip", err)
+	}
+	//	checkGossip(nodes01234, 0, t)
+
+	// Step 2 - Node 4 leaves
+
+	node4 := nodes01234[4]
+
+	// Pause for realism
+	// time.Sleep(2 * time.Second)
+
+	err = node4.Leave()
+	if err != nil {
+		t.Error("Step 2 Leave", node4.conf.JoinTimeout)
+		t.Fatal("Step 2 Leave", err)
+	}
+
+	// New nodes array without node 4
+	nodes0123 := nodes01234[0:4]
+
+	// Step 3 - More history
+
+	target += 50
+	err = gossip(nodes0123, target, false, 10*time.Second)
+	if err != nil {
+		t.Fatal("Step 3 Gossip", err)
+	}
+	checkGossip(nodes0123, 0, t)
+
+	// Step 4 Add a new validator (node 5) and sync without using fast sync
+
+	node5 := newNode(peers.Peers[5], keys[5], peers01235, genesisPeerSet, 1000000, 100, 5, false, "inmem", 10*time.Millisecond, logger, t)
+	defer node5.Shutdown()
+
+	// New nodes array without node 4
+	nodes01235 := append(nodes0123, node5)
+
+	// Step 5 Build more history
+
+	return //TODO remove
+
+	target += 40
+	err = gossip(nodes01235, target, false, 10*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	checkGossip(nodes01235, 0, t)
+
+	// Step 6 Add another validator (node 6) and sync without fast sync
+
+	node6 := newNode(peers.Peers[6], keys[6], peers012356, genesisPeerSet, 1000000, 100, 5, true, "inmem", 10*time.Millisecond, logger, t)
+	defer node5.Shutdown()
+
+	nodes012356 := append(nodes01235, node6)
+	// Step 7 Add more history and check that all peers have the same state
+
+	target += 50
+	err = gossip(nodes012356, target, false, 10*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes012356, 0, t)
+
+	// Check everything is in sync
+
+	// Step 8 Shutdown cleanly
+	// Is handled by defer commands set as objects are created
+
+	return
+	// End of revised code
+	/*
+		node0 := nodes[0]
+		node0.Shutdown()
+
+		secondTarget := target + 30
+		err = bombardAndWait(nodes[1:], secondTarget, 10*time.Second)
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkGossip(nodes[1:], 0, t)
+
+		//Can't re-run it; have to reinstantiate a new node.
+		node0 = recycleNode(node0, logger, t)
+		nodes[0] = node0
+
+		//Run parallel routine to check node0 eventually reaches CatchingUp state.
+		timeout := time.After(6 * time.Second)
+		go func() {
+			for {
+				select {
+				case <-timeout:
+					t.Fatalf("Timeout waiting for node0 to enter CatchingUp state")
+				default:
+				}
+				if node0.getState() == CatchingUp {
+					break
+				}
+			}
+		}()
+
+		node0.RunAsync(true)
+
+		//Gossip some more
+		thirdTarget := secondTarget + 50
+		err = bombardAndWait(nodes, thirdTarget, 10*time.Second)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		start := node0.core.hg.FirstConsensusRound
+		checkGossip(nodes, *start, t) */
 }
 
 /*******************************************************************************
 HELPERS
 *******************************************************************************/
 
-func initPeers(n int) ([]*ecdsa.PrivateKey, *peers.PeerSet) {
+func initPeers(t testing.TB, n int) ([]*ecdsa.PrivateKey, *peers.PeerSet) {
 	keys := []*ecdsa.PrivateKey{}
 	pirs := []*peers.Peer{}
 
@@ -394,6 +580,9 @@ func initPeers(n int) ([]*ecdsa.PrivateKey, *peers.PeerSet) {
 			fmt.Sprintf("node%d", i),
 		)
 		pirs = append(pirs, peer)
+		if t != nil {
+			t.Logf("Setting up Node %d on 127.0.0.1:%d", i, ip)
+		}
 		ip++
 	}
 
@@ -402,11 +591,22 @@ func initPeers(n int) ([]*ecdsa.PrivateKey, *peers.PeerSet) {
 	return keys, peerSet
 }
 
+func createNewCopyPeerSet(t testing.TB, sourcePeers []*peers.Peer) *peers.PeerSet {
+	var newPeers []*peers.Peer
+	for _, p := range sourcePeers {
+		newPeers = append(newPeers, peers.NewPeer(p.PubKeyHex, p.NetAddr, p.Moniker))
+	}
+
+	return peers.NewPeerSet(newPeers)
+}
+
 func newNode(peer *peers.Peer,
 	k *ecdsa.PrivateKey,
 	peers *peers.PeerSet,
+	genesisPeers *peers.PeerSet,
 	cacheSize,
 	syncLimit int,
+	joinTimeoutSeconds time.Duration,
 	enableSyncLimit bool,
 	storeType string,
 	heartbeatTimeout time.Duration,
@@ -416,7 +616,7 @@ func newNode(peer *peers.Peer,
 	conf := NewConfig(
 		heartbeatTimeout,
 		time.Second,
-		5*time.Second,
+		joinTimeoutSeconds*time.Second,
 		cacheSize,
 		syncLimit,
 		enableSyncLimit,
@@ -445,6 +645,7 @@ func newNode(peer *peers.Peer,
 	node := NewNode(conf,
 		NewValidator(k, peer.Moniker),
 		peers,
+		genesisPeers,
 		store,
 		trans,
 		prox)
@@ -453,13 +654,30 @@ func newNode(peer *peers.Peer,
 		t.Fatalf("failed to initialize node%d: %s", peer.ID(), err)
 	}
 
+	t.Logf("Created Node %s %d", peer.Moniker, peer.ID())
+	logPeerList(t, peers, "Peerlist: ")
 	return node
+}
+
+//Function to build a nice representation of the peerlist and put it in the logs.
+func logPeerList(t testing.TB, peers *peers.PeerSet, msg string) {
+	comma := ""
+	iplist := ""
+
+	for _, p := range peers.Peers {
+		iplist += comma + p.NetAddr
+		comma = ", "
+	}
+
+	t.Log(msg, iplist)
 }
 
 func initNodes(keys []*ecdsa.PrivateKey,
 	peers *peers.PeerSet,
+	genesisPeers *peers.PeerSet,
 	cacheSize,
 	syncLimit int,
+	joinTimeoutSeconds time.Duration,
 	enableSyncLimit bool,
 	storeType string,
 	heartbeatTimeout time.Duration,
@@ -479,8 +697,10 @@ func initNodes(keys []*ecdsa.PrivateKey,
 		node := newNode(peer,
 			k,
 			peers,
+			genesisPeers,
 			cacheSize,
 			syncLimit,
+			joinTimeoutSeconds,
 			enableSyncLimit,
 			storeType,
 			heartbeatTimeout,
@@ -506,6 +726,7 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 	key := oldNode.validator.Key
 	moniker := oldNode.validator.Moniker
 	peers := oldNode.core.peers
+	genesisPeerSet := oldNode.core.genesisPeers
 
 	var store hg.Store
 	var err error
@@ -527,7 +748,7 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 
 	conf.Bootstrap = true
 
-	newNode := NewNode(conf, NewValidator(key, moniker), peers, store, trans, prox)
+	newNode := NewNode(conf, NewValidator(key, moniker), peers, genesisPeerSet, store, trans, prox)
 
 	if err := newNode.Init(); err != nil {
 		t.Fatal(err)
@@ -623,6 +844,22 @@ func submitTransaction(n *Node, tx []byte) error {
 	}
 	prox.SubmitTx([]byte(tx))
 	return nil
+}
+
+func shutdownNodesSlice(t *testing.T, nodes []*Node, keys []uint) {
+	t.Log("shutdownNodesSlice", nodes)
+
+	for i := range keys {
+		j := keys[len(keys)-1-i]
+
+		if j >= 0 && j < uint(len(nodes)) {
+			t.Logf("Shutting down node %d", j)
+			nodes[j].Shutdown()
+		} else {
+			t.Logf("Node ")
+		}
+
+	}
 }
 
 func shutdownNodes(nodes []*Node) {

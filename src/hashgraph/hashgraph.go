@@ -681,13 +681,14 @@ func (h *Hashgraph) InsertEvent(event *Event, setWireInfo bool) error {
 			"self_parent": event.SelfParent(),
 		}).WithError(err).Errorf("CheckSelfParent")
 		return err
-	} else { // Warning is not returned - single log line
+	} else {
 		if warn != nil {
 			h.logger.WithFields(logrus.Fields{
 				"event":       event.Hex(),
 				"creator":     event.Creator(),
 				"self_parent": event.SelfParent(),
 			}).WithError(warn).Warnf("CheckSelfParent")
+			return warn
 		}
 	}
 

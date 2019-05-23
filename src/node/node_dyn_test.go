@@ -13,8 +13,11 @@ import (
 
 func TestMonologue(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	keys, peers := initPeers(1)
-	nodes := initNodes(keys, peers, 100000, 1000, true, "inmem", 5*time.Millisecond, logger, t)
+	keys, peers := initPeers(t, 1)
+
+	genesisPeerSet := createNewCopyPeerSet(t, peers.Peers)
+
+	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	//defer drawGraphs(nodes, t)
 
 	target := 50
@@ -28,8 +31,11 @@ func TestMonologue(t *testing.T) {
 
 func TestJoinRequest(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	keys, peerSet := initPeers(4)
-	nodes := initNodes(keys, peerSet, 1000000, 1000, true, "inmem", 5*time.Millisecond, logger, t)
+	keys, peerSet := initPeers(t, 4)
+
+	genesisPeerSet := createNewCopyPeerSet(t, peerSet.Peers)
+
+	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
@@ -47,7 +53,7 @@ func TestJoinRequest(t *testing.T) {
 		"monika",
 	)
 
-	newNode := newNode(peer, key, peerSet, 1000, 1000, true, "inmem", 5*time.Millisecond, logger, t)
+	newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	defer newNode.Shutdown()
 
 	err = newNode.join()
@@ -68,8 +74,11 @@ func TestJoinRequest(t *testing.T) {
 
 func TestLeaveRequest(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	keys, peerSet := initPeers(4)
-	nodes := initNodes(keys, peerSet, 1000000, 1000, true, "inmem", 5*time.Millisecond, logger, t)
+	keys, peerSet := initPeers(t, 4)
+
+	genesisPeerSet := createNewCopyPeerSet(t, peerSet.Peers)
+
+	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
@@ -99,8 +108,11 @@ func TestLeaveRequest(t *testing.T) {
 
 func TestJoinFull(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	keys, peerSet := initPeers(4)
-	initialNodes := initNodes(keys, peerSet, 1000000, 400, true, "inmem", 10*time.Millisecond, logger, t)
+	keys, peerSet := initPeers(t, 4)
+
+	genesisPeerSet := createNewCopyPeerSet(t, peerSet.Peers)
+
+	initialNodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 400, 5, true, "inmem", 10*time.Millisecond, logger, t)
 	defer shutdownNodes(initialNodes)
 
 	target := 30
@@ -116,7 +128,7 @@ func TestJoinFull(t *testing.T) {
 		fmt.Sprint("127.0.0.1:4242"),
 		"monika",
 	)
-	newNode := newNode(peer, key, peerSet, 1000000, 400, true, "inmem", 10*time.Millisecond, logger, t)
+	newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 400, 5, true, "inmem", 10*time.Millisecond, logger, t)
 	defer newNode.Shutdown()
 
 	//Run parallel routine to check newNode eventually reaches CatchingUp state.
