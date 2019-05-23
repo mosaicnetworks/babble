@@ -91,7 +91,7 @@ func AddRunFlags(cmd *cobra.Command) {
 	// Node configuration
 	cmd.Flags().Duration("heartbeat", config.Babble.NodeConfig.HeartbeatTimeout, "Time between gossips")
 	cmd.Flags().Int("sync-limit", config.Babble.NodeConfig.SyncLimit, "Max number of events for sync")
-	cmd.Flags().Bool("enable-fast-sync", config.Babble.NodeConfig.EnableFastSync, "Enable Fast Sync (default yes)")
+	cmd.Flags().Bool("enable-fast-sync", config.Babble.NodeConfig.EnableFastSync, "Enable Fast Sync")
 }
 
 func loadConfig(cmd *cobra.Command, args []string) error {

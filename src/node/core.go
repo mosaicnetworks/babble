@@ -244,7 +244,7 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 
 	changed := false
 	for _, tx := range txs {
-		if tx.Body.Accepted == common.True {
+		if tx.Accepted == common.True {
 			//update the PeerSet placeholder
 			switch tx.Body.Type {
 			case hg.PEER_ADD:
@@ -257,7 +257,7 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 			}
 			changed = true
 		} else {
-			c.logger.WithField("peer", tx.Body.Peer).Debugf("InternalTransaction not accepted. Got %v", tx.Body.Accepted)
+			c.logger.WithField("peer", tx.Body.Peer).Debugf("InternalTransaction not accepted. Got %v", tx.Accepted)
 		}
 
 	}
@@ -287,9 +287,9 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 
 	for _, tx := range txs {
 		//respond to the corresponding promise
-		if p, ok := c.promises[tx.Hash()]; ok {
+		if p, ok := c.promises[tx.HashString()]; ok {
 			p.Respond(acceptedRound, peers.Peers)
-			delete(c.promises, tx.Hash())
+			delete(c.promises, tx.HashString())
 		}
 	}
 
@@ -597,7 +597,7 @@ func (c *Core) AddInternalTransaction(tx hg.InternalTransaction) *JoinPromise {
 	promise := NewJoinPromise(tx)
 
 	//save it to promise store, for later use by the Commit callback
-	c.promises[tx.Hash()] = promise
+	c.promises[tx.HashString()] = promise
 
 	//submit the internal tx to be processed asynchronously by the gossip
 	//routines

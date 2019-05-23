@@ -23,9 +23,8 @@ const (
 )
 
 type InternalTransactionBody struct {
-	Type     TransactionType
-	Peer     peers.Peer
-	Accepted common.Trilean
+	Type TransactionType
+	Peer peers.Peer
 }
 
 //json encoding of body
@@ -41,11 +40,7 @@ func (i *InternalTransactionBody) Marshal() ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-//Hash returns a hash of the InternalTransactionBody,
-
-//Hash returns the sha256 hash of body excluding the Accepted field
-//The hash is used to sign the transaction, so it should not include the Accepted
-//field because it changes.
+//Hash returns the SHA256 hash of the InternalTransactionBody,
 func (i *InternalTransactionBody) Hash() ([]byte, error) {
 	hashBytes, err := i.Marshal()
 	if err != nil {
@@ -61,6 +56,7 @@ InternalTransaction
 type InternalTransaction struct {
 	Body      InternalTransactionBody
 	Signature string
+	Accepted  common.Trilean
 }
 
 func NewInternalTransaction(tType TransactionType, peer peers.Peer) InternalTransaction {
@@ -77,7 +73,6 @@ func NewInternalTransactionLeave(peer peers.Peer) InternalTransaction {
 	return NewInternalTransaction(PEER_REMOVE, peer)
 }
 
-//json encoding of body and signature
 func (t *InternalTransaction) Marshal() ([]byte, error) {
 	var b bytes.Buffer
 
@@ -102,48 +97,29 @@ func (t *InternalTransaction) Unmarshal(data []byte) error {
 	return nil
 }
 
-//Hash returns a hash of the InternalTransaction, excluding the Accepted field
-//(but including the signature). This hash is used by /node/core as a key in a
-//map to track internal transactions, so it should not include the Accepted
-//field because it changes.
-func (t *InternalTransaction) Hash() string {
-
-	tx := InternalTransaction{
+func (t *InternalTransaction) AsAccepted() InternalTransaction {
+	return InternalTransaction{
 		Body: InternalTransactionBody{
 			Type: t.Body.Type,
 			Peer: t.Body.Peer,
 		},
 		Signature: t.Signature,
-	}
-
-	hashBytes, _ := tx.Marshal()
-	hash := crypto.SHA256(hashBytes)
-	return common.EncodeToString(hash)
-}
-
-func (t *InternalTransaction) AsAccepted() InternalTransaction {
-	return InternalTransaction{
-		Body: InternalTransactionBody{
-			Type:     t.Body.Type,
-			Peer:     t.Body.Peer,
-			Accepted: common.True,
-		},
-		Signature: t.Signature,
+		Accepted:  common.True,
 	}
 }
 
 func (t *InternalTransaction) AsRefuse() InternalTransaction {
 	return InternalTransaction{
 		Body: InternalTransactionBody{
-			Type:     t.Body.Type,
-			Peer:     t.Body.Peer,
-			Accepted: common.False,
+			Type: t.Body.Type,
+			Peer: t.Body.Peer,
 		},
 		Signature: t.Signature,
+		Accepted:  common.False,
 	}
 }
 
-//ecdsa sig
+//Sign returns the ecdsa signature of the SHA256 hash of the transaction's body
 func (t *InternalTransaction) Sign(privKey *ecdsa.PrivateKey) error {
 	signBytes, err := t.Body.Hash()
 	if err != nil {
@@ -175,4 +151,12 @@ func (t *InternalTransaction) Verify() (bool, error) {
 	}
 
 	return keys.Verify(pubKey, signBytes, r, s), nil
+}
+
+//HashString returns a string representation of the body's hash. It is used in
+//node/core as a key in a map to keep track of InternalTransactions as they are
+//being processed asynchronously by the consensus and application.
+func (t *InternalTransaction) HashString() string {
+	hash, _ := t.Body.Hash()
+	return string(hash)
 }
