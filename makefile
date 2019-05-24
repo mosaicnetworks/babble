@@ -23,4 +23,12 @@ dist:
 test:
 	glide novendor | xargs go test -count=1 -tags=unit
 
-.PHONY: vendor install build dist test
+extratests:
+	glide novendor | xargs go test -count=1 -run Extra
+
+alltests:
+	glide novendor | xargs go test -count=1 
+
+
+
+.PHONY: vendor install build dist test extratests alltests
