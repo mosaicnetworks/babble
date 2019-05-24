@@ -158,7 +158,7 @@ func (c *Core) SignAndInsertSelfEvent(event *hg.Event) error {
 	return c.InsertEventAndRunConsensus(event, true)
 }
 
-//InsertEventAndRunConsensus Inserts a hashgraph event and runds consensus
+//InsertEventAndRunConsensus Inserts a hashgraph event and runs consensus
 func (c *Core) InsertEventAndRunConsensus(event *hg.Event, setWireInfo bool) error {
 	if err := c.hg.InsertEventAndRunConsensus(event, setWireInfo); err != nil {
 		return err
@@ -514,6 +514,7 @@ func (c *Core) Leave(leaveTimeout time.Duration) error {
 	}
 
 	itx := hg.NewInternalTransaction(hg.PEER_REMOVE, *p)
+	itx.Sign(c.validator.Key)
 
 	promise := c.AddInternalTransaction(itx)
 

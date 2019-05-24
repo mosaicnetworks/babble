@@ -165,7 +165,7 @@ func checkPeerSets(nodes []*Node, t *testing.T) {
 		if !reflect.DeepEqual(node0FP, nodeiFP) {
 			t.Logf("Node 0 PeerSets: %v", node0FP)
 			t.Logf("Node %d PeerSets: %v", i, nodeiFP)
-			t.Fatalf("PeerSets defer")
+			t.Fatalf("PeerSets differ")
 		}
 	}
 }
