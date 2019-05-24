@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 
-	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/crypto"
 	"github.com/mosaicnetworks/babble/src/crypto/keys"
 	"github.com/mosaicnetworks/babble/src/peers"
@@ -56,7 +55,6 @@ InternalTransaction
 type InternalTransaction struct {
 	Body      InternalTransactionBody
 	Signature string
-	Accepted  common.Trilean
 }
 
 func NewInternalTransaction(tType TransactionType, peer peers.Peer) InternalTransaction {
@@ -95,28 +93,6 @@ func (t *InternalTransaction) Unmarshal(data []byte) error {
 	}
 
 	return nil
-}
-
-func (t *InternalTransaction) AsAccepted() InternalTransaction {
-	return InternalTransaction{
-		Body: InternalTransactionBody{
-			Type: t.Body.Type,
-			Peer: t.Body.Peer,
-		},
-		Signature: t.Signature,
-		Accepted:  common.True,
-	}
-}
-
-func (t *InternalTransaction) AsRefuse() InternalTransaction {
-	return InternalTransaction{
-		Body: InternalTransactionBody{
-			Type: t.Body.Type,
-			Peer: t.Body.Peer,
-		},
-		Signature: t.Signature,
-		Accepted:  common.False,
-	}
 }
 
 //Sign returns the ecdsa signature of the SHA256 hash of the transaction's body
@@ -159,4 +135,31 @@ func (t *InternalTransaction) Verify() (bool, error) {
 func (t *InternalTransaction) HashString() string {
 	hash, _ := t.Body.Hash()
 	return string(hash)
+}
+
+//AsAccepted returns a receipt to accept an InternalTransaction
+func (t *InternalTransaction) AsAccepted() InternalTransactionReceipt {
+	return InternalTransactionReceipt{
+		InternalTransaction: *t,
+		Accepted:            true,
+	}
+}
+
+//AsRefused return a receipt to refuse an InternalTransaction
+func (t *InternalTransaction) AsRefused() InternalTransactionReceipt {
+	return InternalTransactionReceipt{
+		InternalTransaction: *t,
+		Accepted:            false,
+	}
+}
+
+/*******************************************************************************
+InternalTransactionReceipt
+*******************************************************************************/
+
+//InternalTransactionReceipt records the decision by the application to accept
+//or refuse and InternalTransaction
+type InternalTransactionReceipt struct {
+	InternalTransaction InternalTransaction
+	Accepted            bool
 }

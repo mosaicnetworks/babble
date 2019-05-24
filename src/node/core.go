@@ -183,19 +183,19 @@ func (c *Core) Commit(block *hg.Block) error {
 	commitResponse, err := c.proxyCommitCallback(*block)
 
 	c.logger.WithFields(logrus.Fields{
-		"block":                 block.Index(),
-		"state_hash":            fmt.Sprintf("%X", commitResponse.StateHash),
-		"internal_transactions": commitResponse.InternalTransactions,
+		"block":                         block.Index(),
+		"state_hash":                    fmt.Sprintf("%X", commitResponse.StateHash),
+		"internal_transaction_receipts": commitResponse.InternalTransactionReceipts,
 		"err": err,
 	}).Debug("CommitBlock Response")
 
 	//XXX Handle errors
 
-	//Handle the response to set Block StateHash and process accepted
-	//InternalTransactions which might update the PeerSet.
+	//Handle the response to set Block StateHash and process InternalTransaction
+	//receipts which might update the PeerSet.
 	if err == nil {
 		block.Body.StateHash = commitResponse.StateHash
-		block.Body.InternalTransactions = commitResponse.InternalTransactions
+		block.Body.InternalTransactionReceipts = commitResponse.InternalTransactionReceipts
 
 		sig, err := c.SignBlock(block)
 		if err != nil {
@@ -209,7 +209,7 @@ func (c *Core) Commit(block *hg.Block) error {
 
 		c.selfBlockSignatures.Add(sig)
 
-		err = c.ProcessAcceptedInternalTransactions(block.RoundReceived(), commitResponse.InternalTransactions)
+		err = c.ProcessAcceptedInternalTransactions(block.RoundReceived(), commitResponse.InternalTransactionReceipts)
 		if err != nil {
 			return err
 		}
@@ -239,25 +239,25 @@ func (c *Core) SignBlock(block *hg.Block) (hg.BlockSignature, error) {
 }
 
 //ProcessAcceptedInternalTransactions processes the accepted internal transactions
-func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.InternalTransaction) error {
-	peers := c.peers
+func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, receipts []hg.InternalTransactionReceipt) error {
+	newPeers := c.peers
 
 	changed := false
-	for _, tx := range txs {
-		if tx.Accepted == common.True {
+	for _, r := range receipts {
+		if r.Accepted {
 			//update the PeerSet placeholder
-			switch tx.Body.Type {
+			switch r.InternalTransaction.Body.Type {
 			case hg.PEER_ADD:
-				c.logger.WithField("peer", tx.Body.Peer).Debug("adding peer")
-				peers = peers.WithNewPeer(&tx.Body.Peer)
+				c.logger.WithField("peer", r.InternalTransaction.Body.Peer).Debug("adding peer")
+				newPeers = newPeers.WithNewPeer(&r.InternalTransaction.Body.Peer)
 			case hg.PEER_REMOVE:
-				c.logger.WithField("peer", tx.Body.Peer).Debug("removing peer")
-				peers = peers.WithRemovedPeer(&tx.Body.Peer)
+				c.logger.WithField("peer", r.InternalTransaction.Body.Peer).Debug("removing peer")
+				newPeers = newPeers.WithRemovedPeer(&r.InternalTransaction.Body.Peer)
 			default:
 			}
 			changed = true
 		} else {
-			c.logger.WithField("peer", tx.Body.Peer).Debugf("InternalTransaction not accepted. Got %v", tx.Accepted)
+			c.logger.WithField("peer", r.InternalTransaction.Body.Peer).Debug("InternalTransaction not accepted")
 		}
 
 	}
@@ -268,14 +268,14 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 	acceptedRound := roundReceived + 6
 
 	if changed {
-		err := c.hg.Store.SetPeerSet(acceptedRound, peers)
+		err := c.hg.Store.SetPeerSet(acceptedRound, newPeers)
 		if err != nil {
 			return fmt.Errorf("Udpating Store PeerSet: %s", err)
 		}
 
 		//XXX should not be set immediately. We need a smarter way for core to
 		//know which peerset to use depending on which round the hg is at.
-		c.SetPeerSet(peers)
+		c.SetPeerSet(newPeers)
 
 		//A new peer has joined and it won't be able to participate in consensus
 		//until it fast-forwards to its accepted-round. Hence, we force the
@@ -285,11 +285,15 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 		}
 	}
 
-	for _, tx := range txs {
+	for _, r := range receipts {
 		//respond to the corresponding promise
-		if p, ok := c.promises[tx.HashString()]; ok {
-			p.Respond(acceptedRound, peers.Peers)
-			delete(c.promises, tx.HashString())
+		if p, ok := c.promises[r.InternalTransaction.HashString()]; ok {
+			if r.Accepted {
+				p.Respond(true, acceptedRound, newPeers.Peers)
+			} else {
+				p.Respond(false, 0, []*peers.Peer{})
+			}
+			delete(c.promises, r.InternalTransaction.HashString())
 		}
 	}
 

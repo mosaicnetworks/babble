@@ -52,6 +52,7 @@ type JoinRequest struct {
 
 type JoinResponse struct {
 	FromID        uint32
+	Accepted      bool
 	AcceptedRound int
 	Peers         []*peers.Peer
 }
