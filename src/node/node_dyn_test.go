@@ -64,6 +64,7 @@ func TestJoinRequest(t *testing.T) {
 
 	checkGossip(nodes, 0, t)
 	checkPeerSets(nodes, t)
+	verifyNewPeerSet(nodes, newNode.core.AcceptedRound, 5, t)
 }
 
 func TestLeaveRequest(t *testing.T) {
@@ -93,8 +94,10 @@ func TestLeaveRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	checkGossip(nodes[0:3], 0, t)
 	checkPeerSets(nodes[0:3], t)
+	verifyNewPeerSet(nodes[0:3], leavingNode.core.RemovedRound, 3, t)
 }
 
 func TestJoinFull(t *testing.T) {
@@ -150,6 +153,8 @@ func TestJoinFull(t *testing.T) {
 	start := newNode.core.hg.FirstConsensusRound
 	checkGossip(nodes, *start, t)
 	checkPeerSets(nodes, t)
+	verifyNewPeerSet(nodes, newNode.core.AcceptedRound, 5, t)
+
 }
 
 func checkPeerSets(nodes []*Node, t *testing.T) {
@@ -166,6 +171,21 @@ func checkPeerSets(nodes []*Node, t *testing.T) {
 			t.Logf("Node 0 PeerSets: %v", node0FP)
 			t.Logf("Node %d PeerSets: %v", i, nodeiFP)
 			t.Fatalf("PeerSets differ")
+		}
+	}
+}
+
+func verifyNewPeerSet(nodes []*Node, round int, expectedLength int, t *testing.T) {
+	for i, node := range nodes {
+		nodeFP, _ := node.core.hg.Store.GetAllPeerSets()
+
+		nps, ok := nodeFP[round]
+		if !ok {
+			t.Fatalf("nodes[%d] PeerSets[%d] should not be empty", i, round)
+		}
+
+		if len(nps) != expectedLength {
+			t.Fatalf("nodes[%d] PeerSets[%d] should contain %d peers, not %d", i, round, expectedLength, len(nps))
 		}
 	}
 }

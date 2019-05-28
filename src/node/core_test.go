@@ -795,11 +795,23 @@ func TestR2DynConsensus(t *testing.T) {
 	cores, _, _ := initR2DynHashgraph(t)
 
 	for i, c := range cores {
-		frame1, err := c.hg.Store.GetFrame(1)
+		block1, err := c.hg.Store.GetBlock(1)
 		if err != nil {
 			t.Fatal(err)
 		}
-		t.Logf("frame1: %v", frame1)
+
+		if lir := len(block1.InternalTransactions()); lir != 1 {
+			t.Fatalf("cores[%d] block 1 should contain 1 InternalTransaction, not %d", i, lir)
+		}
+
+		if lirr := len(block1.InternalTransactionReceipts()); lirr != 1 {
+			t.Fatalf("cores[%d] block 1 should contain 1 InternalTransactionReceipt, not %d", i, lirr)
+		}
+
+		if !block1.InternalTransactionReceipts()[0].Accepted {
+			t.Fatalf("cores[%d] InternalTransaction should be accepted", i)
+		}
+
 		if lcr := c.hg.LastConsensusRound; lcr == nil || *lcr != 6 {
 			t.Fatalf("cores[%d] LastConsensusRound should be 6, not %d", i, *lcr)
 		}

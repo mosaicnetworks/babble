@@ -29,13 +29,17 @@ type Core struct {
 	Seq  int
 
 	//AcceptedRound is the first Round to which this peer belongs. A node will
-	//not create SelfEvents before reaching AcceptedRound.
+	//not create SelfEvents before reaching AcceptedRound. Default -1.
 	AcceptedRound int
+
+	//RemovedRound is the round at which the node's last LeaveRequest takes
+	//effect (if there is one). Default -1.
+	RemovedRound int
 
 	/*
 		TargetRound is the minimum Consensus Round that the node needs to reach.
 		It is useful to set this value to a joining peer's accepted-round to
-		prevent them from having to wait.
+		prevent them from having to wait. Default -1.
 	*/
 	TargetRound int
 
@@ -90,6 +94,7 @@ func NewCore(
 		Head:                    "",
 		Seq:                     -1,
 		AcceptedRound:           -1,
+		RemovedRound:            -1,
 		TargetRound:             -1,
 	}
 
@@ -530,6 +535,7 @@ func (c *Core) Leave(leaveTimeout time.Duration) error {
 			"leaving_round": resp.AcceptedRound,
 			"peers":         len(resp.Peers),
 		}).Debug("LeaveRequest processed")
+		c.RemovedRound = resp.AcceptedRound
 	case <-timeout:
 		err := fmt.Errorf("Timeout waiting for LeaveRequest to go through consensus")
 		c.logger.WithError(err).Error()
