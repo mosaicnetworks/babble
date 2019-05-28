@@ -20,7 +20,7 @@ func TestInitStore(t *testing.T) {
 	conf.Store = true
 	conf.NodeConfig.Bootstrap = false
 
-	jsonPeerSet := peers.NewJSONPeerSet("test_data")
+	jsonPeerSet := peers.NewJSONPeerSet("test_data", true)
 
 	keys := map[string]*ecdsa.PrivateKey{}
 	peerSlice := []*peers.Peer{}

@@ -37,18 +37,18 @@ func (m *mobileApp) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, 
 
 	stateHash := m.commitHandler.OnCommit(blockBytes)
 
-	processedInternalTransactions := []hashgraph.InternalTransaction{}
+	receipts := []hashgraph.InternalTransactionReceipt{}
 	for _, it := range block.InternalTransactions() {
-		pit := it.AsAccepted()
-		processedInternalTransactions = append(processedInternalTransactions, pit)
+		r := it.AsAccepted()
+		receipts = append(receipts, r)
 	}
 
-	commitResponse := proxy.CommitResponse{
-		StateHash:            stateHash,
-		InternalTransactions: processedInternalTransactions,
+	response := proxy.CommitResponse{
+		StateHash:                   stateHash,
+		InternalTransactionReceipts: receipts,
 	}
 
-	return commitResponse, nil
+	return response, nil
 }
 
 func (m *mobileApp) SnapshotHandler(blockIndex int) ([]byte, error) {
