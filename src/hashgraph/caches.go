@@ -160,7 +160,7 @@ func (c *PeerSetCache) Set(round int, peerSet *peers.PeerSet) error {
 }
 
 func (c *PeerSetCache) Get(round int) (*peers.PeerSet, error) {
-	//check if direclty in peerSets
+	//check if directly in peerSets
 	ps, ok := c.peerSets[round]
 	if ok {
 		return ps, nil

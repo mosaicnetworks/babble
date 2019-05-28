@@ -170,7 +170,7 @@ func (n *Node) doBackgroundWork() {
 
 //babble is interrupted when a gossip function, launched asychronously, changes
 //the state from Babbling to CatchingUp, or when the node is shutdown.
-//Otherwise, it processes RPC requests, periodicaly initiates gossip while there
+//Otherwise, it processes RPC requests, periodically initiates gossip while there
 //is something to gossip about, or waits.
 func (n *Node) babble(gossip bool) {
 	n.logger.Debug("BABBLING")

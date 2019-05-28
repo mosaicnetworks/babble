@@ -203,7 +203,7 @@ func TestTransport_FastForward(t *testing.T) {
 			peers.NewPeer("pub2", "addr2", "monika"),
 		}
 
-		//Marshalling/Unmarshalling clears private fiels, so we precompute the
+		//Marshalling/Unmarshalling clears private fields, so we precompute the
 		//Marsalled/Unmarshalled objects to compare the expected result to the
 		//RPC response.
 

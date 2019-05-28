@@ -465,7 +465,7 @@ func TestBadgerEvents(t *testing.T) {
 		events[p.hex] = items
 	}
 
-	// check that events were correclty inserted
+	// check that events were correctly inserted
 	for p, evs := range events {
 		for k, ev := range evs {
 			rev, err := store.GetEvent(ev.Hex())
