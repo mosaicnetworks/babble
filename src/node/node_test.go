@@ -678,6 +678,9 @@ func drawGraphs(nodes []*Node, t *testing.T) {
 		}
 
 		jinfo, err := json.Marshal(info)
+		if err != nil {
+			t.Log(err)
+		}
 
 		err = ioutil.WriteFile(fmt.Sprintf("test_data/info%d", n.ID()), jinfo, 0644)
 		if err != nil {

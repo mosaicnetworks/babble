@@ -125,6 +125,10 @@ func TestSocketProxyClient(t *testing.T) {
 
 	//create babble proxy
 	_, err = bproxy.NewSocketBabbleProxy(proxyAddr, clientAddr, handler, 1*time.Second, logger)
+	if err != nil {
+		t.Fatalf("Cannot create SocketBabbleProxy: %s", err)
+	}
+
 
 	transactions := [][]byte{
 		[]byte("tx 1"),
