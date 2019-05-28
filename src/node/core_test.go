@@ -739,6 +739,10 @@ func initR2DynHashgraph(t *testing.T) (cores []*Core, bobPeer *peers.Peer, bobKe
 	bobPubHex := keys.PublicKeyHex(&bobKey.PublicKey)
 	bobPeer = peers.NewPeer(bobPubHex, "", "")
 
+	//Initialize internalTx
+	itx := hg.NewInternalTransactionJoin(*bobPeer)
+	itx.Sign(bobKey)
+
 	//Insert a JoinRequest in a Round0 Event
 	playbook := []play{
 		play{from: 0, to: 1, payload: [][]byte{[]byte("e10")}},
@@ -746,7 +750,7 @@ func initR2DynHashgraph(t *testing.T) (cores []*Core, bobPeer *peers.Peer, bobKe
 		play{from: 2, to: 0, payload: [][]byte{[]byte("e12")}},
 		play{from: 0, to: 1, payload: [][]byte{[]byte("w11")}},
 		play{from: 1, to: 2, payload: [][]byte{[]byte("w12")},
-			internalTxs: []hg.InternalTransaction{hg.NewInternalTransaction(hg.PEER_ADD, *bobPeer)}},
+			internalTxs: []hg.InternalTransaction{itx}},
 		play{from: 2, to: 0, payload: [][]byte{[]byte("w10")}},
 		play{from: 0, to: 1, payload: [][]byte{[]byte("f10")}},
 		play{from: 1, to: 2, payload: [][]byte{[]byte("w22")}},

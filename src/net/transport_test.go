@@ -352,8 +352,10 @@ func TestTransport_Join(t *testing.T) {
 		}
 
 		// Make the RPC request
+		itx := hashgraph.NewInternalTransactionJoin(*unmarshalledPeers[0])
+		//itx.Sign()
 		args := JoinRequest{
-			Peer: *unmarshalledPeers[0],
+			InternalTransaction: itx,
 		}
 
 		resp := JoinResponse{

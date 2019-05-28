@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/json"
+	"fmt"
 
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/crypto"
@@ -184,6 +185,19 @@ func (e *Event) Sign(privKey *ecdsa.PrivateKey) error {
 }
 
 func (e *Event) Verify() (bool, error) {
+
+	//first check signatures on internal transactions
+	for _, itx := range e.Body.InternalTransactions {
+		ok, err := itx.Verify()
+
+		if err != nil {
+			return false, err
+		} else if !ok {
+			return false, fmt.Errorf("invalid signature on internal transaction")
+		}
+	}
+
+	//then check event signature
 	pubBytes := e.Body.Creator
 	pubKey := keys.ToPublicKey(pubBytes)
 

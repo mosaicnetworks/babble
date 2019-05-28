@@ -47,7 +47,7 @@ type FastForwardResponse struct {
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 type JoinRequest struct {
-	Peer peers.Peer // peer that wants to join
+	InternalTransaction hashgraph.InternalTransaction
 }
 
 type JoinResponse struct {

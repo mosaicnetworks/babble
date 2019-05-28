@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mosaicnetworks/babble/src/hashgraph"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
 	"github.com/mosaicnetworks/babble/src/peers"
@@ -53,12 +54,15 @@ func (n *Node) requestFastForward(target string) (net.FastForwardResponse, error
 }
 
 func (n *Node) requestJoin(target string) (net.JoinResponse, error) {
-	args := net.JoinRequest{
-		Peer: *peers.NewPeer(
-			n.validator.PublicKeyHex(),
-			n.trans.LocalAddr(),
-			n.validator.Moniker),
-	}
+
+	joinTx := hashgraph.NewInternalTransactionJoin(*peers.NewPeer(
+		n.validator.PublicKeyHex(),
+		n.trans.LocalAddr(),
+		n.validator.Moniker))
+
+	joinTx.Sign(n.validator.Key)
+
+	args := net.JoinRequest{InternalTransaction: joinTx}
 
 	var out net.JoinResponse
 
@@ -216,7 +220,7 @@ func (n *Node) processFastForwardRequest(rpc net.RPC, cmd *net.FastForwardReques
 
 func (n *Node) processJoinRequest(rpc net.RPC, cmd *net.JoinRequest) {
 	n.logger.WithFields(logrus.Fields{
-		"peer": cmd.Peer,
+		"peer": cmd.InternalTransaction.Body.Peer,
 	}).Debug("process JoinRequest")
 
 	var respErr error
@@ -224,7 +228,13 @@ func (n *Node) processJoinRequest(rpc net.RPC, cmd *net.JoinRequest) {
 	var acceptedRound int
 	var peers []*peers.Peer
 
-	if _, ok := n.core.peers.ByPubKey[cmd.Peer.PubKeyString()]; ok {
+	if ok, _ := cmd.InternalTransaction.Verify(); !ok {
+
+		respErr = fmt.Errorf("Unable to verify signature on join request")
+
+		n.logger.Debug("Unable to verify signature on join request")
+
+	} else if _, ok := n.core.peers.ByPubKey[cmd.InternalTransaction.Body.Peer.PubKeyString()]; ok {
 
 		n.logger.Debug("JoinRequest peer is already present")
 
@@ -240,11 +250,9 @@ func (n *Node) processJoinRequest(rpc net.RPC, cmd *net.JoinRequest) {
 
 	} else {
 		//XXX run this by the App first
-		itx := hg.NewInternalTransaction(hg.PEER_ADD, cmd.Peer)
-
 		//Dispatch the InternalTransaction
 		n.coreLock.Lock()
-		promise := n.core.AddInternalTransaction(itx)
+		promise := n.core.AddInternalTransaction(cmd.InternalTransaction)
 		n.coreLock.Unlock()
 
 		//Wait for the InternalTransaction to go through consensus
