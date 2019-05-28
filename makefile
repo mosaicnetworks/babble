@@ -20,6 +20,9 @@ build:
 dist:
 	@BUILD_TAGS='$(BUILD_TAGS)' sh -c "'$(CURDIR)/scripts/dist.sh'"
 
+
+tests:  test
+
 test:
 	glide novendor | xargs go test -count=1 -tags=unit
 
@@ -31,4 +34,4 @@ alltests:
 
 
 
-.PHONY: vendor install build dist test extratests alltests
+.PHONY: vendor install build dist test extratests alltests tests
