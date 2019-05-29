@@ -27,29 +27,30 @@ type Core struct {
 	genesisPeers *peers.PeerSet
 	hgPeers      *peers.PeerSet
 
-	//Hash and Index of this instance's head Event
+	// Hash and Index of this instance's head Event
 	Head string
 	Seq  int
 
-	//AcceptedRound is the first Round to which this peer belongs. A node will
-	//not create SelfEvents before reaching AcceptedRound.
+	// AcceptedRound is the first round at which the node's last JoinRequest
+	// takes effect. A node will not create SelfEvents before reaching
+	// AcceptedRound.Default -1.
 	AcceptedRound int
 
-	/*
-		TargetRound is the minimum Consensus Round that the node needs to reach.
-		It is useful to set this value to a joining peer's accepted-round to
-		prevent them from having to wait.
-	*/
+	// RemovedRound is the round at which the node's last LeaveRequest takes
+	// effect (if there is one). Default -1.
+	RemovedRound int
+
+	// TargetRound is the minimum Consensus Round that the node needs to reach.
+	// It is useful to set this value to a joining peer's accepted-round to
+	// prevent them from having to wait.
 	TargetRound int
 
-	/*
-		Events that are not tied to this node's Head. This is managed by
-		the Sync method. If the gossip condition is false (there is nothing
-		interesting to record), items are added to heads; if the gossip
-		condition is true, items are removed from heads and used to record a new
-		self-event. This functionality allows to not grow the hashgraph
-		continuously when there is nothing to record.
-	*/
+	// Events that are not tied to this node's Head. This is managed by the Sync
+	// method. If the gossip condition is false (there is nothing interesting to
+	// record), items are added to heads; if the gossip condition is true, items
+	// are removed from heads and used to record a new self-event. This
+	// functionality allows to not grow the hashgraph continuously when there is
+	// nothing to record.
 	heads map[uint32]*hg.Event
 
 	transactionPool         [][]byte
@@ -96,6 +97,7 @@ func NewCore(
 		Head:                    "",
 		Seq:                     -1,
 		AcceptedRound:           -1,
+		RemovedRound:            -1,
 		TargetRound:             -1,
 	}
 
@@ -261,6 +263,7 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 					"round":              roundReceived,
 					"peers_count_before": len(hgPeers.Peers),
 				}).Debug("adding peer")
+
 				hgPeers = hgPeers.WithNewPeer(&tx.Body.Peer)
 
 				//XXX The peer might already by in the current peerset
@@ -275,6 +278,7 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 					"round":              roundReceived,
 					"peers_count_before": len(hgPeers.Peers),
 				}).Debug("removing peer")
+
 				hgPeers = hgPeers.WithRemovedPeer(&tx.Body.Peer)
 
 				//XXX
@@ -308,6 +312,9 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 		//know which peerset to use depending on which round the hg is at.
 		c.SetPeerSet(corePeers)
 
+		//XXX
+		c.hgPeers = hgPeers
+
 		//TODO Remove this debug code
 		fr, err := c.hg.GetFrame(roundReceived)
 		framepeers := fr.Peers
@@ -320,7 +327,7 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 		//until it fast-forwards to its accepted-round. Hence, we force the
 		//other nodes to reach that round.
 		if acceptedRound > c.TargetRound {
-			c.logger.Debugf("Fast Forward round from as new peer joins %d to %d", c.TargetRound, acceptedRound)
+			c.logger.Debugf("Update TargetRound from %d to %d", c.TargetRound, acceptedRound)
 			c.TargetRound = acceptedRound
 		}
 	}
@@ -545,6 +552,10 @@ func (c *Core) FastForward(peer string, block *hg.Block, frame *hg.Frame) error 
 
 	c.SetPeerSet(peers.NewPeerSet(frame.Peers))
 
+	//XXX removing this breaks TestSuccessiveJoinRequestExtra
+	//TODO refactor core peersets
+	c.hgPeers = peers.NewPeerSet(frame.Peers)
+
 	return nil
 }
 
@@ -567,6 +578,7 @@ func (c *Core) Leave(leaveTimeout time.Duration) error {
 			"leaving_round": resp.AcceptedRound,
 			"peers":         len(resp.Peers),
 		}).Debug("LeaveRequest processed")
+		c.RemovedRound = resp.AcceptedRound
 	case <-timeout:
 		err := fmt.Errorf("Timeout waiting for LeaveRequest to go through consensus")
 		c.logger.WithError(err).Error()
@@ -584,7 +596,7 @@ func (c *Core) Leave(leaveTimeout time.Duration) error {
 				return err
 			default:
 				if c.hg.LastConsensusRound != nil && *c.hg.LastConsensusRound < c.TargetRound {
-					c.logger.Debugf("Waiting to reach TargetRound: %d/%d", *c.hg.LastConsensusRound, c.TargetRound)
+					c.logger.Debugf("Waiting to reach TargetRound: %d/%d", *c.hg.LastConsensusRound, c.RemovedRound)
 					time.Sleep(100 * time.Millisecond)
 				} else {
 					return nil

@@ -103,8 +103,10 @@ func TestLeaveRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	checkGossip(nodes[0:3], 0, t)
 	checkPeerSets(nodes[0:3], t)
+	verifyNewPeerSet(nodes[0:3], leavingNode.core.RemovedRound, 3, t)
 }
 
 func TestJoinFull(t *testing.T) {
@@ -129,23 +131,9 @@ func TestJoinFull(t *testing.T) {
 		fmt.Sprint("127.0.0.1:4242"),
 		"monika",
 	)
+
 	newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 400, 5, true, "inmem", 10*time.Millisecond, logger, t)
 	defer newNode.Shutdown()
-
-	//Run parallel routine to check newNode eventually reaches CatchingUp state.
-	timeout := time.After(6 * time.Second)
-	go func() {
-		for {
-			select {
-			case <-timeout:
-				t.Fatalf("Timeout waiting for newNode to enter CatchingUp state")
-			default:
-			}
-			if newNode.getState() == CatchingUp {
-				break
-			}
-		}
-	}()
 
 	newNode.RunAsync(true)
 
