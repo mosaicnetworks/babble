@@ -25,6 +25,7 @@ type Core struct {
 	selectorLock sync.Mutex
 
 	genesisPeers *peers.PeerSet
+	hgPeers      *peers.PeerSet
 
 	//Hash and Index of this instance's head Event
 	Head string
@@ -84,6 +85,7 @@ func NewCore(
 		proxyCommitCallback:     proxyCommitCallback,
 		peers:                   peers,
 		genesisPeers:            genesisPeers,
+		hgPeers:                 genesisPeers,
 		peerSelector:            peerSelector,
 		transactionPool:         [][]byte{},
 		internalTransactionPool: []hg.InternalTransaction{},
@@ -245,7 +247,8 @@ func (c *Core) SignBlock(block *hg.Block) (hg.BlockSignature, error) {
 
 //ProcessAcceptedInternalTransactions processes the accepted internal transactions
 func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.InternalTransaction) error {
-	peers := c.peers
+	corePeers := c.peers
+	hgPeers := c.hgPeers
 
 	changed := false
 	for _, tx := range txs {
@@ -256,16 +259,26 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 				c.logger.WithFields(logrus.Fields{
 					"peer":               tx.Body.Peer,
 					"round":              roundReceived,
-					"peers_count_before": len(peers.Peers),
+					"peers_count_before": len(hgPeers.Peers),
 				}).Debug("adding peer")
-				peers = peers.WithNewPeer(&tx.Body.Peer)
+				hgPeers = hgPeers.WithNewPeer(&tx.Body.Peer)
+
+				//XXX The peer might already by in the current peerset
+				//current peerset is not the same as hashgraph peerset.
+				//This could probably be moved somewhere else
+				if _, ok := corePeers.ByID[tx.Body.Peer.ID()]; !ok {
+					corePeers = corePeers.WithNewPeer(&tx.Body.Peer)
+				}
 			case hg.PEER_REMOVE:
 				c.logger.WithFields(logrus.Fields{
 					"peer":               tx.Body.Peer,
 					"round":              roundReceived,
-					"peers_count_before": len(peers.Peers),
+					"peers_count_before": len(hgPeers.Peers),
 				}).Debug("removing peer")
-				peers = peers.WithRemovedPeer(&tx.Body.Peer)
+				hgPeers = hgPeers.WithRemovedPeer(&tx.Body.Peer)
+
+				//XXX
+				corePeers = corePeers.WithRemovedPeer(&tx.Body.Peer)
 			default:
 			}
 			changed = true
@@ -281,61 +294,19 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 	acceptedRound := roundReceived + 6
 
 	if changed {
-		err := c.hg.Store.SetPeerSet(acceptedRound, peers)
+		err := c.hg.Store.SetPeerSet(acceptedRound, hgPeers)
 		if err != nil {
 			return fmt.Errorf("Updating Store PeerSet: %s", err)
 		}
 
 		c.logger.WithFields(logrus.Fields{
 			"accepted_round": acceptedRound,
-			"peers_count":    len(peers.Peers),
+			"peers_count":    len(hgPeers.Peers),
 		}).Debug("Peers Changed")
-
-		c.logger.WithFields(logrus.Fields{
-			"accepted_round":   acceptedRound,
-			"peers":            peers,
-			"by_id_length":     len(peers.ByID),
-			"by_pubkey_length": len(peers.ByPubKey),
-			"peer_length":      len(peers.Peers),
-		}).Debug("New PeerSet")
-
-		if len(peers.ByID) != len(peers.Peers) {
-			c.logger.WithFields(logrus.Fields{
-				"accepted_round":       acceptedRound,
-				"by_id_length":         len(peers.ByID),
-				"by_pubkey_length":     len(peers.ByPubKey),
-				"peer_length":          len(peers.Peers),
-				"old_by_id_length":     len(c.peers.ByID),
-				"old_by_pubkey_length": len(c.peers.ByPubKey),
-				"old_peer_length":      len(c.peers.Peers),
-			}).Warn("PeerSet Lengths Mismatch")
-
-			c.logger.WithFields(logrus.Fields{
-				"accepted_round":       acceptedRound,
-				"peers":                peers,
-				"by_id_length":         len(peers.ByID),
-				"by_pubkey_length":     len(peers.ByPubKey),
-				"peer_length":          len(peers.Peers),
-				"old_peers":            c.peers,
-				"old_by_id_length":     len(c.peers.ByID),
-				"old_by_pubkey_length": len(c.peers.ByPubKey),
-				"old_peer_length":      len(c.peers.Peers),
-			}).Warn("peerset lengths mismatch")
-
-			for i, pr := range peers.Peers {
-				c.logger.WithFields(logrus.Fields{
-					"id":     pr.ID(),
-					"pubkey": pr.PubKeyString(),
-					"idx":    i,
-				}).Debugf("Mismatch Peerset Peers %d", i)
-
-			}
-
-		}
 
 		//XXX should not be set immediately. We need a smarter way for core to
 		//know which peerset to use depending on which round the hg is at.
-		c.SetPeerSet(peers)
+		c.SetPeerSet(corePeers)
 
 		//TODO Remove this debug code
 		fr, err := c.hg.GetFrame(roundReceived)
@@ -357,7 +328,7 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 	for _, tx := range txs {
 		//respond to the corresponding promise
 		if p, ok := c.promises[tx.Hash()]; ok {
-			p.Respond(acceptedRound, peers.Peers)
+			p.Respond(acceptedRound, hgPeers.Peers)
 			delete(c.promises, tx.Hash())
 		}
 	}

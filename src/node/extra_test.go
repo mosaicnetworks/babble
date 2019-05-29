@@ -33,7 +33,7 @@ func TestSuccessiveJoinRequestExtra(t *testing.T) {
 		peer := peers.NewPeer(
 			bkeys.PublicKeyHex(&key.PublicKey),
 			fmt.Sprintf("127.0.0.1:%d", 4240+i),
-			"moniker",
+			fmt.Sprintf("monika%d", i),
 		)
 		newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 400, 5, false, "inmem", 10*time.Millisecond, logger, t)
 
