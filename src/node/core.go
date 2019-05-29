@@ -292,9 +292,46 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 		}).Debug("Peers Changed")
 
 		c.logger.WithFields(logrus.Fields{
-			"accepted_round": acceptedRound,
-			"peers":          peers,
+			"accepted_round":   acceptedRound,
+			"peers":            peers,
+			"by_id_length":     len(peers.ByID),
+			"by_pubkey_length": len(peers.ByPubKey),
+			"peer_length":      len(peers.Peers),
 		}).Debug("New PeerSet")
+
+		if len(peers.ByID) != len(peers.Peers) {
+			c.logger.WithFields(logrus.Fields{
+				"accepted_round":       acceptedRound,
+				"by_id_length":         len(peers.ByID),
+				"by_pubkey_length":     len(peers.ByPubKey),
+				"peer_length":          len(peers.Peers),
+				"old_by_id_length":     len(c.peers.ByID),
+				"old_by_pubkey_length": len(c.peers.ByPubKey),
+				"old_peer_length":      len(c.peers.Peers),
+			}).Warn("PeerSet Lengths Mismatch")
+
+			c.logger.WithFields(logrus.Fields{
+				"accepted_round":       acceptedRound,
+				"peers":                peers,
+				"by_id_length":         len(peers.ByID),
+				"by_pubkey_length":     len(peers.ByPubKey),
+				"peer_length":          len(peers.Peers),
+				"old_peers":            c.peers,
+				"old_by_id_length":     len(c.peers.ByID),
+				"old_by_pubkey_length": len(c.peers.ByPubKey),
+				"old_peer_length":      len(c.peers.Peers),
+			}).Warn("peerset lengths mismatch")
+
+			for i, pr := range peers.Peers {
+				c.logger.WithFields(logrus.Fields{
+					"id":     pr.ID(),
+					"pubkey": pr.PubKeyString(),
+					"idx":    i,
+				}).Debugf("Mismatch Peerset Peers %d", i)
+
+			}
+
+		}
 
 		//XXX should not be set immediately. We need a smarter way for core to
 		//know which peerset to use depending on which round the hg is at.

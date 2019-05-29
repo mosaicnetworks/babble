@@ -799,3 +799,90 @@ func logNodeList(t testing.TB, nodes []*Node, msg string) {
 
 	t.Log(msg, iplist)
 }
+
+func peerDifference(slice1 []*peers.Peer, slice2 []*peers.Peer) []string {
+	var diff []string
+
+	for _, s1 := range slice1 {
+		found := false
+		for _, s2 := range slice2 {
+			if s1.PubKeyHex == s2.PubKeyHex {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			diff = append(diff, s1.PubKeyHex)
+		}
+	}
+
+	return diff
+}
+
+func checkFrames(nodes []*Node, fromRound int, t *testing.T) {
+	t.Log("checkFrames fromRound: ", fromRound)
+
+	n := nodes[0]
+
+	for i := fromRound; i < n.core.hg.Store.LastRound(); i++ {
+		for j, n2 := range nodes {
+			if n == n2 {
+				continue
+			}
+			frame, err := n.core.hg.Store.GetFrame(i)
+			if err != nil {
+				t.Error("Frame Load Error", err)
+				continue
+			}
+			frame2, err2 := n2.core.hg.Store.GetFrame(i)
+			if err2 != nil {
+				t.Error("Frame Load Error node2", err2)
+				continue
+			}
+
+			if !reflect.DeepEqual(frame.Peers, frame2.Peers) {
+				// We have a difference.
+				in1Only := peerDifference(frame.Peers, frame2.Peers)
+				innOnly := peerDifference(frame2.Peers, frame.Peers)
+
+				if in1Only != nil {
+					t.Logf("Frame %d: In Node 0 only not node %d, %#v", i, j, in1Only)
+				}
+				if innOnly != nil {
+					t.Logf("Frame %d: In Node %d only not node 0, %#v", i, j, innOnly)
+				}
+			}
+		}
+	}
+	/*
+		nodeBlocks := map[int][]*hg.Frame{}
+		for index, n := range nodes {
+			blocks := []*hg.Block{}
+			for i := fromBlock; i < n.core.hg.Store.LastBlockIndex(); i++ {
+				block, err := n.core.hg.Store.GetBlock(i)
+				if err != nil {
+					t.Fatalf("checkGossip: %v ", err)
+				}
+				blocks = append(blocks, block)
+			}
+			nodeBlocks[index] = blocks
+		}
+
+		minB := len(nodeBlocks[0])
+		for k := 1; k < len(nodes); k++ {
+			if len(nodeBlocks[k]) < minB {
+				minB = len(nodeBlocks[k])
+			}
+		}
+
+		for i, block := range nodeBlocks[0][:minB] {
+			for k := 1; k < len(nodes); k++ {
+				oBlock := nodeBlocks[k][i]
+				if !reflect.DeepEqual(block.Body, oBlock.Body) {
+					t.Fatalf("checkGossip: Difference in Block %d. ###### nodes[0]: %v ###### nodes[%d]: %v", block.Index(), block.Body, k, oBlock.Body)
+				}
+			}
+		}
+	*/
+}

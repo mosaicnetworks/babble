@@ -18,14 +18,14 @@ func TestSuccessiveJoinRequestExtra(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
-	node0 := newNode(peerSet.Peers[0], keys[0], peerSet, genesisPeerSet, 1000000, 400, 5, true, "inmem", 10*time.Millisecond, logger, t)
+	node0 := newNode(peerSet.Peers[0], keys[0], peerSet, genesisPeerSet, 1000000, 400, 5, false, "inmem", 10*time.Millisecond, logger, t)
 	defer node0.Shutdown()
 	node0.RunAsync(true)
 
 	nodes := []*Node{node0}
 	//defer drawGraphs(nodes, t)
 
-	target := 20
+	target := 10
 	for i := 1; i <= 3; i++ {
 		peerSet := peers.NewPeerSet(node0.GetPeers())
 
@@ -33,9 +33,9 @@ func TestSuccessiveJoinRequestExtra(t *testing.T) {
 		peer := peers.NewPeer(
 			bkeys.PublicKeyHex(&key.PublicKey),
 			fmt.Sprintf("127.0.0.1:%d", 4240+i),
-			"monika",
+			"moniker",
 		)
-		newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 400, 5, true, "inmem", 10*time.Millisecond, logger, t)
+		newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 400, 5, false, "inmem", 10*time.Millisecond, logger, t)
 
 		logger.Debugf("starting new node %d, %d", i, newNode.ID())
 		defer newNode.Shutdown()
@@ -53,8 +53,11 @@ func TestSuccessiveJoinRequestExtra(t *testing.T) {
 		checkGossip(nodes, *start, t)
 		checkPeerSets(nodes, t)
 
-		target = target + 40
+		target = target + 10
 	}
+
+	// Pause before exiting
+	time.Sleep(2 * time.Second)
 }
 
 func TestSuccessiveLeaveRequestExtra(t *testing.T) {
@@ -369,6 +372,14 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	}
 
 	checkPeerSets(nodes012356, t)
+
+	t.Log("XXX Frames XXX")
+
+	checkFrames(nodes012356, 0, t)
+
+	t.Log("XXX Frames XXX")
+	//	t.Fatal("Forced Abort")
+
 	// Step 7 Add more history and check that all peers have the same state
 	t.Log("Step 7")
 
