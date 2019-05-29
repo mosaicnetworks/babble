@@ -5,6 +5,7 @@ import (
 	"math"
 	"reflect"
 	"sort"
+	"strconv"
 
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/peers"
@@ -1294,8 +1295,16 @@ func (h *Hashgraph) ProcessSigPool() error {
 		if _, ok := peerSet.ByPubKey[bs.ValidatorHex()]; !ok {
 			h.logger.WithFields(logrus.Fields{
 				"index":     bs.Index,
+				"round":     block.RoundReceived(),
 				"validator": bs.ValidatorHex(),
+				"peers":     peerSet.Peers,
 			}).Warning("Verifying Block signature. Unknown validator")
+
+			//TODO JK DO NOT CHECK IN THIS
+			//			fmt.Println("ERROR PeerSet ByPubKey:", peerSet.ByPubKey)
+			//			fmt.Println("ERROR BS:", bs.ValidatorHex())
+
+			//HACK ENDS
 			continue
 		}
 
@@ -1361,10 +1370,17 @@ func (h *Hashgraph) SetAnchorBlock(block *Block) error {
 			"trustCount":  peerSet.TrustCount(),
 		}).Debug("Setting AnchorBlock")
 	} else {
+		var msg string
+		if h.AnchorBlock != nil {
+			msg = strconv.Itoa(*h.AnchorBlock)
+		} else {
+			msg = "Anchor Block not set"
+		}
 		h.logger.WithFields(logrus.Fields{
-			"index":       block.Index(),
-			"sigs":        len(block.Signatures),
-			"trust_count": peerSet.TrustCount(),
+			"index":        block.Index(),
+			"sigs":         len(block.Signatures),
+			"trust_count":  peerSet.TrustCount(),
+			"anchor_block": msg,
 		}).Debug("Block is not a suitable Anchor")
 	}
 

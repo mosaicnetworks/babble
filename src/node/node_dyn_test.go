@@ -15,7 +15,7 @@ func TestMonologue(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(t, 1)
 
-	genesisPeerSet := createNewCopyPeerSet(t, peers.Peers)
+	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
 	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	//defer drawGraphs(nodes, t)
@@ -33,7 +33,7 @@ func TestJoinRequest(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(t, 4)
 
-	genesisPeerSet := createNewCopyPeerSet(t, peerSet.Peers)
+	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
 	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
@@ -76,7 +76,7 @@ func TestLeaveRequest(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(t, 4)
 
-	genesisPeerSet := createNewCopyPeerSet(t, peerSet.Peers)
+	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
 	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
@@ -110,7 +110,7 @@ func TestJoinFull(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(t, 4)
 
-	genesisPeerSet := createNewCopyPeerSet(t, peerSet.Peers)
+	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
 	initialNodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 400, 5, true, "inmem", 10*time.Millisecond, logger, t)
 	defer shutdownNodes(initialNodes)
@@ -177,7 +177,7 @@ func checkPeerSets(nodes []*Node, t *testing.T) {
 		if !reflect.DeepEqual(node0FP, nodeiFP) {
 			t.Logf("Node 0 PeerSets: %v", node0FP)
 			t.Logf("Node %d PeerSets: %v", i, nodeiFP)
-			t.Fatalf("PeerSets defer")
+			t.Fatalf("PeerSets differ")
 		}
 	}
 }

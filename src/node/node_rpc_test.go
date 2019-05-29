@@ -26,7 +26,7 @@ func TestProcessSync(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
-	genesisPeerSet := createNewCopyPeerSet(t, p.Peers)
+	genesisPeerSet := clonePeerSet(t, p.Peers)
 
 	node0 := NewNode(config,
 		NewValidator(keys[0], peers[0].Moniker),
@@ -130,7 +130,7 @@ func TestProcessEagerSync(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
-	genesisPeerSet := createNewCopyPeerSet(t, p.Peers)
+	genesisPeerSet := clonePeerSet(t, p.Peers)
 
 	node0 := NewNode(config,
 		NewValidator(keys[0], peers[0].Moniker),
@@ -214,7 +214,7 @@ func TestProcessFastForward(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
-	genesisPeerSet := createNewCopyPeerSet(t, p.Peers)
+	genesisPeerSet := clonePeerSet(t, p.Peers)
 
 	node0 := NewNode(config,
 		NewValidator(keys[0], peers[0].Moniker),

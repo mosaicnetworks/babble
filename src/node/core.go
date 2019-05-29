@@ -99,7 +99,7 @@ func NewCore(
 
 	core.hg = hg.NewHashgraph(store, core.Commit, logEntry)
 
-	core.hg.Init(peers)
+	core.hg.Init(genesisPeers)
 
 	return core
 }
@@ -143,6 +143,7 @@ func (c *Core) SetHeadAndSeq() error {
 
 //Bootstrap calls the Hashgraph Bootstrap
 func (c *Core) Bootstrap() error {
+	c.logger.Debug("Bootstrap")
 	return c.hg.Bootstrap()
 }
 
@@ -252,10 +253,18 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 			//update the PeerSet placeholder
 			switch tx.Body.Type {
 			case hg.PEER_ADD:
-				c.logger.WithField("peer", tx.Body.Peer).Debug("adding peer")
+				c.logger.WithFields(logrus.Fields{
+					"peer":               tx.Body.Peer,
+					"round":              roundReceived,
+					"peers_count_before": len(peers.Peers),
+				}).Debug("adding peer")
 				peers = peers.WithNewPeer(&tx.Body.Peer)
 			case hg.PEER_REMOVE:
-				c.logger.WithField("peer", tx.Body.Peer).Debug("removing peer")
+				c.logger.WithFields(logrus.Fields{
+					"peer":               tx.Body.Peer,
+					"round":              roundReceived,
+					"peers_count_before": len(peers.Peers),
+				}).Debug("removing peer")
 				peers = peers.WithRemovedPeer(&tx.Body.Peer)
 			default:
 			}
@@ -274,17 +283,36 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 	if changed {
 		err := c.hg.Store.SetPeerSet(acceptedRound, peers)
 		if err != nil {
-			return fmt.Errorf("Udpating Store PeerSet: %s", err)
+			return fmt.Errorf("Updating Store PeerSet: %s", err)
 		}
+
+		c.logger.WithFields(logrus.Fields{
+			"accepted_round": acceptedRound,
+			"peers_count":    len(peers.Peers),
+		}).Debug("Peers Changed")
+
+		c.logger.WithFields(logrus.Fields{
+			"accepted_round": acceptedRound,
+			"peers":          peers,
+		}).Debug("New PeerSet")
 
 		//XXX should not be set immediately. We need a smarter way for core to
 		//know which peerset to use depending on which round the hg is at.
 		c.SetPeerSet(peers)
 
+		//TODO Remove this debug code
+		fr, err := c.hg.GetFrame(roundReceived)
+		framepeers := fr.Peers
+
+		c.logger.WithField("framepeers", framepeers).Debugf("Frame Peers Change %d", roundReceived)
+
+		//END TODO
+
 		//A new peer has joined and it won't be able to participate in consensus
 		//until it fast-forwards to its accepted-round. Hence, we force the
 		//other nodes to reach that round.
 		if acceptedRound > c.TargetRound {
+			c.logger.Debugf("Fast Forward round from as new peer joins %d to %d", c.TargetRound, acceptedRound)
 			c.TargetRound = acceptedRound
 		}
 	}
@@ -477,6 +505,8 @@ func (c *Core) AddSelfEvent(otherHead string) error {
 
 //FastForward is used whilst in catchingUp state to apply past blocks and frames
 func (c *Core) FastForward(peer string, block *hg.Block, frame *hg.Frame) error {
+
+	c.logger.Debug("Fast Forward", frame.Round)
 	peerSet := peers.NewPeerSet(frame.Peers)
 
 	//Check Block Signatures

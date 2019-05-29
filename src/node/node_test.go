@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -38,7 +39,7 @@ func TestAddTransaction(t *testing.T) {
 	peer0Proxy := dummy.NewInmemDummyClient(testLogger)
 	defer peer0Trans.Close()
 
-	genesisPeerSet := createNewCopyPeerSet(t, p.Peers)
+	genesisPeerSet := clonePeerSet(t, p.Peers)
 
 	node0 := NewNode(config,
 		NewValidator(keys[0], peers[0].Moniker),
@@ -113,7 +114,7 @@ func TestGossip(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(t, 4)
 
-	genesisPeerSet := createNewCopyPeerSet(t, peers.Peers)
+	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
 	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	//defer drawGraphs(nodes, t)
@@ -131,7 +132,7 @@ func TestMissingNodeGossip(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(t, 4)
 
-	genesisPeerSet := createNewCopyPeerSet(t, peers.Peers)
+	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
 	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	//defer drawGraphs(nodes, t)
@@ -148,7 +149,7 @@ func TestSyncLimit(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(t, 4)
 
-	genesisPeerSet := createNewCopyPeerSet(t, peers.Peers)
+	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
 	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
@@ -191,7 +192,7 @@ func TestFastForward(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(t, 4)
 
-	genesisPeerSet := createNewCopyPeerSet(t, peers.Peers)
+	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
 	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
@@ -231,7 +232,7 @@ func TestCatchUp(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(t, 4)
 
-	genesisPeerSet := createNewCopyPeerSet(t, peers.Peers)
+	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
 	/*
 		We don't initialize the first node; it will stay passive during the
@@ -288,7 +289,7 @@ func TestFastSync(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(t, 4)
 
-	genesisPeerSet := createNewCopyPeerSet(t, peers.Peers)
+	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
 	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 400, 5, true, "inmem", 10*time.Millisecond, logger, t) //make cache high to draw graphs
 	defer shutdownNodes(nodes)
@@ -347,7 +348,7 @@ func TestShutdown(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(t, 4)
 
-	genesisPeerSet := createNewCopyPeerSet(t, peers.Peers)
+	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
 	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	runNodes(nodes, false)
@@ -370,7 +371,7 @@ func TestBootstrapAllNodes(t *testing.T) {
 	//before shutting it down
 	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(t, 4)
-	genesisPeerSet := createNewCopyPeerSet(t, peers.Peers)
+	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
 	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 10, true, "badger", 6*time.Millisecond, logger, t)
 
@@ -399,168 +400,11 @@ func BenchmarkGossip(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		keys, peers := initPeers(b, 4)
 
-		genesisPeerSet := createNewCopyPeerSet(b, peers.Peers)
+		genesisPeerSet := clonePeerSet(b, peers.Peers)
 
 		nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, b)
 		gossip(nodes, 50, true, 3*time.Second)
 	}
-}
-
-//TestChangingPeers is a complex test. The broad brush outline of the process is as follows:
-//
-//	1 Construct a network of 5 nodes and build a history of transactions.
-//	2 Remove a validator from the peer list
-//  3 Build more history
-//  4 Add a new validator and sync without using fast sync
-//		i.e. apply the whole hashgraph
-//  5 Build more history
-//	6 Add another validator and sync without fast sync
-//  7 Add more history and check that all peers have the same state
-//  8 Shutdown cleanly
-//
-//	Nodes 0 to 3 are always on
-//  Node 4 is removed in step 2
-//  Node 5 is added in step 4
-//  Node 6 is added in step 6
-//
-func TestChangingPeers(t *testing.T) {
-	logger := common.NewTestLogger(t)
-
-	// Step 1 - Create 5 nodes
-	keys, peers := initPeers(t, 7)
-
-	peers01234 := createNewCopyPeerSet(t, peers.Peers[0:5])                               // Initial //prs is an alias for peers, which is already used extensively as a variable
-	peers01235 := createNewCopyPeerSet(t, append(peers.Peers[0:4], peers.Peers[5:6]...))  // Step 4
-	peers012356 := createNewCopyPeerSet(t, append(peers.Peers[0:4], peers.Peers[5:7]...)) // Step 6
-
-	genesisPeerSet := createNewCopyPeerSet(t, peers01234.Peers)
-
-	logPeerList(t, peers01234, "Peers01234")
-	logPeerList(t, peers01235, "Peers01235")
-	logPeerList(t, peers012356, "Peers012356")
-	logPeerList(t, genesisPeerSet, "genesisPeerSet")
-
-	// 5 nodes are live
-	nodes01234 := initNodes(keys[0:5], peers01234, genesisPeerSet, 100000, 400, 15, false, "inmem", 10*time.Millisecond, logger, t) //make cache high to draw graphs
-	defer shutdownNodesSlice(t, nodes01234, []uint{0, 1, 2, 3})
-	//defer drawGraphs(nodes, t)
-
-	// Step 1b - gossip and build history
-	target := 5
-	err := gossip(nodes01234, target, false, 10*time.Second)
-	if err != nil {
-		t.Fatal("Step 1b gossip", err)
-	}
-	//	checkGossip(nodes01234, 0, t)
-
-	// Step 2 - Node 4 leaves
-
-	node4 := nodes01234[4]
-
-	// Pause for realism
-	// time.Sleep(2 * time.Second)
-
-	err = node4.Leave()
-	if err != nil {
-		t.Error("Step 2 Leave", node4.conf.JoinTimeout)
-		t.Fatal("Step 2 Leave", err)
-	}
-
-	// New nodes array without node 4
-	nodes0123 := nodes01234[0:4]
-
-	// Step 3 - More history
-
-	target += 50
-	err = gossip(nodes0123, target, false, 10*time.Second)
-	if err != nil {
-		t.Fatal("Step 3 Gossip", err)
-	}
-	checkGossip(nodes0123, 0, t)
-
-	// Step 4 Add a new validator (node 5) and sync without using fast sync
-
-	node5 := newNode(peers.Peers[5], keys[5], peers01235, genesisPeerSet, 1000000, 100, 5, false, "inmem", 10*time.Millisecond, logger, t)
-	defer node5.Shutdown()
-
-	// New nodes array without node 4
-	nodes01235 := append(nodes0123, node5)
-
-	// Step 5 Build more history
-
-	return //TODO remove
-
-	target += 40
-	err = gossip(nodes01235, target, false, 10*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	checkGossip(nodes01235, 0, t)
-
-	// Step 6 Add another validator (node 6) and sync without fast sync
-
-	node6 := newNode(peers.Peers[6], keys[6], peers012356, genesisPeerSet, 1000000, 100, 5, true, "inmem", 10*time.Millisecond, logger, t)
-	defer node5.Shutdown()
-
-	nodes012356 := append(nodes01235, node6)
-	// Step 7 Add more history and check that all peers have the same state
-
-	target += 50
-	err = gossip(nodes012356, target, false, 10*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	checkGossip(nodes012356, 0, t)
-
-	// Check everything is in sync
-
-	// Step 8 Shutdown cleanly
-	// Is handled by defer commands set as objects are created
-
-	return
-	// End of revised code
-	/*
-		node0 := nodes[0]
-		node0.Shutdown()
-
-		secondTarget := target + 30
-		err = bombardAndWait(nodes[1:], secondTarget, 10*time.Second)
-		if err != nil {
-			t.Fatal(err)
-		}
-		checkGossip(nodes[1:], 0, t)
-
-		//Can't re-run it; have to reinstantiate a new node.
-		node0 = recycleNode(node0, logger, t)
-		nodes[0] = node0
-
-		//Run parallel routine to check node0 eventually reaches CatchingUp state.
-		timeout := time.After(6 * time.Second)
-		go func() {
-			for {
-				select {
-				case <-timeout:
-					t.Fatalf("Timeout waiting for node0 to enter CatchingUp state")
-				default:
-				}
-				if node0.getState() == CatchingUp {
-					break
-				}
-			}
-		}()
-
-		node0.RunAsync(true)
-
-		//Gossip some more
-		thirdTarget := secondTarget + 50
-		err = bombardAndWait(nodes, thirdTarget, 10*time.Second)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		start := node0.core.hg.FirstConsensusRound
-		checkGossip(nodes, *start, t) */
 }
 
 /*******************************************************************************
@@ -581,7 +425,7 @@ func initPeers(t testing.TB, n int) ([]*ecdsa.PrivateKey, *peers.PeerSet) {
 		)
 		pirs = append(pirs, peer)
 		if t != nil {
-			t.Logf("Setting up Node %d on 127.0.0.1:%d", i, ip)
+			t.Logf("Setting up Node %d on 127.0.0.1:%d  %s", i, ip, bkeys.PublicKeyHex(&keys[i].PublicKey))
 		}
 		ip++
 	}
@@ -591,7 +435,7 @@ func initPeers(t testing.TB, n int) ([]*ecdsa.PrivateKey, *peers.PeerSet) {
 	return keys, peerSet
 }
 
-func createNewCopyPeerSet(t testing.TB, sourcePeers []*peers.Peer) *peers.PeerSet {
+func clonePeerSet(t testing.TB, sourcePeers []*peers.Peer) *peers.PeerSet {
 	var newPeers []*peers.Peer
 	for _, p := range sourcePeers {
 		newPeers = append(newPeers, peers.NewPeer(p.PubKeyHex, p.NetAddr, p.Moniker))
@@ -622,6 +466,8 @@ func newNode(peer *peers.Peer,
 		enableSyncLimit,
 		logger,
 	)
+
+	t.Logf("Starting node on %s", peer.NetAddr)
 
 	trans, err := net.NewTCPTransport(peer.NetAddr,
 		nil, 2, conf.TCPTimeout, conf.JoinTimeout, logger)
@@ -657,19 +503,6 @@ func newNode(peer *peers.Peer,
 	t.Logf("Created Node %s %d", peer.Moniker, peer.ID())
 	logPeerList(t, peers, "Peerlist: ")
 	return node
-}
-
-//Function to build a nice representation of the peerlist and put it in the logs.
-func logPeerList(t testing.TB, peers *peers.PeerSet, msg string) {
-	comma := ""
-	iplist := ""
-
-	for _, p := range peers.Peers {
-		iplist += comma + p.NetAddr
-		comma = ", "
-	}
-
-	t.Log(msg, iplist)
 }
 
 func initNodes(keys []*ecdsa.PrivateKey,
@@ -869,6 +702,8 @@ func shutdownNodes(nodes []*Node) {
 }
 
 func checkGossip(nodes []*Node, fromBlock int, t *testing.T) {
+	t.Log("checkGossip fromBlock: ", fromBlock)
+
 	nodeBlocks := map[int][]*hg.Block{}
 	for index, n := range nodes {
 		blocks := []*hg.Block{}
@@ -938,4 +773,29 @@ func getCommittedTransactions(n *Node) ([][]byte, error) {
 	}
 	res := InmemAppProxy.GetCommittedTransactions()
 	return res, nil
+}
+
+//Function to build a nice representation of the peerlist and put it in the logs.
+func logPeerList(t testing.TB, peers *peers.PeerSet, msg string) {
+	comma := ""
+	iplist := ""
+
+	for i, p := range peers.Peers {
+		iplist += comma + strconv.Itoa(i) + ": " + p.NetAddr
+		comma = ", "
+	}
+
+	t.Log(msg, iplist)
+}
+
+func logNodeList(t testing.TB, nodes []*Node, msg string) {
+	comma := ""
+	iplist := ""
+
+	for i, p := range nodes {
+		iplist += comma + strconv.Itoa(i) + ": " + fmt.Sprintf("%x", p.validator.ID())
+		comma = ", "
+	}
+
+	t.Log(msg, iplist)
 }
