@@ -46,6 +46,7 @@ func TestSuccessiveJoinRequestExtra(t *testing.T) {
 		//Gossip some more
 		err := bombardAndWait(nodes, target, 10*time.Second)
 		if err != nil {
+			t.Error("Fatal Error in TestSuccessiveJoinRequestExtra", err)
 			t.Fatal(err)
 		}
 
@@ -79,7 +80,7 @@ func TestSuccessiveLeaveRequestExtra(t *testing.T) {
 		target += 30
 		err := gossip(nodes, target, false, 4*time.Second)
 		if err != nil {
-
+			t.Error("Fatal Error", err)
 			t.Fatal(err)
 		}
 		checkGossip(nodes, 0, t)
@@ -88,7 +89,7 @@ func TestSuccessiveLeaveRequestExtra(t *testing.T) {
 
 		err = leavingNode.Leave()
 		if err != nil {
-			t.Error("Fatal Error", err)
+			t.Error("Fatal Error 2", err)
 			t.Fatal(err)
 		}
 
@@ -102,7 +103,7 @@ func TestSuccessiveLeaveRequestExtra(t *testing.T) {
 		target += 50
 		err = bombardAndWait(nodes, target, 8*time.Second)
 		if err != nil {
-			t.Error("Fatal Error 2", err)
+			t.Error("Fatal Error 3", err)
 			t.Fatal(err)
 		}
 		checkGossip(nodes, 0, t)
@@ -128,6 +129,7 @@ func TestSimultaneousLeaveRequestExtra(t *testing.T) {
 	target := 30
 	err := gossip(nodes, target, false, 3*time.Second)
 	if err != nil {
+		t.Error("Fatal Error 1", err)
 		t.Fatal(err)
 	}
 	checkGossip(nodes, 0, t)
@@ -137,11 +139,13 @@ func TestSimultaneousLeaveRequestExtra(t *testing.T) {
 
 	err = leavingNode.Leave()
 	if err != nil {
+		t.Error("Fatal Error 2", err)
 		t.Fatal(err)
 	}
 
 	err = leavingNode2.Leave()
 	if err != nil {
+		t.Error("Fatal Error 3", err)
 		t.Fatal(err)
 	}
 
@@ -149,6 +153,7 @@ func TestSimultaneousLeaveRequestExtra(t *testing.T) {
 	secondTarget := target + 50
 	err = bombardAndWait(nodes[0:2], secondTarget, 6*time.Second)
 	if err != nil {
+		t.Error("Fatal Error 4", err)
 		t.Fatal(err)
 	}
 	checkGossip(nodes[0:2], 0, t)
@@ -168,6 +173,7 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 	target := 30
 	err := gossip(nodes, target, false, 3*time.Second)
 	if err != nil {
+		t.Error("Fatal Error", err)
 		t.Fatal(err)
 	}
 	checkGossip(nodes, 0, t)
@@ -176,6 +182,7 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 
 	err = leavingNode.Leave()
 	if err != nil {
+		t.Error("Fatal Error 2", err)
 		t.Fatal(err)
 	}
 
@@ -185,7 +192,7 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 		fmt.Sprint("127.0.0.1:4242"),
 		"new node",
 	)
-	newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 200, 5, true, "inmem", 10*time.Millisecond, logger, t)
+	newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 200, 5, false, "inmem", 10*time.Millisecond, logger, t)
 	defer newNode.Shutdown()
 
 	// Run parallel routine to check newNode eventually reaches CatchingUp state.
@@ -194,6 +201,8 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 		for {
 			select {
 			case <-timeout:
+
+				t.Error("Fatal Error - Timeout waiting for newNode to enter CatchingUp state")
 				t.Fatalf("Timeout waiting for newNode to enter CatchingUp state")
 			default:
 			}
@@ -212,6 +221,7 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 	secondTarget := target + 50
 	err = bombardAndWait(nodes, secondTarget, 6*time.Second)
 	if err != nil {
+		t.Error("Fatal Error 3", err)
 		t.Fatal(err)
 	}
 
@@ -285,6 +295,7 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 
 	err := gossip(nodes01234, target+20, false, 10*time.Second)
 	if err != nil {
+		t.Error("Fatal Error 1b", err)
 		t.Fatal("Step 1b gossip", err)
 	}
 	checkGossip(nodes01234, target, t)
@@ -301,6 +312,7 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 
 	err = node4.Leave()
 	if err != nil {
+		t.Error("Fatal Error 2", err)
 		t.Fatal("Step 2 Leave", err)
 	}
 
@@ -317,6 +329,7 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	target = nodes0123[0].core.hg.Store.LastBlockIndex() + 1
 	err = gossip(nodes0123, target+30, false, 10*time.Second)
 	if err != nil {
+		t.Error("Fatal Error 3", err)
 		t.Fatal("Step 3 Gossip", err)
 	}
 	checkGossip(nodes0123, target, t)
@@ -326,7 +339,7 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 
 	logPeerList(t, peerlist, "Log Peers 5")
 
-	node5 := newNode(peerlist.Peers[5], keys[5], peers0123, genesisPeerSet, 1000000, 100, 5, false, "inmem", 10*time.Millisecond, logger, t)
+	node5 := newNode(peerlist.Peers[5], keys[5], peers0123, genesisPeerSet, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
 	defer node5.Shutdown()
 
 	// New nodes array without node 4
@@ -346,6 +359,7 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 
 	err = gossip(nodes01235, target+30, false, 10*time.Second)
 	if err != nil {
+		t.Error("Fatal Error 5", err)
 		t.Fatal(err)
 	}
 
@@ -357,7 +371,7 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	t.Log("Step 6")
 
 	logPeerList(t, peerlist, "Log Peers 6")
-	node6 := newNode(peerlist.Peers[6], keys[6], peers01235, genesisPeerSet, 1000000, 100, 5, false, "inmem", 10*time.Millisecond, logger, t)
+	node6 := newNode(peerlist.Peers[6], keys[6], peers01235, genesisPeerSet, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
 	defer node6.Shutdown()
 
 	nodes012356 := append(append([]*Node{}, nodes01235...), node6)
@@ -387,7 +401,7 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	t.Log("Step 7")
 
 	target = nodes012356[0].core.hg.Store.LastBlockIndex() + 1
-	err = gossip(nodes012356, target+10, false, 10*time.Second)
+	err = gossip(nodes012356, target+10, false, 5*time.Second)
 	if err != nil {
 		t.Log("Fatal Error 7", err)
 		t.Fatal(err)
@@ -408,7 +422,7 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	t.Log("Step 8")
 
 	logPeerList(t, peerlist, "Log Peers 7")
-	node7 := newNode(peerlist.Peers[7], keys[7], peers012356, genesisPeerSet, 1000000, 100, 5, false, "inmem", 10*time.Millisecond, logger, t)
+	node7 := newNode(peerlist.Peers[7], keys[7], peers012356, genesisPeerSet, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
 	defer node7.Shutdown()
 
 	nodes0123567 := append(append([]*Node{}, nodes012356...), node7)
@@ -417,7 +431,7 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	t.Log("Step 8b")
 
 	target = nodes0123567[0].core.hg.Store.LastBlockIndex() + 1
-	err = gossip(nodes0123567, target+12, false, 20*time.Second)
+	err = gossip(nodes0123567, target+12, false, 10*time.Second)
 	if err != nil {
 		t.Log("Fatal Error 8b", err)
 		t.Fatal(err)
@@ -425,7 +439,7 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	checkGossip(nodes0123567, target, t)
 
 	logPeerList(t, peerlist, "Log Peers 8")
-	node8 := newNode(peerlist.Peers[8], keys[8], peers0123567, genesisPeerSet, 1000000, 100, 5, false, "inmem", 10*time.Millisecond, logger, t)
+	node8 := newNode(peerlist.Peers[8], keys[8], peers0123567, genesisPeerSet, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
 	defer node8.Shutdown()
 
 	nodes01235678 := append(append([]*Node{}, nodes0123567...), node8)
@@ -435,7 +449,7 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	t.Log("Step 8c")
 
 	target = nodes01235678[0].core.hg.Store.LastBlockIndex() + 1
-	err = gossip(nodes01235678, target+20, false, 10*time.Second)
+	err = gossip(nodes01235678, target+12, false, 30*time.Second)
 	if err != nil {
 		t.Log("Fatal Error 8c", err)
 		t.Fatal(err)
@@ -492,14 +506,14 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	t.Log("Step 10")
 
 	logPeerList(t, peerlist, "Log Peers 9")
-	node9 := newNode(peerlist.Peers[9], keys[9], peers5678, genesisPeerSet, 1000000, 100, 5, false, "inmem", 10*time.Millisecond, logger, t)
+	node9 := newNode(peerlist.Peers[9], keys[9], peers5678, genesisPeerSet, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
 	defer node9.Shutdown()
 
 	nodes56789 := append(append([]*Node{}, nodes5678...), node9)
 	node9.RunAsync(true)
 
 	target += 17
-	err = gossip(nodes56789, target, false, 10*time.Second)
+	err = gossip(nodes56789, target, false, 20*time.Second)
 	if err != nil {
 		t.Log("Fatal Error 10", err)
 		t.Fatal(err)
@@ -512,7 +526,5 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	// Is handled by defer commands set as objects are created
 
 	t.Log("Final Step")
-
-	return
 
 }

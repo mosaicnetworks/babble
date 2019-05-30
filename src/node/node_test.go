@@ -34,7 +34,7 @@ func TestAddTransaction(t *testing.T) {
 
 	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, config.TCPTimeout, config.JoinTimeout, common.NewTestLogger(t))
 	if err != nil {
-		t.Fatalf("err: %v", err)
+		t.Fatalf("Fatal err: %v", err)
 	}
 	peer0Proxy := dummy.NewInmemDummyClient(testLogger)
 	defer peer0Trans.Close()
@@ -54,7 +54,7 @@ func TestAddTransaction(t *testing.T) {
 
 	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, config.TCPTimeout, config.JoinTimeout, common.NewTestLogger(t))
 	if err != nil {
-		t.Fatalf("err: %v", err)
+		t.Fatalf("Fatal 2 err: %v", err)
 	}
 	peer1Proxy := dummy.NewInmemDummyClient(testLogger)
 	defer peer1Trans.Close()
@@ -84,26 +84,28 @@ func TestAddTransaction(t *testing.T) {
 
 	var out net.SyncResponse
 	if err := peer0Trans.Sync(peers[1].NetAddr, &args, &out); err != nil {
+		t.Error("Fatal Error 2", err)
 		t.Fatal(err)
 	}
 
 	if err := node0.sync(peers[1].ID(), out.Events); err != nil {
+		t.Error("Fatal Error 3", err)
 		t.Fatal(err)
 	}
 
 	//check the Tx was removed from the transactionPool and added to the new Head
 
 	if l := len(node0.core.transactionPool); l > 0 {
-		t.Fatalf("node0's transactionPool should have 0 elements, not %d\n", l)
+		t.Fatalf("Fatal node0's transactionPool should have 0 elements, not %d\n", l)
 	}
 
 	node0Head, _ := node0.core.GetHead()
 	if l := len(node0Head.Transactions()); l != 1 {
-		t.Fatalf("node0's Head should have 1 element, not %d\n", l)
+		t.Fatalf("Fatal node0's Head should have 1 element, not %d\n", l)
 	}
 
 	if m := string(node0Head.Transactions()[0]); m != message {
-		t.Fatalf("Transaction message should be '%s' not, not %s\n", message, m)
+		t.Fatalf("Fatal Transaction message should be '%s' not, not %s\n", message, m)
 	}
 
 	node0.Shutdown()
@@ -122,6 +124,7 @@ func TestGossip(t *testing.T) {
 	target := 50
 	err := gossip(nodes, target, true, 3*time.Second)
 	if err != nil {
+		t.Error("Fatal Error", err)
 		t.Fatal(err)
 	}
 
@@ -139,6 +142,7 @@ func TestMissingNodeGossip(t *testing.T) {
 
 	err := gossip(nodes[1:], 10, true, 6*time.Second)
 	if err != nil {
+		t.Error("Fatal Error", err)
 		t.Fatal(err)
 	}
 
@@ -156,6 +160,7 @@ func TestSyncLimit(t *testing.T) {
 
 	err := gossip(nodes, 10, false, 3*time.Second)
 	if err != nil {
+		t.Error("Fatal Error", err)
 		t.Fatal(err)
 	}
 
@@ -176,15 +181,15 @@ func TestSyncLimit(t *testing.T) {
 
 	var out net.SyncResponse
 	if err := nodes[0].trans.Sync(nodes[1].trans.LocalAddr(), &args, &out); err != nil {
-		t.Fatalf("err: %v", err)
+		t.Fatalf("Fatal err: %v", err)
 	}
 
 	// Verify the response
 	if expectedResp.FromID != out.FromID {
-		t.Fatalf("SyncResponse.FromID should be %d, not %d", expectedResp.FromID, out.FromID)
+		t.Fatalf("Fatal SyncResponse.FromID should be %d, not %d", expectedResp.FromID, out.FromID)
 	}
 	if expectedResp.SyncLimit != true {
-		t.Fatal("SyncResponse.SyncLimit should be true")
+		t.Fatal("Fatal SyncResponse.SyncLimit should be true")
 	}
 }
 
@@ -200,31 +205,32 @@ func TestFastForward(t *testing.T) {
 	target := 20
 	err := gossip(nodes[1:], target, false, 6*time.Second)
 	if err != nil {
+		t.Error("Fatal Error", err)
 		t.Fatal(err)
 	}
 
 	err = nodes[0].fastForward()
 	if err != nil {
-		t.Fatalf("Error FastForwarding: %s", err)
+		t.Fatalf("Fatal Error FastForwarding: %s", err)
 	}
 
 	lbi := nodes[0].core.GetLastBlockIndex()
 	if lbi <= 0 {
-		t.Fatalf("LastBlockIndex is too low: %d", lbi)
+		t.Fatalf("Fatal LastBlockIndex is too low: %d", lbi)
 	}
 
 	sBlock, err := nodes[0].GetBlock(lbi)
 	if err != nil {
-		t.Fatalf("Error retrieving latest Block from reset hashgraph: %v", err)
+		t.Fatalf("Fatal Error retrieving latest Block from reset hashgraph: %v", err)
 	}
 
 	expectedBlock, err := nodes[1].GetBlock(lbi)
 	if err != nil {
-		t.Fatalf("Failed to retrieve block %d from node1: %v", lbi, err)
+		t.Fatalf("Fatal Failed to retrieve block %d from node1: %v", lbi, err)
 	}
 
 	if !reflect.DeepEqual(sBlock.Body, expectedBlock.Body) {
-		t.Fatalf("Blocks defer")
+		t.Fatalf("Fatal Blocks defer")
 	}
 }
 
@@ -248,6 +254,7 @@ func TestCatchUp(t *testing.T) {
 	target := 10
 	err := gossip(normalNodes, target, false, 6*time.Second)
 	if err != nil {
+		t.Error("Fatal Error", err)
 		t.Fatal(err)
 	}
 	checkGossip(normalNodes, 0, t)
@@ -261,7 +268,7 @@ func TestCatchUp(t *testing.T) {
 		for {
 			select {
 			case <-timeout:
-				t.Fatalf("Timeout waiting for node0 to enter CatchingUp state")
+				t.Fatalf("Fatal Timeout waiting for node0 to enter CatchingUp state")
 			default:
 			}
 			if node0.getState() == CatchingUp {
@@ -278,6 +285,7 @@ func TestCatchUp(t *testing.T) {
 	newTarget := target + 20
 	err = bombardAndWait(nodes, newTarget, 10*time.Second)
 	if err != nil {
+		t.Error("Fatal Error 2", err)
 		t.Fatal(err)
 	}
 
@@ -298,6 +306,7 @@ func TestFastSync(t *testing.T) {
 	target := 30
 	err := gossip(nodes, target, false, 10*time.Second)
 	if err != nil {
+		t.Error("Fatal Error", err)
 		t.Fatal(err)
 	}
 	checkGossip(nodes, 0, t)
@@ -308,6 +317,7 @@ func TestFastSync(t *testing.T) {
 	secondTarget := target + 30
 	err = bombardAndWait(nodes[1:], secondTarget, 10*time.Second)
 	if err != nil {
+		t.Error("Fatal Error 2", err)
 		t.Fatal(err)
 	}
 	checkGossip(nodes[1:], 0, t)
@@ -322,7 +332,7 @@ func TestFastSync(t *testing.T) {
 		for {
 			select {
 			case <-timeout:
-				t.Fatalf("Timeout waiting for node0 to enter CatchingUp state")
+				t.Fatalf("Fatal Timeout waiting for node0 to enter CatchingUp state")
 			default:
 			}
 			if node0.getState() == CatchingUp {
@@ -337,6 +347,7 @@ func TestFastSync(t *testing.T) {
 	thirdTarget := secondTarget + 50
 	err = bombardAndWait(nodes, thirdTarget, 10*time.Second)
 	if err != nil {
+		t.Error("Fatal Error 3", err)
 		t.Fatal(err)
 	}
 
@@ -357,7 +368,7 @@ func TestShutdown(t *testing.T) {
 
 	err := nodes[1].gossip(peers.Peers[0], nil)
 	if err == nil {
-		t.Fatal("Expected Timeout Error")
+		t.Fatal("Fatal Expected Timeout Error")
 	}
 
 	nodes[1].Shutdown()
@@ -377,6 +388,7 @@ func TestBootstrapAllNodes(t *testing.T) {
 
 	err := gossip(nodes, 10, true, 3*time.Second)
 	if err != nil {
+		t.Error("Fatal Error", err)
 		t.Fatal(err)
 	}
 	checkGossip(nodes, 0, t)
@@ -387,6 +399,7 @@ func TestBootstrapAllNodes(t *testing.T) {
 
 	err = gossip(newNodes, 20, true, 3*time.Second)
 	if err != nil {
+		t.Error("Fatal Error 2", err)
 		t.Fatal(err)
 	}
 	checkGossip(newNodes, 0, t)
@@ -472,7 +485,7 @@ func newNode(peer *peers.Peer,
 	trans, err := net.NewTCPTransport(peer.NetAddr,
 		nil, 2, conf.TCPTimeout, conf.JoinTimeout, logger)
 	if err != nil {
-		t.Fatalf("failed to create transport for peer %d: %s", peer.ID(), err)
+		t.Fatalf("Fatal failed to create transport for peer %d: %s", peer.ID(), err)
 	}
 
 	var store hg.Store
@@ -481,7 +494,7 @@ func newNode(peer *peers.Peer,
 		path, _ := ioutil.TempDir("test_data", "badger")
 		store, err = hg.NewBadgerStore(conf.CacheSize, path)
 		if err != nil {
-			t.Fatalf("failed to create BadgerStore for peer %d: %s", peer.ID(), err)
+			t.Fatalf("Fatal failed to create BadgerStore for peer %d: %s", peer.ID(), err)
 		}
 	case "inmem":
 		store = hg.NewInmemStore(conf.CacheSize)
@@ -497,7 +510,7 @@ func newNode(peer *peers.Peer,
 		prox)
 
 	if err := node.Init(); err != nil {
-		t.Fatalf("failed to initialize node%d: %s", peer.ID(), err)
+		t.Fatalf("Fatal failed to initialize node%d: %s", peer.ID(), err)
 	}
 
 	t.Logf("Created Node %s %d", peer.Moniker, peer.ID())
@@ -524,7 +537,7 @@ func initNodes(keys []*ecdsa.PrivateKey,
 
 		peer, ok := peers.ByPubKey[pubKey]
 		if !ok {
-			t.Fatalf("Peer not found")
+			t.Fatalf("Fatal Peer not found")
 		}
 
 		node := newNode(peer,
@@ -566,6 +579,7 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 	if _, ok := oldNode.core.hg.Store.(*hg.BadgerStore); ok {
 		store, err = hg.NewBadgerStore(conf.CacheSize, oldNode.core.hg.Store.StorePath())
 		if err != nil {
+			t.Error("Fatal Error recyleNode", err)
 			t.Fatal(err)
 		}
 	} else {
@@ -575,6 +589,7 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 	trans, err := net.NewTCPTransport(oldNode.trans.LocalAddr(),
 		nil, 2, conf.TCPTimeout, conf.JoinTimeout, logger)
 	if err != nil {
+		t.Error("Fatal Error 2 recycleNode", err)
 		t.Fatal(err)
 	}
 	prox := dummy.NewInmemDummyClient(logger)
@@ -584,6 +599,7 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 	newNode := NewNode(conf, NewValidator(key, moniker), peers, genesisPeerSet, store, trans, prox)
 
 	if err := newNode.Init(); err != nil {
+		t.Error("Fatal Error 3 recycleNode", err)
 		t.Fatal(err)
 	}
 
@@ -621,7 +637,9 @@ func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
 	for {
 		select {
 		case <-stopper:
-			return fmt.Errorf("TIMEOUT")
+
+			return fmt.Errorf("TIMEOUT in bombardAndWait waiting for block %d, currently %d",
+				target, nodes[0].core.GetLastBlockIndex())
 		default:
 		}
 		time.Sleep(10 * time.Millisecond)
@@ -710,7 +728,7 @@ func checkGossip(nodes []*Node, fromBlock int, t *testing.T) {
 		for i := fromBlock; i < n.core.hg.Store.LastBlockIndex(); i++ {
 			block, err := n.core.hg.Store.GetBlock(i)
 			if err != nil {
-				t.Fatalf("checkGossip: %v ", err)
+				t.Fatalf("Fatal checkGossip: %v ", err)
 			}
 			blocks = append(blocks, block)
 		}
@@ -728,7 +746,7 @@ func checkGossip(nodes []*Node, fromBlock int, t *testing.T) {
 		for k := 1; k < len(nodes); k++ {
 			oBlock := nodeBlocks[k][i]
 			if !reflect.DeepEqual(block.Body, oBlock.Body) {
-				t.Fatalf("checkGossip: Difference in Block %d. ###### nodes[0]: %#v ###### nodes[%d]: %#v", block.Index(), block.Body, k, oBlock.Body)
+				t.Fatalf("Fatal checkGossip: Difference in Block %d. ###### nodes[0]: %#v ###### nodes[%d]: %#v", block.Index(), block.Body, k, oBlock.Body)
 			}
 		}
 	}
@@ -761,6 +779,7 @@ func drawGraphs(nodes []*Node, t *testing.T) {
 func deleteStores(nodes []*Node, t *testing.T) {
 	for _, n := range nodes {
 		if err := os.RemoveAll(n.core.hg.Store.StorePath()); err != nil {
+			t.Error("Fatal Error deleteStores", err)
 			t.Fatal(err)
 		}
 	}
@@ -822,6 +841,14 @@ func peerDifference(slice1 []*peers.Peer, slice2 []*peers.Peer) []string {
 
 func checkFrames(nodes []*Node, fromRound int, t *testing.T) {
 	t.Log("checkFrames fromRound: ", fromRound)
+
+	var maxFrames []int
+
+	for _, k := range nodes {
+		maxFrames = append(maxFrames, k.core.hg.Store.LastRound())
+	}
+
+	t.Logf("Max Frame Rounds %#v", maxFrames)
 
 	n := nodes[0]
 

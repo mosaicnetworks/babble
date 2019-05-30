@@ -59,6 +59,12 @@ func NewPeerSetFromPeerSliceBytes(peerSliceBytes []byte) (*PeerSet, error) {
 
 //WithNewPeer returns a new PeerSet with a list of peers including the new one.
 func (peerSet *PeerSet) WithNewPeer(peer *Peer) *PeerSet {
+
+	// Check to see if we already have this peer
+	if peerSet.ByPubKey[peer.PubKeyString()] != nil {
+		return peerSet
+	}
+
 	peers := append(peerSet.Peers, peer)
 	newPeerSet := NewPeerSet(peers)
 	return newPeerSet
