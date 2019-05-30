@@ -185,7 +185,7 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 		fmt.Sprint("127.0.0.1:4242"),
 		"new node",
 	)
-	newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 400, 5, false, "inmem", 10*time.Millisecond, logger, t)
+	newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 200, 5, true, "inmem", 10*time.Millisecond, logger, t)
 	defer newNode.Shutdown()
 
 	// Run parallel routine to check newNode eventually reaches CatchingUp state.
