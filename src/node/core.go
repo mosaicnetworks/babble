@@ -23,6 +23,8 @@ type Core struct {
 	// peers is the list of peers that the node will try to gossip with; not
 	// necessarily the current validator-set.
 	peers        *peers.PeerSet
+	genesisPeers *peers.PeerSet
+
 	peerSelector PeerSelector
 	selectorLock sync.Mutex
 
@@ -72,6 +74,7 @@ func NewCore(
 	validator *Validator,
 	peers *peers.PeerSet,
 	genesisPeers *peers.PeerSet,
+	validators *peers.PeerSet,
 	store hg.Store,
 	proxyCommitCallback proxy.CommitCallback,
 	logger *logrus.Logger) *Core {
@@ -88,7 +91,8 @@ func NewCore(
 		validator:               validator,
 		proxyCommitCallback:     proxyCommitCallback,
 		peers:                   peers,
-		validators:              genesisPeers,
+		genesisPeers:            genesisPeers,
+		validators:              validators,
 		peerSelector:            peerSelector,
 		transactionPool:         [][]byte{},
 		internalTransactionPool: []hg.InternalTransaction{},

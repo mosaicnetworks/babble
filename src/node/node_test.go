@@ -40,11 +40,13 @@ func TestAddTransaction(t *testing.T) {
 	defer peer0Trans.Close()
 
 	genesisPeerSet := clonePeerSet(t, p.Peers)
+	validators := clonePeerSet(t, p.Peers)
 
 	node0 := NewNode(config,
 		NewValidator(keys[0], peers[0].Moniker),
 		p,
 		genesisPeerSet,
+		validators,
 		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
 		peer0Proxy)
@@ -63,6 +65,7 @@ func TestAddTransaction(t *testing.T) {
 		NewValidator(keys[1], peers[1].Moniker),
 		p,
 		genesisPeerSet,
+		validators,
 		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
 		peer1Proxy)
@@ -117,8 +120,9 @@ func TestGossip(t *testing.T) {
 	keys, peers := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
+	validators := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, validators, 100000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	//defer drawGraphs(nodes, t)
 
 	target := 50
@@ -136,8 +140,9 @@ func TestMissingNodeGossip(t *testing.T) {
 	keys, peers := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
+	validators := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, validators, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	//defer drawGraphs(nodes, t)
 
 	err := gossip(nodes[1:], 10, true, 6*time.Second)
@@ -154,8 +159,9 @@ func TestSyncLimit(t *testing.T) {
 	keys, peers := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
+	validators := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, validators, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
 
 	err := gossip(nodes, 10, false, 3*time.Second)
@@ -198,8 +204,9 @@ func TestFastForward(t *testing.T) {
 	keys, peers := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
+	validators := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, validators, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
 
 	target := 20
@@ -239,6 +246,7 @@ func TestCatchUp(t *testing.T) {
 	keys, peers := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
+	validators := clonePeerSet(t, peers.Peers)
 
 	/*
 		We don't initialize the first node; it will stay passive during the
@@ -247,7 +255,7 @@ func TestCatchUp(t *testing.T) {
 		to listen regardless of whether a node is running or not. We should
 		probably change this at some point.
 	*/
-	normalNodes := initNodes(keys[1:], peers, genesisPeerSet, 1000000, 100, 5, true, "inmem", 50*time.Millisecond, logger, t)
+	normalNodes := initNodes(keys[1:], peers, genesisPeerSet, validators, 1000000, 100, 5, true, "inmem", 50*time.Millisecond, logger, t)
 	defer shutdownNodes(normalNodes)
 	//defer drawGraphs(normalNodes, t)
 
@@ -259,7 +267,7 @@ func TestCatchUp(t *testing.T) {
 	}
 	checkGossip(normalNodes, 0, t)
 
-	node0 := newNode(peers.Peers[0], keys[0], peers, genesisPeerSet, 1000000, 100, 5, true, "inmem", 10*time.Millisecond, logger, t)
+	node0 := newNode(peers.Peers[0], keys[0], peers, genesisPeerSet, validators, 1000000, 100, 5, true, "inmem", 10*time.Millisecond, logger, t)
 	defer node0.Shutdown()
 
 	//Run parallel routine to check node0 eventually reaches CatchingUp state.
@@ -298,8 +306,9 @@ func TestFastSync(t *testing.T) {
 	keys, peers := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
+	validators := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 400, 5, true, "inmem", 10*time.Millisecond, logger, t) //make cache high to draw graphs
+	nodes := initNodes(keys, peers, genesisPeerSet, validators, 100000, 400, 5, true, "inmem", 10*time.Millisecond, logger, t) //make cache high to draw graphs
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
@@ -360,8 +369,9 @@ func TestShutdown(t *testing.T) {
 	keys, peers := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
+	validators := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, validators, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	runNodes(nodes, false)
 
 	nodes[0].Shutdown()
@@ -383,8 +393,9 @@ func TestBootstrapAllNodes(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(t, 4)
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
+	validators := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 10, true, "badger", 6*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, validators, 1000, 1000, 10, true, "badger", 6*time.Millisecond, logger, t)
 
 	err := gossip(nodes, 10, true, 3*time.Second)
 	if err != nil {
@@ -414,8 +425,9 @@ func BenchmarkGossip(b *testing.B) {
 		keys, peers := initPeers(b, 4)
 
 		genesisPeerSet := clonePeerSet(b, peers.Peers)
+		validators := clonePeerSet(b, peers.Peers)
 
-		nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, b)
+		nodes := initNodes(keys, peers, genesisPeerSet, validators, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, b)
 		gossip(nodes, 50, true, 3*time.Second)
 	}
 }
@@ -461,6 +473,7 @@ func newNode(peer *peers.Peer,
 	k *ecdsa.PrivateKey,
 	peers *peers.PeerSet,
 	genesisPeers *peers.PeerSet,
+	validators *peers.PeerSet,
 	cacheSize,
 	syncLimit int,
 	joinTimeoutSeconds time.Duration,
@@ -505,6 +518,7 @@ func newNode(peer *peers.Peer,
 		NewValidator(k, peer.Moniker),
 		peers,
 		genesisPeers,
+		validators,
 		store,
 		trans,
 		prox)
@@ -521,6 +535,7 @@ func newNode(peer *peers.Peer,
 func initNodes(keys []*ecdsa.PrivateKey,
 	peers *peers.PeerSet,
 	genesisPeers *peers.PeerSet,
+	validators *peers.PeerSet,
 	cacheSize,
 	syncLimit int,
 	joinTimeoutSeconds time.Duration,
@@ -544,6 +559,7 @@ func initNodes(keys []*ecdsa.PrivateKey,
 			k,
 			peers,
 			genesisPeers,
+			validators,
 			cacheSize,
 			syncLimit,
 			joinTimeoutSeconds,
@@ -572,7 +588,8 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 	key := oldNode.validator.Key
 	moniker := oldNode.validator.Moniker
 	peers := oldNode.core.peers
-	genesisPeerSet := oldNode.core.validators
+	genesisPeerSet := oldNode.core.genesisPeers
+	validators := oldNode.core.validators
 
 	var store hg.Store
 	var err error
@@ -596,7 +613,8 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 
 	conf.Bootstrap = true
 
-	newNode := NewNode(conf, NewValidator(key, moniker), peers, genesisPeerSet, store, trans, prox)
+	newNode := NewNode(conf, NewValidator(key, moniker), peers, genesisPeerSet,
+		validators, store, trans, prox)
 
 	if err := newNode.Init(); err != nil {
 		t.Error("Fatal Error 3 recycleNode", err)

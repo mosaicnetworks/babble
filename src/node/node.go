@@ -49,6 +49,7 @@ func NewNode(conf *Config,
 	validator *Validator,
 	peers *peers.PeerSet,
 	genesisPeers *peers.PeerSet,
+	validators *peers.PeerSet,
 	store hg.Store,
 	trans net.Transport,
 	proxy proxy.AppProxy,
@@ -61,7 +62,7 @@ func NewNode(conf *Config,
 		validator:    validator,
 		conf:         conf,
 		logger:       conf.Logger.WithField("this_id", validator.ID()),
-		core:         NewCore(validator, peers, genesisPeers, store, proxy.CommitBlock, conf.Logger),
+		core:         NewCore(validator, peers, genesisPeers, validators, store, proxy.CommitBlock, conf.Logger),
 		trans:        trans,
 		netCh:        trans.Consumer(),
 		proxy:        proxy,
@@ -615,4 +616,14 @@ func (n *Node) ID() uint32 {
 //GetPeers returns the peers
 func (n *Node) GetPeers() []*peers.Peer {
 	return n.core.peers.Peers
+}
+
+//GetGenesisPeers returns the genesis peers
+func (n *Node) GetGenesisPeers() []*peers.Peer {
+	return n.core.genesisPeers.Peers
+}
+
+//GetValidators returns the validators
+func (n *Node) GetValidators() []*peers.Peer {
+	return n.core.genesisPeers.Peers
 }
