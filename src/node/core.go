@@ -320,7 +320,7 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 		//until it fast-forwards to its accepted-round. Hence, we force the
 		//other nodes to reach that round.
 		if acceptedRound > c.TargetRound {
-			c.logger.Debugf("Fast Forward round from as new peer joins %d to %d", c.TargetRound, acceptedRound)
+			c.logger.Debugf("Fast Forward round from %d to %d as new peer joins", c.TargetRound, acceptedRound)
 			c.TargetRound = acceptedRound
 		}
 	}
