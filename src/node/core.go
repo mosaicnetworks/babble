@@ -20,12 +20,15 @@ type Core struct {
 
 	hg *hg.Hashgraph
 
-	peers        *peers.PeerSet //[PubKey] => id
+	// peers is the list of peers that the node will try to gossip with; not
+	// necessarily the current validator-set.
+	peers        *peers.PeerSet
 	peerSelector PeerSelector
 	selectorLock sync.Mutex
 
-	genesisPeers *peers.PeerSet
-	hgPeers      *peers.PeerSet
+	// validators reflects the latest validator-set used in the hashgraph
+	// consensus methods.
+	validators *peers.PeerSet
 
 	// Hash and Index of this instance's head Event
 	Head string
@@ -85,8 +88,7 @@ func NewCore(
 		validator:               validator,
 		proxyCommitCallback:     proxyCommitCallback,
 		peers:                   peers,
-		genesisPeers:            genesisPeers,
-		hgPeers:                 genesisPeers,
+		validators:              genesisPeers,
 		peerSelector:            peerSelector,
 		transactionPool:         [][]byte{},
 		internalTransactionPool: []hg.InternalTransaction{},
@@ -151,8 +153,8 @@ func (c *Core) Bootstrap() error {
 	return c.hg.Bootstrap()
 }
 
-//SetPeerSet sets the peers property and a New RandomPeerSelector
-func (c *Core) SetPeerSet(ps *peers.PeerSet) {
+//SetPeers sets the peers property and a New RandomPeerSelector
+func (c *Core) SetPeers(ps *peers.PeerSet) {
 	c.peers = ps
 	c.peerSelector = NewRandomPeerSelector(c.peers, c.validator.ID())
 }
@@ -206,17 +208,24 @@ func (c *Core) Commit(block *hg.Block) error {
 		block.Body.StateHash = commitResponse.StateHash
 		block.Body.InternalTransactions = commitResponse.InternalTransactions
 
-		sig, err := c.SignBlock(block)
+		//Sign the block if we belong to its validator-set
+		blockPeerSet, err := c.hg.Store.GetPeerSet(block.RoundReceived())
 		if err != nil {
 			return err
+		}
+
+		if _, ok := blockPeerSet.ByID[c.validator.ID()]; ok {
+			sig, err := c.SignBlock(block)
+			if err != nil {
+				return err
+			}
+			c.selfBlockSignatures.Add(sig)
 		}
 
 		err = c.hg.SetAnchorBlock(block)
 		if err != nil {
 			return err
 		}
-
-		c.selfBlockSignatures.Add(sig)
 
 		err = c.ProcessAcceptedInternalTransactions(block.RoundReceived(), commitResponse.InternalTransactions)
 		if err != nil {
@@ -249,93 +258,73 @@ func (c *Core) SignBlock(block *hg.Block) (hg.BlockSignature, error) {
 
 //ProcessAcceptedInternalTransactions processes the accepted internal transactions
 func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.InternalTransaction) error {
-	corePeers := c.peers
-	hgPeers := c.hgPeers
+	peers := c.peers
+	validators := c.validators
 
 	changed := false
 	for _, tx := range txs {
 		if tx.Body.Accepted == common.True {
-			//update the PeerSet placeholder
+			c.logger.WithFields(logrus.Fields{
+				"peer":           tx.Body.Peer,
+				"round_received": roundReceived,
+				"type":           tx.Body.Type.String(),
+			}).Debug("Processing accepted InternalTransaction")
+
 			switch tx.Body.Type {
 			case hg.PEER_ADD:
-				c.logger.WithFields(logrus.Fields{
-					"peer":               tx.Body.Peer,
-					"round":              roundReceived,
-					"peers_count_before": len(hgPeers.Peers),
-				}).Debug("adding peer")
-
-				hgPeers = hgPeers.WithNewPeer(&tx.Body.Peer)
-
-				//XXX The peer might already by in the current peerset
-				//current peerset is not the same as hashgraph peerset.
-				//This could probably be moved somewhere else
-				if _, ok := corePeers.ByID[tx.Body.Peer.ID()]; !ok {
-					corePeers = corePeers.WithNewPeer(&tx.Body.Peer)
-				}
+				validators = validators.WithNewPeer(&tx.Body.Peer)
+				peers = peers.WithNewPeer(&tx.Body.Peer)
 			case hg.PEER_REMOVE:
-				c.logger.WithFields(logrus.Fields{
-					"peer":               tx.Body.Peer,
-					"round":              roundReceived,
-					"peers_count_before": len(hgPeers.Peers),
-				}).Debug("removing peer")
-
-				hgPeers = hgPeers.WithRemovedPeer(&tx.Body.Peer)
-
-				//XXX
-				corePeers = corePeers.WithRemovedPeer(&tx.Body.Peer)
+				validators = validators.WithRemovedPeer(&tx.Body.Peer)
+				peers = peers.WithRemovedPeer(&tx.Body.Peer)
 			default:
 			}
+
 			changed = true
 		} else {
 			c.logger.WithField("peer", tx.Body.Peer).Debugf("InternalTransaction not accepted. Got %v", tx.Body.Accepted)
 		}
-
 	}
 
 	//Why +6? According to lemmas 5.15 and 5.17 of the original whitepaper, all
 	//consistent hashgraphs will have decided the fame of round r witnesses by
 	//round r+5 or before; so it is safe to set the new peer-set at round r+6.
-	acceptedRound := roundReceived + 6
+	effectiveRound := roundReceived + 6
 
 	if changed {
-		err := c.hg.Store.SetPeerSet(acceptedRound, hgPeers)
+		// Record the new validator-set in the underlying Hashgraph and in
+		// the core's validators field
+
+		err := c.hg.Store.SetPeerSet(effectiveRound, validators)
 		if err != nil {
 			return fmt.Errorf("Updating Store PeerSet: %s", err)
 		}
 
+		c.validators = validators
+
 		c.logger.WithFields(logrus.Fields{
-			"accepted_round": acceptedRound,
-			"peers_count":    len(hgPeers.Peers),
-		}).Debug("Peers Changed")
+			"effective_round": effectiveRound,
+			"validators":      len(validators.Peers),
+		}).Debug("Validators Changed")
 
-		//XXX should not be set immediately. We need a smarter way for core to
-		//know which peerset to use depending on which round the hg is at.
-		c.SetPeerSet(corePeers)
+		// Update the current list of communicating peers. This is not
+		// necessarily equal to the latest recorded validator_set.
+		c.SetPeers(peers)
 
-		//XXX
-		c.hgPeers = hgPeers
-
-		//TODO Remove this debug code
-		fr, err := c.hg.GetFrame(roundReceived)
-		framepeers := fr.Peers
-
-		c.logger.WithField("framepeers", framepeers).Debugf("Frame Peers Change %d", roundReceived)
-
-		//END TODO
-
-		//A new peer has joined and it won't be able to participate in consensus
-		//until it fast-forwards to its accepted-round. Hence, we force the
-		//other nodes to reach that round.
-		if acceptedRound > c.TargetRound {
-			c.logger.Debugf("Update TargetRound from %d to %d", c.TargetRound, acceptedRound)
-			c.TargetRound = acceptedRound
+		// A new validator-set has been recorded and will only be effective from
+		// effectiveRound. A joining node will not be able to participate in the
+		// consensus until the Hashgraph reaches that effectiveRound. Hence, we
+		// force everyone to reach that round.
+		if effectiveRound > c.TargetRound {
+			c.logger.Debugf("Update TargetRound from %d to %d", c.TargetRound, effectiveRound)
+			c.TargetRound = effectiveRound
 		}
 	}
 
 	for _, tx := range txs {
 		//respond to the corresponding promise
 		if p, ok := c.promises[tx.Hash()]; ok {
-			p.Respond(acceptedRound, hgPeers.Peers)
+			p.Respond(effectiveRound, validators.Peers)
 			delete(c.promises, tx.Hash())
 		}
 	}
@@ -550,11 +539,9 @@ func (c *Core) FastForward(peer string, block *hg.Block, frame *hg.Frame) error 
 		return err
 	}
 
-	c.SetPeerSet(peers.NewPeerSet(frame.Peers))
-
-	//XXX removing this breaks TestSuccessiveJoinRequestExtra
-	//TODO refactor core peersets
-	c.hgPeers = peers.NewPeerSet(frame.Peers)
+	// Update peer-selector and validators
+	c.SetPeers(peers.NewPeerSet(frame.Peers))
+	c.validators = peers.NewPeerSet(frame.Peers)
 
 	return nil
 }

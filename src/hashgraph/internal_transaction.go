@@ -22,6 +22,17 @@ const (
 	PEER_REMOVE
 )
 
+func (t TransactionType) String() string {
+	switch t {
+	case PEER_ADD:
+		return "PEER_ADD"
+	case PEER_REMOVE:
+		return "PEER_REMOVE"
+	default:
+		return "Unknown TransactionType"
+	}
+}
+
 type InternalTransactionBody struct {
 	Type     TransactionType
 	Peer     peers.Peer

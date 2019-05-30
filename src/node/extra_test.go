@@ -109,7 +109,7 @@ func TestSuccessiveLeaveRequestExtra(t *testing.T) {
 	}
 }
 
-func TestSimultaneusLeaveRequestExtra(t *testing.T) {
+func TestSimultaneousLeaveRequestExtra(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(t, 4)
 

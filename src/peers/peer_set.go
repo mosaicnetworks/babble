@@ -59,7 +59,13 @@ func NewPeerSetFromPeerSliceBytes(peerSliceBytes []byte) (*PeerSet, error) {
 
 //WithNewPeer returns a new PeerSet with a list of peers including the new one.
 func (peerSet *PeerSet) WithNewPeer(peer *Peer) *PeerSet {
-	peers := append(peerSet.Peers, peer)
+	peers := peerSet.Peers
+
+	//don't add it if it already exists
+	if _, ok := peerSet.ByID[peer.ID()]; !ok {
+		peers = append(peers, peer)
+	}
+
 	newPeerSet := NewPeerSet(peers)
 	return newPeerSet
 }

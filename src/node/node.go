@@ -357,7 +357,6 @@ func (n *Node) monologue() error {
 	n.coreLock.Lock()
 	defer n.coreLock.Unlock()
 
-	//XXX
 	if n.core.Busy() {
 		err := n.core.AddSelfEvent("")
 		if err != nil {

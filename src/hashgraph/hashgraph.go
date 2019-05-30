@@ -1298,13 +1298,8 @@ func (h *Hashgraph) ProcessSigPool() error {
 				"round":     block.RoundReceived(),
 				"validator": bs.ValidatorHex(),
 				"peers":     peerSet.Peers,
-			}).Warning("Verifying Block signature. Unknown validator")
+			}).Warning("Verifying Block signature. Validator does not belong to Block's PeerSet")
 
-			//TODO JK DO NOT CHECK IN THIS
-			//			fmt.Println("ERROR PeerSet ByPubKey:", peerSet.ByPubKey)
-			//			fmt.Println("ERROR BS:", bs.ValidatorHex())
-
-			//HACK ENDS
 			continue
 		}
 
