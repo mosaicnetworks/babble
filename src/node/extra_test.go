@@ -15,7 +15,6 @@ import (
 func TestSuccessiveJoinRequestExtra(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(t, 1)
-
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
 	node0 := newNode(peerSet.Peers[0], keys[0], peerSet, genesisPeerSet, 1000000, 400, 5, false, "inmem", 10*time.Millisecond, logger, t)
@@ -23,7 +22,6 @@ func TestSuccessiveJoinRequestExtra(t *testing.T) {
 	node0.RunAsync(true)
 
 	nodes := []*Node{node0}
-	//defer drawGraphs(nodes, t)
 
 	target := 10
 	for i := 1; i <= 3; i++ {
@@ -254,62 +252,37 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 
 	logger := common.NewTestLogger(t)
 
-	// Step 1 - Create 5 nodes
-
 	keys, peerlist := initPeers(t, 10)
-
-	logPeerList(t, peerlist, "Log Peers")
 
 	peers01234 := clonePeerSet(t, peerlist.Peers[0:5])
 	peers0123 := clonePeerSet(t, peerlist.Peers[0:4])
-	peers01235 := clonePeerSet(t, append(append([]*peers.Peer{}, peerlist.Peers[0:4]...), peerlist.Peers[5:6]...))    // Step 4
-	peers012356 := clonePeerSet(t, append(append([]*peers.Peer{}, peerlist.Peers[0:4]...), peerlist.Peers[5:7]...))   // Step 6
-	peers0123567 := clonePeerSet(t, append(append([]*peers.Peer{}, peerlist.Peers[0:4]...), peerlist.Peers[5:8]...))  // Step 8
-	peers01235678 := clonePeerSet(t, append(append([]*peers.Peer{}, peerlist.Peers[0:4]...), peerlist.Peers[5:9]...)) // Step 8
-	//	peers5678 := clonePeerSet(t, peerlist.Peers[5:9])                                  // Step 9
-	peers5678 := clonePeerSet(t, peerlist.Peers[5:9]) // Step 10
-
+	peers01235 := clonePeerSet(t, append(append([]*peers.Peer{}, peerlist.Peers[0:4]...), peerlist.Peers[5:6]...))   // Step 4
+	peers012356 := clonePeerSet(t, append(append([]*peers.Peer{}, peerlist.Peers[0:4]...), peerlist.Peers[5:7]...))  // Step 6
+	peers0123567 := clonePeerSet(t, append(append([]*peers.Peer{}, peerlist.Peers[0:4]...), peerlist.Peers[5:8]...)) // Step 8
+	peers5678 := clonePeerSet(t, peerlist.Peers[5:9])                                                                // Step 10
 	genesisPeerSet := clonePeerSet(t, peers01234.Peers)
 
-	logPeerList(t, peers01234, "Peers01234")
-	logPeerList(t, peers01235, "Peers01235")
-	logPeerList(t, peers012356, "Peers012356")
-	logPeerList(t, peers0123567, "Peers0123567")
-	logPeerList(t, peers01235678, "Peers01235678")
-	logPeerList(t, peers5678, "Peers5678")
-	logPeerList(t, genesisPeerSet, "genesisPeerSet")
-
 	t.Log("Step 1")
-	// 5 nodes are live
-
+	// 5 nodes are initially put live
 	logPeerList(t, peerlist, "Log Peers")
-
 	nodes01234 := initNodes(keys[0:5], peers01234, genesisPeerSet, 100000, 400, 15, false, "inmem", 10*time.Millisecond, logger, t) //make cache high to draw graphs
-	//	defer shutdownNodesSlice(t, nodes01234, []uint{0, 1, 2, 3})
-	//defer drawGraphs(nodes, t)
 
 	// Step 1b - gossip and build history
 	t.Log("Step 1b")
 
 	target := nodes01234[0].core.hg.Store.LastBlockIndex() + 1
-
 	err := gossip(nodes01234, target+20, false, 10*time.Second)
 	if err != nil {
 		t.Error("Fatal Error 1b", err)
 		t.Fatal("Step 1b gossip", err)
 	}
 	checkGossip(nodes01234, target, t)
-
 	checkPeerSets(nodes01234, t)
 
 	// Step 2 - Node 4 leaves
 	t.Log("Step 2")
 
 	node4 := nodes01234[4]
-
-	// Pause for realism
-	// time.Sleep(2 * time.Second)
-
 	err = node4.Leave()
 	if err != nil {
 		t.Error("Fatal Error 2", err)
@@ -318,14 +291,11 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 
 	// New nodes array without node 4
 	nodes0123 := nodes01234[0:4]
-
 	time.Sleep(400 * time.Millisecond)
-
 	checkPeerSets(nodes0123, t)
 
 	// Step 3 - More history
 	t.Log("Step 3")
-
 	target = nodes0123[0].core.hg.Store.LastBlockIndex() + 1
 	err = gossip(nodes0123, target+30, false, 10*time.Second)
 	if err != nil {
@@ -336,9 +306,7 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 
 	// Step 4 Add a new validator (node 5) and sync without using fast sync
 	t.Log("Step 4")
-
 	logPeerList(t, peerlist, "Log Peers 5")
-
 	node5 := newNode(peerlist.Peers[5], keys[5], peers0123, genesisPeerSet, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
 	defer node5.Shutdown()
 
@@ -348,28 +316,21 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	// Step 5 Build more history
 	t.Log("Step 5")
 	logNodeList(t, nodes01235, "Nodes 01235")
-
 	node5.RunAsync(true)
-
-	time.Sleep(2 * time.Second)
+	time.Sleep(400 * time.Millisecond)
 
 	target = nodes01235[0].core.hg.Store.LastBlockIndex() + 1
-
-	t.Logf("Target block is %d", target+30)
-
-	err = gossip(nodes01235, target+30, false, 10*time.Second)
+	err = gossip(nodes01235, target+20, false, 10*time.Second)
 	if err != nil {
 		t.Error("Fatal Error 5", err)
 		t.Fatal(err)
 	}
 
 	t.Log("Step 5b")
-
 	checkGossip(nodes01235, target, t)
 
 	// Step 6 Add another validator (node 6) and sync without fast sync
 	t.Log("Step 6")
-
 	logPeerList(t, peerlist, "Log Peers 6")
 	node6 := newNode(peerlist.Peers[6], keys[6], peers01235, genesisPeerSet, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
 	defer node6.Shutdown()
@@ -377,29 +338,14 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	nodes012356 := append(append([]*Node{}, nodes01235...), node6)
 	node6.RunAsync(true)
 
-	// Verify new join has updated the PeerSets
-
 	// We sleep to ensure join process has completed.
-	time.Sleep(4 * time.Second)
-
-	for nodeIdx, tmpnode := range nodes012356 {
-		ps0, _ := tmpnode.core.hg.Store.GetAllPeerSets()
-		t.Logf("Node peer list %d", nodeIdx)
-		t.Log("Node peer list ", ps0)
-	}
+	time.Sleep(400 * time.Millisecond)
 
 	checkPeerSets(nodes012356, t)
-
-	t.Log("XXX Frames XXX")
-
 	checkFrames(nodes012356, 0, t)
-
-	t.Log("YYY Frames YYY")
-	//	t.Fatal("Forced Abort")
 
 	// Step 7 Add more history and check that all peers have the same state
 	t.Log("Step 7")
-
 	target = nodes012356[0].core.hg.Store.LastBlockIndex() + 1
 	err = gossip(nodes012356, target+10, false, 5*time.Second)
 	if err != nil {
@@ -407,16 +353,9 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	//	return //TODO remove this line
-
 	t.Log("Step 7b")
 	checkGossip(nodes012356, target, t)
-
-	t.Log("XXX Frames XXX")
-
 	checkFrames(nodes012356, 0, t)
-
-	t.Log("YYY Frames YYY")
 
 	//  Step 8 Add Node 7, 8
 	t.Log("Step 8")
@@ -424,12 +363,10 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	logPeerList(t, peerlist, "Log Peers 7")
 	node7 := newNode(peerlist.Peers[7], keys[7], peers012356, genesisPeerSet, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
 	defer node7.Shutdown()
-
 	nodes0123567 := append(append([]*Node{}, nodes012356...), node7)
 	node7.RunAsync(true)
 
 	t.Log("Step 8b")
-
 	target = nodes0123567[0].core.hg.Store.LastBlockIndex() + 1
 	err = gossip(nodes0123567, target+12, false, 10*time.Second)
 	if err != nil {
@@ -438,16 +375,15 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	}
 	checkGossip(nodes0123567, target, t)
 
+	t.Log("Step 8c")
 	logPeerList(t, peerlist, "Log Peers 8")
 	node8 := newNode(peerlist.Peers[8], keys[8], peers0123567, genesisPeerSet, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
 	defer node8.Shutdown()
-
 	nodes01235678 := append(append([]*Node{}, nodes0123567...), node8)
 	node8.RunAsync(true)
 
 	// Step 8b Add more history and check that all peers have the same state
-	t.Log("Step 8c")
-
+	t.Log("Step 8d")
 	target = nodes01235678[0].core.hg.Store.LastBlockIndex() + 1
 	err = gossip(nodes01235678, target+12, false, 30*time.Second)
 	if err != nil {
@@ -457,7 +393,6 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	checkGossip(nodes01235678, target, t)
 
 	//  Step 9 Remove Nodes 0 to 3
-
 	t.Log("Step 9")
 	node3 := nodes0123[3]
 	err = node3.Leave()
@@ -492,7 +427,6 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 
 	// New nodes array without nodes 0 to 3
 	nodes5678 := nodes01235678[4:]
-
 	target += 13
 	err = gossip(nodes5678, target, false, 10*time.Second)
 	if err != nil {
@@ -504,7 +438,6 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	//  Step 10 Add Node 9
 
 	t.Log("Step 10")
-
 	logPeerList(t, peerlist, "Log Peers 9")
 	node9 := newNode(peerlist.Peers[9], keys[9], peers5678, genesisPeerSet, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
 	defer node9.Shutdown()
@@ -519,11 +452,6 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 		t.Fatal(err)
 	}
 	checkGossip(nodes56789, 0, t)
-
-	// Check everything is in sync
-
-	// Last Step Shutdown cleanly
-	// Is handled by defer commands set as objects are created
 
 	t.Log("Final Step")
 
