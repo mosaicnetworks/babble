@@ -75,6 +75,7 @@ func (b *Babble) initPeers() error {
 
 	genesisParticipants, err := genesisPeerStore.PeerSet()
 	if err != nil { // If there is any error, the current peer set is used as the genesis peer set
+		b.Config.Logger.Debugf("could not read peers.genesis.json: %v", err)
 		b.GenesisPeers = participants
 	} else {
 		b.GenesisPeers = genesisParticipants
@@ -169,9 +170,10 @@ func (b *Babble) initNode() error {
 	}
 
 	b.Config.Logger.WithFields(logrus.Fields{
-		"participants": b.Peers,
-		"id":           validator.ID(),
-		"moniker":      validator.Moniker,
+		"genesis_peers": len(b.GenesisPeers.Peers),
+		"peers":         len(b.Peers.Peers),
+		"id":            validator.ID(),
+		"moniker":       validator.Moniker,
 	}).Debug("PARTICIPANTS")
 
 	b.Node = node.NewNode(

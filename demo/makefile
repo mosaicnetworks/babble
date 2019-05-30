@@ -1,6 +1,7 @@
 nodes = 4
 txs = 10
 index = 1
+fast_sync = false
 
 up: conf start watch
 
@@ -16,7 +17,7 @@ conf :
 
 # launch testnet
 start:
-	./scripts/run-testnet.sh $(nodes)
+	./scripts/run-testnet.sh $(nodes) $(fast_sync)
 
 # monitor stats
 watch: 
@@ -40,7 +41,7 @@ send:
 
 # create new peer and join
 join:
-	./scripts/join.sh $(index)
+	./scripts/join.sh $(index) $(fast_sync)
 
 # leave cleanly - removing itself from peer-set
 leave:

@@ -1,7 +1,8 @@
 #!/bin/bash
 
 N=${1:-5}
-DEST=${2:-"$PWD/conf"}
+FASTSYNC=${2:-false}
+DEST=${3:-"$PWD/conf"}
 
 dest=$DEST/node$N
 
@@ -13,10 +14,13 @@ docker run  \
     -v $dest:/.babble \
     --rm mosaicnetworks/babble:latest keygen 
 
+# get genesis.peers.json
+echo "Fetching peers.genesis.json from node1"
+curl -s http://172.77.5.1:80/genesispeers > $dest/peers.genesis.json
+
 # get up-to-date peers.json
 echo "Fetching peers.json from node1"
 curl -s http://172.77.5.1:80/peers > $dest/peers.json
-cat $dest/peers.json 
 
 # start the new node
 docker run -d --name=client$N --net=babblenet --ip=172.77.10.$N -it mosaicnetworks/dummy:latest \
@@ -33,7 +37,7 @@ docker create --name=node$N --net=babblenet --ip=172.77.5.$N mosaicnetworks/babb
     --proxy-listen="172.77.5.$N:1338" \
     --client-connect="172.77.10.$N:1339" \
     --service-listen="172.77.5.$N:80" \
-    --sync-limit=1000 \
+    --enable-fast-sync=$FASTSYNC \
     --log="debug"
     #--store \
 

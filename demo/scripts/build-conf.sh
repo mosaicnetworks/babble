@@ -47,5 +47,6 @@ for i in $(seq 1 $N)
 do
     dest=$DEST/node$i
     cp $DEST/peers.json $dest/
+    cp $DEST/peers.json $dest/peers.genesis.json
 done
 
