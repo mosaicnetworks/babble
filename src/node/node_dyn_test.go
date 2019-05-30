@@ -23,7 +23,7 @@ func TestMonologue(t *testing.T) {
 	target := 50
 	err := gossip(nodes, target, true, 3*time.Second)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Fatal Error: %v", err)
 	}
 
 	checkGossip(nodes, 0, t)
@@ -42,7 +42,7 @@ func TestJoinRequest(t *testing.T) {
 	target := 30
 	err := gossip(nodes, target, false, 3*time.Second)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Fatal Error: %v", err)
 	}
 	checkGossip(nodes, 0, t)
 
@@ -58,14 +58,14 @@ func TestJoinRequest(t *testing.T) {
 
 	err = newNode.join()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Fatal Error: %v", err)
 	}
 
 	//Gossip some more
 	secondTarget := target + 30
 	err = bombardAndWait(nodes, secondTarget, 6*time.Second)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Fatal Error: %v", err)
 	}
 
 	checkGossip(nodes, 0, t)
@@ -86,7 +86,7 @@ func TestLeaveRequest(t *testing.T) {
 	target := 30
 	err := gossip(nodes, target, false, 3*time.Second)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Fatal Error: %v", err)
 	}
 	checkGossip(nodes, 0, t)
 
@@ -94,14 +94,14 @@ func TestLeaveRequest(t *testing.T) {
 
 	err = leavingNode.Leave()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Fatal Error: %v", err)
 	}
 
 	//Gossip some more
 	secondTarget := target + 50
 	err = bombardAndWait(nodes[0:3], secondTarget, 6*time.Second)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Fatal Error: %v", err)
 	}
 
 	checkGossip(nodes[0:3], 0, t)
@@ -121,7 +121,7 @@ func TestJoinFull(t *testing.T) {
 	target := 30
 	err := gossip(initialNodes, target, false, 6*time.Second)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Fatal Error: %v", err)
 	}
 	checkGossip(initialNodes, 0, t)
 
@@ -145,7 +145,7 @@ func TestJoinFull(t *testing.T) {
 	secondTarget := target + 50
 	err = bombardAndWait(nodes, secondTarget, 10*time.Second)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Fatal Error: %v", err)
 	}
 
 	start := newNode.core.hg.FirstConsensusRound
@@ -157,12 +157,12 @@ func TestJoinFull(t *testing.T) {
 func checkPeerSets(nodes []*Node, t *testing.T) {
 	node0FP, err := nodes[0].core.hg.Store.GetAllPeerSets()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Fatal Error: %v", err)
 	}
 	for i := range nodes[1:] {
 		nodeiFP, err := nodes[i].core.hg.Store.GetAllPeerSets()
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("Fatal Error: %v", err)
 		}
 		if !reflect.DeepEqual(node0FP, nodeiFP) {
 			t.Logf("Node 0 PeerSets: %v", node0FP)
