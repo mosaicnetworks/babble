@@ -572,7 +572,7 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 	key := oldNode.validator.Key
 	moniker := oldNode.validator.Moniker
 	peers := oldNode.core.peers
-	genesisPeerSet := oldNode.core.genesisPeers
+	genesisPeerSet := oldNode.core.validators
 
 	var store hg.Store
 	var err error

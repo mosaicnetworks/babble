@@ -113,45 +113,51 @@ func TestJoinFull(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(t, 4)
 
-	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
+	f := func(fastSync bool) {
+		genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
-	initialNodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 400, 5, true, "inmem", 10*time.Millisecond, logger, t)
-	defer shutdownNodes(initialNodes)
+		initialNodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 400, 5, fastSync, "inmem", 10*time.Millisecond, logger, t)
+		defer shutdownNodes(initialNodes)
 
-	target := 30
-	err := gossip(initialNodes, target, false, 6*time.Second)
-	if err != nil {
-		t.Fatalf("Fatal Error: %v", err)
+		target := 30
+		err := gossip(initialNodes, target, false, 6*time.Second)
+		if err != nil {
+			t.Fatalf("Fatal Error: %v", err)
+		}
+		checkGossip(initialNodes, 0, t)
+
+		key, _ := bkeys.GenerateECDSAKey()
+		peer := peers.NewPeer(
+			bkeys.PublicKeyHex(&key.PublicKey),
+			fmt.Sprint("127.0.0.1:4242"),
+			"monika",
+		)
+
+		newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 400, 5, fastSync, "inmem", 10*time.Millisecond, logger, t)
+		defer newNode.Shutdown()
+
+		newNode.RunAsync(true)
+
+		nodes := append(initialNodes, newNode)
+
+		//defer drawGraphs(nodes, t)
+
+		//Gossip some more
+		secondTarget := target + 50
+		err = bombardAndWait(nodes, secondTarget, 10*time.Second)
+		if err != nil {
+			t.Fatalf("Fatal Error: %v", err)
+		}
+
+		start := newNode.core.hg.FirstConsensusRound
+		checkGossip(nodes, *start, t)
+		checkPeerSets(nodes, t)
+		verifyNewPeerSet(nodes, newNode.core.AcceptedRound, 5, t)
 	}
-	checkGossip(initialNodes, 0, t)
 
-	key, _ := bkeys.GenerateECDSAKey()
-	peer := peers.NewPeer(
-		bkeys.PublicKeyHex(&key.PublicKey),
-		fmt.Sprint("127.0.0.1:4242"),
-		"monika",
-	)
+	t.Run("FastSync enabled", func(t *testing.T) { f(true) })
 
-	newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 400, 5, true, "inmem", 10*time.Millisecond, logger, t)
-	defer newNode.Shutdown()
-
-	newNode.RunAsync(true)
-
-	nodes := append(initialNodes, newNode)
-
-	//defer drawGraphs(nodes, t)
-
-	//Gossip some more
-	secondTarget := target + 50
-	err = bombardAndWait(nodes, secondTarget, 10*time.Second)
-	if err != nil {
-		t.Fatalf("Fatal Error: %v", err)
-	}
-
-	start := newNode.core.hg.FirstConsensusRound
-	checkGossip(nodes, *start, t)
-	checkPeerSets(nodes, t)
-	verifyNewPeerSet(nodes, newNode.core.AcceptedRound, 5, t)
+	t.Run("FastSync disabled", func(t *testing.T) { f(false) })
 }
 
 func checkPeerSets(nodes []*Node, t *testing.T) {
