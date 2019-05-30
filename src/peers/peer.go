@@ -9,6 +9,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/crypto/keys"
 )
 
+//Peer is a struct that holds Peer data
 type Peer struct {
 	NetAddr   string
 	PubKeyHex string
@@ -17,6 +18,7 @@ type Peer struct {
 	id uint32
 }
 
+//NewPeer is a factory method for creating a new Peer instance
 func NewPeer(pubKeyHex, netAddr, moniker string) *Peer {
 	peer := &Peer{
 		PubKeyHex: pubKeyHex,
@@ -26,6 +28,7 @@ func NewPeer(pubKeyHex, netAddr, moniker string) *Peer {
 	return peer
 }
 
+//ID returns an ID for the peer, calculating a hash is one is not available
 //XXX Not very nice
 func (p *Peer) ID() uint32 {
 	if p.id == 0 {
@@ -42,11 +45,13 @@ func (p *Peer) PubKeyString() string {
 	return strings.ToUpper(p.PubKeyHex)
 }
 
+//PubKeyBytes converts hex string representation of the public key and returns a byte array
 func (p *Peer) PubKeyBytes() []byte {
 	res, _ := common.DecodeFromString(p.PubKeyHex)
 	return res
 }
 
+//Marshal marshals the json representation of the peer
 //json encoding excludes the ID field
 func (p *Peer) Marshal() ([]byte, error) {
 	var b bytes.Buffer
@@ -60,6 +65,7 @@ func (p *Peer) Marshal() ([]byte, error) {
 	return b.Bytes(), nil
 }
 
+//Unmarshal generates a JSON representation of the peer
 func (p *Peer) Unmarshal(data []byte) error {
 	b := bytes.NewBuffer(data)
 

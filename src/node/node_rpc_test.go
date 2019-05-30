@@ -12,7 +12,7 @@ import (
 )
 
 func TestProcessSync(t *testing.T) {
-	keys, p := initPeers(2)
+	keys, p := initPeers(t, 2)
 	testLogger := common.NewTestLogger(t)
 	config := TestConfig(t)
 
@@ -26,9 +26,14 @@ func TestProcessSync(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
+	genesisPeerSet := clonePeerSet(t, p.Peers)
+	validators := clonePeerSet(t, p.Peers)
+
 	node0 := NewNode(config,
 		NewValidator(keys[0], peers[0].Moniker),
 		p,
+		genesisPeerSet,
+		validators,
 		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
 		dummy.NewInmemDummyClient(testLogger))
@@ -45,6 +50,8 @@ func TestProcessSync(t *testing.T) {
 	node1 := NewNode(config,
 		NewValidator(keys[1], peers[1].Moniker),
 		p,
+		genesisPeerSet,
+		validators,
 		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
 		dummy.NewInmemDummyClient(testLogger))
@@ -112,7 +119,7 @@ func TestProcessSync(t *testing.T) {
 }
 
 func TestProcessEagerSync(t *testing.T) {
-	keys, p := initPeers(2)
+	keys, p := initPeers(t, 2)
 	testLogger := common.NewTestLogger(t)
 	config := TestConfig(t)
 
@@ -126,9 +133,14 @@ func TestProcessEagerSync(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
+	genesisPeerSet := clonePeerSet(t, p.Peers)
+	validators := clonePeerSet(t, p.Peers)
+
 	node0 := NewNode(config,
 		NewValidator(keys[0], peers[0].Moniker),
 		p,
+		genesisPeerSet,
+		validators,
 		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
 		dummy.NewInmemDummyClient(testLogger))
@@ -145,6 +157,8 @@ func TestProcessEagerSync(t *testing.T) {
 	node1 := NewNode(config,
 		NewValidator(keys[1], peers[1].Moniker),
 		p,
+		genesisPeerSet,
+		validators,
 		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
 		dummy.NewInmemDummyClient(testLogger))
@@ -192,7 +206,7 @@ func TestProcessEagerSync(t *testing.T) {
 }
 
 func TestProcessFastForward(t *testing.T) {
-	keys, p := initPeers(2)
+	keys, p := initPeers(t, 2)
 	testLogger := common.NewTestLogger(t)
 	config := TestConfig(t)
 
@@ -206,9 +220,14 @@ func TestProcessFastForward(t *testing.T) {
 	}
 	defer peer0Trans.Close()
 
+	genesisPeerSet := clonePeerSet(t, p.Peers)
+	validators := clonePeerSet(t, p.Peers)
+
 	node0 := NewNode(config,
 		NewValidator(keys[0], peers[0].Moniker),
 		p,
+		genesisPeerSet,
+		validators,
 		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
 		dummy.NewInmemDummyClient(testLogger))
@@ -225,6 +244,8 @@ func TestProcessFastForward(t *testing.T) {
 	node1 := NewNode(config,
 		NewValidator(keys[1], peers[1].Moniker),
 		p,
+		genesisPeerSet,
+		validators,
 		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
 		dummy.NewInmemDummyClient(testLogger))

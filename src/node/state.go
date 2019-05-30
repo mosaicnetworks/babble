@@ -5,13 +5,13 @@ import (
 	"sync/atomic"
 )
 
-// NodeState captures the state of a Babble node: Babbling, CatchingUp, Joining,
+// State captures the state of a Babble node: Babbling, CatchingUp, Joining,
 // or Shutdown
-type NodeState uint32
+type State uint32
 
 const (
 	//Babbling is the initial state of a Babble node.
-	Babbling NodeState = iota
+	Babbling State = iota
 	//CatchingUp implements Fast Sync
 	CatchingUp
 	//Joining is joining
@@ -22,7 +22,7 @@ const (
 	Shutdown
 )
 
-func (s NodeState) String() string {
+func (s State) String() string {
 	switch s {
 	case Babbling:
 		return "Babbling"
@@ -39,23 +39,23 @@ func (s NodeState) String() string {
 	}
 }
 
-type nodeState struct {
-	state NodeState
+type state struct {
+	state State
 	wg    sync.WaitGroup
 }
 
-func (b *nodeState) getState() NodeState {
+func (b *state) getState() State {
 	stateAddr := (*uint32)(&b.state)
-	return NodeState(atomic.LoadUint32(stateAddr))
+	return State(atomic.LoadUint32(stateAddr))
 }
 
-func (b *nodeState) setState(s NodeState) {
+func (b *state) setState(s State) {
 	stateAddr := (*uint32)(&b.state)
 	atomic.StoreUint32(stateAddr, uint32(s))
 }
 
 // Start a goroutine and add it to waitgroup
-func (b *nodeState) goFunc(f func()) {
+func (b *state) goFunc(f func()) {
 	b.wg.Add(1)
 	go func() {
 		defer b.wg.Done()
@@ -63,6 +63,6 @@ func (b *nodeState) goFunc(f func()) {
 	}()
 }
 
-func (b *nodeState) waitRoutines() {
+func (b *state) waitRoutines() {
 	b.wg.Wait()
 }

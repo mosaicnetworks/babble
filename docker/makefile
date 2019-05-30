@@ -16,7 +16,7 @@ babble-image:
 dummy-image:
 	CGO_ENABLED=0 go build \
 		-o dummy/dummy ../cmd/dummy/
-	docker build --no-cache=true -t mosaicnetworks/dummy:$(DUMMY_VERSION) dummy/
+	docker build --no-cache=true -t mosaicnetworks/dummy:$(DUMMY_VERSION) -t mosaicnetworks/dummy:latest dummy/
 
 watcher-image:
 	docker build --no-cache=true -t mosaicnetworks/watcher:$(WATCHER_VERSION) -t mosaicnetworks/watcher:latest watcher/

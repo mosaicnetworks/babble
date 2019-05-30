@@ -17,4 +17,8 @@ glide.lock
 *.aar
 *.jar
 
+# vi swap files
+*.swp 
+
+
 .#*

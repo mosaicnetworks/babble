@@ -18,7 +18,7 @@ import (
 
 //Node defines a babble node
 type Node struct {
-	nodeState
+	state
 
 	conf   *Config
 	logger *logrus.Entry
@@ -48,6 +48,8 @@ type Node struct {
 func NewNode(conf *Config,
 	validator *Validator,
 	peers *peers.PeerSet,
+	genesisPeers *peers.PeerSet,
+	validators *peers.PeerSet,
 	store hg.Store,
 	trans net.Transport,
 	proxy proxy.AppProxy,
@@ -60,7 +62,7 @@ func NewNode(conf *Config,
 		validator:    validator,
 		conf:         conf,
 		logger:       conf.Logger.WithField("this_id", validator.ID()),
-		core:         NewCore(validator, peers, store, proxy.CommitBlock, conf.Logger),
+		core:         NewCore(validator, peers, genesisPeers, validators, store, proxy.CommitBlock, conf.Logger),
 		trans:        trans,
 		netCh:        trans.Consumer(),
 		proxy:        proxy,
@@ -356,7 +358,6 @@ func (n *Node) monologue() error {
 	n.coreLock.Lock()
 	defer n.coreLock.Unlock()
 
-	//XXX
 	if n.core.Busy() {
 		err := n.core.AddSelfEvent("")
 		if err != nil {
@@ -615,4 +616,14 @@ func (n *Node) ID() uint32 {
 //GetPeers returns the peers
 func (n *Node) GetPeers() []*peers.Peer {
 	return n.core.peers.Peers
+}
+
+//GetGenesisPeers returns the genesis peers
+func (n *Node) GetGenesisPeers() []*peers.Peer {
+	return n.core.genesisPeers.Peers
+}
+
+//GetValidators returns the validators
+func (n *Node) GetValidators() []*peers.Peer {
+	return n.core.genesisPeers.Peers
 }

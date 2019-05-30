@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	jsonPeerSetPath         = "peers.json"
-	jsonOriginalPeerSetPath = "peers.original.json"
+	jsonPeerSetPath        = "peers.json"
+	jsonGenesisPeerSetPath = "peers.genesis.json"
 )
 
 // JSONPeerSet is used to provide peer persistence on disk in the form
@@ -27,7 +27,7 @@ func NewJSONPeerSet(base string, isCurrent bool) *JSONPeerSet {
 	if isCurrent {
 		path = filepath.Join(base, jsonPeerSetPath)
 	} else {
-		path = filepath.Join(base, jsonOriginalPeerSetPath)
+		path = filepath.Join(base, jsonGenesisPeerSetPath)
 	}
 
 	store := &JSONPeerSet{

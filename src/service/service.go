@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/mosaicnetworks/babble/src/node"
+	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/sirupsen/logrus"
 )
 
@@ -37,6 +38,10 @@ func (s *Service) Serve() {
 	http.HandleFunc("/graph", s.GetGraph)
 
 	http.HandleFunc("/peers", s.GetPeers)
+
+	http.HandleFunc("/genesispeers", s.GetGenesisPeers)
+
+	http.HandleFunc("/validators", s.GetValidators)
 
 	err := http.ListenAndServe(s.bindAddress, nil)
 
@@ -92,11 +97,21 @@ func (s *Service) GetGraph(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) GetPeers(w http.ResponseWriter, r *http.Request) {
+	getPeerSet(w, r, s.node.GetPeers())
+}
+
+func (s *Service) GetGenesisPeers(w http.ResponseWriter, r *http.Request) {
+	getPeerSet(w, r, s.node.GetGenesisPeers())
+}
+
+func (s *Service) GetValidators(w http.ResponseWriter, r *http.Request) {
+	getPeerSet(w, r, s.node.GetValidators())
+}
+
+func getPeerSet(w http.ResponseWriter, r *http.Request, peers []*peers.Peer) {
 	w.Header().Set("Content-Type", "application/json")
 
 	encoder := json.NewEncoder(w)
 
-	res := s.node.GetPeers()
-
-	encoder.Encode(res)
+	encoder.Encode(peers)
 }

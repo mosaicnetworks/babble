@@ -32,12 +32,17 @@ func initCores(n int, t *testing.T) ([]*Core, map[uint32]*ecdsa.PrivateKey, map[
 
 	peerSet := peers.NewPeerSet(pirs)
 
+	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
+	validators := clonePeerSet(t, peerSet.Peers)
+
 	for i, peer := range peerSet.Peers {
 		key, _ := participantKeys[peer.ID()]
 
 		core := NewCore(
 			NewValidator(key, peer.Moniker),
 			peerSet,
+			genesisPeerSet,
+			validators,
 			hg.NewInmemStore(cacheSize),
 			proxy.DummyCommitCallback,
 			common.NewTestLogger(t))
@@ -813,9 +818,14 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	genesisPeerSet := clonePeerSet(t, initPeerSet.Peers)
+	validators := clonePeerSet(t, initPeerSet.Peers)
+
 	bobCore := NewCore(
 		NewValidator(bobKey, bobPeer.Moniker),
 		initPeerSet,
+		genesisPeerSet,
+		validators,
 		hg.NewInmemStore(1000),
 		proxy.DummyCommitCallback,
 		common.NewTestLogger(t))

@@ -61,6 +61,7 @@ func TestNetworkTransport_PooledConn(t *testing.T) {
 				rpc.Respond(&resp, nil)
 
 			case <-time.After(200 * time.Millisecond):
+				t.Log("Fatal Error TIMEOUT in TestNetworkTransport_PooledConn")
 				t.Fatal("TIMEOUT")
 			}
 		}

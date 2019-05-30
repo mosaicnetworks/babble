@@ -13,14 +13,18 @@ import (
 
 func TestMonologue(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	keys, peers := initPeers(1)
-	nodes := initNodes(keys, peers, 100000, 1000, true, "inmem", 5*time.Millisecond, logger, t)
+	keys, peers := initPeers(t, 1)
+
+	genesisPeerSet := clonePeerSet(t, peers.Peers)
+	validators := clonePeerSet(t, peers.Peers)
+
+	nodes := initNodes(keys, peers, genesisPeerSet, validators, 100000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	//defer drawGraphs(nodes, t)
 
 	target := 50
 	err := gossip(nodes, target, true, 3*time.Second)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Fatal Error: %v", err)
 	}
 
 	checkGossip(nodes, 0, t)
@@ -28,15 +32,19 @@ func TestMonologue(t *testing.T) {
 
 func TestJoinRequest(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	keys, peerSet := initPeers(4)
-	nodes := initNodes(keys, peerSet, 1000000, 1000, true, "inmem", 5*time.Millisecond, logger, t)
+	keys, peerSet := initPeers(t, 4)
+
+	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
+	validators := clonePeerSet(t, peerSet.Peers)
+
+	nodes := initNodes(keys, peerSet, genesisPeerSet, validators, 1000000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
 	target := 30
 	err := gossip(nodes, target, false, 3*time.Second)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Fatal Error: %v", err)
 	}
 	checkGossip(nodes, 0, t)
 
@@ -47,36 +55,41 @@ func TestJoinRequest(t *testing.T) {
 		"monika",
 	)
 
-	newNode := newNode(peer, key, peerSet, 1000, 1000, true, "inmem", 5*time.Millisecond, logger, t)
+	newNode := newNode(peer, key, peerSet, validators, genesisPeerSet, 1000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	defer newNode.Shutdown()
 
 	err = newNode.join()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Fatal Error: %v", err)
 	}
 
 	//Gossip some more
 	secondTarget := target + 30
 	err = bombardAndWait(nodes, secondTarget, 6*time.Second)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Fatal Error: %v", err)
 	}
 
 	checkGossip(nodes, 0, t)
 	checkPeerSets(nodes, t)
+	verifyNewPeerSet(nodes, newNode.core.AcceptedRound, 5, t)
 }
 
 func TestLeaveRequest(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	keys, peerSet := initPeers(4)
-	nodes := initNodes(keys, peerSet, 1000000, 1000, true, "inmem", 5*time.Millisecond, logger, t)
+	keys, peerSet := initPeers(t, 4)
+
+	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
+	validators := clonePeerSet(t, peerSet.Peers)
+
+	nodes := initNodes(keys, peerSet, genesisPeerSet, validators, 1000000, 1000, 5, true, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
 	target := 30
 	err := gossip(nodes, target, false, 3*time.Second)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Fatal Error: %v", err)
 	}
 	checkGossip(nodes, 0, t)
 
@@ -84,88 +97,102 @@ func TestLeaveRequest(t *testing.T) {
 
 	err = leavingNode.Leave()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Fatal Error: %v", err)
 	}
 
 	//Gossip some more
 	secondTarget := target + 50
 	err = bombardAndWait(nodes[0:3], secondTarget, 6*time.Second)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Fatal Error: %v", err)
 	}
+
 	checkGossip(nodes[0:3], 0, t)
 	checkPeerSets(nodes[0:3], t)
+	verifyNewPeerSet(nodes[0:3], leavingNode.core.RemovedRound, 3, t)
 }
 
 func TestJoinFull(t *testing.T) {
 	logger := common.NewTestLogger(t)
-	keys, peerSet := initPeers(4)
-	initialNodes := initNodes(keys, peerSet, 1000000, 400, true, "inmem", 10*time.Millisecond, logger, t)
-	defer shutdownNodes(initialNodes)
+	keys, peerSet := initPeers(t, 4)
 
-	target := 30
-	err := gossip(initialNodes, target, false, 6*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	checkGossip(initialNodes, 0, t)
+	f := func(fastSync bool) {
+		genesisPeerSet := clonePeerSet(t, peerSet.Peers)
+		validators := clonePeerSet(t, peerSet.Peers)
 
-	key, _ := bkeys.GenerateECDSAKey()
-	peer := peers.NewPeer(
-		bkeys.PublicKeyHex(&key.PublicKey),
-		fmt.Sprint("127.0.0.1:4242"),
-		"monika",
-	)
-	newNode := newNode(peer, key, peerSet, 1000000, 400, true, "inmem", 10*time.Millisecond, logger, t)
-	defer newNode.Shutdown()
+		initialNodes := initNodes(keys, peerSet, genesisPeerSet, validators, 1000000, 400, 5, fastSync, "inmem", 10*time.Millisecond, logger, t)
+		defer shutdownNodes(initialNodes)
 
-	//Run parallel routine to check newNode eventually reaches CatchingUp state.
-	timeout := time.After(6 * time.Second)
-	go func() {
-		for {
-			select {
-			case <-timeout:
-				t.Fatalf("Timeout waiting for newNode to enter CatchingUp state")
-			default:
-			}
-			if newNode.getState() == CatchingUp {
-				break
-			}
+		target := 30
+		err := gossip(initialNodes, target, false, 6*time.Second)
+		if err != nil {
+			t.Fatalf("Fatal Error: %v", err)
 		}
-	}()
+		checkGossip(initialNodes, 0, t)
 
-	newNode.RunAsync(true)
+		key, _ := bkeys.GenerateECDSAKey()
+		peer := peers.NewPeer(
+			bkeys.PublicKeyHex(&key.PublicKey),
+			fmt.Sprint("127.0.0.1:4242"),
+			"monika",
+		)
 
-	nodes := append(initialNodes, newNode)
+		newNode := newNode(peer, key, peerSet, genesisPeerSet, validators, 1000000, 400, 5, fastSync, "inmem", 10*time.Millisecond, logger, t)
+		defer newNode.Shutdown()
 
-	//defer drawGraphs(nodes, t)
+		newNode.RunAsync(true)
 
-	//Gossip some more
-	secondTarget := target + 50
-	err = bombardAndWait(nodes, secondTarget, 10*time.Second)
-	if err != nil {
-		t.Fatal(err)
+		nodes := append(initialNodes, newNode)
+
+		//defer drawGraphs(nodes, t)
+
+		//Gossip some more
+		secondTarget := target + 50
+		err = bombardAndWait(nodes, secondTarget, 10*time.Second)
+		if err != nil {
+			t.Fatalf("Fatal Error: %v", err)
+		}
+
+		start := newNode.core.hg.FirstConsensusRound
+		checkGossip(nodes, *start, t)
+		checkPeerSets(nodes, t)
+		verifyNewPeerSet(nodes, newNode.core.AcceptedRound, 5, t)
 	}
 
-	start := newNode.core.hg.FirstConsensusRound
-	checkGossip(nodes, *start, t)
-	checkPeerSets(nodes, t)
+	t.Run("FastSync enabled", func(t *testing.T) { f(true) })
+
+	t.Run("FastSync disabled", func(t *testing.T) { f(false) })
 }
 
 func checkPeerSets(nodes []*Node, t *testing.T) {
 	node0FP, err := nodes[0].core.hg.Store.GetAllPeerSets()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Fatal Error: %v", err)
 	}
 	for i := range nodes[1:] {
 		nodeiFP, err := nodes[i].core.hg.Store.GetAllPeerSets()
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("Fatal Error: %v", err)
 		}
 		if !reflect.DeepEqual(node0FP, nodeiFP) {
 			t.Logf("Node 0 PeerSets: %v", node0FP)
 			t.Logf("Node %d PeerSets: %v", i, nodeiFP)
-			t.Fatalf("PeerSets defer")
+			t.Fatalf("PeerSets differ")
+		}
+	}
+}
+
+func verifyNewPeerSet(nodes []*Node, round int, expectedLength int, t *testing.T) {
+	for i, node := range nodes {
+		nodeFP, _ := node.core.hg.Store.GetAllPeerSets()
+
+		nps, ok := nodeFP[round]
+		if !ok {
+			t.Fatalf("nodes[%d] PeerSets[%d] should not be empty", i, round)
+		}
+
+		if len(nps) != expectedLength {
+			t.Fatalf("nodes[%d] PeerSets[%d] should contain %d peers, not %d", i, round, expectedLength, len(nps))
 		}
 	}
 }

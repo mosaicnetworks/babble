@@ -61,7 +61,7 @@ func TestInmemDummyServerSide(t *testing.T) {
 	commitResponse, err := dummy.CommitBlock(*blocks[0])
 
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Fatal Error: %v", err)
 	}
 
 	expectedStateHash := []byte{}
@@ -79,7 +79,7 @@ func TestInmemDummyServerSide(t *testing.T) {
 	snapshot, err := dummy.GetSnapshot(blocks[0].Index())
 
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Fatal Error: %v", err)
 	}
 
 	if !reflect.DeepEqual(snapshot, expectedStateHash) {
@@ -91,7 +91,7 @@ func TestInmemDummyServerSide(t *testing.T) {
 		_, err := dummy.CommitBlock(*blocks[i])
 
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("Fatal Error: %v", err)
 		}
 	}
 
