@@ -258,11 +258,9 @@ func (n *Node) fastForward() error {
 		return err
 	}
 
-	//Blocks only contain accepted InternalTransactions so it's ok to apply them
-	//without asking the application again.
-	err = n.core.ProcessAcceptedInternalTransactions(resp.Block.RoundReceived(), resp.Block.InternalTransactions())
+	err = n.core.ProcessAcceptedInternalTransactions(resp.Block.RoundReceived(), resp.Block.InternalTransactionReceipts())
 	if err != nil {
-		n.logger.WithError(err).Error("Processing AnchorBlock InternalTransactions")
+		n.logger.WithError(err).Error("Processing AnchorBlock InternalTransactionReceipts")
 	}
 
 	n.logger.Debug("Fast-Forward OK")
@@ -289,15 +287,23 @@ func (n *Node) join() error {
 
 	n.logger.WithFields(logrus.Fields{
 		"from_id":        resp.FromID,
+		"accepted":       resp.Accepted,
 		"accepted_round": resp.AcceptedRound,
 		"peers":          len(resp.Peers),
 	}).Debug("JoinResponse")
 
-	n.core.AcceptedRound = resp.AcceptedRound
-
-	// This has been changed so that all nodes have an initial babbling state.
-	// If the node meets the fastforward consitions it will switch over soon enough.
-	n.setState(Babbling)
+	if resp.Accepted {
+		n.core.AcceptedRound = resp.AcceptedRound
+		// This has been changed so that all nodes have an initial babbling
+		// state. If the node meets the fastforward consitions it will switch
+		// over soon enough.
+		n.setState(Babbling)
+	} else {
+		// Then JoinRequest was explicitely refused by the curren peer-set. This
+		// is not an error.
+		n.logger.Debug("JoinRequest refused. Shutting down.")
+		n.Shutdown()
+	}
 
 	return nil
 }
@@ -317,9 +323,9 @@ func (n *Node) Leave() error {
 	return nil
 }
 
-//gossip is usually called in a go-routine and needs to inform the
-//calling routine (usually the babble routine) when it is time to exit the
-//Babbling state and return.
+//gossip is usually called in a go-routine and needs to inform the calling
+//routine (usually the babble routine) when it is time to exit the Babbling
+//state and return.
 func (n *Node) gossip(peer *peers.Peer, parentReturnCh chan struct{}) error {
 	//pull
 	syncLimit, otherKnownEvents, err := n.pull(peer)

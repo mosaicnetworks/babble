@@ -47,11 +47,12 @@ type FastForwardResponse struct {
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 type JoinRequest struct {
-	Peer peers.Peer // peer that wants to join
+	InternalTransaction hashgraph.InternalTransaction
 }
 
 type JoinResponse struct {
 	FromID        uint32
+	Accepted      bool
 	AcceptedRound int
 	Peers         []*peers.Peer
 }

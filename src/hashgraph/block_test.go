@@ -7,9 +7,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
-func TestSignBlock(t *testing.T) {
-	privateKey, _ := keys.GenerateECDSAKey()
-
+func createTestBlock() *Block {
 	block := NewBlock(0, 1,
 		[]byte("framehash"),
 		[]*peers.Peer{},
@@ -22,6 +20,20 @@ func TestSignBlock(t *testing.T) {
 			NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1", "paris", "peer1")),
 			NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2", "london", "peer2")),
 		})
+
+	receipts := []InternalTransactionReceipt{}
+	for _, itx := range block.InternalTransactions() {
+		receipts = append(receipts, itx.AsAccepted())
+	}
+	block.Body.InternalTransactionReceipts = receipts
+
+	return block
+}
+
+func TestSignBlock(t *testing.T) {
+	privateKey, _ := keys.GenerateECDSAKey()
+
+	block := createTestBlock()
 
 	sig, err := block.Sign(privateKey)
 	if err != nil {
@@ -40,18 +52,7 @@ func TestSignBlock(t *testing.T) {
 func TestAppendSignature(t *testing.T) {
 	privateKey, _ := keys.GenerateECDSAKey()
 
-	block := NewBlock(0, 1,
-		[]byte("framehash"),
-		[]*peers.Peer{},
-		[][]byte{
-			[]byte("abc"),
-			[]byte("def"),
-			[]byte("ghi"),
-		},
-		[]InternalTransaction{
-			NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1", "paris", "peer1")),
-			NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2", "london", "peer2")),
-		})
+	block := createTestBlock()
 
 	sig, err := block.Sign(privateKey)
 	if err != nil {
