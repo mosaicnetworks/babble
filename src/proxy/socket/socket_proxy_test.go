@@ -26,14 +26,14 @@ func (p *TestHandler) CommitHandler(block hashgraph.Block) (proxy.CommitResponse
 
 	p.blocks = append(p.blocks, block)
 
-	processedInternalTransactions := []hashgraph.InternalTransaction{}
+	receipts := []hashgraph.InternalTransactionReceipt{}
 	for _, it := range block.InternalTransactions() {
-		processedInternalTransactions = append(processedInternalTransactions, it.AsAccepted())
+		receipts = append(receipts, it.AsAccepted())
 	}
 
 	response := proxy.CommitResponse{
-		StateHash:            []byte("statehash"),
-		InternalTransactions: processedInternalTransactions,
+		StateHash:                   []byte("statehash"),
+		InternalTransactionReceipts: receipts,
 	}
 
 	return response, nil

@@ -17,13 +17,14 @@ BlockBody
 *******************************************************************************/
 
 type BlockBody struct {
-	Index                int
-	RoundReceived        int
-	StateHash            []byte
-	FrameHash            []byte
-	PeersHash            []byte
-	Transactions         [][]byte
-	InternalTransactions []InternalTransaction
+	Index                       int
+	RoundReceived               int
+	StateHash                   []byte
+	FrameHash                   []byte
+	PeersHash                   []byte
+	Transactions                [][]byte
+	InternalTransactions        []InternalTransaction
+	InternalTransactionReceipts []InternalTransactionReceipt
 }
 
 //json encoding of body only
@@ -171,6 +172,10 @@ func (b *Block) Transactions() [][]byte {
 
 func (b *Block) InternalTransactions() []InternalTransaction {
 	return b.Body.InternalTransactions
+}
+
+func (b *Block) InternalTransactionReceipts() []InternalTransactionReceipt {
+	return b.Body.InternalTransactionReceipts
 }
 
 func (b *Block) RoundReceived() int {

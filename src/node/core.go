@@ -173,7 +173,7 @@ func (c *Core) SignAndInsertSelfEvent(event *hg.Event) error {
 	return c.InsertEventAndRunConsensus(event, true)
 }
 
-//InsertEventAndRunConsensus Inserts a hashgraph event and runds consensus
+//InsertEventAndRunConsensus Inserts a hashgraph event and runs consensus
 func (c *Core) InsertEventAndRunConsensus(event *hg.Event, setWireInfo bool) error {
 	if err := c.hg.InsertEventAndRunConsensus(event, setWireInfo); err != nil {
 		return err
@@ -198,19 +198,19 @@ func (c *Core) Commit(block *hg.Block) error {
 	commitResponse, err := c.proxyCommitCallback(*block)
 
 	c.logger.WithFields(logrus.Fields{
-		"block":                 block.Index(),
-		"state_hash":            fmt.Sprintf("%X", commitResponse.StateHash),
-		"internal_transactions": commitResponse.InternalTransactions,
+		"block":                         block.Index(),
+		"state_hash":                    fmt.Sprintf("%X", commitResponse.StateHash),
+		"internal_transaction_receipts": commitResponse.InternalTransactionReceipts,
 		"err": err,
 	}).Debug("CommitBlock Response")
 
 	//XXX Handle errors
 
-	//Handle the response to set Block StateHash and process accepted
-	//InternalTransactions which might update the PeerSet.
+	//Handle the response to set Block StateHash and process InternalTransaction
+	//receipts which might update the PeerSet.
 	if err == nil {
 		block.Body.StateHash = commitResponse.StateHash
-		block.Body.InternalTransactions = commitResponse.InternalTransactions
+		block.Body.InternalTransactionReceipts = commitResponse.InternalTransactionReceipts
 
 		//Sign the block if we belong to its validator-set
 		blockPeerSet, err := c.hg.Store.GetPeerSet(block.RoundReceived())
@@ -231,7 +231,7 @@ func (c *Core) Commit(block *hg.Block) error {
 			return err
 		}
 
-		err = c.ProcessAcceptedInternalTransactions(block.RoundReceived(), commitResponse.InternalTransactions)
+		err = c.ProcessAcceptedInternalTransactions(block.RoundReceived(), commitResponse.InternalTransactionReceipts)
 		if err != nil {
 			return err
 		}
@@ -261,32 +261,34 @@ func (c *Core) SignBlock(block *hg.Block) (hg.BlockSignature, error) {
 }
 
 //ProcessAcceptedInternalTransactions processes the accepted internal transactions
-func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.InternalTransaction) error {
-	peers := c.peers
+func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, receipts []hg.InternalTransactionReceipt) error {
+	currentPeers := c.peers
 	validators := c.validators
 
 	changed := false
-	for _, tx := range txs {
-		if tx.Body.Accepted == common.True {
+	for _, r := range receipts {
+		txBody := r.InternalTransaction.Body
+
+		if r.Accepted {
 			c.logger.WithFields(logrus.Fields{
-				"peer":           tx.Body.Peer,
+				"peer":           txBody.Peer,
 				"round_received": roundReceived,
-				"type":           tx.Body.Type.String(),
+				"type":           txBody.Type.String(),
 			}).Debug("Processing accepted InternalTransaction")
 
-			switch tx.Body.Type {
+			switch txBody.Type {
 			case hg.PEER_ADD:
-				validators = validators.WithNewPeer(&tx.Body.Peer)
-				peers = peers.WithNewPeer(&tx.Body.Peer)
+				validators = validators.WithNewPeer(&txBody.Peer)
+				currentPeers = currentPeers.WithNewPeer(&txBody.Peer)
 			case hg.PEER_REMOVE:
-				validators = validators.WithRemovedPeer(&tx.Body.Peer)
-				peers = peers.WithRemovedPeer(&tx.Body.Peer)
+				validators = validators.WithRemovedPeer(&txBody.Peer)
+				currentPeers = currentPeers.WithRemovedPeer(&txBody.Peer)
 			default:
 			}
 
 			changed = true
 		} else {
-			c.logger.WithField("peer", tx.Body.Peer).Debugf("InternalTransaction not accepted. Got %v", tx.Body.Accepted)
+			c.logger.WithField("peer", txBody.Peer).Debug("InternalTransaction not accepted")
 		}
 	}
 
@@ -313,7 +315,7 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 
 		// Update the current list of communicating peers. This is not
 		// necessarily equal to the latest recorded validator_set.
-		c.SetPeers(peers)
+		c.SetPeers(currentPeers)
 
 		// A new validator-set has been recorded and will only be effective from
 		// effectiveRound. A joining node will not be able to participate in the
@@ -325,11 +327,15 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, txs []hg.I
 		}
 	}
 
-	for _, tx := range txs {
+	for _, r := range receipts {
 		//respond to the corresponding promise
-		if p, ok := c.promises[tx.Hash()]; ok {
-			p.Respond(effectiveRound, validators.Peers)
-			delete(c.promises, tx.Hash())
+		if p, ok := c.promises[r.InternalTransaction.HashString()]; ok {
+			if r.Accepted {
+				p.Respond(true, effectiveRound, c.validators.Peers)
+			} else {
+				p.Respond(false, 0, []*peers.Peer{})
+			}
+			delete(c.promises, r.InternalTransaction.HashString())
 		}
 	}
 
@@ -558,6 +564,7 @@ func (c *Core) Leave(leaveTimeout time.Duration) error {
 	}
 
 	itx := hg.NewInternalTransaction(hg.PEER_REMOVE, *p)
+	itx.Sign(c.validator.Key)
 
 	promise := c.AddInternalTransaction(itx)
 
@@ -642,7 +649,7 @@ func (c *Core) AddInternalTransaction(tx hg.InternalTransaction) *JoinPromise {
 	promise := NewJoinPromise(tx)
 
 	//save it to promise store, for later use by the Commit callback
-	c.promises[tx.Hash()] = promise
+	c.promises[tx.HashString()] = promise
 
 	//submit the internal tx to be processed asynchronously by the gossip
 	//routines

@@ -3,23 +3,23 @@ package proxy
 import "github.com/mosaicnetworks/babble/src/hashgraph"
 
 type CommitResponse struct {
-	StateHash            []byte
-	InternalTransactions []hashgraph.InternalTransaction
+	StateHash                   []byte
+	InternalTransactionReceipts []hashgraph.InternalTransactionReceipt
 }
 
 type CommitCallback func(block hashgraph.Block) (CommitResponse, error)
 
 //DummyCommitCallback is used for testing
 func DummyCommitCallback(block hashgraph.Block) (CommitResponse, error) {
-	processedInternalTransactions := []hashgraph.InternalTransaction{}
+	receipts := []hashgraph.InternalTransactionReceipt{}
 	for _, it := range block.InternalTransactions() {
-		pit := it.AsAccepted()
-		processedInternalTransactions = append(processedInternalTransactions, pit)
+		r := it.AsAccepted()
+		receipts = append(receipts, r)
 	}
 
 	response := CommitResponse{
-		StateHash:            []byte{},
-		InternalTransactions: processedInternalTransactions,
+		StateHash:                   []byte{},
+		InternalTransactionReceipts: receipts,
 	}
 
 	return response, nil

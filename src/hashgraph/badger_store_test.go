@@ -258,6 +258,12 @@ func TestDBBlockMethods(t *testing.T) {
 
 	block := NewBlock(index, roundReceived, frameHash, peerSet.Peers, transactions, internalTransactions)
 
+	receipts := []InternalTransactionReceipt{}
+	for _, itx := range block.InternalTransactions() {
+		receipts = append(receipts, itx.AsAccepted())
+	}
+	block.Body.InternalTransactionReceipts = receipts
+
 	sig1, err := block.Sign(participants[0].privKey)
 	if err != nil {
 		t.Fatal(err)
@@ -615,6 +621,12 @@ func TestBadgerBlocks(t *testing.T) {
 	}
 	frameHash := []byte("this is the frame hash")
 	block := NewBlock(index, roundReceived, frameHash, []*peers.Peer{}, transactions, internalTransactions)
+
+	receipts := []InternalTransactionReceipt{}
+	for _, itx := range block.InternalTransactions() {
+		receipts = append(receipts, itx.AsAccepted())
+	}
+	block.Body.InternalTransactionReceipts = receipts
 
 	sig1, err := block.Sign(participants[0].privKey)
 	if err != nil {

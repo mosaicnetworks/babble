@@ -7,6 +7,7 @@ import (
 
 //JoinPromiseResponse is a struct returned by a Join Promise
 type JoinPromiseResponse struct {
+	Accepted      bool
 	AcceptedRound int
 	Peers         []*peers.Peer
 }
@@ -28,6 +29,6 @@ func NewJoinPromise(tx hashgraph.InternalTransaction) *JoinPromise {
 }
 
 //Respond handles sending a JoinPromiseResponse to a JoinPromise
-func (p *JoinPromise) Respond(acceptedRound int, peers []*peers.Peer) {
-	p.RespCh <- JoinPromiseResponse{acceptedRound, peers}
+func (p *JoinPromise) Respond(accepted bool, acceptedRound int, peers []*peers.Peer) {
+	p.RespCh <- JoinPromiseResponse{accepted, acceptedRound, peers}
 }
