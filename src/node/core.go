@@ -20,17 +20,19 @@ type Core struct {
 
 	hg *hg.Hashgraph
 
-	// peers is the list of peers that the node will try to gossip with; not
-	// necessarily the current validator-set.
-	peers        *peers.PeerSet
+	// genesisPeers is the validator-set that the hashgraph/blockchain was
+	// initialized with
 	genesisPeers *peers.PeerSet
-
-	peerSelector PeerSelector
-	selectorLock sync.Mutex
 
 	// validators reflects the latest validator-set used in the hashgraph
 	// consensus methods.
 	validators *peers.PeerSet
+
+	// peers is the list of peers that the node will try to gossip with; not
+	// necessarily the current validator-set.
+	peers        *peers.PeerSet
+	peerSelector PeerSelector
+	selectorLock sync.Mutex
 
 	// Hash and Index of this instance's head Event
 	Head string
@@ -74,7 +76,6 @@ func NewCore(
 	validator *Validator,
 	peers *peers.PeerSet,
 	genesisPeers *peers.PeerSet,
-	validators *peers.PeerSet,
 	store hg.Store,
 	proxyCommitCallback proxy.CommitCallback,
 	logger *logrus.Logger) *Core {
@@ -90,9 +91,9 @@ func NewCore(
 	core := &Core{
 		validator:               validator,
 		proxyCommitCallback:     proxyCommitCallback,
-		peers:                   peers,
 		genesisPeers:            genesisPeers,
-		validators:              validators,
+		validators:              genesisPeers,
+		peers:                   peers,
 		peerSelector:            peerSelector,
 		transactionPool:         [][]byte{},
 		internalTransactionPool: []hg.InternalTransaction{},

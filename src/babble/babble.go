@@ -181,7 +181,6 @@ func (b *Babble) initNode() error {
 		validator,
 		b.Peers,
 		b.GenesisPeers,
-		b.GenesisPeers,
 		b.Store,
 		b.Transport,
 		b.Config.Proxy,

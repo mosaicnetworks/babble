@@ -16,9 +16,8 @@ func TestSuccessiveJoinRequestExtra(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(t, 1)
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
-	validators := clonePeerSet(t, peerSet.Peers)
 
-	node0 := newNode(peerSet.Peers[0], keys[0], peerSet, genesisPeerSet, validators, 1000000, 400, 5, false, "inmem", 10*time.Millisecond, logger, t)
+	node0 := newNode(peerSet.Peers[0], keys[0], peerSet, genesisPeerSet, 1000000, 400, 5, false, "inmem", 10*time.Millisecond, logger, t)
 	defer node0.Shutdown()
 	node0.RunAsync(true)
 
@@ -27,7 +26,6 @@ func TestSuccessiveJoinRequestExtra(t *testing.T) {
 	target := 10
 	for i := 1; i <= 3; i++ {
 		peerSet := peers.NewPeerSet(node0.GetPeers())
-		validators := clonePeerSet(t, peerSet.Peers)
 
 		key, _ := bkeys.GenerateECDSAKey()
 		peer := peers.NewPeer(
@@ -35,7 +33,7 @@ func TestSuccessiveJoinRequestExtra(t *testing.T) {
 			fmt.Sprintf("127.0.0.1:%d", 4240+i),
 			fmt.Sprintf("monika%d", i),
 		)
-		newNode := newNode(peer, key, peerSet, genesisPeerSet, validators, 1000000, 400, 5, false, "inmem", 10*time.Millisecond, logger, t)
+		newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 400, 5, false, "inmem", 10*time.Millisecond, logger, t)
 
 		logger.Debugf("starting new node %d, %d", i, newNode.ID())
 		defer newNode.Shutdown()
@@ -68,9 +66,8 @@ func TestSuccessiveLeaveRequestExtra(t *testing.T) {
 	keys, peerSet := initPeers(t, n)
 
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
-	validators := clonePeerSet(t, peerSet.Peers)
 
-	nodes := initNodes(keys, peerSet, genesisPeerSet, validators, 1000000, 1000, 20, false, "inmem", 10*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 1000, 20, false, "inmem", 10*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
 
 	target := 0
@@ -78,7 +75,7 @@ func TestSuccessiveLeaveRequestExtra(t *testing.T) {
 	f := func() {
 		t.Logf("SUCCESSIVE LEAVE n=%d", n)
 		//defer drawGraphs(nodes, t)
-		target += 30
+		target += 10
 		err := gossip(nodes, target, false, 4*time.Second)
 		if err != nil {
 			t.Error("Fatal Error", err)
@@ -101,7 +98,7 @@ func TestSuccessiveLeaveRequestExtra(t *testing.T) {
 		nodes = nodes[0 : n-1]
 
 		//Gossip some more
-		target += 50
+		target += 10
 		err = bombardAndWait(nodes, target, 8*time.Second)
 		if err != nil {
 			t.Error("Fatal Error 3", err)
@@ -122,9 +119,8 @@ func TestSimultaneousLeaveRequestExtra(t *testing.T) {
 	keys, peerSet := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
-	validators := clonePeerSet(t, peerSet.Peers)
 
-	nodes := initNodes(keys, peerSet, genesisPeerSet, validators, 1000000, 1000, 5, false, "inmem", 5*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 1000, 5, false, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
@@ -167,9 +163,8 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 	keys, peerSet := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
-	validators := clonePeerSet(t, peerSet.Peers)
 
-	nodes := initNodes(keys, peerSet, genesisPeerSet, validators, 1000000, 1000, 5, false, "inmem", 5*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 1000, 5, false, "inmem", 5*time.Millisecond, logger, t)
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
@@ -195,7 +190,7 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 		fmt.Sprint("127.0.0.1:4242"),
 		"new node",
 	)
-	newNode := newNode(peer, key, peerSet, genesisPeerSet, validators, 1000000, 200, 5, false, "inmem", 10*time.Millisecond, logger, t)
+	newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 200, 5, false, "inmem", 10*time.Millisecond, logger, t)
 	defer newNode.Shutdown()
 
 	// Run parallel routine to check newNode eventually reaches CatchingUp state.
@@ -266,12 +261,11 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	peers0123567 := clonePeerSet(t, append(append([]*peers.Peer{}, peerlist.Peers[0:4]...), peerlist.Peers[5:8]...)) // Step 8
 	peers5678 := clonePeerSet(t, peerlist.Peers[5:9])                                                                // Step 10
 	genesisPeerSet := clonePeerSet(t, peers01234.Peers)                                                              // Step 10
-	validators := clonePeerSet(t, peers01234.Peers)
 
 	t.Log("Step 1")
 	// 5 nodes are initially put live
 	logPeerList(t, peerlist, "Log Peers")
-	nodes01234 := initNodes(keys[0:5], peers01234, genesisPeerSet, validators, 100000, 400, 15, false, "inmem", 10*time.Millisecond, logger, t) //make cache high to draw graphs
+	nodes01234 := initNodes(keys[0:5], peers01234, genesisPeerSet, 100000, 400, 15, false, "inmem", 10*time.Millisecond, logger, t) //make cache high to draw graphs
 
 	// Step 1b - gossip and build history
 	t.Log("Step 1b")
@@ -313,7 +307,7 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	// Step 4 Add a new validator (node 5) and sync without using fast sync
 	t.Log("Step 4")
 	logPeerList(t, peerlist, "Log Peers 5")
-	node5 := newNode(peerlist.Peers[5], keys[5], peers0123, genesisPeerSet, validators, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
+	node5 := newNode(peerlist.Peers[5], keys[5], peers0123, genesisPeerSet, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
 	defer node5.Shutdown()
 
 	// New nodes array without node 4
@@ -338,7 +332,7 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	// Step 6 Add another validator (node 6) and sync without fast sync
 	t.Log("Step 6")
 	logPeerList(t, peerlist, "Log Peers 6")
-	node6 := newNode(peerlist.Peers[6], keys[6], peers01235, genesisPeerSet, validators, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
+	node6 := newNode(peerlist.Peers[6], keys[6], peers01235, genesisPeerSet, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
 	defer node6.Shutdown()
 
 	nodes012356 := append(append([]*Node{}, nodes01235...), node6)
@@ -367,7 +361,7 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	t.Log("Step 8")
 
 	logPeerList(t, peerlist, "Log Peers 7")
-	node7 := newNode(peerlist.Peers[7], keys[7], peers012356, genesisPeerSet, validators, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
+	node7 := newNode(peerlist.Peers[7], keys[7], peers012356, genesisPeerSet, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
 	defer node7.Shutdown()
 	nodes0123567 := append(append([]*Node{}, nodes012356...), node7)
 	node7.RunAsync(true)
@@ -383,7 +377,7 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 
 	t.Log("Step 8c")
 	logPeerList(t, peerlist, "Log Peers 8")
-	node8 := newNode(peerlist.Peers[8], keys[8], peers0123567, genesisPeerSet, validators, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
+	node8 := newNode(peerlist.Peers[8], keys[8], peers0123567, genesisPeerSet, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
 	defer node8.Shutdown()
 	nodes01235678 := append(append([]*Node{}, nodes0123567...), node8)
 	node8.RunAsync(true)
@@ -445,7 +439,7 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 
 	t.Log("Step 10")
 	logPeerList(t, peerlist, "Log Peers 9")
-	node9 := newNode(peerlist.Peers[9], keys[9], peers5678, genesisPeerSet, validators, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
+	node9 := newNode(peerlist.Peers[9], keys[9], peers5678, genesisPeerSet, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
 	defer node9.Shutdown()
 
 	nodes56789 := append(append([]*Node{}, nodes5678...), node9)
