@@ -3,6 +3,7 @@
 package node
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/common"
 	bkeys "github.com/mosaicnetworks/babble/src/crypto/keys"
 	"github.com/mosaicnetworks/babble/src/peers"
+	"github.com/sirupsen/logrus"
 )
 
 func TestSuccessiveJoinRequestExtra(t *testing.T) {
@@ -258,7 +260,7 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	logger := common.NewTestLogger(t)
 
 	keys, peerlist := initPeers(t, 10)
-
+	// Prebuild Peers
 	peers01234 := clonePeerSet(t, peerlist.Peers[0:5])
 	peers0123 := clonePeerSet(t, peerlist.Peers[0:4])
 	peers01235 := clonePeerSet(t, append(append([]*peers.Peer{}, peerlist.Peers[0:4]...), peerlist.Peers[5:6]...))   // Step 4
@@ -269,31 +271,14 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	validators := clonePeerSet(t, peers01234.Peers)
 
 	t.Log("Step 1")
-	// 5 nodes are initially put live
-	logPeerList(t, peerlist, "Log Peers")
 	nodes01234 := initNodes(keys[0:5], peers01234, genesisPeerSet, validators, 100000, 400, 15, false, "inmem", 10*time.Millisecond, logger, t) //make cache high to draw graphs
 
 	// Step 1b - gossip and build history
-	t.Log("Step 1b")
-
-	target := nodes01234[0].core.hg.Store.LastBlockIndex() + 1
-	err := gossip(nodes01234, target+20, false, 10*time.Second)
-	if err != nil {
-		t.Error("Fatal Error 1b", err)
-		t.Fatal("Step 1b gossip", err)
-	}
-	checkGossip(nodes01234, target, t)
+	gossipAndCheck(nodes01234, 20, 8, "Step 1b", false, t)
 	checkPeerSets(nodes01234, t)
 
 	// Step 2 - Node 4 leaves
-	t.Log("Step 2")
-
-	node4 := nodes01234[4]
-	err = node4.Leave()
-	if err != nil {
-		t.Error("Fatal Error 2", err)
-		t.Fatal("Step 2 Leave", err)
-	}
+	leaveNode("Step 2", nodes01234[4], t)
 
 	// New nodes array without node 4
 	nodes0123 := nodes01234[0:4]
@@ -301,164 +286,117 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	checkPeerSets(nodes0123, t)
 
 	// Step 3 - More history
-	t.Log("Step 3")
-	target = nodes0123[0].core.hg.Store.LastBlockIndex() + 1
-	err = gossip(nodes0123, target+30, false, 10*time.Second)
-	if err != nil {
-		t.Error("Fatal Error 3", err)
-		t.Fatal("Step 3 Gossip", err)
-	}
-	checkGossip(nodes0123, target, t)
+	gossipAndCheck(nodes0123, 30, 8, "Step 3", false, t)
 
 	// Step 4 Add a new validator (node 5) and sync without using fast sync
-	t.Log("Step 4")
-	logPeerList(t, peerlist, "Log Peers 5")
-	node5 := newNode(peerlist.Peers[5], keys[5], peers0123, genesisPeerSet, validators, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
+	node5, nodes01235 := launchNodeAndGossip("Step 4 and 5", nodes0123, peerlist.Peers[5], keys[5],
+		peers0123, genesisPeerSet, validators, 1000000, 100, 10, false,
+		"inmem", 10*time.Millisecond, logger, t, 20, 8, true)
 	defer node5.Shutdown()
 
-	// New nodes array without node 4
-	nodes01235 := append(append([]*Node{}, nodes0123...), node5)
-
-	// Step 5 Build more history
-	t.Log("Step 5")
-	logNodeList(t, nodes01235, "Nodes 01235")
-	node5.RunAsync(true)
-	time.Sleep(400 * time.Millisecond)
-
-	target = nodes01235[0].core.hg.Store.LastBlockIndex() + 1
-	err = gossip(nodes01235, target+20, false, 10*time.Second)
-	if err != nil {
-		t.Error("Fatal Error 5", err)
-		t.Fatal(err)
-	}
-
-	t.Log("Step 5b")
-	checkGossip(nodes01235, target, t)
-
 	// Step 6 Add another validator (node 6) and sync without fast sync
-	t.Log("Step 6")
-	logPeerList(t, peerlist, "Log Peers 6")
-	node6 := newNode(peerlist.Peers[6], keys[6], peers01235, genesisPeerSet, validators, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
+	// Step 7 Add more history and check that all peers have the same state
+
+	node6, nodes012356 := launchNodeAndGossip("Step 6 and 7", nodes01235, peerlist.Peers[6], keys[6],
+		peers01235, genesisPeerSet, validators, 1000000, 100, 10, false,
+		"inmem", 10*time.Millisecond, logger, t, 15, 8, true)
 	defer node6.Shutdown()
 
-	nodes012356 := append(append([]*Node{}, nodes01235...), node6)
-	node6.RunAsync(true)
-
-	// We sleep to ensure join process has completed.
-	time.Sleep(400 * time.Millisecond)
-
-	checkPeerSets(nodes012356, t)
-	checkFrames(nodes012356, 0, t)
-
-	// Step 7 Add more history and check that all peers have the same state
-	t.Log("Step 7")
-	target = nodes012356[0].core.hg.Store.LastBlockIndex() + 1
-	err = gossip(nodes012356, target+10, false, 5*time.Second)
-	if err != nil {
-		t.Log("Fatal Error 7", err)
-		t.Fatal(err)
-	}
-
-	t.Log("Step 7b")
-	checkGossip(nodes012356, target, t)
-	checkFrames(nodes012356, 0, t)
-
 	//  Step 8 Add Node 7, 8
-	t.Log("Step 8")
 
-	logPeerList(t, peerlist, "Log Peers 7")
-	node7 := newNode(peerlist.Peers[7], keys[7], peers012356, genesisPeerSet, validators, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
+	node7, nodes0123567 := launchNodeAndGossip("Step 8", nodes012356, peerlist.Peers[7], keys[7],
+		peers012356, genesisPeerSet, validators, 1000000, 100, 10, false,
+		"inmem", 10*time.Millisecond, logger, t, 14, 8, false)
 	defer node7.Shutdown()
-	nodes0123567 := append(append([]*Node{}, nodes012356...), node7)
-	node7.RunAsync(true)
 
-	t.Log("Step 8b")
-	target = nodes0123567[0].core.hg.Store.LastBlockIndex() + 1
-	err = gossip(nodes0123567, target+12, false, 10*time.Second)
-	if err != nil {
-		t.Log("Fatal Error 8b", err)
-		t.Fatal(err)
-	}
-	checkGossip(nodes0123567, target, t)
-
-	t.Log("Step 8c")
-	logPeerList(t, peerlist, "Log Peers 8")
-	node8 := newNode(peerlist.Peers[8], keys[8], peers0123567, genesisPeerSet, validators, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
+	node8, nodes01235678 := launchNodeAndGossip("Step 8b", nodes0123567, peerlist.Peers[8], keys[8],
+		peers0123567, genesisPeerSet, validators, 1000000, 100, 10, false,
+		"inmem", 10*time.Millisecond, logger, t, 12, 8, false)
 	defer node8.Shutdown()
-	nodes01235678 := append(append([]*Node{}, nodes0123567...), node8)
-	node8.RunAsync(true)
-
-	// Step 8b Add more history and check that all peers have the same state
-	t.Log("Step 8d")
-	target = nodes01235678[0].core.hg.Store.LastBlockIndex() + 1
-	err = gossip(nodes01235678, target+12, false, 30*time.Second)
-	if err != nil {
-		t.Log("Fatal Error 8c", err)
-		t.Fatal(err)
-	}
-	checkGossip(nodes01235678, target, t)
 
 	//  Step 9 Remove Nodes 0 to 3
-	t.Log("Step 9")
-	node3 := nodes0123[3]
-	err = node3.Leave()
-	if err != nil {
-		t.Log("Fatal Error 9", err)
-		t.Fatal("Step 9 Leave", err)
-	}
-
-	t.Log("Step 9b")
-	node2 := nodes0123[2]
-	err = node2.Leave()
-	if err != nil {
-		t.Log("Fatal Error 9b", err)
-		t.Fatal("Step 9b Leave", err)
-	}
-
-	t.Log("Step 9c")
-	node1 := nodes0123[1]
-	err = node1.Leave()
-	if err != nil {
-		t.Log("Fatal Error 9c", err)
-		t.Fatal("Step 9c Leave", err)
-	}
-
-	t.Log("Step 9d")
-	node0 := nodes0123[0]
-	err = node0.Leave()
-	if err != nil {
-		t.Log("Fatal Error 9d", err)
-		t.Fatal("Step 9d Leave", err)
-	}
+	leaveNode("Step 9", nodes0123[3], t)
+	leaveNode("Step 9a", nodes0123[2], t)
+	leaveNode("Step 9b", nodes0123[1], t)
+	leaveNode("Step 9c", nodes0123[0], t)
 
 	// New nodes array without nodes 0 to 3
 	nodes5678 := nodes01235678[4:]
-	target += 13
-	err = gossip(nodes5678, target, false, 10*time.Second)
-	if err != nil {
-		t.Log("Fatal Error 9e", err)
-		t.Fatal(err)
-	}
-	checkGossip(nodes5678, 0, t)
+	gossipAndCheck(nodes5678, 13, 8, "Step 9e", false, t)
 
 	//  Step 10 Add Node 9
-
-	t.Log("Step 10")
-	logPeerList(t, peerlist, "Log Peers 9")
-	node9 := newNode(peerlist.Peers[9], keys[9], peers5678, genesisPeerSet, validators, 1000000, 100, 10, false, "inmem", 10*time.Millisecond, logger, t)
+	node9, nodes56789 := launchNodeAndGossip("Step 10", nodes5678, peerlist.Peers[9], keys[9],
+		peers5678, genesisPeerSet, validators, 1000000, 100, 10, false,
+		"inmem", 10*time.Millisecond, logger, t, 15, 8, false)
 	defer node9.Shutdown()
 
-	nodes56789 := append(append([]*Node{}, nodes5678...), node9)
-	node9.RunAsync(true)
-
-	target += 17
-	err = gossip(nodes56789, target, false, 20*time.Second)
-	if err != nil {
-		t.Log("Fatal Error 10", err)
-		t.Fatal(err)
-	}
-	checkGossip(nodes56789, 0, t)
+	t.Log("Nodes56789", nodes56789)
 
 	t.Log("Final Step")
 
+}
+
+/*******************************************************************************
+HELPERS
+*******************************************************************************/
+
+func launchNodeAndGossip(
+	msg string,
+	nodeSet []*Node,
+	peer *peers.Peer,
+	k *ecdsa.PrivateKey,
+	peers *peers.PeerSet,
+	genesisPeers *peers.PeerSet,
+	validators *peers.PeerSet,
+	cacheSize,
+	syncLimit int,
+	joinTimeoutSeconds time.Duration,
+	enableSyncLimit bool,
+	storeType string,
+	heartbeatTimeout time.Duration,
+	logger *logrus.Logger,
+	t *testing.T,
+	targetBlockInc int,
+	gossipTimeOutSeconds time.Duration,
+	checkFrames bool) (node *Node, nodes []*Node) {
+
+	t.Log(msg)
+
+	node = newNode(peer, k, peers, genesisPeers, validators, cacheSize, syncLimit, joinTimeoutSeconds,
+		enableSyncLimit, storeType, heartbeatTimeout, logger, t)
+
+	nodes = append(append([]*Node{}, nodeSet...), node)
+	node.RunAsync(true)
+
+	gossipAndCheck(nodes, targetBlockInc, gossipTimeOutSeconds, msg, checkFrames, t)
+
+	return node, nodes
+}
+
+func gossipAndCheck(nodes []*Node, targetBlockInc int, timeOutSeconds time.Duration, msg string, checkFrame bool,
+	t *testing.T) {
+
+	t.Log("gossipAndCheck " + msg)
+	target := nodes[0].core.hg.Store.LastBlockIndex() + 1
+	target += targetBlockInc
+
+	err := gossip(nodes, target, false, timeOutSeconds*time.Second)
+	if err != nil {
+		t.Log("Fatal Error "+msg, err)
+		t.Fatal(err)
+	}
+	checkGossip(nodes, target, t)
+
+	if checkFrame {
+		checkFrames(nodes, 0, t)
+	}
+}
+
+func leaveNode(msg string, node *Node, t *testing.T) {
+	t.Log(msg)
+	err := node.Leave()
+	if err != nil {
+		t.Log("Fatal Error "+msg, err)
+		t.Fatal(msg+" Leave", err)
+	}
 }
