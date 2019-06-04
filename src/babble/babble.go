@@ -201,9 +201,6 @@ func (b *Babble) initService() error {
 }
 
 func (b *Babble) Init() error {
-	if b.Config.Logger == nil {
-		b.Config.Logger = logrus.New()
-	}
 
 	if err := b.initPeers(); err != nil {
 		return err

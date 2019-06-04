@@ -32,8 +32,15 @@ type BabbleConfig struct {
 }
 
 func NewDefaultConfig() *BabbleConfig {
+
+	logger := logrus.New()
+	logger.Level = logrus.DebugLevel
+
+	nodeConfig := *node.DefaultConfig()
+	nodeConfig.Logger = logger
+
 	config := &BabbleConfig{
-		NodeConfig: *node.DefaultConfig(),
+		NodeConfig: nodeConfig,
 		DataDir:    DefaultDataDir(),
 		BindAddr:   ":1337",
 		MaxPool:    2,
@@ -41,10 +48,8 @@ func NewDefaultConfig() *BabbleConfig {
 		LoadPeers:  true,
 		Proxy:      nil,
 		Key:        nil,
-		Logger:     logrus.New(),
+		Logger:     logger,
 	}
-
-	config.NodeConfig.Logger = config.Logger
 
 	return config
 }
