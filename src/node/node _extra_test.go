@@ -14,6 +14,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+/*
+
+Some complicated tests of dynamic membership. They are quite long so we don't
+always run them. The '+build !unit' at the top of this file indicates that these
+test will not be run when the '-tags=unit' is passed to the go test command
+(cf makefile).
+
+fast-sync disabled
+
+*/
+
 func TestSuccessiveJoinRequestExtra(t *testing.T) {
 	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(t, 1)

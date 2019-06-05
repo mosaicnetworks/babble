@@ -579,7 +579,7 @@ func TestCoreFastForward(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err = cores[0].FastForward(cores[1].validator.PublicKeyHex(), block, frame)
+		err = cores[0].FastForward(block, frame)
 		//We should get an error because AnchorBlock doesnt contain enough
 		//signatures
 		if err == nil {
@@ -611,7 +611,7 @@ func TestCoreFastForward(t *testing.T) {
 		unmarshalledFrame := new(hg.Frame)
 		unmarshalledFrame.Unmarshal(marshalledFrame)
 
-		err = cores[0].FastForward(cores[1].validator.PublicKeyHex(), block, unmarshalledFrame)
+		err = cores[0].FastForward(block, unmarshalledFrame)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -919,7 +919,7 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err = cores[3].FastForward(cores[2].validator.PublicKeyHex(), &unmarshalledBlock, &unmarshalledFrame)
+		err = cores[3].FastForward(&unmarshalledBlock, &unmarshalledFrame)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -85,17 +85,27 @@ func (n *Node) Init() error {
 
 	_, ok := n.core.peers.ByID[n.validator.ID()]
 	if ok {
-		n.logger.Debug("Node belongs to PeerSet => Babbling")
-		if err := n.core.SetHeadAndSeq(); err != nil {
-			n.core.SetHeadAndSeq()
-		}
-		n.setState(Babbling)
+		n.logger.Debug("Node belongs to PeerSet")
+		n.babbleOrCatchUp()
 	} else {
 		n.logger.Debug("Node does not belong to PeerSet => Joining")
 		n.setState(Joining)
 	}
 
 	return nil
+}
+
+func (n *Node) babbleOrCatchUp() {
+	if n.conf.EnableFastSync {
+		n.logger.Debug("FastSync enabled => CatchingUp")
+		n.setState(CatchingUp)
+	} else {
+		n.logger.Debug("FastSync not enabled => Babbling")
+		if err := n.core.SetHeadAndSeq(); err != nil {
+			n.core.SetHeadAndSeq()
+		}
+		n.setState(Babbling)
+	}
 }
 
 //RunAsync calls Run as a separate thread
@@ -155,6 +165,13 @@ func (n *Node) resetTimer() {
 func (n *Node) doBackgroundWork() {
 	for {
 		select {
+		//XXX moved from babble()
+		case rpc := <-n.netCh:
+			n.goFunc(func() {
+				n.logger.Debug("Processing RPC")
+				n.processRPC(rpc)
+				n.resetTimer()
+			})
 		case t := <-n.submitCh:
 			n.logger.Debug("Adding Transaction")
 			n.addTransaction(t)
@@ -169,35 +186,24 @@ func (n *Node) doBackgroundWork() {
 	}
 }
 
-//babble is interrupted when a gossip function, launched asychronously, changes
-//the state from Babbling to CatchingUp, or when the node is shutdown.
-//Otherwise, it processes RPC requests, periodically initiates gossip while there
-//is something to gossip about, or waits.
+// babble processes incoming RPC requests and periodically initiates gossip
+// while there is something to gossip about.
 func (n *Node) babble(gossip bool) {
 	n.logger.Debug("BABBLING")
 
-	returnCh := make(chan struct{}, 100)
 	for {
 		select {
-		case rpc := <-n.netCh:
-			n.goFunc(func() {
-				n.logger.Debug("Processing RPC")
-				n.processRPC(rpc)
-				n.resetTimer()
-			})
 		case <-n.controlTimer.tickCh:
 			if gossip {
 				n.logger.Debug("Time to gossip!")
 				peer := n.core.peerSelector.Next()
 				if peer != nil {
-					n.goFunc(func() { n.gossip(peer, returnCh) })
+					n.goFunc(func() { n.gossip(peer) })
 				} else {
 					n.monologue()
 				}
 			}
 			n.resetTimer()
-		case <-returnCh:
-			return
 		case <-n.shutdownCh:
 			return
 		}
@@ -212,34 +218,16 @@ func (n *Node) fastForward() error {
 	n.waitRoutines()
 
 	var err error
-	defer func() {
-		if err != nil {
-			n.logger.Debug("FastForward error, sleeping...")
-			time.Sleep(500 * time.Millisecond)
-		}
-	}()
 
-	//fastForwardRequest
-	peer := n.core.peerSelector.Next()
-
-	start := time.Now()
-	resp, err := n.requestFastForward(peer.NetAddr)
-	elapsed := time.Since(start)
-	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestFastForward()")
-	if err != nil {
-		n.logger.WithField("error", err).Error("requestFastForward()")
-		return err
+	// loop through all peers to check who is the most ahead, then fast-forward
+	// from them. If no-one is ready good to fast-forward, go the the Babbling
+	// state.
+	resp := n.getBestFastForwardResponse()
+	if resp == nil {
+		n.logger.Error("getBestFastForwardResponse returned nil => Babbling")
+		n.setState(Babbling)
+		return fmt.Errorf("getBestFastForwardResponse returned nil")
 	}
-
-	n.logger.WithFields(logrus.Fields{
-		"from_id":              resp.FromID,
-		"block_index":          resp.Block.Index(),
-		"block_round_received": resp.Block.RoundReceived(),
-		"frame_events":         len(resp.Frame.Events),
-		"frame_roots":          resp.Frame.Roots,
-		"frame_peers":          len(resp.Frame.Peers),
-		"snapshot":             resp.Snapshot,
-	}).Debug("FastForwardResponse")
 
 	//update app from snapshot
 	err = n.proxy.Restore(resp.Snapshot)
@@ -250,7 +238,7 @@ func (n *Node) fastForward() error {
 
 	//prepare core. ie: fresh hashgraph
 	n.coreLock.Lock()
-	err = n.core.FastForward(peer.PubKeyString(), &resp.Block, &resp.Frame)
+	err = n.core.FastForward(&resp.Block, &resp.Frame)
 	n.coreLock.Unlock()
 	if err != nil {
 		n.logger.WithError(err).Error("Fast Forwarding Hashgraph")
@@ -262,11 +250,44 @@ func (n *Node) fastForward() error {
 		n.logger.WithError(err).Error("Processing AnchorBlock InternalTransactionReceipts")
 	}
 
-	n.logger.Debug("Fast-Forward OK")
+	n.logger.Debug("FastForward OK")
 
 	n.setState(Babbling)
 
 	return nil
+}
+
+func (n *Node) getBestFastForwardResponse() *net.FastForwardResponse {
+	var bestResponse *net.FastForwardResponse
+	maxBlock := 0
+
+	for _, p := range n.core.peerSelector.Peers().Peers {
+		start := time.Now()
+		resp, err := n.requestFastForward(p.NetAddr)
+		elapsed := time.Since(start)
+		n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestFastForward()")
+		if err != nil {
+			n.logger.WithField("error", err).Error("requestFastForward()")
+			continue
+		}
+
+		n.logger.WithFields(logrus.Fields{
+			"from_id":              resp.FromID,
+			"block_index":          resp.Block.Index(),
+			"block_round_received": resp.Block.RoundReceived(),
+			"frame_events":         len(resp.Frame.Events),
+			"frame_roots":          resp.Frame.Roots,
+			"frame_peers":          len(resp.Frame.Peers),
+			"snapshot":             resp.Snapshot,
+		}).Debug("FastForwardResponse")
+
+		if resp.Block.Index() > maxBlock {
+			bestResponse = &resp
+			maxBlock = resp.Block.Index()
+		}
+	}
+
+	return bestResponse
 }
 
 func (n *Node) join() error {
@@ -293,10 +314,7 @@ func (n *Node) join() error {
 
 	if resp.Accepted {
 		n.core.AcceptedRound = resp.AcceptedRound
-		// This has been changed so that all nodes have an initial babbling
-		// state. If the node meets the fastforward consitions it will switch
-		// over soon enough.
-		n.setState(Babbling)
+		n.babbleOrCatchUp()
 	} else {
 		// Then JoinRequest was explicitely refused by the curren peer-set. This
 		// is not an error.
@@ -322,24 +340,13 @@ func (n *Node) Leave() error {
 	return nil
 }
 
-//gossip is usually called in a go-routine and needs to inform the calling
-//routine (usually the babble routine) when it is time to exit the Babbling
-//state and return.
-func (n *Node) gossip(peer *peers.Peer, parentReturnCh chan struct{}) error {
+//gossip performs a pull-push gossip operation with the selected peer.
+func (n *Node) gossip(peer *peers.Peer) error {
 	//pull
-	syncLimit, otherKnownEvents, err := n.pull(peer)
+	otherKnownEvents, err := n.pull(peer)
 	if err != nil {
 		n.logger.WithError(err).Error("gossip pull")
 		return err
-	}
-
-	//check and handle syncLimit
-	if syncLimit {
-		n.logger.WithField("from", peer.ID()).Debug("SyncLimit")
-		n.setState(CatchingUp) //
-		parentReturnCh <- struct{}{}
-
-		return nil
 	}
 
 	//push
@@ -380,7 +387,7 @@ func (n *Node) monologue() error {
 	return nil
 }
 
-func (n *Node) pull(peer *peers.Peer) (syncLimit bool, otherKnownEvents map[uint32]int, err error) {
+func (n *Node) pull(peer *peers.Peer) (otherKnownEvents map[uint32]int, err error) {
 	//Compute Known
 	n.coreLock.Lock()
 	knownEvents := n.core.KnownEvents()
@@ -388,25 +395,20 @@ func (n *Node) pull(peer *peers.Peer) (syncLimit bool, otherKnownEvents map[uint
 
 	//Send SyncRequest
 	start := time.Now()
-	resp, err := n.requestSync(peer.NetAddr, knownEvents)
+	resp, err := n.requestSync(peer.NetAddr, knownEvents, n.conf.SyncLimit)
 	elapsed := time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestSync()")
 
 	if err != nil {
 		n.logger.WithField("error", err).Error("requestSync()")
-		return false, nil, err
+		return nil, err
 	}
 
 	n.logger.WithFields(logrus.Fields{
-		"from_id":    resp.FromID,
-		"sync_limit": resp.SyncLimit,
-		"events":     len(resp.Events),
-		"known":      resp.Known,
+		"from_id": resp.FromID,
+		"events":  len(resp.Events),
+		"known":   resp.Known,
 	}).Debug("SyncResponse")
-
-	if resp.SyncLimit {
-		return true, nil, nil
-	}
 
 	//Add Events to Hashgraph and create new Head if necessary
 	n.coreLock.Lock()
@@ -415,10 +417,10 @@ func (n *Node) pull(peer *peers.Peer) (syncLimit bool, otherKnownEvents map[uint
 
 	if err != nil {
 		n.logger.WithField("error", err).Error("sync()")
-		return false, nil, err
+		return nil, err
 	}
 
-	return false, resp.Known, nil
+	return resp.Known, nil
 }
 
 func (n *Node) push(peer *peers.Peer, knownEvents map[uint32]int) error {
@@ -625,10 +627,5 @@ func (n *Node) GetPeers() []*peers.Peer {
 
 //GetGenesisPeers returns the genesis peers
 func (n *Node) GetGenesisPeers() []*peers.Peer {
-	return n.core.genesisPeers.Peers
-}
-
-//GetValidators returns the validators
-func (n *Node) GetValidators() []*peers.Peer {
 	return n.core.genesisPeers.Peers
 }

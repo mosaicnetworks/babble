@@ -21,7 +21,8 @@ func TestNetworkTransport_PooledConn(t *testing.T) {
 
 	// Make the RPC request
 	args := SyncRequest{
-		FromID: 0,
+		FromID:    0,
+		SyncLimit: 20,
 		Known: map[uint32]int{
 			0: 1,
 			1: 2,

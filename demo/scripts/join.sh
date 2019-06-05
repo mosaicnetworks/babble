@@ -37,7 +37,7 @@ docker create --name=node$N --net=babblenet --ip=172.77.5.$N mosaicnetworks/babb
     --proxy-listen="172.77.5.$N:1338" \
     --client-connect="172.77.10.$N:1339" \
     --service-listen="172.77.5.$N:80" \
-    --enable-fast-sync=$FASTSYNC \
+    --fast-sync=$FASTSYNC \
     --log="debug"
     #--store \
 

@@ -72,8 +72,9 @@ func TestProcessSync(t *testing.T) {
 	}
 
 	args := net.SyncRequest{
-		FromID: node0.validator.ID(),
-		Known:  node0KnownEvents,
+		FromID:    node0.validator.ID(),
+		SyncLimit: node0.conf.SyncLimit,
+		Known:     node0KnownEvents,
 	}
 	expectedResp := net.SyncResponse{
 		FromID: node1.validator.ID(),

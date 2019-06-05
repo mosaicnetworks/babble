@@ -11,10 +11,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (n *Node) requestSync(target string, known map[uint32]int) (net.SyncResponse, error) {
+func (n *Node) requestSync(target string, known map[uint32]int, syncLimit int) (net.SyncResponse, error) {
 	args := net.SyncRequest{
-		FromID: n.validator.ID(),
-		Known:  known,
+		FromID:    n.validator.ID(),
+		SyncLimit: syncLimit,
+		Known:     known,
 	}
 
 	var out net.SyncResponse
@@ -72,6 +73,13 @@ func (n *Node) requestJoin(target string) (net.JoinResponse, error) {
 }
 
 func (n *Node) processRPC(rpc net.RPC) {
+	//XXX
+	if n.state.state != Babbling {
+		n.logger.WithField("state", n.state.state).Debug("Not in Babbling state")
+		rpc.Respond(nil, fmt.Errorf("Not in Babbling state"))
+		return
+	}
+
 	switch cmd := rpc.Command.(type) {
 	case *net.SyncRequest:
 		n.processSyncRequest(rpc, cmd)
@@ -89,8 +97,9 @@ func (n *Node) processRPC(rpc net.RPC) {
 
 func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 	n.logger.WithFields(logrus.Fields{
-		"from_id": cmd.FromID,
-		"known":   cmd.Known,
+		"from_id":    cmd.FromID,
+		"sync_limit": cmd.SyncLimit,
+		"known":      cmd.Known,
 	}).Debug("process SyncRequest")
 
 	resp := &net.SyncResponse{
@@ -99,27 +108,33 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 
 	var respErr error
 
-	//Check sync limit
+	//Compute Diff
+	start := time.Now()
 	n.coreLock.Lock()
-	overSyncLimit := n.core.OverSyncLimit(cmd.Known, n.conf.SyncLimit, n.conf.EnableFastSync)
+	eventDiff, err := n.core.EventDiff(cmd.Known)
 	n.coreLock.Unlock()
+	elapsed := time.Since(start)
 
-	if overSyncLimit {
-		n.logger.Debug("SyncLimit")
-		resp.SyncLimit = true
-	} else {
-		//Compute Diff
-		start := time.Now()
-		n.coreLock.Lock()
-		eventDiff, err := n.core.EventDiff(cmd.Known)
-		n.coreLock.Unlock()
-		elapsed := time.Since(start)
+	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Diff()")
 
-		n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Diff()")
+	if err != nil {
+		n.logger.WithField("error", err).Error("Calculating Diff")
+		respErr = err
+	}
 
-		if err != nil {
-			n.logger.WithField("error", err).Error("Calculating Diff")
-			respErr = err
+	if len(eventDiff) > 0 {
+
+		//select min(cmd.SyncLimit, this.SyncLimit) events
+		limit := min(cmd.SyncLimit, n.conf.SyncLimit)
+
+		n.logger.WithFields(logrus.Fields{
+			"req.sync_limit": cmd.SyncLimit,
+			"own.sync_limit": n.conf.SyncLimit,
+			"diff_length":    len(eventDiff),
+		}).Debugf("Selecting max %d events", limit)
+
+		if limit < len(eventDiff) {
+			eventDiff = eventDiff[:limit]
 		}
 
 		//Convert to WireEvents
@@ -130,6 +145,7 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 		} else {
 			resp.Events = wireEvents
 		}
+
 	}
 
 	//Get Self Known
@@ -140,13 +156,19 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 	resp.Known = knownEvents
 
 	n.logger.WithFields(logrus.Fields{
-		"events":     len(resp.Events),
-		"known":      resp.Known,
-		"sync_limit": resp.SyncLimit,
-		"rpc_err":    respErr,
+		"events":  len(resp.Events),
+		"known":   resp.Known,
+		"rpc_err": respErr,
 	}).Debug("Responding to SyncRequest")
 
 	rpc.Respond(resp, respErr)
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func (n *Node) processEagerSyncRequest(rpc net.RPC, cmd *net.EagerSyncRequest) {

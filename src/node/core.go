@@ -519,7 +519,7 @@ func (c *Core) AddSelfEvent(otherHead string) error {
 }
 
 //FastForward is used whilst in catchingUp state to apply past blocks and frames
-func (c *Core) FastForward(peer string, block *hg.Block, frame *hg.Frame) error {
+func (c *Core) FastForward(block *hg.Block, frame *hg.Frame) error {
 
 	c.logger.Debug("Fast Forward", frame.Round)
 	peerSet := peers.NewPeerSet(frame.Peers)

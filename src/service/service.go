@@ -41,8 +41,6 @@ func (s *Service) Serve() {
 
 	http.HandleFunc("/genesispeers", s.GetGenesisPeers)
 
-	http.HandleFunc("/validators", s.GetValidators)
-
 	err := http.ListenAndServe(s.bindAddress, nil)
 
 	if err != nil {
@@ -102,10 +100,6 @@ func (s *Service) GetPeers(w http.ResponseWriter, r *http.Request) {
 
 func (s *Service) GetGenesisPeers(w http.ResponseWriter, r *http.Request) {
 	getPeerSet(w, r, s.node.GetGenesisPeers())
-}
-
-func (s *Service) GetValidators(w http.ResponseWriter, r *http.Request) {
-	getPeerSet(w, r, s.node.GetValidators())
 }
 
 func getPeerSet(w http.ResponseWriter, r *http.Request, peers []*peers.Peer) {

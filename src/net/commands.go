@@ -8,15 +8,15 @@ import (
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 type SyncRequest struct {
-	FromID uint32
-	Known  map[uint32]int
+	FromID    uint32
+	Known     map[uint32]int
+	SyncLimit int
 }
 
 type SyncResponse struct {
-	FromID    uint32
-	SyncLimit bool
-	Events    []hashgraph.WireEvent
-	Known     map[uint32]int
+	FromID uint32
+	Events []hashgraph.WireEvent
+	Known  map[uint32]int
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
