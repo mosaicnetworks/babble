@@ -13,7 +13,7 @@ import (
 
 func (n *Node) requestSync(target string, known map[uint32]int, syncLimit int) (net.SyncResponse, error) {
 	args := net.SyncRequest{
-		FromID:    n.validator.ID(),
+		FromID:    n.core.validator.ID(),
 		SyncLimit: syncLimit,
 		Known:     known,
 	}
@@ -27,7 +27,7 @@ func (n *Node) requestSync(target string, known map[uint32]int, syncLimit int) (
 
 func (n *Node) requestEagerSync(target string, events []hg.WireEvent) (net.EagerSyncResponse, error) {
 	args := net.EagerSyncRequest{
-		FromID: n.validator.ID(),
+		FromID: n.core.validator.ID(),
 		Events: events,
 	}
 
@@ -44,7 +44,7 @@ func (n *Node) requestFastForward(target string) (net.FastForwardResponse, error
 	}).Debug("RequestFastForward()")
 
 	args := net.FastForwardRequest{
-		FromID: n.validator.ID(),
+		FromID: n.core.validator.ID(),
 	}
 
 	var out net.FastForwardResponse
@@ -57,11 +57,11 @@ func (n *Node) requestFastForward(target string) (net.FastForwardResponse, error
 func (n *Node) requestJoin(target string) (net.JoinResponse, error) {
 
 	joinTx := hashgraph.NewInternalTransactionJoin(*peers.NewPeer(
-		n.validator.PublicKeyHex(),
+		n.core.validator.PublicKeyHex(),
 		n.trans.LocalAddr(),
-		n.validator.Moniker))
+		n.core.validator.Moniker))
 
-	joinTx.Sign(n.validator.Key)
+	joinTx.Sign(n.core.validator.Key)
 
 	args := net.JoinRequest{InternalTransaction: joinTx}
 
@@ -103,7 +103,7 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 	}).Debug("process SyncRequest")
 
 	resp := &net.SyncResponse{
-		FromID: n.validator.ID(),
+		FromID: n.core.validator.ID(),
 	}
 
 	var respErr error
@@ -189,7 +189,7 @@ func (n *Node) processEagerSyncRequest(rpc net.RPC, cmd *net.EagerSyncRequest) {
 	}
 
 	resp := &net.EagerSyncResponse{
-		FromID:  n.validator.ID(),
+		FromID:  n.core.validator.ID(),
 		Success: success,
 	}
 
@@ -202,7 +202,7 @@ func (n *Node) processFastForwardRequest(rpc net.RPC, cmd *net.FastForwardReques
 	}).Debug("process FastForwardRequest")
 
 	resp := &net.FastForwardResponse{
-		FromID: n.validator.ID(),
+		FromID: n.core.validator.ID(),
 	}
 
 	var respErr error
@@ -292,7 +292,7 @@ func (n *Node) processJoinRequest(rpc net.RPC, cmd *net.JoinRequest) {
 	}
 
 	resp := &net.JoinResponse{
-		FromID:        n.validator.ID(),
+		FromID:        n.core.validator.ID(),
 		Accepted:      accepted,
 		AcceptedRound: acceptedRound,
 		Peers:         peers,

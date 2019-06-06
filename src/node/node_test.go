@@ -86,7 +86,7 @@ func TestAddTransaction(t *testing.T) {
 
 	node0KnownEvents := node0.core.KnownEvents()
 	args := net.SyncRequest{
-		FromID: node0.validator.ID(),
+		FromID: node0.core.validator.ID(),
 		Known:  node0KnownEvents,
 	}
 
@@ -181,7 +181,7 @@ func TestSyncLimit(t *testing.T) {
 	//create a sync request with a low SyncLimit of 50. The responding node
 	//should account for the SyncLimit and return only 50 events.
 	args := net.SyncRequest{
-		FromID:    nodes[0].validator.ID(),
+		FromID:    nodes[0].core.validator.ID(),
 		SyncLimit: 50,
 		Known:     node0KnownEvents,
 	}
@@ -411,8 +411,8 @@ func recycleNodes(oldNodes []*Node, logger *logrus.Logger, t *testing.T) []*Node
 
 func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 	conf := oldNode.conf
-	key := oldNode.validator.Key
-	moniker := oldNode.validator.Moniker
+	key := oldNode.core.validator.Key
+	moniker := oldNode.core.validator.Moniker
 	peers := oldNode.core.peers
 	genesisPeerSet := oldNode.core.genesisPeers
 
@@ -615,7 +615,7 @@ func drawGraphs(nodes []*Node, t *testing.T) {
 			t.Log(err)
 		}
 
-		err = ioutil.WriteFile(fmt.Sprintf("test_data/info%d", n.ID()), jinfo, 0644)
+		err = ioutil.WriteFile(fmt.Sprintf("test_data/info%d", n.core.validator.ID()), jinfo, 0644)
 		if err != nil {
 			t.Log(err)
 		}
@@ -658,7 +658,7 @@ func logNodeList(t testing.TB, nodes []*Node, msg string) {
 	iplist := ""
 
 	for i, p := range nodes {
-		iplist += comma + strconv.Itoa(i) + ": " + fmt.Sprintf("%x", p.validator.ID())
+		iplist += comma + strconv.Itoa(i) + ": " + fmt.Sprintf("%x", p.core.validator.ID())
 		comma = ", "
 	}
 

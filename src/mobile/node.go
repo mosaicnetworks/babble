@@ -79,7 +79,7 @@ func New(privKey string,
 	return &Node{
 		node:   engine.Node,
 		proxy:  babbleConfig.Proxy,
-		nodeID: engine.Node.ID(),
+		nodeID: engine.Node.GetID(),
 		logger: babbleConfig.Logger,
 	}
 }

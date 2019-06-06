@@ -72,12 +72,12 @@ func TestProcessSync(t *testing.T) {
 	}
 
 	args := net.SyncRequest{
-		FromID:    node0.validator.ID(),
+		FromID:    node0.core.validator.ID(),
 		SyncLimit: node0.conf.SyncLimit,
 		Known:     node0KnownEvents,
 	}
 	expectedResp := net.SyncResponse{
-		FromID: node1.validator.ID(),
+		FromID: node1.core.validator.ID(),
 		Events: unknownWireEvents,
 		Known:  node1KnownEvents,
 	}
@@ -176,11 +176,11 @@ func TestProcessEagerSync(t *testing.T) {
 	}
 
 	args := net.EagerSyncRequest{
-		FromID: node0.validator.ID(),
+		FromID: node0.core.validator.ID(),
 		Events: unknownWireEvents,
 	}
 	expectedResp := net.EagerSyncResponse{
-		FromID:  node1.validator.ID(),
+		FromID:  node1.core.validator.ID(),
 		Success: true,
 	}
 
@@ -248,7 +248,7 @@ func TestProcessFastForward(t *testing.T) {
 	//Manually prepare FastForwardRequest. We expect a 'No Anchor Block' error
 
 	args := net.FastForwardRequest{
-		FromID: node0.validator.ID(),
+		FromID: node0.core.validator.ID(),
 	}
 
 	//Make actual FastForwardRequest and check FastForwardResponse
