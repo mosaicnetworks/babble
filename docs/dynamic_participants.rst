@@ -188,7 +188,7 @@ R+6
 
 When an InternalTransaction is committed, when should we start counting the new 
 peer-set in order to guarantee that all correct nodes will do the same thing? 
-The answer in R+6 where R is the round-received of the Event containing the 
+The answer is R+6 where R is the round-received of the Event containing the 
 InternalTransaction.
 
 We need only determine the lower-bound because the goal is obviously to change 
@@ -213,8 +213,6 @@ witnesses are decided, and by Lemma 5.17 they are necessarily decided in round
 R+3 or earlier. Hence, by Lemma 5.15, any other consistent hashgraph will have 
 decided by round R + 5 or earlier. It is then safe to set the new peer-set for
 round R + 6.
-
-
 
 
 

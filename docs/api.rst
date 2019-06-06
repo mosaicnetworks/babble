@@ -39,7 +39,8 @@ process as your handler):
   }
   
   // Called when a new block is committed by Babble. This particular example 
-  // just computes the stateHash incrementaly with incoming blocks.
+  // just computes the stateHash incrementaly with incoming blocks, and accepts
+  // all InternalTransactions
   func (h *Handler) CommitHandler(block hashgraph.Block) (stateHash []byte, err error) {
   	hash := h.stateHash
   
@@ -49,7 +50,18 @@ process as your handler):
   
   	h.stateHash = hash
   
-  	return h.stateHash, nil
+    receipts := []hashgraph.InternalTransactionReceipt{}
+    for _, it := range block.InternalTransactions() {
+    	r := it.AsAccepted()
+    	receipts = append(receipts, r)
+    }
+
+  	response := proxy.CommitResponse{
+  	  StateHash:                   h.stateHash,
+  	  InternalTransactionReceipts: receipts,
+  	}
+
+    return response, nil
   }
   
   // Called when syncing with the network
@@ -135,7 +147,18 @@ Assuming there is a Babble node running with its proxy listening on
   
   	h.stateHash = hash
   
-  	return h.stateHash, nil
+  	receipts := []hashgraph.InternalTransactionReceipt{}
+    for _, it := range block.InternalTransactions() {
+    	r := it.AsAccepted()
+    	receipts = append(receipts, r)
+    }
+
+  	response := proxy.CommitResponse{
+  	  StateHash:                   h.stateHash,
+  	  InternalTransactionReceipts: receipts,
+  	}
+
+    return response, nil
   }
   
   // Called when syncing with the network

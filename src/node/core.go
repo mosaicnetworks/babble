@@ -632,25 +632,6 @@ func (c *Core) EventDiff(known map[uint32]int) (events []*hg.Event, err error) {
 	return unknown, nil
 }
 
-// OverSyncLimit checks if the number of unknown events exceeds the syncLimit
-func (c *Core) OverSyncLimit(knownEvents map[uint32]int, syncLimit int, enableSyncLimit bool) bool {
-	if !enableSyncLimit {
-		return false
-	}
-
-	totUnknown := 0
-	myKnownEvents := c.KnownEvents()
-	for i, li := range myKnownEvents {
-		if li > knownEvents[i] {
-			totUnknown += li - knownEvents[i]
-		}
-	}
-	if totUnknown > syncLimit {
-		return true
-	}
-	return false
-}
-
 // FromWire takes Wire Events and returns Hashgraph Events
 func (c *Core) FromWire(wireEvents []hg.WireEvent) ([]hg.Event, error) {
 	events := make([]hg.Event, len(wireEvents), len(wireEvents))

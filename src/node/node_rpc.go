@@ -73,7 +73,8 @@ func (n *Node) requestJoin(target string) (net.JoinResponse, error) {
 }
 
 func (n *Node) processRPC(rpc net.RPC) {
-	//XXX
+	// Notify others that we are not in Babbling state to prevent
+	// them from hitting timeouts.
 	if n.state.state != Babbling {
 		n.logger.WithField("state", n.state.state).Debug("Not in Babbling state")
 		rpc.Respond(nil, fmt.Errorf("Not in Babbling state"))

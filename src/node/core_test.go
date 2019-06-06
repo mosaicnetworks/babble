@@ -396,46 +396,6 @@ func TestConsensus(t *testing.T) {
 	}
 }
 
-func TestOverSyncLimit(t *testing.T) {
-	cores := initConsensusHashgraph(t)
-
-	//positive
-	known := map[uint32]int{
-		cores[0].validator.ID(): 1,
-		cores[1].validator.ID(): 1,
-		cores[2].validator.ID(): 1,
-	}
-
-	syncLimit := 10
-	enableSyncLimit := true
-
-	if !cores[0].OverSyncLimit(known, syncLimit, enableSyncLimit) {
-		t.Fatalf("OverSyncLimit(%v, %v) should return true", known, syncLimit)
-	}
-
-	//negative
-	known = map[uint32]int{
-		cores[0].validator.ID(): 6,
-		cores[1].validator.ID(): 6,
-		cores[2].validator.ID(): 6,
-	}
-
-	if cores[0].OverSyncLimit(known, syncLimit, enableSyncLimit) {
-		t.Fatalf("OverSyncLimit(%v, %v) should return false", known, syncLimit)
-	}
-
-	//edge
-	known = map[uint32]int{
-		cores[0].validator.ID(): 2,
-		cores[1].validator.ID(): 3,
-		cores[2].validator.ID(): 3,
-	}
-	if cores[0].OverSyncLimit(known, syncLimit, enableSyncLimit) {
-		t.Fatalf("OverSyncLimit(%v, %v) should return false", known, syncLimit)
-	}
-
-}
-
 /*
     |   |   |   |-----------------
 	|   w31 |   | R3

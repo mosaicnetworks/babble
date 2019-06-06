@@ -33,7 +33,7 @@ type Node struct {
 	coreLock sync.Mutex
 
 	// transport is the object used to transmit and receive commands to other
-	// other nodes.
+	// nodes.
 	trans net.Transport
 	netCh <-chan net.RPC
 
@@ -426,17 +426,7 @@ func (n *Node) pull(peer *peers.Peer) (otherKnownEvents map[uint32]int, err erro
 
 // push preforms an EagerSyncRequest
 func (n *Node) push(peer *peers.Peer, knownEvents map[uint32]int) error {
-	//Check SyncLimit
-	n.coreLock.Lock()
-	overSyncLimit := n.core.OverSyncLimit(knownEvents, n.conf.SyncLimit, n.conf.EnableFastSync)
-	n.coreLock.Unlock()
-
-	if overSyncLimit {
-		n.logger.Debug("SyncLimit")
-		return nil
-	}
-
-	//Compute Diff
+	// Compute Diff
 	start := time.Now()
 	n.coreLock.Lock()
 	eventDiff, err := n.core.EventDiff(knownEvents)
@@ -449,14 +439,23 @@ func (n *Node) push(peer *peers.Peer, knownEvents map[uint32]int) error {
 	}
 
 	if len(eventDiff) > 0 {
-		//Convert to WireEvents
+		// do not push more than sync_limit events
+		if n.conf.SyncLimit < len(eventDiff) {
+			n.logger.WithFields(logrus.Fields{
+				"sync_limit":  n.conf.SyncLimit,
+				"diff_length": len(eventDiff),
+			}).Debug("Push sync_limit")
+			eventDiff = eventDiff[:n.conf.SyncLimit]
+		}
+
+		// Convert to WireEvents
 		wireEvents, err := n.core.ToWire(eventDiff)
 		if err != nil {
 			n.logger.WithField("error", err).Debug("Converting to WireEvent")
 			return err
 		}
 
-		//Create and Send EagerSyncRequest
+		// Create and Send EagerSyncRequest
 		start = time.Now()
 		resp2, err := n.requestEagerSync(peer.NetAddr, wireEvents)
 		elapsed = time.Since(start)

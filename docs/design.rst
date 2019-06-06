@@ -56,19 +56,19 @@ Almost any software application can be modeled in terms of a *service* and a
 while the *state* is responsible for manipulating and storing the data (eg. 
 database). Usually, when commands require updating the data, the *service* will 
 invoke the *state* directly. In a distributed application, however, commands 
-(referred to as *transactions* in this context), must be broadcasted to all 
-replicas and put in a common order before being applied to the *state*. This is 
-what ensures that all replicas process the same commands in the same order. 
+(referred to as *transactions* in this context), must be broadcast to all 
+replicas and put in a common order before being applied to the *state*. This 
+ensures that all replicas process the same commands in the same order. 
 Hence, the *service* no longer communicates directly with the *state* (except 
 for read-only requests), but forwards commands to a *transaction ordering 
 system* which takes care of broadcasting and ordering the transactions across 
 all replicas before feeding them back to the application's *state*. 
 
 Babble is an ordering system that plugs into any application thanks to a very 
-simple interface. It uses a consensus algorithm, to replicate and order the 
+simple interface. It uses a consensus algorithm to replicate and order the 
 transactions, and a blockchain to represent the resulting list. A blockchain is 
 a linear data structure composed of batches of transactions, hashed and signed 
-together, easily allowing to verify any transaction. So, instead of applying 
+together, allowing to easily verify any transaction. So, instead of applying 
 commands directly to the *state*, Babble applications must forward the commands 
 to Babble and let them be processed asynchronously by the consensus system 
 before receiving them back, in blocks, ready to be applied to the *state*.  

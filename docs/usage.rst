@@ -155,9 +155,8 @@ could look something like this:
     ]
 
 Now everyone is going to take a copy of this peers.json file and put it in a
-folder together with the priv_key.pem file they generated in the previous step.
-That is the folder that they need to specify as the datadir when they run
-Babble.
+folder together with the priv_key file they generated in the previous step. That 
+is the folder that they need to specify as the datadir when they run Babble.
 
 Babble Executable
 -----------------
@@ -243,7 +242,7 @@ application:
         --client-connect="172.77.5.$(($N+$i)):1339" \
         --service-listen="172.77.5.$i:80" \
         --sync-limit=1000 \
-        --enable-fast-sync=true \
+        --fast-sync=true \
         --store \
         --log="debug"
 

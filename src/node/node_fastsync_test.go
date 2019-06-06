@@ -9,7 +9,9 @@ import (
 )
 
 /*
+
 Test FastForward and state transitions when fast-sync is enabled.
+
 */
 
 func TestFastForward(t *testing.T) {
