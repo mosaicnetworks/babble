@@ -8,9 +8,13 @@ SECURITY:
 
 FEATURES:
 
+* hashgraph: Dynamic membership protocol.
 * crypto: Use secp256k1 curve which is also used by Ethereum and Bitcoin.
 
 IMPROVEMENTS:
+
+* node: FastSync protocol.
+* core: Bootstrap.
 
 BUG FIXES:
 

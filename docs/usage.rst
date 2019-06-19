@@ -76,55 +76,84 @@ Finally, stop the testnet:
 Manual Setup
 ------------
 
-The above scripts hide a lot of the complications involved in setting up a
-Babble network. They generate the configuration files automatically, copy them
-to the right places and launch the nodes in Docker containers. We recommend
-looking at these scripts closely to understand how the demo works. Here, we
-will attempt to explain the individual steps that take place behind the scenes.
+The above scripts hide a lot of the work required for setting up a Babble 
+network. They generate the configuration files automatically, copy them to the 
+right places and launch the nodes in Docker containers. We recommend looking at 
+these scripts closely to understand how the demo works. Here, we will attempt to 
+explain the individual steps that take place behind the scenes.
 
 Configuration
 ~~~~~~~~~~~~~
 
 Babble reads configuration from the directory specified by the ``datadir`` flag
-which defaults to ``~/.babble`` on linux/osx. This directory must contain two
-files:
+which defaults to ``~/.babble`` on UNIX systems. This directory should contain 
+the following files: 
 
- - ``peers.json``  : Lists all the participants in the network.
- - ``priv_key``: Contains the private key of the validator runnning the node.
+ - ``priv_key``    : The private key of the validator runnning the node.
+ - ``peers.json``  : The current validator-set.
+ - ``genesis.peers.json`` : (optional, default peers.json) The initial 
+   validator-set of the network.
 
-Every participant has a cryptographic key-pair that is used to encrypt, sign
-and verify messages. The private key is secret but the public key is used by
-other nodes to verify messages signed with the private key. The encryption
-scheme used by Babble is ECDSA with the secp256k1 curve (like Bitcoin and
-Ethereum).
+Keys
+****
 
-To run a Babble network, it is necessary to predefine who the participants are
-going to be. Each participant will generate a key-pair and decide which network
-address it is going to be using for the Babble protocol. Someone, or some
-process, then needs to aggregate the public keys and network addresses of all
-participants into a single file - the peers.json file. Every participant uses a
-copy of the same peers.json file. Babble will read that file to identify the
-participants in the network, communicate with them and verify their
-cryptographic signatures.
+Every participant has a cryptographic key-pair that it uses to encrypt, sign and 
+verify messages. The private key is secret but the public key is used by other 
+nodes to verify messages signed with the private key. 
 
-To generate key-pairs in a format usable by Babble, we have created the
-``keygen`` command. It is left to the user to derive a scheme to produce the
-configuration files but the docker demo scripts are a good place to start.
+The encryption scheme used by Babble is ECDSA with the secp256k1 curve (like 
+Bitcoin and Ethereum).
 
-So let us say I want to participate in a Babble network. I am going to start by
+Babble's ``keygen`` command can be used to generate key-pairs in the appropriate
+format.
+
+Peers
+*****
+
+``peers.json`` and ``genesis.peers.json`` are used to determine the current and
+initial validator-sets of a network.  
+
+``genesis.peers.json`` corresponds to the initial validator-set; the one that
+the hashgraph was started with. If ``genesis.peers.json`` is not provided, 
+Babble will use ``peers.json`` as the genesis validator-set. 
+
+
+``peers.json`` corresponds to the current validator-set. These are the nodes 
+that are allowed to record new Events in the hashgraph, and who will gossip 
+among eachother.
+
+``peers.json`` and ``gensesis.peers.json`` are not necessarily equal because the
+:ref:`dynamic membership protcol <dynamic_participants>` enables new nodes to 
+join or leave a live Babble network dynamically. It is important for a joining 
+node to know the initial validator-set in order to replay and verify the 
+hashgraph up to the point where it joins.
+
+It is possible to start a Babble network with just a single node, or with a 
+predefined validator-set composed of multiple nodes.
+
+In the latter case, someone, or some process, needs to aggregate the public keys 
+and network addresses of all participants into a single file (``peers.json``), 
+and ensure that everyone has a copy of this file. It is left to the user to 
+derive a scheme to produce the configuration files but the docker demo scripts 
+are a good place to start.
+
+Example
+*******
+
+Let us say I want to participate in a Babble network. I am going to start by
 running ``babble keygen`` to create a key-pair:
 
 ::
 
   babble keygen
-  Your private key has been saved to: /home/martin/.babble/priv_key
-  Your public key has been saved to: /home/martin/.babble/key.pub
+  Your private key has been saved to: /home/[user]/.babble/priv_key
+  Your public key has been saved to: /home/[user]/.babble/key.pub
 
 Next, I am going to copy the public key (key.pub) and communicate it to whoever
 is responsible for producing the peers.json file. At the same time, I will tell
-them that I am going to be listening on 172.77.5.2:1337. You may also
-optionally supply a moniker for each node, which is far more readable than a
-public key address.
+them that I am going to be listening on 172.77.5.2:1337. You may also optionally 
+supply a moniker for each node, which is far more readable than a public key 
+address.
 
 Suppose three other people do the same thing. The resulting peers.json file
 could look something like this:
@@ -132,26 +161,26 @@ could look something like this:
 ::
 
     [
-   {
-      "NetAddr":"172.77.5.1:1337",
-      "PubKeyHex":"0x0471AEE3CAE4E8442D37C9F5481FB32C4531511988652DF923B79ED4ED992021183D31E0F6FBFE96D89B6D03D7250292DFECD4FC414D83A5C38FA3FAD0D8572864",
-        "Moniker":"node1"
-   },
-   {
-      "NetAddr":"172.77.5.2:1337",
-      "PubKeyHex":"0x045E034D73C849756AE7B6515CA60D96A5A911B13A4D8B45BC0E0B02EDB45009DF6CCC074EEB6F7C6795740F993664EDEE970F8A717C89344F8437F412BDF0D17C",
-        "Moniker":"node2"
-   },
-   {
-      "NetAddr":"172.77.5.3:1337",
-      "PubKeyHex":"0x047CCCD40D90B331C64CE27911D3A31AF7DC16C1EA6D570FDC2120920663E0A678D7B5D0C19B6A77FEA829F8198F4F487B68206B93B7AD17D7C49CA7E0164D0033",
-        "Moniker":"node3"
-   },
-   {
-      "NetAddr":"172.77.5.4:1337",
-      "PubKeyHex":"0x0406CB5043E7337700E3B154993C872B1C61A84B1A739528C4A10135A3D64939C094B4A999BD21C3D5E9E9ECF15B202414F073795C9483B2F51ADA7EE59EB5EAC4",
-        "Moniker":"node4"
-   }
+      {
+         "NetAddr":"172.77.5.1:1337",
+         "PubKeyHex":"0x0471AEE3CAE4E8442D37C9F5481FB32C4531511988652DF923B79ED4ED992021183D31E0F6FBFE96D89B6D03D7250292DFECD4FC414D83A5C38FA3FAD0D8572864",
+         "Moniker":"node1"
+      },
+      {
+         "NetAddr":"172.77.5.2:1337",
+         "PubKeyHex":"0x045E034D73C849756AE7B6515CA60D96A5A911B13A4D8B45BC0E0B02EDB45009DF6CCC074EEB6F7C6795740F993664EDEE970F8A717C89344F8437F412BDF0D17C",
+         "Moniker":"node2"
+      },
+      {
+         "NetAddr":"172.77.5.3:1337",
+         "PubKeyHex":"0x047CCCD40D90B331C64CE27911D3A31AF7DC16C1EA6D570FDC2120920663E0A678D7B5D0C19B6A77FEA829F8198F4F487B68206B93B7AD17D7C49CA7E0164D0033",
+         "Moniker":"node3"
+      },
+      {
+         "NetAddr":"172.77.5.4:1337",
+         "PubKeyHex":"0x0406CB5043E7337700E3B154993C872B1C61A84B1A739528C4A10135A3D64939C094B4A999BD21C3D5E9E9ECF15B202414F073795C9483B2F51ADA7EE59EB5EAC4",
+         "Moniker":"node4"
+      }
     ]
 
 Now everyone is going to take a copy of this peers.json file and put it in a
@@ -165,6 +194,8 @@ Let us take a look at the help provided by the Babble CLI:
 
 ::
 
+    $ babble run --help
+
     Run node
 
     Usage:
@@ -174,8 +205,8 @@ Let us take a look at the help provided by the Babble CLI:
             --bootstrap               Load from database
             --cache-size int          Number of items in LRU caches (default 5000)
         -c, --client-connect string   IP:Port to connect to client (default "127.0.0.1:1339")
-            --datadir string          Top-level directory for configuration and data (default "/home/jon/.babble")
-            --enable-fast-sync        Enable Fast Sync (default true)
+            --datadir string          Top-level directory for configuration and data (default "/home/[user]/.babble")
+            --fast-sync               Enable FastSync
             --heartbeat duration      Time between gossips (default 10ms)
         -h, --help                    Help for run
         -j, --join-timeout duration   Join Timeout (default 10s)
@@ -207,6 +238,10 @@ We can also specify where Babble exposes its HTTP API providing information on
 the Hashgraph and Blockchain data store. This is controlled by the optional
 ``service-listen`` flag.
 
+The ``fast-sync`` parameter determines whether or not the node will attempt to
+fast-forward to the tip of the hashgraph, or download and replay the entire
+hashgraph from start. More on this in :ref:`fast-sync <fastsync>`
+
 Finally, we can choose to run Babble with a database backend or only with an
 in-memory cache. With the ``store`` flag set, Babble will look for a database
 file in ``datadir``/babdger_db. If the file exists, and the ``--boostrap`` flag
@@ -223,29 +258,29 @@ application:
 
     for i in $(seq 1 $N)
     do
-        docker run -d --name=client$i --net=babblenet --ip=172.77.5.$(($N+$i)) -it mosaicnetworks/dummy:0.4.0 \
+        docker run -d --name=client$i --net=babblenet --ip=172.77.10.$i -it mosaicnetworks/dummy:latest \
         --name="client $i" \
-        --client-listen="172.77.5.$(($N+$i)):1339" \
+        --client-listen="172.77.10.$i:1339" \
         --proxy-connect="172.77.5.$i:1338" \
         --discard \
-        --log="debug"
+        --log="debug" 
     done
-
+    
     for i in $(seq 1 $N)
     do
-        docker create --name=node$i --net=babblenet --ip=172.77.5.$i mosaicnetworks/babble:0.4.0 run \
+        docker create --name=node$i --net=babblenet --ip=172.77.5.$i mosaicnetworks/babble:latest run \
+        --heartbeat=100ms \
+        --moniker="node$i" \
         --cache-size=50000 \
-        --timeout=200ms \
-        --heartbeat=10ms \
         --listen="172.77.5.$i:1337" \
         --proxy-listen="172.77.5.$i:1338" \
-        --client-connect="172.77.5.$(($N+$i)):1339" \
+        --client-connect="172.77.10.$i:1339" \
         --service-listen="172.77.5.$i:80" \
-        --sync-limit=1000 \
-        --fast-sync=true \
+        --sync-limit=500 \
+        --fast-sync=$FASTSYNC \
         --store \
-        --log="debug"
-
+        --log="debug" 
+                
         docker cp $MPWD/conf/node$i node$i:/.babble
         docker start node$i
     done
