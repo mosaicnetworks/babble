@@ -27,4 +27,4 @@ Babble
    consensus.rst
    blockchain.rst
    fastsync.rst
-   dynamic_participants.rst
+   dynamic_membership.rst

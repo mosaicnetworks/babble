@@ -1,42 +1,47 @@
-.. _dynamic_participants:
+.. _dynamic_membership:
 
-DynamicParticipants
-===================
+Dynamic Membership
+==================
 
-DynamicParticipants is an extension to the Babble protocol, which enables 
-changing the set of active peers via consensus. Until now, we had only 
-considered fixed peer-sets, where the list of participants was predetermined and 
-unchanged throughout the life of a Babble network. This was an important 
-limitation, hindering the formation of ad-hoc blockchains as we envision them. 
-Here we present our solution, and its implementation, which relies on previous 
-work regarding the Hashgraph-to-Blockchain projection, and FastSync.
+Dynamic Membership is an extension to the Babble protocol, which enables peers 
+to join or leave a live cluster via consensus. Until now, we had only considered 
+fixed peer-sets, where the list of participants was predetermined and unchanged 
+throughout the life of a Babble network. This was an important limitation, 
+hindering the formation of ad-hoc blockchains as we envision them. Here we 
+present our solution, and its implementation, which relies on previous work 
+regarding the Hashgraph-to-Blockchain projection, and FastSync.
 
 Overview
 --------
 
 .. image:: assets/dyn_part.png
 
-A Babble node is started with an initial peer-set and its own key pair. If its 
-public key belongs to the initial peer-set, the node enters the Babbling state 
-and starts gossipping regularly with other nodes. If it doesn’t belong to the 
-initial peer-set, it enters the Joining state, in which it will attempt to join 
-the group. It does so by automatically sending a JoinRequest to one of the 
-existing peers, chosen at random from the initial peer-set. Upon receiving a 
-JoinRequest, a node will create a corresponding InternalTransaction; a special 
-type of transaction which represents potential peer-set changes. The 
-InternalTransaction is added to an Event, and goes through Babble consensus, 
+A Babble node is started with a genesis peer-set (genesis.peers.json) and a 
+current peer-set (peers.json). If its public-key does not belong to the current 
+peer-set, the node will enter the ``Joining`` state, where it will attempt to 
+join the peer-set. It does so by signing an ``InternalTransaction`` and 
+submitting it for consensus via a ``JoinRequest`` to one of the current nodes. 
+
+The InternalTransaction is added to an Event, and goes through Babble consensus, 
 until it is added to a block and committed. However, unlike regular 
 transactions, the InternalTransaction is actually interpreted by Babble to 
 modify the peer-set, if the application-layer accepts it. We shall see that, 
 according to Hashgraph dynamics, an accepted InternalTransaction, committed with 
-round-received R, only affects peer-sets for rounds R+6 and above. If the 
-JoinRequest was successful, the new node will then go into the CatchingUp state 
-and fast-forward to the top of the Hashgraph, as described in [FastSync], to 
-join the gossip in the extended group. The functionality for removing peers has 
-not been implemented yet, but should closely resemble the Join procedure, with 
-the difference that there will be an automatic way of deciding when nodes should 
-be removed, based on a minimum level of activity (ex: 10 rounds with no 
-witnesses).
+round-received R, only affects peer-sets for rounds R+6 and above.
+
+If the JoinRequest was successful, and the new node makes it into the peer-set, 
+it will either enter the ``Babbling`` state directly, or the ``CatchingUp`` 
+state, depending on whether the ``fast-sync`` flag was provided. In the former
+case, the node will have to retrieve the entire history of the hashgraph and 
+commit all the blocks it missed one-by-one. This is where it is important to 
+have the genesis peer-set, to allow the joining node to validate the consensus
+decisions and peer-set changes from the beginning of the hashgraph. 
+
+The functionality for removing peers is almost identical, with the difference 
+that there will be an automatic way of deciding when nodes should be removed, 
+based on a minimum level of activity (ex: 10 rounds with no witnesses). As of 
+today, a node submits a LeaveRequest for itself upon capturing a SIGINT signal 
+when the Babble process is terminated cleanly.
 
 InternalTransaction
 -------------------
@@ -44,19 +49,24 @@ InternalTransaction
 In contrast with regular transactions, which only affect the application layer, 
 InternalTransactions are internal to Babble. Babble acts upon 
 InternalTransactions to modify part of its own state, the peer-set, rather than 
-modifying the application’s state. However, the application layer gets to accept 
-or refuse peer-set changes during the block commit phase. For example, the 
-application could refuse all InternalTransactions (thereby preventing the 
-peer-set from ever changing), or accept only up to N participants, or finally, 
-it could base the decision on a predefined whitelist; anything goes, as long as 
-the rule is deterministic (all nodes make the same decision).
+modifying the application’s state. However, the application layer plays a role in
+accepting or refusing peer-set changes during the block commit phase. For 
+example, the application could refuse all InternalTransactions (thereby 
+preventing the peer-set from ever changing), or accept only up to N 
+participants, or finally, it could base the decision on a predefined whitelist; 
+anything goes, as long as the rule is deterministic (all nodes make the same 
+decision).
 
 ::
 
+  type InternalTransactionBody struct {
+    Type TransactionType
+    Peer peers.Peer
+  }
+
   type InternalTransaction struct {
-    Type     TransactionType // PEER_ADD or PEER_REMOVE
-    Peer     peers.Peer // { IP:PORT, PubKey }
-    Accepted Trilean // True, False, or Undecided
+    Body      InternalTransactionBody
+    Signature string
   }
 
 The ProxyInterface, between Babble and the application-layer, is thus slightly 
@@ -70,17 +80,19 @@ CommitHandler that systematically accepts all InternalTransactions:
     
     err := a.commit(block)
     if err != nil {
-        return proxy.CommitResponse{}, err
+    	return proxy.CommitResponse{}, err
     }
     
+    receipts := []hashgraph.InternalTransactionReceipt{}
     for _, it := range block.InternalTransactions() {
-        it.Accept()
+    	r := it.AsAccepted()
+    	receipts = append(receipts, r)
     }
     
     response := proxy.CommitResponse{
-        StateHash:            a.stateHash,
-        InternalTransactions: block.InternalTransactions(),
-     }
+    	StateHash:                   a.stateHash,
+    	InternalTransactionReceipts: receipts,
+    }
     
     return response, nil
   }
@@ -149,9 +161,9 @@ round AND its creator belongs to the round’s peer-set.
 Fame
 ****
 
-With DynamicParticipants, different peer-sets may be involved in deciding the 
+With Dynamic Membership, different peer-sets may be involved in deciding the 
 fame of a single witness. Although, Babble’s implementation of the Hashgraph 
-algorithm is slightly different, here are the changes that DynamicParticipants 
+algorithm is slightly different, here are the changes that Dynamic Membership 
 introduce in the algorithm as described in the original Hashgraph whitepaper: 
 
 ::

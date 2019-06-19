@@ -123,7 +123,7 @@ that are allowed to record new Events in the hashgraph, and who will gossip
 among each other.
 
 ``peers.json`` and ``gensesis.peers.json`` are not necessarily equal because the
-:ref:`dynamic membership protcol <dynamic_participants>` enables new nodes to 
+:ref:`dynamic membership protcol <dynamic_membership>` enables new nodes to 
 join or leave a live Babble network dynamically. It is important for a joining 
 node to know the initial validator-set in order to replay and verify the 
 hashgraph up to the point where it joins.

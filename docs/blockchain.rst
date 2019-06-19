@@ -155,13 +155,14 @@ Block Structure
 
   Block: {
       Body:{
-          Index                int
-	      RoundReceived        int
-	      StateHash            []byte
-	      FrameHash            []byte
-	      PeersHash            []byte
-	      Transactions         [][]byte
-	      InternalTransactions []InternalTransaction
+          Index                       int
+	      RoundReceived               int
+	      StateHash                   []byte
+	      FrameHash                   []byte
+	      PeersHash                   []byte
+	      Transactions                [][]byte
+	      InternalTransactions        []InternalTransaction
+          InternalTransactionReceipts []InternalTransactionReceipt
       }
       Signatures: map[string]string
   }
@@ -178,7 +179,7 @@ an additional property to index the blocks. The block Body also contains a hash
 of the application's state resulting from applying the block's transactions 
 sequentially. Counting signatures from one third of validators provides a proof 
 that all honest nodes have not only applied the same transactions in the same 
-order, but also computed the same state. With the new DynamicMembership 
+order, but also computed the same state. With the new Dynamic Membership 
 protocol, which enables adding and removing peers dynamically, we added a 
 PeersHash field to the Block Body, to keep track of the validator-set. We can 
 check the Frame's peer-set against the Block's PeersHash to ensure that we are
