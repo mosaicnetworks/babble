@@ -120,7 +120,7 @@ Babble will use ``peers.json`` as the genesis validator-set.
 
 ``peers.json`` corresponds to the current validator-set. These are the nodes 
 that are allowed to record new Events in the hashgraph, and who will gossip 
-among eachother.
+among each other.
 
 ``peers.json`` and ``gensesis.peers.json`` are not necessarily equal because the
 :ref:`dynamic membership protcol <dynamic_participants>` enables new nodes to 
