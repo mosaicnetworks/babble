@@ -2,6 +2,7 @@ package mobile
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -41,7 +42,13 @@ func New(privKey string,
 	babbleConfig.BindAddr = nodeAddr
 
 	//Check private key
-	key, err := keys.ParsePrivateKey([]byte(privKey))
+	keyBytes, err := hex.DecodeString(privKey)
+	if err != nil {
+		exceptionHandler.OnException(fmt.Sprintf("Failed to decode private key bytes: %s", err))
+		return nil
+	}
+
+	key, err := keys.ParsePrivateKey(keyBytes)
 	if err != nil {
 		exceptionHandler.OnException(fmt.Sprintf("Failed to parse private key: %s", err))
 		return nil
@@ -70,6 +77,7 @@ func New(privKey string,
 	engine := babble.NewBabble(babbleConfig)
 
 	engine.Peers = peerSet
+	engine.GenesisPeers = peerSet
 
 	if err := engine.Init(); err != nil {
 		exceptionHandler.OnException(fmt.Sprintf("Cannot initialize engine: %s", err))
