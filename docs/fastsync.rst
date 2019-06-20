@@ -32,8 +32,8 @@ the **Babbling** state, or the **CatchingUp** state, depending on whether the
 **fast-sync** flag was passed to Babble. 
 
 In the **CatchingUp** state, a node determines the best node to fast-sync from 
-(the node which is has the longest hashgraph) and attempts to fast-forward to 
-their last consensus snapshot, until the operation succeeds. Hence, FastSync 
+(the node which has the longest hashgraph) and attempts to fast-forward to their 
+last consensus snapshot, until the operation succeeds. Hence, FastSync 
 introduces a new type of command in the communication protocol: *FastForward*.
 
 Upon receiving a FastForwardRequest, a node must respond with the last consensus 
@@ -141,10 +141,10 @@ with methods to retrieve and restore snapshots.
 ::
 
   type AppProxy interface {
-  	SubmitCh() chan []byte
-  	CommitBlock(block hashgraph.Block) ([]byte, error)
-  	GetSnapshot(blockIndex int) ([]byte, error)
-  	Restore(snapshot []byte) error
+    SubmitCh() chan []byte
+    CommitBlock(block hashgraph.Block) (CommitResponse, error)
+    GetSnapshot(blockIndex int) ([]byte, error)
+    Restore(snapshot []byte) error
   }
 
 Since snapshots are raw byte arrays, it is up to the application layer to define 

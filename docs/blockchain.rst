@@ -156,35 +156,49 @@ Block Structure
   Block: {
       Body:{
           Index                       int
-	      RoundReceived               int
-	      StateHash                   []byte
-	      FrameHash                   []byte
-	      PeersHash                   []byte
-	      Transactions                [][]byte
-	      InternalTransactions        []InternalTransaction
+          RoundReceived               int
+          StateHash                   []byte
+          FrameHash                   []byte
+          PeersHash                   []byte
+          Transactions                [][]byte
+          InternalTransactions        []InternalTransaction
           InternalTransactionReceipts []InternalTransactionReceipt
       }
       Signatures: map[string]string
   }
   
+Blocks contain a body and a set of signatures. Signatures are based on the hash 
+of the body; which is enough to verify the entire block because it contains a 
+digital fingerprint of the body. 
 
-Blocks contain a Body and a set of signatures. Signatures are based on the 
-hash of the body; which is enough to verify the entire block because it contains 
-a digital fingerprint of the Body. The Header's *RoundReceived* corresponds to 
-the *RoundReceived* of the hashgraph Events who's transactions are included in 
-the block; it serves the purpose tying back to the underlying hashgraph. We do 
-not produce a block when all the Events of a *Round Received* are empty. Hence, 
-two consecutive blocks may have non-consecutive RoundReceived values and we use 
-an additional property to index the blocks. The block Body also contains a hash 
-of the application's state resulting from applying the block's transactions 
-sequentially. Counting signatures from one third of validators provides a proof 
-that all honest nodes have not only applied the same transactions in the same 
-order, but also computed the same state. With the new Dynamic Membership 
-protocol, which enables adding and removing peers dynamically, we added a 
-PeersHash field to the Block Body, to keep track of the validator-set. We can 
-check the Frame's peer-set against the Block's PeersHash to ensure that we are
-counting signatures from the appropriate peer-set.  
+The header's *RoundReceived* corresponds to the *RoundReceived* of the hashgraph 
+Events who's transactions are included in the block; it serves the purpose of 
+tying back to the underlying hashgraph. We do not produce a block when all the 
+Events of a *Round Received* are empty. Hence, two consecutive blocks may have 
+non-consecutive RoundReceived values and we use an additional property to index 
+the blocks. 
 
+The FrameHash corresponds to the Frame in the hashgraph at RoundReceived. It is
+used in the FastSync protocol to verify the relationship between the Block and 
+the Frame returned in a FastForwardResponse.
+
+The body also contains a hash of the application's state resulting from applying 
+the block's transactions sequentially. Thus, with the consenus algorithm and the 
+necessary assumption that at least two thirds of participants are not 
+compromised, collecting signatures from at least one third of validators 
+provides sufficient evidence that all honest nodes have applied the same 
+transactions in the same order, and computed the same state. 
+
+With the new Dynamic Membership protocol, which enables adding and removing 
+peers dynamically, we added a PeersHash field to the body, to keep track of the 
+validator-set. We can check the Frame's peer-set against the block's PeersHash 
+to ensure that we are counting signatures from the appropriate peer-set.  
+
+InternalTransactions and InternalTransactionReceipts are used to track attempts
+to update the peer-set. InternalTransactions encode requests to join or leave 
+the peer-set. Upon receiving a CommitBlock message, the application can accept 
+or refuse InternalTransactions by returning correponding 
+InternalTransactionReceipts. 
 
 Enhancements
 ------------ 
