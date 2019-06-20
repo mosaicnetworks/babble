@@ -26,5 +26,6 @@ Babble
    usage.rst
    consensus.rst
    blockchain.rst
+   state_machine.rst
    fastsync.rst
    dynamic_membership.rst

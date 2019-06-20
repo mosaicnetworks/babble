@@ -1,7 +1,7 @@
 .. _design:
 
 Design
-=============
+======
 
 Overview
 --------
