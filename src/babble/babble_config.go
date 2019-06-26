@@ -40,15 +40,16 @@ func NewDefaultConfig() *BabbleConfig {
 	nodeConfig.Logger = logger
 
 	config := &BabbleConfig{
-		NodeConfig: nodeConfig,
-		DataDir:    DefaultDataDir(),
-		BindAddr:   ":1337",
-		MaxPool:    2,
-		Store:      false,
-		LoadPeers:  true,
-		Proxy:      nil,
-		Key:        nil,
-		Logger:     logger,
+		NodeConfig:  nodeConfig,
+		DataDir:     DefaultDataDir(),
+		BindAddr:    "127.0.0.1:1337",
+		ServiceAddr: "127.0.0.1:8000",
+		MaxPool:     2,
+		Store:       false,
+		LoadPeers:   true,
+		Proxy:       nil,
+		Key:         nil,
+		Logger:      logger,
 	}
 
 	return config
