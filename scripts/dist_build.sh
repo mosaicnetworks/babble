@@ -21,7 +21,7 @@ XC_OS=${XC_OS:-"solaris darwin freebsd linux windows"}
 # Get Go deps
 echo "USER: `id -u $USER`"
 mkdir -p glide_cache
-glide --home "glide_cache" install
+glide --home "$(pwd)" install
 rm -rf glide_cache
 
 # Build!
