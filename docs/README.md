@@ -5,4 +5,5 @@
 workon docs
 make html
 google-chrome _build/html/index.html
+deactivate
 '''

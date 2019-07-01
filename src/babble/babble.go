@@ -53,7 +53,11 @@ func (b *Babble) initTransport() error {
 func (b *Babble) initPeers() error {
 	if !b.Config.LoadPeers {
 		if b.Peers == nil {
-			return fmt.Errorf("Did not load peers but none was present")
+			return fmt.Errorf("LoadPeers false, but babble.Peers is nil")
+		}
+
+		if b.GenesisPeers == nil {
+			return fmt.Errorf("LoadPeers false, but babble.GenesisPeers is nil")
 		}
 
 		return nil

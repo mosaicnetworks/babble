@@ -25,19 +25,16 @@ Overview
 
 .. image:: assets/fastsync.png
 
-The Babble node is implemented as a state machine where the possible states are: 
-**Babbling**, **CatchingUp**, and **Shutdown**. A node is normally in the 
-**Babbling** state where it performs the regular Hashgraph gossip routines, but 
-a **sync_limit** response from a peer will trigger the node to enter the 
-**CatchingUp** state, where it will attempt to fast-forward to a recent 
-snapshot. A **sync_limit** response indicates that the number of Events that the
-node needs to download exceeds the **sync_limit** configuration value. 
+The Babble node is implemented as a state-machine where the possible states are: 
+**Babbling**, **CatchingUp**, **Joining**, **Leaving**, and **Shutdown**. When a 
+node is started and belongs to the current validator-set, it will either enter 
+the **Babbling** state, or the **CatchingUp** state, depending on whether the 
+**fast-sync** flag was passed to Babble. 
 
-In the **CatchingUp** state, a node repeatedly chooses another node at random 
-(although the above diagram uses the same peer that returned the **sync_limit** 
-response) and attempts to fast-forward to their last consensus snapshot, until 
-the operation succeeds. Hence, FastSync introduces a new type of command in the 
-communication protocol: *FastForward*.
+In the **CatchingUp** state, a node determines the best node to fast-sync from 
+(the node which has the longest hashgraph) and attempts to fast-forward to their 
+last consensus snapshot, until the operation succeeds. Hence, FastSync 
+introduces a new type of command in the communication protocol: *FastForward*.
 
 Upon receiving a FastForwardRequest, a node must respond with the last consensus 
 snapshot, as well as the corresponding Hashgraph section (the Frame) and Block. 
@@ -144,10 +141,10 @@ with methods to retrieve and restore snapshots.
 ::
 
   type AppProxy interface {
-  	SubmitCh() chan []byte
-  	CommitBlock(block hashgraph.Block) ([]byte, error)
-  	GetSnapshot(blockIndex int) ([]byte, error)
-  	Restore(snapshot []byte) error
+    SubmitCh() chan []byte
+    CommitBlock(block hashgraph.Block) (CommitResponse, error)
+    GetSnapshot(blockIndex int) ([]byte, error)
+    Restore(snapshot []byte) error
   }
 
 Since snapshots are raw byte arrays, it is up to the application layer to define 

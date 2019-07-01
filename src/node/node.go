@@ -323,7 +323,6 @@ func (n *Node) babble(gossip bool) {
 		select {
 		case <-n.controlTimer.tickCh:
 			if gossip {
-				n.logger.Debug("Time to gossip!")
 				peer := n.core.peerSelector.Next()
 				if peer != nil {
 					n.goFunc(func() { n.gossip(peer) })
