@@ -31,17 +31,19 @@ func NewService(bindAddress string, n *node.Node, logger *logrus.Logger) *Servic
 func (s *Service) Serve() {
 	s.logger.WithField("bind_address", s.bindAddress).Debug("Service serving")
 
-	http.HandleFunc("/stats", s.GetStats)
+	serverMuxBabble := http.NewServeMux()
 
-	http.HandleFunc("/block/", s.GetBlock)
+	serverMuxBabble.HandleFunc("/stats", s.GetStats)
 
-	http.HandleFunc("/graph", s.GetGraph)
+	serverMuxBabble.HandleFunc("/block/", s.GetBlock)
 
-	http.HandleFunc("/peers", s.GetPeers)
+	serverMuxBabble.HandleFunc("/graph", s.GetGraph)
 
-	http.HandleFunc("/genesispeers", s.GetGenesisPeers)
+	serverMuxBabble.HandleFunc("/peers", s.GetPeers)
 
-	err := http.ListenAndServe(s.bindAddress, nil)
+	serverMuxBabble.HandleFunc("/genesispeers", s.GetGenesisPeers)
+
+	err := http.ListenAndServe(s.bindAddress, serverMuxBabble)
 
 	if err != nil {
 		s.logger.WithField("error", err).Error("Service failed")
