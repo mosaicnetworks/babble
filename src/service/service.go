@@ -29,7 +29,7 @@ func NewService(bindAddress string, n *node.Node, logger *logrus.Logger) *Servic
 }
 
 func (s *Service) Serve() {
-	s.logger.WithField("bind_address", s.bindAddress).Debug("Service serving")
+	s.logger.WithField("bind_address", s.bindAddress).Debug("Babble Service serving")
 
 	serverMuxBabble := http.NewServeMux()
 
