@@ -3,7 +3,9 @@ package babble
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 
 	bkeys "github.com/mosaicnetworks/babble/src/crypto/keys"
@@ -54,8 +56,18 @@ func TestInitStore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	//check that babble2 created a new db (badger_db(1))
-	if _, err := os.Stat("test_data/badger_db(1)"); os.IsNotExist(err) {
+	// check that babble2 created a backup
+	files, err := ioutil.ReadDir("test_data")
+	if err != nil {
 		t.Fatal(err)
+	}
+	dbFiles := []string{}
+	for _, f := range files {
+		if strings.Contains(f.Name(), "badger_db") {
+			dbFiles = append(dbFiles, f.Name())
+		}
+	}
+	if len(dbFiles) != 2 {
+		t.Fatalf("initStore should have created a new db file")
 	}
 }

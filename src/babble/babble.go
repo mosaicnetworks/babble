@@ -3,6 +3,7 @@ package babble
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/mosaicnetworks/babble/src/crypto/keys"
 	h "github.com/mosaicnetworks/babble/src/hashgraph"
@@ -29,6 +30,43 @@ func NewBabble(config *BabbleConfig) *Babble {
 	}
 
 	return engine
+}
+
+func (b *Babble) Init() error {
+
+	if err := b.initPeers(); err != nil {
+		return err
+	}
+
+	if err := b.initStore(); err != nil {
+		return err
+	}
+
+	if err := b.initTransport(); err != nil {
+		return err
+	}
+
+	if err := b.initKey(); err != nil {
+		return err
+	}
+
+	if err := b.initNode(); err != nil {
+		return err
+	}
+
+	if err := b.initService(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (b *Babble) Run() {
+	if b.Service != nil {
+		go b.Service.Serve()
+	}
+
+	b.Node.Run(true)
 }
 
 func (b *Babble) initTransport() error {
@@ -95,31 +133,30 @@ func (b *Babble) initStore() error {
 		b.Config.Logger.Debug("Creating InmemStore")
 		b.Store = h.NewInmemStore(b.Config.NodeConfig.CacheSize)
 	} else {
-		b.Config.Logger.WithField("path", b.Config.BadgerDir()).Debug("BadgerDB")
+		dbPath := b.Config.BadgerDir()
 
-		bootstrap := b.Config.NodeConfig.Bootstrap
-		dbpath := b.Config.BadgerDir()
-		i := 1
+		b.Config.Logger.WithField("path", dbPath).Debug("Creating BadgerStore")
 
-		for {
-			if _, err := os.Stat(dbpath); err == nil {
-				b.Config.Logger.Debugf("%s already exists", dbpath)
+		if !b.Config.NodeConfig.Bootstrap {
+			b.Config.Logger.Debug("No Bootstrap")
 
-				if bootstrap {
-					break
+			backup := backupFileName(dbPath)
+
+			err := os.Rename(dbPath, backup)
+
+			if err != nil {
+				if !os.IsNotExist(err) {
+					return err
 				}
-
-				dbpath = fmt.Sprintf("%s(%d)", b.Config.BadgerDir(), i)
-				b.Config.Logger.Debugf("No Bootstrap - using new db %s", dbpath)
-				i++
+				b.Config.Logger.Debug("Nothing to backup")
 			} else {
-				break
+				b.Config.Logger.WithField("path", backup).Debug("Created backup")
 			}
 		}
 
-		b.Config.Logger.WithField("path", dbpath).Debug("Creating BadgerStore")
+		b.Config.Logger.WithField("path", dbPath).Debug("Opening BadgerStore")
 
-		dbStore, err := h.NewBadgerStore(b.Config.NodeConfig.CacheSize, dbpath)
+		dbStore, err := h.NewBadgerStore(b.Config.NodeConfig.CacheSize, dbPath)
 		if err != nil {
 			return err
 		}
@@ -204,45 +241,21 @@ func (b *Babble) initService() error {
 	return nil
 }
 
-func (b *Babble) Init() error {
-
-	if err := b.initPeers(); err != nil {
-		b.Config.Logger.Debug("babble.go:Init() initPeers")
-		return err
-	}
-
-	if err := b.initStore(); err != nil {
-		b.Config.Logger.Debug("babble.go:Init() initStore")
-		return err
-	}
-
-	if err := b.initTransport(); err != nil {
-		b.Config.Logger.Debug("babble.go:Init() initTransport")
-		return err
-	}
-
-	if err := b.initKey(); err != nil {
-		b.Config.Logger.Debug("babble.go:Init() initKey")
-		return err
-	}
-
-	if err := b.initNode(); err != nil {
-		b.Config.Logger.Debug("babble.go:Init() initNode")
-		return err
-	}
-
-	if err := b.initService(); err != nil {
-		b.Config.Logger.Debug("babble.go:Init() initService")
-		return err
-	}
-
-	return nil
+// backupFileName implements the naming convention for database backups:
+// badger_db--UTC--<created_at UTC ISO8601>
+func backupFileName(base string) string {
+	ts := time.Now().UTC()
+	return fmt.Sprintf("%s--UTC--%s", base, toISO8601(ts))
 }
 
-func (b *Babble) Run() {
-	if b.Service != nil {
-		go b.Service.Serve()
+func toISO8601(t time.Time) string {
+	var tz string
+	name, offset := t.Zone()
+	if name == "UTC" {
+		tz = "Z"
+	} else {
+		tz = fmt.Sprintf("%03d00", offset/3600)
 	}
-
-	b.Node.Run(true)
+	return fmt.Sprintf("%04d-%02d-%02dT%02d-%02d-%02d.%09d%s",
+		t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), tz)
 }
