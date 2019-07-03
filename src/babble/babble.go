@@ -35,26 +35,32 @@ func NewBabble(config *BabbleConfig) *Babble {
 func (b *Babble) Init() error {
 
 	if err := b.initPeers(); err != nil {
+		b.Config.Logger.WithError(err).Error("babble.go:Init() initPeers")
 		return err
 	}
 
 	if err := b.initStore(); err != nil {
+		b.Config.Logger.WithError(err).Error("babble.go:Init() initStore")
 		return err
 	}
 
 	if err := b.initTransport(); err != nil {
+		b.Config.Logger.WithError(err).Error("babble.go:Init() initTransport")
 		return err
 	}
 
 	if err := b.initKey(); err != nil {
+		b.Config.Logger.WithError(err).Error("babble.go:Init() initKey")
 		return err
 	}
 
 	if err := b.initNode(); err != nil {
+		b.Config.Logger.WithError(err).Error("babble.go:Init() initNode")
 		return err
 	}
 
 	if err := b.initService(); err != nil {
+		b.Config.Logger.WithError(err).Error("babble.go:Init() initService")
 		return err
 	}
 
