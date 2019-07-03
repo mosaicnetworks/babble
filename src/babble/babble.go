@@ -118,7 +118,6 @@ func (b *Babble) initPeers() error {
 	b.Peers = participants
 
 	// Set Genesis Peer Set from peers.genesis.json
-
 	genesisPeerStore := peers.NewJSONPeerSet(b.Config.DataDir, false)
 
 	genesisParticipants, err := genesisPeerStore.PeerSet()
@@ -128,8 +127,6 @@ func (b *Babble) initPeers() error {
 	} else {
 		b.GenesisPeers = genesisParticipants
 	}
-
-	b.Peers = participants
 
 	return nil
 }
