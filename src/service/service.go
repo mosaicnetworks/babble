@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/gorilla/mux"
 	"github.com/mosaicnetworks/babble/src/node"
 	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/sirupsen/logrus"
@@ -28,26 +29,44 @@ func NewService(bindAddress string, n *node.Node, logger *logrus.Logger) *Servic
 	return &service
 }
 
+//Serve defines endpoints and starts ListenAndServe
 func (s *Service) Serve() {
 	s.logger.WithField("bind_address", s.bindAddress).Debug("Babble Service serving")
 
 	serverMuxBabble := http.NewServeMux()
+	r := mux.NewRouter()
+	r.HandleFunc("/stats", s.GetStats)
+	r.HandleFunc("/block/", s.GetBlock)
+	r.HandleFunc("/graph", s.GetGraph)
+	r.HandleFunc("/peers", s.GetPeers)
+	r.HandleFunc("/genesispeers", s.GetGenesisPeers)
 
-	serverMuxBabble.HandleFunc("/stats", s.GetStats)
-
-	serverMuxBabble.HandleFunc("/block/", s.GetBlock)
-
-	serverMuxBabble.HandleFunc("/graph", s.GetGraph)
-
-	serverMuxBabble.HandleFunc("/peers", s.GetPeers)
-
-	serverMuxBabble.HandleFunc("/genesispeers", s.GetGenesisPeers)
+	serverMuxBabble.Handle("/", &CORSServer{r})
 
 	err := http.ListenAndServe(s.bindAddress, serverMuxBabble)
 
 	if err != nil {
 		s.logger.WithField("error", err).Error("Service failed")
 	}
+}
+
+type CORSServer struct {
+	r *mux.Router
+}
+
+func (s *CORSServer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	if origin := req.Header.Get("Origin"); origin != "" {
+		rw.Header().Set("Access-Control-Allow-Origin", origin)
+		rw.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		rw.Header().Set("Access-Control-Allow-Headers",
+			"Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+	}
+	// Stop here if its Preflighted OPTIONS request
+	if req.Method == "OPTIONS" {
+		return
+	}
+	// Lets Gorilla work
+	s.r.ServeHTTP(rw, req)
 }
 
 func (s *Service) GetStats(w http.ResponseWriter, r *http.Request) {
