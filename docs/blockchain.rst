@@ -8,7 +8,8 @@ blockchain, which is better suited for representing an immutable ordered list of
 transactions. In this system, the order is governed by the Hashgraph consensus 
 algorithm but the transactions are mapped onto a linear data structure composed 
 of blocks; each block containing an ordered list of transactions, a hash of the 
-previous block, a hash of the resulting application state, and a collection of 
+resulting application state, a hash of the corresponding section of the 
+hashgraph (Frame), a hash of the current peer-set, and a collection of 
 signatures from the set of validators. This method enables hashgraph-based 
 systems to implement any Inter-Blockchain Communication protocol and integrate 
 with an Internet of Blockchains. 
@@ -19,7 +20,7 @@ Motivation
 The consumable output of any consensus system is an ordered list of 
 transactions. Developers have been using blockchains to model such lists because 
 they are efficient to work with. A linear data structure composed of batches of 
-transactions, hashed and signed together, easily allowing to verify any 
+transactions, hashed and signed together, enabling easy verification of any 
 transaction, is the right tool for the job. Although the word blockchain is now 
 used in a much broader sense, it originally designated a data structure. 
 Consensus algorithms, public/private networks, cryptocurrencies, etc., are 
@@ -153,49 +154,54 @@ Block Structure
 ::
 
   Block: {
-      Header:{
-          Index:         int,
-          RoundReceived: int,
-          PrevBlockHash: []byte,
-          BodyHash:      []byte,
-          StateHash:     []byte, 
-      }
       Body:{
-          Transactions: [][]byte
+          Index                       int
+          RoundReceived               int
+          StateHash                   []byte
+          FrameHash                   []byte
+          PeersHash                   []byte
+          Transactions                [][]byte
+          InternalTransactions        []InternalTransaction
+          InternalTransactionReceipts []InternalTransactionReceipt
       }
-      Signatures: map[string][]byte
+      Signatures: map[string]string
   }
   
+Blocks contain a body and a set of signatures. Signatures are based on the hash 
+of the body; which is enough to verify the entire block because it contains a 
+digital fingerprint of the body. 
 
-Blocks contain a Header and a Body. Signatures are based on the Header only; 
-which is enough to verify the entire block because it contains a digital 
-fingerprint of the Body. Since Headers also contain a hash of the previous 
-block, each block signature adds further validation to previous blocks. The 
-Header's *RoundReceived* corresponds to the *RoundReceived* of the hashgraph 
-Events who's transactions are included in the block; it serves the purpose tying 
-back to the underlying hashgraph. We do not produce a block when all the Events 
-of a *Round Received* are empty. Hence, two consecutive blocks may have 
+The header's *RoundReceived* corresponds to the *RoundReceived* of the hashgraph 
+Events who's transactions are included in the block; it serves the purpose of 
+tying back to the underlying hashgraph. We do not produce a block when all the 
+Events of a *Round Received* are empty. Hence, two consecutive blocks may have 
 non-consecutive RoundReceived values and we use an additional property to index 
-the blocks. The block Body also contains a hash of the application's state 
-resulting from applying the block's transactions sequentially. Counting 
-signatures from one third of validators provides a proof that all honest nodes 
-have not only applied the same transactions in the same order, but also computed 
-the same state. 
+the blocks. 
 
+The FrameHash corresponds to the Frame in the hashgraph at RoundReceived. It is
+used in the FastSync protocol to verify the relationship between the Block and 
+the Frame returned in a FastForwardResponse.
+
+The body also contains a hash of the application's state resulting from applying 
+the block's transactions sequentially. Thus, with the consenus algorithm and the 
+necessary assumption that at least two thirds of participants are not 
+compromised, collecting signatures from at least one third of validators 
+provides sufficient evidence that all honest nodes have applied the same 
+transactions in the same order, and computed the same state. 
+
+With the new Dynamic Membership protocol, which enables adding and removing 
+peers dynamically, we added a PeersHash field to the body, to keep track of the 
+validator-set. We can check the Frame's peer-set against the block's PeersHash 
+to ensure that we are counting signatures from the appropriate peer-set.  
+
+InternalTransactions and InternalTransactionReceipts are used to track attempts
+to update the peer-set. InternalTransactions encode requests to join or leave 
+the peer-set. Upon receiving a CommitBlock message, the application can accept 
+or refuse InternalTransactions by returning correponding 
+InternalTransactionReceipts. 
 
 Enhancements
 ------------ 
-
-Dynamic Validator Set
-~~~~~~~~~~~~~~~~~~~~~
-
-The system described above assumes that the set of validators is fixed; block 
-signatures are always checked against the same list of public keys. In 
-Hashgraph, it is possible to make the set of validators change dynamically. 
-The projection would have to be extended such that block Headers would also 
-contain a Merkle root of the current validator set, thereby providing a simple 
-method of verifying that a signer belongs to the set of validators corresponding 
-to the block it signed.
 
 Inter-Blockchain Communication
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

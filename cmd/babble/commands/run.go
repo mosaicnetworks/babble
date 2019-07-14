@@ -67,10 +67,12 @@ func AddRunFlags(cmd *cobra.Command) {
 
 	cmd.Flags().String("datadir", config.Babble.DataDir, "Top-level directory for configuration and data")
 	cmd.Flags().String("log", config.Babble.LogLevel, "debug, info, warn, error, fatal, panic")
+	cmd.Flags().String("moniker", config.Babble.Moniker, "Optional name")
 
 	// Network
 	cmd.Flags().StringP("listen", "l", config.Babble.BindAddr, "Listen IP:Port for babble node")
 	cmd.Flags().DurationP("timeout", "t", config.Babble.NodeConfig.TCPTimeout, "TCP Timeout")
+	cmd.Flags().DurationP("join-timeout", "j", config.Babble.NodeConfig.JoinTimeout, "Join Timeout")
 	cmd.Flags().Int("max-pool", config.Babble.MaxPool, "Connection pool size max")
 
 	// Proxy
@@ -83,11 +85,13 @@ func AddRunFlags(cmd *cobra.Command) {
 
 	// Store
 	cmd.Flags().Bool("store", config.Babble.Store, "Use badgerDB instead of in-mem DB")
+	cmd.Flags().Bool("bootstrap", config.Babble.NodeConfig.Bootstrap, "Load from database")
 	cmd.Flags().Int("cache-size", config.Babble.NodeConfig.CacheSize, "Number of items in LRU caches")
 
 	// Node configuration
 	cmd.Flags().Duration("heartbeat", config.Babble.NodeConfig.HeartbeatTimeout, "Time between gossips")
 	cmd.Flags().Int("sync-limit", config.Babble.NodeConfig.SyncLimit, "Max number of events for sync")
+	cmd.Flags().Bool("fast-sync", config.Babble.NodeConfig.EnableFastSync, "Enable FastSync")
 }
 
 func loadConfig(cmd *cobra.Command, args []string) error {
@@ -113,10 +117,13 @@ func loadConfig(cmd *cobra.Command, args []string) error {
 		"babble.Store":                 config.Babble.Store,
 		"babble.LoadPeers":             config.Babble.LoadPeers,
 		"babble.LogLevel":              config.Babble.LogLevel,
+		"babble.Moniker":               config.Babble.Moniker,
 		"babble.Node.HeartbeatTimeout": config.Babble.NodeConfig.HeartbeatTimeout,
 		"babble.Node.TCPTimeout":       config.Babble.NodeConfig.TCPTimeout,
+		"babble.Node.JoinTimeout":      config.Babble.NodeConfig.JoinTimeout,
 		"babble.Node.CacheSize":        config.Babble.NodeConfig.CacheSize,
 		"babble.Node.SyncLimit":        config.Babble.NodeConfig.SyncLimit,
+		"babble.Node.EnableFastSync":   config.Babble.NodeConfig.EnableFastSync,
 		"ProxyAddr":                    config.ProxyAddr,
 		"ClientAddr":                   config.ClientAddr,
 		"Standalone":                   config.Standalone,

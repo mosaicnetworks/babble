@@ -92,6 +92,7 @@ func NewNetworkTransport(
 	stream StreamLayer,
 	maxPool int,
 	timeout time.Duration,
+	joinTimeout time.Duration,
 	logger *logrus.Logger,
 ) *NetworkTransport {
 	if logger == nil {
@@ -99,13 +100,14 @@ func NewNetworkTransport(
 		logger.Level = logrus.DebugLevel
 	}
 	trans := &NetworkTransport{
-		connPool:   make(map[string][]*netConn),
-		consumeCh:  make(chan RPC),
-		logger:     logger,
-		maxPool:    maxPool,
-		shutdownCh: make(chan struct{}),
-		stream:     stream,
-		timeout:    timeout,
+		connPool:    make(map[string][]*netConn),
+		consumeCh:   make(chan RPC),
+		logger:      logger,
+		maxPool:     maxPool,
+		shutdownCh:  make(chan struct{}),
+		stream:      stream,
+		timeout:     timeout,
+		joinTimeout: joinTimeout,
 	}
 	go trans.listen()
 	return trans
@@ -217,6 +219,11 @@ func (n *NetworkTransport) EagerSync(target string, args *EagerSyncRequest, resp
 // FastForward implements the Transport interface.
 func (n *NetworkTransport) FastForward(target string, args *FastForwardRequest, resp *FastForwardResponse) error {
 	return n.genericRPC(target, rpcFastForward, n.timeout, args, resp)
+}
+
+// Join implements the Transport interface.
+func (n *NetworkTransport) Join(target string, args *JoinRequest, resp *JoinResponse) error {
+	return n.genericRPC(target, rpcJoin, n.joinTimeout, args, resp)
 }
 
 // genericRPC handles a simple request/response RPC.
@@ -364,6 +371,12 @@ func (n *NetworkTransport) handleCommand(r *bufio.Reader, dec *json.Decoder, enc
 		rpc.Command = &req
 	case rpcFastForward:
 		var req FastForwardRequest
+		if err := dec.Decode(&req); err != nil {
+			return err
+		}
+		rpc.Command = &req
+	case rpcJoin:
+		var req JoinRequest
 		if err := dec.Decode(&req); err != nil {
 			return err
 		}

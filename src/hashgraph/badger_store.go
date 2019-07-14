@@ -2,7 +2,6 @@ package hashgraph
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/dgraph-io/badger"
 	cm "github.com/mosaicnetworks/babble/src/common"
@@ -20,19 +19,14 @@ const (
 )
 
 type BadgerStore struct {
-	inmemStore   *InmemStore
-	db           *badger.DB
-	path         string
-	needBoostrap bool
+	inmemStore *InmemStore
+	db         *badger.DB
+	path       string
 }
 
 //NewBadgerStore opens an existing database or creates a new one if nothing is
 //found in path.
 func NewBadgerStore(cacheSize int, path string) (*BadgerStore, error) {
-	needBootstrap := false
-	if _, err := os.Stat(path); err == nil {
-		needBootstrap = true
-	}
 
 	opts := badger.DefaultOptions
 	opts.Dir = path
@@ -45,10 +39,9 @@ func NewBadgerStore(cacheSize int, path string) (*BadgerStore, error) {
 	}
 
 	store := &BadgerStore{
-		inmemStore:   NewInmemStore(cacheSize),
-		db:           handle,
-		path:         path,
-		needBoostrap: needBootstrap,
+		inmemStore: NewInmemStore(cacheSize),
+		db:         handle,
+		path:       path,
 	}
 	return store, nil
 }
@@ -153,8 +146,12 @@ func (s *BadgerStore) GetPeerSet(round int) (peerSet *peers.PeerSet, err error) 
 	return s.inmemStore.GetPeerSet(round)
 }
 
-func (s *BadgerStore) GetFuturePeerSets(baseRound int) (map[int][]*peers.Peer, error) {
-	return s.inmemStore.GetFuturePeerSets(baseRound)
+func (s *BadgerStore) GetAllPeerSets() (map[int][]*peers.Peer, error) {
+	return s.inmemStore.GetAllPeerSets()
+}
+
+func (s *BadgerStore) FirstRound(id uint32) (int, bool) {
+	return s.inmemStore.FirstRound(id)
 }
 
 func (s *BadgerStore) RepertoireByPubKey() map[string]*peers.Peer {
@@ -165,15 +162,11 @@ func (s *BadgerStore) RepertoireByID() map[uint32]*peers.Peer {
 	return s.inmemStore.RepertoireByID()
 }
 
-func (s *BadgerStore) RootsBySelfParent() map[string]*Root {
-	return s.inmemStore.RootsBySelfParent()
-}
-
-func (s *BadgerStore) LastEventFrom(participant string) (last string, isRoot bool, err error) {
+func (s *BadgerStore) LastEventFrom(participant string) (last string, err error) {
 	return s.inmemStore.LastEventFrom(participant)
 }
 
-func (s *BadgerStore) LastConsensusEventFrom(participant string) (last string, isRoot bool, err error) {
+func (s *BadgerStore) LastConsensusEventFrom(participant string) (last string, err error) {
 	return s.inmemStore.LastConsensusEventFrom(participant)
 }
 
@@ -224,7 +217,7 @@ func (s *BadgerStore) SetPeerSet(round int, peerSet *peers.PeerSet) error {
 
 	//Extend Repertoire and Roots
 	for _, p := range peerSet.Peers {
-		err := s.AddParticipant(p)
+		err := s.addParticipant(p)
 		if err != nil {
 			return err
 		}
@@ -233,15 +226,15 @@ func (s *BadgerStore) SetPeerSet(round int, peerSet *peers.PeerSet) error {
 	return nil
 }
 
-func (s *BadgerStore) AddParticipant(p *peers.Peer) error {
+func (s *BadgerStore) addParticipant(p *peers.Peer) error {
 	if err := s.dbSetRepertoire(p); err != nil {
 		return err
 	}
 
-	root, err := s.dbGetRoot(p.PubKeyHex)
+	root, err := s.dbGetRoot(p.PubKeyString())
 	if err != nil {
-		root = NewBaseRoot(p.ID())
-		if err := s.dbSetRoot(p.PubKeyHex, root); err != nil {
+		root = NewRoot()
+		if err := s.dbSetRoot(p.PubKeyString(), root); err != nil {
 			return err
 		}
 	}
@@ -327,10 +320,6 @@ func (s *BadgerStore) Close() error {
 	return s.db.Close()
 }
 
-func (s *BadgerStore) NeedBoostrap() bool {
-	return s.needBoostrap
-}
-
 func (s *BadgerStore) StorePath() string {
 	return s.path
 }
@@ -359,7 +348,7 @@ func (s *BadgerStore) dbGetRepertoire() (map[string]*peers.Peer, error) {
 				return err
 			}
 
-			repertoire[peer.PubKeyHex] = peer
+			repertoire[peer.PubKeyString()] = peer
 		}
 		return nil
 	})
@@ -375,7 +364,7 @@ func (s *BadgerStore) dbSetRepertoire(peer *peers.Peer) error {
 	tx := s.db.NewTransaction(true)
 	defer tx.Discard()
 
-	key := repertoireKey(peer.PubKeyHex)
+	key := repertoireKey(peer.PubKeyString())
 	val, err := peer.Marshal()
 	if err != nil {
 		return err

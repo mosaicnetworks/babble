@@ -126,6 +126,7 @@ func TestDBEventMethods(t *testing.T) {
 		for k := 0; k < testSize; k++ {
 			event := NewEvent(
 				[][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], k))},
+				[]InternalTransaction{},
 				[]BlockSignature{BlockSignature{Validator: []byte("validator"), Index: 0, Signature: "r|s"}},
 				[]string{"", ""},
 				p.pubKey,
@@ -209,6 +210,7 @@ func TestDBRoundMethods(t *testing.T) {
 	events := make(map[string]*Event)
 	for _, p := range participants {
 		event := NewEvent([][]byte{},
+			[]InternalTransaction{},
 			[]BlockSignature{},
 			[]string{"", ""},
 			p.pubKey,
@@ -248,10 +250,19 @@ func TestDBBlockMethods(t *testing.T) {
 		[]byte("tx4"),
 		[]byte("tx5"),
 	}
-
+	internalTransactions := []InternalTransaction{
+		NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1Pub", "paris", "peer1")),
+		NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2Pub", "london", "peer2")),
+	}
 	frameHash := []byte("this is the frame hash")
 
-	block := NewBlock(index, roundReceived, frameHash, peerSet.Peers, transactions)
+	block := NewBlock(index, roundReceived, frameHash, peerSet.Peers, transactions, internalTransactions)
+
+	receipts := []InternalTransactionReceipt{}
+	for _, itx := range block.InternalTransactions() {
+		receipts = append(receipts, itx.AsAccepted())
+	}
+	block.Body.InternalTransactionReceipts = receipts
 
 	sig1, err := block.Sign(participants[0].privKey)
 	if err != nil {
@@ -317,19 +328,26 @@ func TestDBFrameMethods(t *testing.T) {
 
 	peerSet, participants := initPeers(3)
 
-	events := []*Event{}
+	events := []*FrameEvent{}
 	roots := make(map[string]*Root)
-	for id, p := range participants {
+	for _, p := range participants {
 		event := NewEvent(
 			[][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], 0))},
+			[]InternalTransaction{},
 			[]BlockSignature{BlockSignature{Validator: []byte("validator"), Index: 0, Signature: "r|s"}},
 			[]string{"", ""},
 			p.pubKey,
 			0)
 		event.Sign(p.privKey)
-		events = append(events, event)
+		frameEvent := &FrameEvent{
+			Core:             event,
+			Round:            1,
+			LamportTimestamp: 1,
+			Witness:          true,
+		}
+		events = append(events, frameEvent)
 
-		roots[p.hex] = NewBaseRoot(uint32(id))
+		roots[p.hex] = NewRoot()
 	}
 
 	frame := &Frame{
@@ -352,11 +370,6 @@ func TestDBFrameMethods(t *testing.T) {
 		//force computing of IDs for DeepEqual
 		for _, p := range storedFrame.Peers {
 			p.ID()
-		}
-
-		//force init Roots for deep DeepEqual
-		for _, r := range storedFrame.Roots {
-			r.Init()
 		}
 
 		if !reflect.DeepEqual(storedFrame, frame) {
@@ -421,22 +434,6 @@ func TestBadgerPeerSets(t *testing.T) {
 		if !reflect.DeepEqual(p, peer) {
 			t.Fatalf("repertoire[%s] should be %#v, not %#v", pub, peer, p)
 		}
-
-		iRoot, err := store.inmemStore.GetRoot(pub)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		dRoot, err := store.dbGetRoot(pub)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		dRoot.Init()
-
-		if !reflect.DeepEqual(iRoot, dRoot) {
-			t.Fatalf("%s Inmem and DB Roots don't match", pub)
-		}
 	}
 }
 
@@ -460,6 +457,7 @@ func TestBadgerEvents(t *testing.T) {
 		items := []*Event{}
 		for k := 0; k < testSize; k++ {
 			event := NewEvent([][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], k))},
+				[]InternalTransaction{},
 				[]BlockSignature{BlockSignature{Validator: []byte("validator"), Index: 0, Signature: "r|s"}},
 				[]string{"", ""},
 				p.pubKey,
@@ -473,7 +471,7 @@ func TestBadgerEvents(t *testing.T) {
 		events[p.hex] = items
 	}
 
-	// check that events were correclty inserted
+	// check that events were correctly inserted
 	for p, evs := range events {
 		for k, ev := range evs {
 			rev, err := store.GetEvent(ev.Hex())
@@ -518,7 +516,7 @@ func TestBadgerEvents(t *testing.T) {
 
 	//check retrieving peerSet last
 	for _, p := range participants {
-		last, _, err := store.LastEventFrom(p.hex)
+		last, err := store.LastEventFrom(p.hex)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -566,6 +564,7 @@ func TestBadgerRounds(t *testing.T) {
 	events := make(map[string]*Event)
 	for _, p := range participants {
 		event := NewEvent([][]byte{},
+			[]InternalTransaction{},
 			[]BlockSignature{},
 			[]string{"", ""},
 			p.pubKey,
@@ -616,9 +615,18 @@ func TestBadgerBlocks(t *testing.T) {
 		[]byte("tx4"),
 		[]byte("tx5"),
 	}
-
+	internalTransactions := []InternalTransaction{
+		NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1", "paris", "peer1")),
+		NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2", "london", "peer2")),
+	}
 	frameHash := []byte("this is the frame hash")
-	block := NewBlock(index, roundReceived, frameHash, []*peers.Peer{}, transactions)
+	block := NewBlock(index, roundReceived, frameHash, []*peers.Peer{}, transactions, internalTransactions)
+
+	receipts := []InternalTransactionReceipt{}
+	for _, itx := range block.InternalTransactions() {
+		receipts = append(receipts, itx.AsAccepted())
+	}
+	block.Body.InternalTransactionReceipts = receipts
 
 	sig1, err := block.Sign(participants[0].privKey)
 	if err != nil {
@@ -688,19 +696,23 @@ func TestBadgerFrames(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	events := []*Event{}
+	events := []*FrameEvent{}
 	roots := make(map[string]*Root)
-	for id, p := range participants {
+	for _, p := range participants {
 		event := NewEvent(
 			[][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], 0))},
+			[]InternalTransaction{},
 			[]BlockSignature{BlockSignature{Validator: []byte("validator"), Index: 0, Signature: "r|s"}},
 			[]string{"", ""},
 			p.pubKey,
 			0)
 		event.Sign(p.privKey)
-		events = append(events, event)
+		frameEvent := &FrameEvent{
+			Core: event,
+		}
+		events = append(events, frameEvent)
 
-		roots[p.hex] = NewBaseRoot(uint32(id))
+		roots[p.hex] = NewRoot()
 	}
 
 	frame := &Frame{
@@ -720,10 +732,6 @@ func TestBadgerFrames(t *testing.T) {
 		}
 		if err != nil {
 			t.Fatal(err)
-		}
-
-		for _, r := range storedFrame.Roots {
-			r.Init()
 		}
 
 		if !reflect.DeepEqual(storedFrame, frame) {

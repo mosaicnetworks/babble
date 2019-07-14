@@ -1,45 +1,31 @@
-package crypto
+package keys
 
 import (
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"fmt"
 	"math/big"
 	"strings"
 )
 
-func GenerateECDSAKey() (*ecdsa.PrivateKey, error) {
-	return ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-}
-
-func ToECDSAPub(pub []byte) *ecdsa.PublicKey {
-	if len(pub) == 0 {
-		return nil
-	}
-	x, y := elliptic.Unmarshal(elliptic.P256(), pub)
-	return &ecdsa.PublicKey{Curve: elliptic.P256(), X: x, Y: y}
-}
-
-func FromECDSAPub(pub *ecdsa.PublicKey) []byte {
-	if pub == nil || pub.X == nil || pub.Y == nil {
-		return nil
-	}
-	return elliptic.Marshal(elliptic.P256(), pub.X, pub.Y)
-}
-
+//Sign is a wrapper around ecdsa.Sign which uses the built-in pseudo-random
+//generator rand.Reader.
 func Sign(priv *ecdsa.PrivateKey, hash []byte) (r, s *big.Int, err error) {
 	return ecdsa.Sign(rand.Reader, priv, hash)
 }
 
+//Verify is a wrapper around ecdsa.Verify.
 func Verify(pub *ecdsa.PublicKey, hash []byte, r, s *big.Int) bool {
 	return ecdsa.Verify(pub, hash, r, s)
 }
 
+//EncodeSignature returns a string representation of a signature.
 func EncodeSignature(r, s *big.Int) string {
 	return fmt.Sprintf("%s|%s", r.Text(36), s.Text(36))
 }
 
+//DecodeSignature parses a string representaion of a signature as produced by
+//EncodeSignature.
 func DecodeSignature(sig string) (r, s *big.Int, err error) {
 	values := strings.Split(sig, "|")
 	if len(values) != 2 {

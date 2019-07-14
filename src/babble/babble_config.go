@@ -12,6 +12,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const DefaultKeyfile = "priv_key"
+
 type BabbleConfig struct {
 	NodeConfig node.Config `mapstructure:",squash"`
 
@@ -21,6 +23,7 @@ type BabbleConfig struct {
 	MaxPool     int    `mapstructure:"max-pool"`
 	Store       bool   `mapstructure:"store"`
 	LogLevel    string `mapstructure:"log"`
+	Moniker     string `mapstructure:"moniker"`
 
 	LoadPeers bool
 	Proxy     proxy.AppProxy
@@ -29,25 +32,35 @@ type BabbleConfig struct {
 }
 
 func NewDefaultConfig() *BabbleConfig {
-	config := &BabbleConfig{
-		DataDir:    DefaultDataDir(),
-		BindAddr:   ":1337",
-		Proxy:      nil,
-		Logger:     logrus.New(),
-		MaxPool:    2,
-		NodeConfig: *node.DefaultConfig(),
-		Store:      false,
-		LoadPeers:  true,
-		Key:        nil,
-	}
 
-	config.NodeConfig.Logger = config.Logger
+	logger := logrus.New()
+	logger.Level = logrus.DebugLevel
+
+	nodeConfig := *node.DefaultConfig()
+	nodeConfig.Logger = logger
+
+	config := &BabbleConfig{
+		NodeConfig:  nodeConfig,
+		DataDir:     DefaultDataDir(),
+		BindAddr:    "127.0.0.1:1337",
+		ServiceAddr: "127.0.0.1:8000",
+		MaxPool:     2,
+		Store:       false,
+		LoadPeers:   true,
+		Proxy:       nil,
+		Key:         nil,
+		Logger:      logger,
+	}
 
 	return config
 }
 
 func (c *BabbleConfig) BadgerDir() string {
 	return filepath.Join(c.DataDir, "badger_db")
+}
+
+func (c *BabbleConfig) Keyfile() string {
+	return filepath.Join(c.DataDir, DefaultKeyfile)
 }
 
 func DefaultDataDir() string {

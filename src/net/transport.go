@@ -40,6 +40,8 @@ type Transport interface {
 
 	FastForward(target string, args *FastForwardRequest, resp *FastForwardResponse) error
 
+	Join(target string, args *JoinRequest, resp *JoinResponse) error
+
 	// Close permanently closes a transport, stopping
 	// any associated goroutines and freeing other resources.
 	Close() error

@@ -1,5 +1,7 @@
 nodes = 4
 txs = 10
+index = 1
+fast-sync = false
 
 up: conf start watch
 
@@ -15,7 +17,7 @@ conf :
 
 # launch testnet
 start:
-	./scripts/run-testnet.sh $(nodes)
+	./scripts/run-testnet.sh $(nodes) $(fast-sync)
 
 # monitor stats
 watch: 
@@ -25,13 +27,29 @@ watch:
 stop: 
 	./scripts/stop-testnet.sh
 
-# open terminals to use the dummy chat application
-demo: 
-	./scripts/demo.sh $(nodes)
+# show dummy chat application
+show: 
+	./scripts/show.sh client$(index)
 
-# send a bunch of transactions
+# send transactions to multiple nodes
 bombard: 
 	./scripts/bombard.sh $(nodes) $(txs)
 
-.PHONY: up build conf start watch stop demo bombard
+# send transactions to specific node
+send:
+	./scripts/send.sh $(index) $(txs)
+
+# create new peer and join
+join:
+	./scripts/join.sh $(index) $(fast-sync)
+
+# leave cleanly - removing itself from peer-set
+leave:
+	./scripts/leave.sh $(index)
+
+# demo
+demo:
+	./scripts/demo.sh
+
+.PHONY: up build conf start watch stop show bombard send join leave demo
 	

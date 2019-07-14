@@ -2,8 +2,10 @@ package hashgraph
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
+	"strings"
 
 	cm "github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/peers"
@@ -44,11 +46,12 @@ func (pec *ParticipantEventsCache) AddPeer(peer *peers.Peer) error {
 	return pec.rim.AddKey(peer.ID())
 }
 
+//particant is the CASE-INSENSITIVE string hex representation of the public key.
 func (pec *ParticipantEventsCache) participantID(participant string) (uint32, error) {
-	peer, ok := pec.participants.ByPubKey[participant]
-
+	pUpper := strings.ToUpper(participant)
+	peer, ok := pec.participants.ByPubKey[pUpper]
 	if !ok {
-		return 0, cm.NewStoreErr("ParticipantEvents", cm.UnknownParticipant, participant)
+		return 0, cm.NewStoreErr("ParticipantEvents", cm.UnknownParticipant, pUpper)
 	}
 
 	return peer.ID(), nil
@@ -115,14 +118,20 @@ func (pec *ParticipantEventsCache) Known() map[uint32]int {
 //------------------------------------------------------------------------------
 
 type PeerSetCache struct {
-	rounds   sort.IntSlice
-	peerSets map[int]*peers.PeerSet
+	rounds             sort.IntSlice
+	peerSets           map[int]*peers.PeerSet
+	repertoireByPubKey map[string]*peers.Peer
+	repertoireByID     map[uint32]*peers.Peer
+	firstRounds        map[uint32]int
 }
 
 func NewPeerSetCache() *PeerSetCache {
 	return &PeerSetCache{
-		rounds:   sort.IntSlice{},
-		peerSets: make(map[int]*peers.PeerSet),
+		rounds:             sort.IntSlice{},
+		peerSets:           make(map[int]*peers.PeerSet),
+		repertoireByPubKey: make(map[string]*peers.Peer),
+		repertoireByID:     make(map[uint32]*peers.Peer),
+		firstRounds:        make(map[uint32]int),
 	}
 }
 
@@ -130,15 +139,27 @@ func (c *PeerSetCache) Set(round int, peerSet *peers.PeerSet) error {
 	if _, ok := c.peerSets[round]; ok {
 		return cm.NewStoreErr("PeerSetCache", cm.KeyAlreadyExists, strconv.Itoa(round))
 	}
+
 	c.peerSets[round] = peerSet
+
 	c.rounds = append(c.rounds, round)
 	c.rounds.Sort()
+
+	for _, p := range peerSet.Peers {
+		c.repertoireByPubKey[p.PubKeyString()] = p
+		c.repertoireByID[p.ID()] = p
+		fr, ok := c.firstRounds[p.ID()]
+		if !ok || fr > round {
+			c.firstRounds[p.ID()] = round
+		}
+	}
+
 	return nil
 
 }
 
 func (c *PeerSetCache) Get(round int) (*peers.PeerSet, error) {
-	//check if direclty in peerSets
+	//check if directly in peerSets
 	ps, ok := c.peerSets[round]
 	if ok {
 		return ps, nil
@@ -149,16 +170,6 @@ func (c *PeerSetCache) Get(round int) (*peers.PeerSet, error) {
 		return nil, cm.NewStoreErr("PeerSetCache", cm.KeyNotFound, strconv.Itoa(round))
 	}
 
-	/*
-		XXX should probably do something smarter here, because this is wrong.
-		Ex: After a FastForward.
-		The Frame has a PeerSet that corresponds to its RoundReceived, BUT the
-		Frame may contain Events from previous Rounds which have different
-		PeerSets. Upon Reset(), only the PeerSet of the Frame will be stored.
-		When Getting the PeerSet for a Frame Event belonging to a earlier round
-		than the Frame RoundReceived, we fall in this case, and return a wrong
-		PeerSet.
-	*/
 	if round < c.rounds[0] {
 		return c.peerSets[c.rounds[0]], nil
 	}
@@ -173,14 +184,28 @@ func (c *PeerSetCache) Get(round int) (*peers.PeerSet, error) {
 	return c.peerSets[c.rounds[len(c.rounds)-1]], nil
 }
 
-func (c *PeerSetCache) GetFuture(baseRound int) (map[int][]*peers.Peer, error) {
+func (c *PeerSetCache) GetAll() (map[int][]*peers.Peer, error) {
 	res := make(map[int][]*peers.Peer)
 	for _, r := range c.rounds {
-		if r > baseRound {
-			res[r] = c.peerSets[r].Peers
-		}
+		res[r] = c.peerSets[r].Peers
 	}
 	return res, nil
+}
+
+func (c *PeerSetCache) RepertoireByID() map[uint32]*peers.Peer {
+	return c.repertoireByID
+}
+
+func (c *PeerSetCache) RepertoireByPubKey() map[string]*peers.Peer {
+	return c.repertoireByPubKey
+}
+
+func (c *PeerSetCache) FirstRound(id uint32) (int, bool) {
+	fr, ok := c.firstRounds[id]
+	if ok {
+		return fr, true
+	}
+	return math.MaxInt32, false
 }
 
 //------------------------------------------------------------------------------

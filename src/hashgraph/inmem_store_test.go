@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/crypto/keys"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
@@ -22,11 +22,11 @@ func initPeers(n int) (*peers.PeerSet, []participant) {
 	participants := []participant{}
 
 	for i := 0; i < n; i++ {
-		key, _ := crypto.GenerateECDSAKey()
-		pubKey := crypto.FromECDSAPub(&key.PublicKey)
-		peer := peers.NewPeer(fmt.Sprintf("0x%X", pubKey), "")
+		key, _ := keys.GenerateECDSAKey()
+		pubKey := keys.FromPublicKey(&key.PublicKey)
+		peer := peers.NewPeer(keys.PublicKeyHex(&key.PublicKey), "", "")
 		pirs = append(pirs, peer)
-		participants = append(participants, participant{peer.ID(), key, pubKey, peer.PubKeyHex})
+		participants = append(participants, participant{peer.ID(), key, pubKey, peer.PubKeyString()})
 	}
 
 	peerSet := peers.NewPeerSet(pirs)
@@ -55,6 +55,7 @@ func TestInmemEvents(t *testing.T) {
 			items := []*Event{}
 			for k := 0; k < testSize; k++ {
 				event := NewEvent([][]byte{[]byte(fmt.Sprintf("%s_%d", p.hex[:5], k))},
+					nil,
 					[]BlockSignature{BlockSignature{Validator: []byte("validator"), Index: 0, Signature: "r|s"}},
 					[]string{"", ""},
 					p.pubKey,
@@ -144,6 +145,7 @@ func TestInmemRounds(t *testing.T) {
 	events := make(map[string]*Event)
 	for _, p := range participants {
 		event := NewEvent([][]byte{},
+			nil,
 			[]BlockSignature{},
 			[]string{"", ""},
 			p.pubKey,
@@ -208,10 +210,13 @@ func TestInmemBlocks(t *testing.T) {
 		[]byte("tx4"),
 		[]byte("tx5"),
 	}
-
+	internalTransactions := []InternalTransaction{
+		NewInternalTransaction(PEER_ADD, *peers.NewPeer("0XBAAAAAAAD", "paris", "")),
+		NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("0XB16B00B5", "london", "")),
+	}
 	frameHash := []byte("this is the frame hash")
 
-	block := NewBlock(index, roundReceived, frameHash, []*peers.Peer{}, transactions)
+	block := NewBlock(index, roundReceived, frameHash, []*peers.Peer{}, transactions, internalTransactions)
 
 	sig1, err := block.Sign(participants[0].privKey)
 	if err != nil {

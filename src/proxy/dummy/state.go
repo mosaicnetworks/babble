@@ -46,8 +46,15 @@ func (a *State) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, erro
 		return proxy.CommitResponse{}, err
 	}
 
+	receipts := []hashgraph.InternalTransactionReceipt{}
+	for _, it := range block.InternalTransactions() {
+		r := it.AsAccepted()
+		receipts = append(receipts, r)
+	}
+
 	response := proxy.CommitResponse{
-		StateHash: a.stateHash,
+		StateHash:                   a.stateHash,
+		InternalTransactionReceipts: receipts,
 	}
 
 	return response, nil

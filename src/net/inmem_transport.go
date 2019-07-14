@@ -103,6 +103,19 @@ func (i *InmemTransport) FastForward(target string, args *FastForwardRequest, re
 	return nil
 }
 
+// Join implements the Transport interface
+func (i *InmemTransport) Join(target string, args *JoinRequest, resp *JoinResponse) error {
+	rpcResp, err := i.makeRPC(target, args, nil, i.timeout)
+	if err != nil {
+		return err
+	}
+
+	// Copy the result back
+	out := rpcResp.Response.(*JoinResponse)
+	*resp = *out
+	return nil
+}
+
 func (i *InmemTransport) makeRPC(target string, args interface{}, r io.Reader, timeout time.Duration) (rpcResp RPCResponse, err error) {
 	i.RLock()
 	peer, ok := i.peers[target]

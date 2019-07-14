@@ -10,7 +10,7 @@ import (
 
 	"reflect"
 
-	scrypto "github.com/mosaicnetworks/babble/src/crypto"
+	bkeys "github.com/mosaicnetworks/babble/src/crypto/keys"
 )
 
 func TestJSONPeerSet(t *testing.T) {
@@ -22,7 +22,7 @@ func TestJSONPeerSet(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	// Create the store
-	store := NewJSONPeerSet(dir)
+	store := NewJSONPeerSet(dir, true)
 
 	// Try a read, should get nothing
 	peerSet, err := store.PeerSet()
@@ -36,10 +36,11 @@ func TestJSONPeerSet(t *testing.T) {
 	keys := map[string]*ecdsa.PrivateKey{}
 	peers := []*Peer{}
 	for i := 0; i < 3; i++ {
-		key, _ := scrypto.GenerateECDSAKey()
+		key, _ := bkeys.GenerateECDSAKey()
 		peer := &Peer{
 			NetAddr:   fmt.Sprintf("addr%d", i),
-			PubKeyHex: fmt.Sprintf("0x%X", scrypto.FromECDSAPub(&key.PublicKey)),
+			PubKeyHex: bkeys.PublicKeyHex(&key.PublicKey),
+			Moniker:   fmt.Sprintf("peer%d", i),
 		}
 		peers = append(peers, peer)
 		keys[peer.NetAddr] = key
@@ -68,6 +69,10 @@ func TestJSONPeerSet(t *testing.T) {
 			t.Fatalf("peers[%d] NetAddr should be %s, not %s", i,
 				newPeerSlice[i].NetAddr, peerSlice[i].NetAddr)
 		}
+		if peerSlice[i].Moniker != newPeerSlice[i].Moniker {
+			t.Fatalf("peers[%d] Moniker should be %s, not %s", i,
+				newPeerSlice[i].Moniker, peerSlice[i].Moniker)
+		}
 		if peerSlice[i].PubKeyHex != newPeerSlice[i].PubKeyHex {
 			t.Fatalf("peers[%d] PubKeyHex should be %s, not %s", i,
 				newPeerSlice[i].PubKeyHex, peerSlice[i].PubKeyHex)
@@ -76,7 +81,7 @@ func TestJSONPeerSet(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		pubKey := scrypto.ToECDSAPub(pubKeyBytes)
+		pubKey := bkeys.ToPublicKey(pubKeyBytes)
 		if !reflect.DeepEqual(*pubKey, keys[peerSlice[i].NetAddr].PublicKey) {
 			t.Fatalf("peers[%d] PublicKey not parsed correctly", i)
 		}

@@ -2,6 +2,7 @@ package hashgraph
 
 import (
 	"bytes"
+	"sort"
 
 	"github.com/mosaicnetworks/babble/src/crypto"
 	"github.com/mosaicnetworks/babble/src/peers"
@@ -9,11 +10,21 @@ import (
 )
 
 type Frame struct {
-	Round          int //RoundReceived
-	Peers          []*peers.Peer
-	Roots          map[string]*Root
-	Events         []*Event              //Event with RoundReceived = Round
-	FuturePeerSets map[int][]*peers.Peer //[round] => Peers
+	Round    int //RoundReceived
+	Peers    []*peers.Peer
+	Roots    map[string]*Root
+	Events   []*FrameEvent         //Events with RoundReceived = Round
+	PeerSets map[int][]*peers.Peer //[round] => Peers
+}
+
+func (f *Frame) SortedFrameEvents() []*FrameEvent {
+	sorted := SortedFrameEvents{}
+	for _, r := range f.Roots {
+		sorted = append(sorted, r.Events...)
+	}
+	sorted = append(sorted, f.Events...)
+	sort.Sort(sorted)
+	return sorted
 }
 
 //json encoding of Frame

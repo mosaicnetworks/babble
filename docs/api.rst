@@ -27,67 +27,79 @@ process as your handler):
   package main
   
   import (
-  	"github.com/mosaicnetworks/babble/src/babble"
-  	"github.com/mosaicnetworks/babble/src/crypto"
-  	"github.com/mosaicnetworks/babble/src/hashgraph"
-  	"github.com/mosaicnetworks/babble/src/proxy/inmem"
+    "github.com/mosaicnetworks/babble/src/babble"
+    "github.com/mosaicnetworks/babble/src/crypto"
+    "github.com/mosaicnetworks/babble/src/hashgraph"
+    "github.com/mosaicnetworks/babble/src/proxy/inmem"
   )
   
   // Implements proxy.ProxyHandler interface
   type Handler struct {
-  	stateHash []byte
+    stateHash []byte
   }
   
   // Called when a new block is committed by Babble. This particular example 
-  // just computes the stateHash incrementaly with incoming blocks.
+  // just computes the stateHash incrementaly with incoming blocks, and accepts
+  // all InternalTransactions
   func (h *Handler) CommitHandler(block hashgraph.Block) (stateHash []byte, err error) {
-  	hash := h.stateHash
+    hash := h.stateHash
   
-  	for _, tx := range block.Transactions() {
-  		hash = crypto.SimpleHashFromTwoHashes(hash, crypto.SHA256(tx))
-  	}
+    for _, tx := range block.Transactions() {
+      hash = crypto.SimpleHashFromTwoHashes(hash, crypto.SHA256(tx))
+    }
   
-  	h.stateHash = hash
+    h.stateHash = hash
   
-  	return h.stateHash, nil
+    receipts := []hashgraph.InternalTransactionReceipt{}
+    for _, it := range block.InternalTransactions() {
+      r := it.AsAccepted()
+      receipts = append(receipts, r)
+    }
+
+    response := proxy.CommitResponse{
+      StateHash:                   h.stateHash,
+      InternalTransactionReceipts: receipts,
+    }
+
+    return response, nil
   }
   
   // Called when syncing with the network
   func (h *Handler) SnapshotHandler(blockIndex int) (snapshot []byte, err error) {
-  	return []byte{}, nil
+    return []byte{}, nil
   }
   
   // Called when syncing with the network
   func (h *Handler) RestoreHandler(snapshot []byte) (stateHash []byte, err error) {
-  	return []byte{}, nil
+    return []byte{}, nil
   }
   
   func NewHandler() *Handler {
-  	return &Handler{}
+    return &Handler{}
   }
   
   func main() {
-  	
-  	config := babble.NewDefaultConfig()
   
-  	// To use babble as an internal engine we use InmemProxy.
-  	proxy := inmem.NewInmemProxy(NewHandler(), config.Logger)
+    config := babble.NewDefaultConfig()
   
-  	config.Proxy = proxy
+    // To use babble as an internal engine we use InmemProxy.
+    proxy := inmem.NewInmemProxy(NewHandler(), config.Logger)
   
-  	// Create the engine with the provided config
-  	engine := babble.NewBabble(config)
+    config.Proxy = proxy
   
-  	// Initialize the engine
-  	if err := engine.Init(); err != nil {
-  		panic(err)
-  	}
+    // Create the engine with the provided config
+    engine := babble.NewBabble(config)
   
-  	// Submit a transaction directly through the Proxy
-  	go func() { proxy.SubmitTx([]byte("some content")) }()
+    // Initialize the engine
+    if err := engine.Init(); err != nil {
+      panic(err)
+    }
   
-  	// This is a blocking call
-  	engine.Run()
+    // Submit a transaction directly through the Proxy
+    go func() { proxy.SubmitTx([]byte("some content")) }()
+  
+    // This is a blocking call
+    engine.Run()
   }
 
 Socket
@@ -112,65 +124,75 @@ Assuming there is a Babble node running with its proxy listening on
   package main
   
   import (
-  	"time"
+    "time"
   
-  	"github.com/mosaicnetworks/babble/src/crypto"
-  	"github.com/mosaicnetworks/babble/src/hashgraph"
-  	"github.com/mosaicnetworks/babble/src/proxy/socket/babble"
+    "github.com/mosaicnetworks/babble/src/crypto"
+    "github.com/mosaicnetworks/babble/src/hashgraph"
+    "github.com/mosaicnetworks/babble/src/proxy/socket/babble"
   )
   
   // Implements proxy.ProxyHandler interface
   type Handler struct {
-  	stateHash []byte
+    stateHash []byte
   }
   
   // Called when a new block is comming. This particular example just computes 
   // the stateHash incrementaly with incoming blocks
   func (h *Handler) CommitHandler(block hashgraph.Block) (stateHash []byte, err error) {
-  	hash := h.stateHash
+    hash := h.stateHash
   
-  	for _, tx := range block.Transactions() {
-  		hash = crypto.SimpleHashFromTwoHashes(hash, crypto.SHA256(tx))
-  	}
+    for _, tx := range block.Transactions() {
+      hash = crypto.SimpleHashFromTwoHashes(hash, crypto.SHA256(tx))
+    }
   
-  	h.stateHash = hash
+    h.stateHash = hash
   
-  	return h.stateHash, nil
+    receipts := []hashgraph.InternalTransactionReceipt{}
+    for _, it := range block.InternalTransactions() {
+      r := it.AsAccepted()
+      receipts = append(receipts, r)
+    }
+
+    response := proxy.CommitResponse{
+      StateHash:                   h.stateHash,
+      InternalTransactionReceipts: receipts,
+    }
+
+    return response, nil
   }
   
   // Called when syncing with the network
   func (h *Handler) SnapshotHandler(blockIndex int) (snapshot []byte, err error) {
-  	return []byte{}, nil
+    return []byte{}, nil
   }
   
   // Called when syncing with the network
   func (h *Handler) RestoreHandler(snapshot []byte) (stateHash []byte, err error) {
-  	return []byte{}, nil
+    return []byte{}, nil
   }
   
   func NewHandler() *Handler {
-  	return &Handler{}
+    return &Handler{}
   }
   
   func main() {
-  	// Connect to the babble proxy at :1338 and listen on :1339.
-  	// The Handler ties back to the application state.
-  	proxy, err := babble.NewSocketBabbleProxy("127.0.0.1:1338", "127.0.0.1:1339", NewHandler(), 1*time.Second, nil)
+    // Connect to the babble proxy at :1338 and listen on :1339.
+    // The Handler ties back to the application state.
+    proxy, err := babble.NewSocketBabbleProxy("127.0.0.1:1338", "127.0.0.1:1339", NewHandler(), 1*time.Second, nil)
+        // Verify that it can listen
+    if err != nil {
+      panic(err)
+    }
   
-  	// Verify that it can listen
-  	if err != nil {
-  		panic(err)
-  	}
+    // Verify that it can connect and submit a transaction
+    if err := proxy.SubmitTx([]byte("some content")); err != nil {
+      panic(err)
+    }
   
-  	// Verify that it can connect and submit a transaction
-  	if err := proxy.SubmitTx([]byte("some content")); err != nil {
-  		panic(err)
-  	}
-  
-  	// Wait indefinitly
-  	for {
-  		time.Sleep(time.Second)
-  	}
+    // Wait indefinitly
+    for {
+      time.Sleep(time.Second)
+    }
   }
 
 Example SubmitTx request (from App to Babble):

@@ -26,8 +26,14 @@ func (p *TestHandler) CommitHandler(block hashgraph.Block) (proxy.CommitResponse
 
 	p.blocks = append(p.blocks, block)
 
+	receipts := []hashgraph.InternalTransactionReceipt{}
+	for _, it := range block.InternalTransactions() {
+		receipts = append(receipts, it.AsAccepted())
+	}
+
 	response := proxy.CommitResponse{
-		StateHash: []byte("statehash"),
+		StateHash:                   []byte("statehash"),
+		InternalTransactionReceipts: receipts,
 	}
 
 	return response, nil
@@ -119,6 +125,10 @@ func TestSocketProxyClient(t *testing.T) {
 
 	//create babble proxy
 	_, err = bproxy.NewSocketBabbleProxy(proxyAddr, clientAddr, handler, 1*time.Second, logger)
+	if err != nil {
+		t.Fatalf("Cannot create SocketBabbleProxy: %s", err)
+	}
+
 
 	transactions := [][]byte{
 		[]byte("tx 1"),
@@ -126,7 +136,12 @@ func TestSocketProxyClient(t *testing.T) {
 		[]byte("tx 3"),
 	}
 
-	block := hashgraph.NewBlock(0, 1, []byte{}, []*peers.Peer{}, transactions)
+	internalTransactions := []hashgraph.InternalTransaction{
+		hashgraph.NewInternalTransaction(hashgraph.PEER_ADD, *peers.NewPeer("node0", "paris", "")),
+		hashgraph.NewInternalTransaction(hashgraph.PEER_REMOVE, *peers.NewPeer("node1", "london", "")),
+	}
+
+	block := hashgraph.NewBlock(0, 1, []byte{}, []*peers.Peer{}, transactions, internalTransactions)
 
 	expectedStateHash := []byte("statehash")
 	expectedSnapshot := []byte("snapshot")

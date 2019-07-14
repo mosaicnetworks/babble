@@ -22,7 +22,7 @@ func NewTestTransport(ttype int, addr string, t *testing.T) Transport {
 		_, it := NewInmemTransport(addr)
 		return it
 	case TCP:
-		tt, err := NewTCPTransport(addr, nil, 2, time.Second, common.NewTestLogger(t))
+		tt, err := NewTCPTransport(addr, nil, 2, time.Second, 2*time.Second, common.NewTestLogger(t))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -51,7 +51,8 @@ func TestTransport_Sync(t *testing.T) {
 
 		// Make the RPC request
 		args := SyncRequest{
-			FromID: 0,
+			FromID:    0,
+			SyncLimit: 20,
 			Known: map[uint32]int{
 				0: 1,
 				1: 2,
@@ -199,11 +200,11 @@ func TestTransport_FastForward(t *testing.T) {
 		//Prepare the response Frame and corresponding Block
 
 		framePeers := []*peers.Peer{
-			peers.NewPeer("pub1", "addr1"),
-			peers.NewPeer("pub2", "addr2"),
+			peers.NewPeer("pub1", "addr1", "monika"),
+			peers.NewPeer("pub2", "addr2", "monika"),
 		}
 
-		//Marshalling/Unmarshalling clears private fiels, so we precompute the
+		//Marshalling/Unmarshalling clears private fields, so we precompute the
 		//Marsalled/Unmarshalled objects to compare the expected result to the
 		//RPC response.
 
@@ -211,26 +212,31 @@ func TestTransport_FastForward(t *testing.T) {
 			Round: 10,
 			Peers: framePeers,
 			Roots: map[string]*hashgraph.Root{
-				"pub1": hashgraph.NewBaseRoot(framePeers[0].ID()),
-				"pub2": hashgraph.NewBaseRoot(framePeers[1].ID()),
+				"pub1": hashgraph.NewRoot(),
+				"pub2": hashgraph.NewRoot(),
 			},
-			Events: []*hashgraph.Event{
-				hashgraph.NewEvent(
-					[][]byte{
-						[]byte("tx1"),
-						[]byte("tx2"),
-					},
-					[]hashgraph.BlockSignature{
-						hashgraph.BlockSignature{
-							[]byte("pub1"),
-							0,
-							"the signature",
+			Events: []*hashgraph.FrameEvent{
+				&hashgraph.FrameEvent{
+					Core: hashgraph.NewEvent(
+						[][]byte{
+							[]byte("tx1"),
+							[]byte("tx2"),
 						},
-					},
-					[]string{"pub1", "pub2"},
-					[]byte("pub1"),
-					4,
-				),
+						[]hashgraph.InternalTransaction{
+							hashgraph.NewInternalTransaction(hashgraph.PEER_ADD, *peers.NewPeer("pub3", "addr3", "monika")),
+						},
+						[]hashgraph.BlockSignature{
+							hashgraph.BlockSignature{
+								[]byte("pub1"),
+								0,
+								"the signature",
+							},
+						},
+						[]string{"pub1", "pub2"},
+						[]byte("pub1"),
+						4,
+					),
+				},
 			},
 		}
 
@@ -312,6 +318,90 @@ func TestTransport_FastForward(t *testing.T) {
 		// Verify the response
 		if !reflect.DeepEqual(resp, out) {
 			t.Fatalf("ttype %d. Response mismatch: %#v %#v", ttype, resp, out)
+		}
+	}
+}
+
+func TestTransport_Join(t *testing.T) {
+	addr1 := "127.0.0.1:2345"
+	addr2 := "127.0.0.1:2346"
+	for ttype := 0; ttype < numTestTransports; ttype++ {
+		trans1 := NewTestTransport(ttype, addr1, t)
+		defer trans1.Close()
+		rpcCh := trans1.Consumer()
+
+		//node1 asks to join node2
+		testPeers := []*peers.Peer{
+			peers.NewPeer("node1", "addr1", "monika"),
+			peers.NewPeer("node2", "addr2", "monika"),
+		}
+
+		unmarshalledPeers := []*peers.Peer{}
+		for _, p := range testPeers {
+			mp, err := p.Marshal()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			var up peers.Peer
+			err = up.Unmarshal(mp)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			unmarshalledPeers = append(unmarshalledPeers, &up)
+		}
+
+		// Make the RPC request
+		itx := hashgraph.NewInternalTransactionJoin(*unmarshalledPeers[0])
+		//itx.Sign()
+		args := JoinRequest{
+			InternalTransaction: itx,
+		}
+
+		resp := JoinResponse{
+			FromID:        testPeers[1].ID(),
+			AcceptedRound: 5,
+			Peers:         unmarshalledPeers,
+		}
+
+		// Listen for a request
+		go func() {
+			select {
+			case rpc := <-rpcCh:
+				// Verify the command
+				req := rpc.Command.(*JoinRequest)
+				if !reflect.DeepEqual(req, &args) {
+					t.Fatalf("command mismatch: %#v %#v", *req, args)
+				}
+				rpc.Respond(&resp, nil)
+
+			case <-time.After(200 * time.Millisecond):
+				t.Fatalf("timeout")
+			}
+		}()
+
+		// Transport 2 makes outbound request
+		trans2 := NewTestTransport(ttype, addr2, t)
+		defer trans2.Close()
+
+		if ttype == INMEM {
+			itrans1 := trans1.(*InmemTransport)
+			itrans2 := trans2.(*InmemTransport)
+			itrans1.Connect(addr2, trans2)
+			itrans2.Connect(addr1, trans1)
+			trans1 = itrans1
+			trans2 = itrans2
+		}
+
+		var out JoinResponse
+		if err := trans2.Join(trans1.LocalAddr(), &args, &out); err != nil {
+			t.Fatalf("err: %v", err)
+		}
+
+		// Verify the response
+		if !reflect.DeepEqual(resp, out) {
+			t.Fatalf("response mismatch: %#v %#v", resp, out)
 		}
 	}
 }

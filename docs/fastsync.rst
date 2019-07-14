@@ -25,19 +25,16 @@ Overview
 
 .. image:: assets/fastsync.png
 
-The Babble node is implemented as a state machine where the possible states are: 
-**Babbling**, **CatchingUp**, and **Shutdown**. A node is normally in the 
-**Babbling** state where it performs the regular Hashgraph gossip routines, but 
-a **sync_limit** response from a peer will trigger the node to enter the 
-**CatchingUp** state, where it will attempt to fast-forward to a recent 
-snapshot. A **sync_limit** response indicates that the number of Events that the
-node needs to download exceeds the **sync_limit** configuration value. 
+The Babble node is implemented as a state-machine where the possible states are: 
+**Babbling**, **CatchingUp**, **Joining**, **Leaving**, and **Shutdown**. When a 
+node is started and belongs to the current validator-set, it will either enter 
+the **Babbling** state, or the **CatchingUp** state, depending on whether the 
+**fast-sync** flag was passed to Babble. 
 
-In the **CatchingUp** state, a node repeatedly chooses another node at random 
-(although the above diagram uses the same peer that returned the **sync_limit** 
-response) and attempts to fast-forward to their last consensus snapshot, until 
-the operation succeeds. Hence, FastSync introduces a new type of command in the 
-communication protocol: *FastForward*.
+In the **CatchingUp** state, a node determines the best node to fast-sync from 
+(the node which has the longest hashgraph) and attempts to fast-forward to their 
+last consensus snapshot, until the operation succeeds. Hence, FastSync 
+introduces a new type of command in the communication protocol: *FastForward*.
 
 Upon receiving a FastForwardRequest, a node must respond with the last consensus 
 snapshot, as well as the corresponding Hashgraph section (the Frame) and Block. 
@@ -51,20 +48,23 @@ for a new/pruned Hashgraph.
 Frames
 ------
 
-Frames are self-contained sections of the Hashgraph. They are composed of Roots 
-and regular Hashgraph Events, where Roots are the base on top of which Events 
-can be inserted. Basically, Frames form a valid foundation for a new Hashgraph,
-such that gossip-about-gossip routines are not discontinued, while earlier 
-records of the gossip history are ignored. 
+Frames are self-contained sections of the Hashgraph. They are composed of 
+FrameEvents which wrap regular Hashgraph Events along with precomputed values
+for Round, Witness, and LamportTimestamp. Usually, these values would be 
+calculated by every node locally but since FrameEvents belong to Blocks, which 
+eventually collect enough signatures (>1/3), they can be used directly. 
+Basically, Frames form a valid foundation for a new Hashgraph, such that 
+gossip-about-gossip routines are not discontinued, while earlier records of the 
+gossip history are ignored. 
 
 ::
 
   type Frame struct {
-  	Round  int     //RoundReceived
-  	Peers  []*peers.Peer
-  	Roots  []Root  //[participant ID] => Root
-  	Events []Event //Events with RoundReceived = Round
-  	FuturePeerSets map(int)[]peers.Peer //[round] => Peers
+      Round    int //RoundReceived
+      Peers    []*peers.Peer
+      Roots    map[string]*Root
+      Events   []*FrameEvent         //Events with RoundReceived = Round
+      PeerSets map[int][]*peers.Peer //[round] => Peers
   }
 
 A Frame corresponds to a Hashgraph consensus round. Indeed, the consensus 
@@ -79,10 +79,8 @@ corresponding batch, in consensus order.
 Roots
 -----
 
-Frames also contain Roots. To get an understanding for why this is necessary, we
-must consider the initial state of a Hashgraph, i.e., the base on top of which 
-the first Events are inserted. 
-
+Frames also contain Roots, with a certain number of past FrameEvents for each 
+particpant. Intuitively, "replanting" a Hashgraph requires deep enough roots. 
 The Hashgraph is an interlinked chain of Events, where each Event contains two 
 references to anterior Events (SelfParent and OtherParent). Upon inserting an 
 Event in the Hashgraph, we check that its references point to existing Events 
@@ -92,73 +90,25 @@ where Event A2 cannot be inserted because its references are unknown.
 
 .. image:: assets/roots_0.png
 
-So what about the first Event? Until now, we simply implemented a special case, 
-whereby the first Event for any participant, could be inserted without checking 
-its references. In fact the above picture shows that Events A0, B0, and C0, have
-empty references, and yet they are part of the Hashgraph. This special case is 
-fine as long as we do not expect to initialize Hashgraphs from a 'non-zero' 
-state.
-
-We introduced the concept of Roots to remove the special case and handle more
-general situations. They make it possible to initialize a Hashgraph from a 
-section of an existing Hashgraph, and discard everything below it.
-
-.. image:: assets/roots_1.png
-
-A Root is a data structure containing condensed information about the ancestors 
-of the first Events to be added to the Hashgraph. Each participant has a Root,
-containing a *Head* - the direct ancestor of the first Event for the 
-corresponding participant - and *Past* - a map of older Events. These parents 
-are instances of the **RootEvent**  object, which is a minimal version of the 
-Hashgraph Event. RootEvents contain information about the Index, Round, and 
-LamportTimestamp of the corresponding Events. Roots also contain a map of 
-Precomputed Events, which helps in consensus computations in a Reset Hashgraph. 
+If, when resetting from a Frame, we only used the Events associated with the 
+corresponding round-received, we would quickly run into a situation where future
+Events reference unknown/older Events, and fail to be inserted. Hence, we need 
+to package a "history" of past Events in the Frame, as a base layer for 
+resetting the Hashgraph; this is contained in the Roots.
 
 What matters is that every participant computes the same Roots, and that Roots
 contain sufficient information to keep inserting Events in a Reset hashgraph and 
 compute a consensus order.
 
-::
-
-  type Root struct {
-  	Head        string
-  	Past        map[string]RootEvent
-  	Precomputed map[string]RootEvent
-  
-  	...private fields not shown...
-  }
-  
-  type RootEvent struct {
-  	Hash             string
-  	CreatorID        uint32
-  	Index            int
-  	Round            int
-  	LamportTimestamp int
-  }
-
-Algorithm Updates
------------------
-
-The new rule for inserting an Event in the Hashgraph prescribes that an Event 
-should only be inserted if its parents belong to the Hashgraph or are referenced 
-in one of the Roots. The algorithms for computing an Event's Round and 
-LamportTimestamp have also changed slightly.
-
-When an Event is referenced in a Root's Precomputed, we use the precomputed 
-value directy instead of running the usual method. This is necessary because a
-Reset Hashgraph could me missing some information necessary for Round and 
-LamportTimestamp computation (lastAncestore/firstDescendants, set of famous 
-witnesses, etc.).
+As of today, the number of FrameEvents in each Root (the root depth) is 
+hard-coded to 10, to avoid nodes from using different values, which would result
+in different Blocks, and forks (partitions). 
 
 Note that there is still a possibility for an Event's OtherParent to refer to an
 Event "below" the Frame. This is possible due to the asynchronous nature of the
 gossip routines, but is an unlikely scenario. The Frame design tries to find a 
 compromise between the size and the amount of useful information they contain. 
-Frames could be made to include more information so as to avoid this type of 
-problem with greater probability, but such and approach could eventually 
-undermine the usefulness of Frames as light-weight data points. As we shall see 
-later, a potential solution to such and edge-case would be to adopt a "let it 
-crash" philosophy and rely on an other level to handle the burden.
+A root depth of 10 offers a high-enough probability of success.
 
 FastForward
 -----------
@@ -191,10 +141,10 @@ with methods to retrieve and restore snapshots.
 ::
 
   type AppProxy interface {
-  	SubmitCh() chan []byte
-  	CommitBlock(block hashgraph.Block) ([]byte, error)
-  	GetSnapshot(blockIndex int) ([]byte, error)
-  	Restore(snapshot []byte) error
+    SubmitCh() chan []byte
+    CommitBlock(block hashgraph.Block) (CommitResponse, error)
+    GetSnapshot(blockIndex int) ([]byte, error)
+    Restore(snapshot []byte) error
   }
 
 Since snapshots are raw byte arrays, it is up to the application layer to define 

@@ -19,8 +19,9 @@ do
     mkdir -p $dest
     echo "Generating key pair for node$i"
     docker run  \
+        -u $(id -u) \
         -v $dest:/.babble \
-        --rm mosaicnetworks/babble:0.4.1 keygen 
+        --rm mosaicnetworks/babble:latest keygen 
     echo "$IPBASE$i:$PORT" > $dest/addr
 done
 
@@ -35,7 +36,8 @@ do
 
     printf "\t{\n" >> $PFILE
     printf "\t\t\"NetAddr\":\"$(cat $DEST/node$i/addr)\",\n" >> $PFILE
-    printf "\t\t\"PubKeyHex\":\"$(cat $DEST/node$i/key.pub)\"\n" >> $PFILE
+    printf "\t\t\"PubKeyHex\":\"$(cat $DEST/node$i/key.pub)\",\n" >> $PFILE
+    printf "\t\t\"Moniker\":\"node$i\"\n" >> $PFILE
     printf "\t}%s\n"  $com >> $PFILE
 
 done
@@ -45,5 +47,6 @@ for i in $(seq 1 $N)
 do
     dest=$DEST/node$i
     cp $DEST/peers.json $dest/
+    cp $DEST/peers.json $dest/peers.genesis.json
 done
 

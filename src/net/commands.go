@@ -2,20 +2,21 @@ package net
 
 import (
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/peers"
 )
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 type SyncRequest struct {
-	FromID uint32
-	Known  map[uint32]int
+	FromID    uint32
+	Known     map[uint32]int
+	SyncLimit int
 }
 
 type SyncResponse struct {
-	FromID    uint32
-	SyncLimit bool
-	Events    []hashgraph.WireEvent
-	Known     map[uint32]int
+	FromID uint32
+	Events []hashgraph.WireEvent
+	Known  map[uint32]int
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -44,3 +45,14 @@ type FastForwardResponse struct {
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+type JoinRequest struct {
+	InternalTransaction hashgraph.InternalTransaction
+}
+
+type JoinResponse struct {
+	FromID        uint32
+	Accepted      bool
+	AcceptedRound int
+	Peers         []*peers.Peer
+}

@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/crypto/keys"
 )
 
 /*******************************************************************************
@@ -14,11 +16,12 @@ EventBody
 *******************************************************************************/
 
 type EventBody struct {
-	Transactions    [][]byte         //the payload
-	Parents         []string         //hashes of the event's parents, self-parent first
-	Creator         []byte           //creator's public key
-	Index           int              //index in the sequence of events created by Creator
-	BlockSignatures []BlockSignature //list of Block signatures signed by the Event's Creator ONLY
+	Transactions         [][]byte              //the payload
+	InternalTransactions []InternalTransaction //peers add and removal internal consensus
+	Parents              []string              //hashes of the event's parents, self-parent first
+	Creator              []byte                //creator's public key
+	Index                int                   //index in the sequence of events created by Creator
+	BlockSignatures      []BlockSignature      //list of Block signatures signed by the Event's Creator ONLY
 
 	//These fields are not serialized
 	creatorID            uint32
@@ -102,17 +105,19 @@ type Event struct {
 }
 
 func NewEvent(transactions [][]byte,
+	internalTransactions []InternalTransaction,
 	blockSignatures []BlockSignature,
 	parents []string,
 	creator []byte,
 	index int) *Event {
 
 	body := EventBody{
-		Transactions:    transactions,
-		BlockSignatures: blockSignatures,
-		Parents:         parents,
-		Creator:         creator,
-		Index:           index,
+		Transactions:         transactions,
+		InternalTransactions: internalTransactions,
+		BlockSignatures:      blockSignatures,
+		Parents:              parents,
+		Creator:              creator,
+		Index:                index,
 	}
 	return &Event{
 		Body: body,
@@ -121,7 +126,7 @@ func NewEvent(transactions [][]byte,
 
 func (e *Event) Creator() string {
 	if e.creator == "" {
-		e.creator = fmt.Sprintf("0x%X", e.Body.Creator)
+		e.creator = common.EncodeToString(e.Body.Creator)
 	}
 	return e.creator
 }
@@ -136,6 +141,10 @@ func (e *Event) OtherParent() string {
 
 func (e *Event) Transactions() [][]byte {
 	return e.Body.Transactions
+}
+
+func (e *Event) InternalTransactions() []InternalTransaction {
+	return e.Body.InternalTransactions
 }
 
 func (e *Event) Index() int {
@@ -153,8 +162,9 @@ func (e *Event) IsLoaded() bool {
 	}
 
 	hasTransactions := e.Body.Transactions != nil && len(e.Body.Transactions) > 0
+	hasInternalTransactions := e.Body.InternalTransactions != nil && len(e.Body.InternalTransactions) > 0
 
-	return hasTransactions
+	return hasTransactions || hasInternalTransactions
 }
 
 //ecdsa sig
@@ -164,31 +174,44 @@ func (e *Event) Sign(privKey *ecdsa.PrivateKey) error {
 		return err
 	}
 
-	R, S, err := crypto.Sign(privKey, signBytes)
+	R, S, err := keys.Sign(privKey, signBytes)
 	if err != nil {
 		return err
 	}
 
-	e.Signature = crypto.EncodeSignature(R, S)
+	e.Signature = keys.EncodeSignature(R, S)
 
 	return err
 }
 
 func (e *Event) Verify() (bool, error) {
+
+	//first check signatures on internal transactions
+	for _, itx := range e.Body.InternalTransactions {
+		ok, err := itx.Verify()
+
+		if err != nil {
+			return false, err
+		} else if !ok {
+			return false, fmt.Errorf("invalid signature on internal transaction")
+		}
+	}
+
+	//then check event signature
 	pubBytes := e.Body.Creator
-	pubKey := crypto.ToECDSAPub(pubBytes)
+	pubKey := keys.ToPublicKey(pubBytes)
 
 	signBytes, err := e.Body.Hash()
 	if err != nil {
 		return false, err
 	}
 
-	r, s, err := crypto.DecodeSignature(e.Signature)
+	r, s, err := keys.DecodeSignature(e.Signature)
 	if err != nil {
 		return false, err
 	}
 
-	return crypto.Verify(pubKey, signBytes, r, s), nil
+	return keys.Verify(pubKey, signBytes, r, s), nil
 }
 
 //json encoding of body and signature
@@ -229,8 +252,7 @@ func (e *Event) Hash() ([]byte, error) {
 func (e *Event) Hex() string {
 	if e.hex == "" {
 		hash, _ := e.Hash()
-
-		e.hex = fmt.Sprintf("0x%X", hash)
+		e.hex = common.EncodeToString(hash)
 	}
 
 	return e.hex
@@ -292,6 +314,7 @@ func (e *Event) ToWire() WireEvent {
 	return WireEvent{
 		Body: WireBody{
 			Transactions:         e.Body.Transactions,
+			InternalTransactions: e.Body.InternalTransactions,
 			SelfParentIndex:      e.Body.selfParentIndex,
 			OtherParentCreatorID: e.Body.otherParentCreatorID,
 			OtherParentIndex:     e.Body.otherParentIndex,
@@ -337,8 +360,8 @@ func (a ByLamportTimestamp) Less(i, j int) bool {
 		return it < jt
 	}
 
-	wsi, _, _ := crypto.DecodeSignature(a[i].Signature)
-	wsj, _, _ := crypto.DecodeSignature(a[j].Signature)
+	wsi, _, _ := keys.DecodeSignature(a[i].Signature)
+	wsj, _, _ := keys.DecodeSignature(a[j].Signature)
 	return wsi.Cmp(wsj) < 0
 }
 
@@ -347,8 +370,9 @@ func (a ByLamportTimestamp) Less(i, j int) bool {
 *******************************************************************************/
 
 type WireBody struct {
-	Transactions    [][]byte
-	BlockSignatures []WireBlockSignature
+	Transactions         [][]byte
+	InternalTransactions []InternalTransaction
+	BlockSignatures      []WireBlockSignature
 
 	CreatorID            uint32
 	OtherParentCreatorID uint32
@@ -378,4 +402,34 @@ func (we *WireEvent) BlockSignatures(validator []byte) []BlockSignature {
 	}
 
 	return nil
+}
+
+/*******************************************************************************
+FrameEvent
+******************************************************************************/
+
+//FrameEvent is a wrapper around a regular Event. It contains exported fields
+//Round, Witness, and LamportTimestamp.
+type FrameEvent struct {
+	Core             *Event //EventBody + Signature
+	Round            int
+	LamportTimestamp int
+	Witness          bool
+}
+
+//SortedFrameEvents implements sort.Interface for []FameEvent based on
+//the lamportTimestamp field.
+//THIS IS A TOTAL ORDER
+type SortedFrameEvents []*FrameEvent
+
+func (a SortedFrameEvents) Len() int      { return len(a) }
+func (a SortedFrameEvents) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a SortedFrameEvents) Less(i, j int) bool {
+	if a[i].LamportTimestamp != a[j].LamportTimestamp {
+		return a[i].LamportTimestamp < a[j].LamportTimestamp
+	}
+
+	wsi, _, _ := keys.DecodeSignature(a[i].Core.Signature)
+	wsj, _, _ := keys.DecodeSignature(a[j].Core.Signature)
+	return wsi.Cmp(wsj) < 0
 }

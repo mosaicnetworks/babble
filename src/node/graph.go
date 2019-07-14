@@ -4,16 +4,19 @@ import (
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 )
 
+//Infos is a struct providing Hashgraph information
 type Infos struct {
 	ParticipantEvents map[string]map[string]*hg.Event
 	Rounds            []*hg.RoundInfo
 	Blocks            []*hg.Block
 }
 
+//Graph is a struct containing a node
 type Graph struct {
 	*Node
 }
 
+//GetParticipantEvents returns Participant Events
 func (g *Graph) GetParticipantEvents() (map[string]map[string]*hg.Event, error) {
 	res := make(map[string]map[string]*hg.Event)
 
@@ -21,25 +24,22 @@ func (g *Graph) GetParticipantEvents() (map[string]map[string]*hg.Event, error) 
 	repertoire := g.Node.core.hg.Store.RepertoireByPubKey()
 
 	for _, p := range repertoire {
-		root, err := store.GetRoot(p.PubKeyHex)
+		root, err := store.GetRoot(p.PubKeyString())
 		if err != nil {
 			return res, err
 		}
 
-		evs, err := store.ParticipantEvents(p.PubKeyHex, root.GetHead().Index)
+		start := -1
+		if l := len(root.Events); l > 0 {
+			start = root.Events[l-1].Core.Index()
+		}
+
+		evs, err := store.ParticipantEvents(p.PubKeyString(), start)
 		if err != nil {
 			return res, err
 		}
 
-		res[p.PubKeyHex] = make(map[string]*hg.Event)
-
-		res[p.PubKeyHex][root.Head] = hg.NewEvent(
-			[][]byte{},
-			[]hg.BlockSignature{},
-			[]string{},
-			[]byte{},
-			-1,
-		)
+		res[p.PubKeyString()] = make(map[string]*hg.Event)
 
 		for _, e := range evs {
 			event, err := store.GetEvent(e)
@@ -49,13 +49,14 @@ func (g *Graph) GetParticipantEvents() (map[string]map[string]*hg.Event, error) 
 
 			hash := event.Hex()
 
-			res[p.PubKeyHex][hash] = event
+			res[p.PubKeyString()][hash] = event
 		}
 	}
 
 	return res, nil
 }
 
+//GetRounds returns an array of RoundInfo
 func (g *Graph) GetRounds() []*hg.RoundInfo {
 	res := []*hg.RoundInfo{}
 
@@ -78,6 +79,7 @@ func (g *Graph) GetRounds() []*hg.RoundInfo {
 	return res
 }
 
+//GetBlocks returns an array of Blocks
 func (g *Graph) GetBlocks() []*hg.Block {
 	res := []*hg.Block{}
 
@@ -100,6 +102,7 @@ func (g *Graph) GetBlocks() []*hg.Block {
 	return res
 }
 
+//GetInfos returns an Infos struct
 func (g *Graph) GetInfos() (Infos, error) {
 	participantEvents, err := g.GetParticipantEvents()
 	if err != nil {
@@ -113,6 +116,7 @@ func (g *Graph) GetInfos() (Infos, error) {
 	}, nil
 }
 
+//NewGraph is a factory method returning a Graph
 func NewGraph(n *Node) *Graph {
 	return &Graph{
 		Node: n,

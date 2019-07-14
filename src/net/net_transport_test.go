@@ -12,7 +12,7 @@ import (
 
 func TestNetworkTransport_PooledConn(t *testing.T) {
 	// Transport 1 is consumer
-	trans1, err := NewTCPTransport("127.0.0.1:0", nil, 2, time.Second, common.NewTestLogger(t))
+	trans1, err := NewTCPTransport("127.0.0.1:0", nil, 2, time.Second, 2*time.Second, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -21,7 +21,8 @@ func TestNetworkTransport_PooledConn(t *testing.T) {
 
 	// Make the RPC request
 	args := SyncRequest{
-		FromID: 0,
+		FromID:    0,
+		SyncLimit: 20,
 		Known: map[uint32]int{
 			0: 1,
 			1: 2,
@@ -61,13 +62,14 @@ func TestNetworkTransport_PooledConn(t *testing.T) {
 				rpc.Respond(&resp, nil)
 
 			case <-time.After(200 * time.Millisecond):
+				t.Log("Fatal Error TIMEOUT in TestNetworkTransport_PooledConn")
 				t.Fatal("TIMEOUT")
 			}
 		}
 	}()
 
 	// Transport 2 makes outbound request, 3 conn pool
-	trans2, err := NewTCPTransport("127.0.0.1:0", nil, 3, time.Second, common.NewTestLogger(t))
+	trans2, err := NewTCPTransport("127.0.0.1:0", nil, 3, time.Second, 2*time.Second, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

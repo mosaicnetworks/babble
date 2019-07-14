@@ -1,16 +1,13 @@
 package hashgraph
 
 import (
-	"fmt"
 	"testing"
 
-	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/crypto/keys"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
-func TestSignBlock(t *testing.T) {
-	privateKey, _ := crypto.GenerateECDSAKey()
-
+func createTestBlock() *Block {
 	block := NewBlock(0, 1,
 		[]byte("framehash"),
 		[]*peers.Peer{},
@@ -18,7 +15,25 @@ func TestSignBlock(t *testing.T) {
 			[]byte("abc"),
 			[]byte("def"),
 			[]byte("ghi"),
+		},
+		[]InternalTransaction{
+			NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1", "paris", "peer1")),
+			NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2", "london", "peer2")),
 		})
+
+	receipts := []InternalTransactionReceipt{}
+	for _, itx := range block.InternalTransactions() {
+		receipts = append(receipts, itx.AsAccepted())
+	}
+	block.Body.InternalTransactionReceipts = receipts
+
+	return block
+}
+
+func TestSignBlock(t *testing.T) {
+	privateKey, _ := keys.GenerateECDSAKey()
+
+	block := createTestBlock()
 
 	sig, err := block.Sign(privateKey)
 	if err != nil {
@@ -35,17 +50,9 @@ func TestSignBlock(t *testing.T) {
 }
 
 func TestAppendSignature(t *testing.T) {
-	privateKey, _ := crypto.GenerateECDSAKey()
-	pubKeyBytes := crypto.FromECDSAPub(&privateKey.PublicKey)
+	privateKey, _ := keys.GenerateECDSAKey()
 
-	block := NewBlock(0, 1,
-		[]byte("framehash"),
-		[]*peers.Peer{},
-		[][]byte{
-			[]byte("abc"),
-			[]byte("def"),
-			[]byte("ghi"),
-		})
+	block := createTestBlock()
 
 	sig, err := block.Sign(privateKey)
 	if err != nil {
@@ -57,7 +64,7 @@ func TestAppendSignature(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	blockSignature, err := block.GetSignature(fmt.Sprintf("0x%X", pubKeyBytes))
+	blockSignature, err := block.GetSignature(keys.PublicKeyHex(&privateKey.PublicKey))
 	if err != nil {
 		t.Fatal(err)
 	}

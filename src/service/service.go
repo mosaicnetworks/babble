@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/gorilla/mux"
 	"github.com/mosaicnetworks/babble/src/node"
+	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/sirupsen/logrus"
 )
 
@@ -27,22 +29,44 @@ func NewService(bindAddress string, n *node.Node, logger *logrus.Logger) *Servic
 	return &service
 }
 
+//Serve defines endpoints and starts ListenAndServe
 func (s *Service) Serve() {
-	s.logger.WithField("bind_address", s.bindAddress).Debug("Service serving")
+	s.logger.WithField("bind_address", s.bindAddress).Debug("Babble Service serving")
 
-	http.HandleFunc("/stats", s.GetStats)
+	serverMuxBabble := http.NewServeMux()
+	r := mux.NewRouter()
+	r.HandleFunc("/stats", s.GetStats)
+	r.HandleFunc("/block/", s.GetBlock)
+	r.HandleFunc("/graph", s.GetGraph)
+	r.HandleFunc("/peers", s.GetPeers)
+	r.HandleFunc("/genesispeers", s.GetGenesisPeers)
 
-	http.HandleFunc("/block/", s.GetBlock)
+	serverMuxBabble.Handle("/", &CORSServer{r})
 
-	http.HandleFunc("/graph", s.GetGraph)
-
-	http.HandleFunc("/peers", s.GetPeers)
-
-	err := http.ListenAndServe(s.bindAddress, nil)
+	err := http.ListenAndServe(s.bindAddress, serverMuxBabble)
 
 	if err != nil {
 		s.logger.WithField("error", err).Error("Service failed")
 	}
+}
+
+type CORSServer struct {
+	r *mux.Router
+}
+
+func (s *CORSServer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	if origin := req.Header.Get("Origin"); origin != "" {
+		rw.Header().Set("Access-Control-Allow-Origin", origin)
+		rw.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		rw.Header().Set("Access-Control-Allow-Headers",
+			"Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+	}
+	// Stop here if its Preflighted OPTIONS request
+	if req.Method == "OPTIONS" {
+		return
+	}
+	// Lets Gorilla work
+	s.r.ServeHTTP(rw, req)
 }
 
 func (s *Service) GetStats(w http.ResponseWriter, r *http.Request) {
@@ -92,11 +116,17 @@ func (s *Service) GetGraph(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) GetPeers(w http.ResponseWriter, r *http.Request) {
+	returnPeerSet(w, r, s.node.GetPeers())
+}
+
+func (s *Service) GetGenesisPeers(w http.ResponseWriter, r *http.Request) {
+	returnPeerSet(w, r, s.node.GetGenesisPeers())
+}
+
+func returnPeerSet(w http.ResponseWriter, r *http.Request, peers []*peers.Peer) {
 	w.Header().Set("Content-Type", "application/json")
 
 	encoder := json.NewEncoder(w)
 
-	res := s.node.GetPeers()
-
-	encoder.Encode(res)
+	encoder.Encode(peers)
 }

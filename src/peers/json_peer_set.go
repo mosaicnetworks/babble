@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
 const (
-	jsonPeerSetPath = "peers.json"
+	jsonPeerSetPath        = "peers.json"
+	jsonGenesisPeerSetPath = "peers.genesis.json"
 )
 
 // JSONPeerSet is used to provide peer persistence on disk in the form
@@ -20,8 +22,15 @@ type JSONPeerSet struct {
 }
 
 // NewJSONPeerSet creates a new JSONPeerSet.
-func NewJSONPeerSet(base string) *JSONPeerSet {
-	path := filepath.Join(base, jsonPeerSetPath)
+func NewJSONPeerSet(base string, isCurrent bool) *JSONPeerSet {
+	var path string
+
+	if isCurrent {
+		path = filepath.Join(base, jsonPeerSetPath)
+	} else {
+		path = filepath.Join(base, jsonGenesisPeerSetPath)
+	}
+
 	store := &JSONPeerSet{
 		path: path,
 	}
@@ -51,7 +60,19 @@ func (j *JSONPeerSet) PeerSet() (*PeerSet, error) {
 		return nil, err
 	}
 
+	cleansePeerSet(peers)
+
 	return NewPeerSet(peers), nil
+}
+
+//NB this is safe because only value are altered, but no items are added / deleted
+//so the slice header is unaffected
+//This function standardises the peer string format passed into peerset. It matches
+//the format Babble derives from a private key.
+func cleansePeerSet(peers []*Peer) {
+	for _, peer := range peers {
+		peer.PubKeyHex = "0X" + strings.TrimPrefix((strings.ToUpper(peer.PubKeyHex)), "0X")
+	}
 }
 
 //Write persists a PeerSet to a JSON file in path

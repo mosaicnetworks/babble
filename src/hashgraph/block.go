@@ -3,11 +3,12 @@ package hashgraph
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
+	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/crypto/keys"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
@@ -16,12 +17,14 @@ BlockBody
 *******************************************************************************/
 
 type BlockBody struct {
-	Index         int
-	RoundReceived int
-	StateHash     []byte
-	FrameHash     []byte
-	PeersHash     []byte
-	Transactions  [][]byte
+	Index                       int
+	RoundReceived               int
+	StateHash                   []byte
+	FrameHash                   []byte
+	PeersHash                   []byte
+	Transactions                [][]byte
+	InternalTransactions        []InternalTransaction
+	InternalTransactionReceipts []InternalTransactionReceipt
 }
 
 //json encoding of body only
@@ -62,7 +65,7 @@ type BlockSignature struct {
 }
 
 func (bs *BlockSignature) ValidatorHex() string {
-	return fmt.Sprintf("0x%X", bs.Validator)
+	return common.EncodeToString(bs.Validator)
 }
 
 func (bs *BlockSignature) Marshal() ([]byte, error) {
@@ -119,18 +122,21 @@ func NewBlockFromFrame(blockIndex int, frame *Frame) (*Block, error) {
 	}
 
 	transactions := [][]byte{}
+	internalTransactions := []InternalTransaction{}
 	for _, e := range frame.Events {
-		transactions = append(transactions, e.Transactions()...)
+		transactions = append(transactions, e.Core.Transactions()...)
+		internalTransactions = append(internalTransactions, e.Core.InternalTransactions()...)
 	}
 
-	return NewBlock(blockIndex, frame.Round, frameHash, frame.Peers, transactions), nil
+	return NewBlock(blockIndex, frame.Round, frameHash, frame.Peers, transactions, internalTransactions), nil
 }
 
 func NewBlock(blockIndex,
 	roundReceived int,
 	frameHash []byte,
 	peerSlice []*peers.Peer,
-	txs [][]byte) *Block {
+	txs [][]byte,
+	itxs []InternalTransaction) *Block {
 
 	peerSet := peers.NewPeerSet(peerSlice)
 
@@ -140,12 +146,13 @@ func NewBlock(blockIndex,
 	}
 
 	body := BlockBody{
-		Index:         blockIndex,
-		RoundReceived: roundReceived,
-		StateHash:     []byte{},
-		FrameHash:     frameHash,
-		PeersHash:     peersHash,
-		Transactions:  txs,
+		Index:                blockIndex,
+		RoundReceived:        roundReceived,
+		StateHash:            []byte{},
+		FrameHash:            frameHash,
+		PeersHash:            peersHash,
+		Transactions:         txs,
+		InternalTransactions: itxs,
 	}
 
 	return &Block{
@@ -161,6 +168,14 @@ func (b *Block) Index() int {
 
 func (b *Block) Transactions() [][]byte {
 	return b.Body.Transactions
+}
+
+func (b *Block) InternalTransactions() []InternalTransaction {
+	return b.Body.InternalTransactions
+}
+
+func (b *Block) InternalTransactionReceipts() []InternalTransactionReceipt {
+	return b.Body.InternalTransactionReceipts
 }
 
 func (b *Block) RoundReceived() int {
@@ -183,7 +198,7 @@ func (b *Block) GetSignatures() []BlockSignature {
 	res := make([]BlockSignature, len(b.Signatures))
 	i := 0
 	for val, sig := range b.Signatures {
-		validatorBytes, _ := hex.DecodeString(val[2:])
+		validatorBytes, _ := common.DecodeFromString(val)
 		res[i] = BlockSignature{
 			Validator: validatorBytes,
 			Index:     b.Index(),
@@ -200,7 +215,7 @@ func (b *Block) GetSignature(validator string) (res BlockSignature, err error) {
 		return res, fmt.Errorf("signature not found")
 	}
 
-	validatorBytes, _ := hex.DecodeString(validator[2:])
+	validatorBytes, _ := common.DecodeFromString(validator)
 	return BlockSignature{
 		Validator: validatorBytes,
 		Index:     b.Index(),
@@ -244,7 +259,7 @@ func (b *Block) Hash() ([]byte, error) {
 func (b *Block) Hex() string {
 	if b.hex == "" {
 		hash, _ := b.Hash()
-		b.hex = fmt.Sprintf("0x%X", hash)
+		b.hex = common.EncodeToString(hash)
 	}
 	return b.hex
 }
@@ -254,14 +269,14 @@ func (b *Block) Sign(privKey *ecdsa.PrivateKey) (bs BlockSignature, err error) {
 	if err != nil {
 		return bs, err
 	}
-	R, S, err := crypto.Sign(privKey, signBytes)
+	R, S, err := keys.Sign(privKey, signBytes)
 	if err != nil {
 		return bs, err
 	}
 	signature := BlockSignature{
-		Validator: crypto.FromECDSAPub(&privKey.PublicKey),
+		Validator: keys.FromPublicKey(&privKey.PublicKey),
 		Index:     b.Index(),
-		Signature: crypto.EncodeSignature(R, S),
+		Signature: keys.EncodeSignature(R, S),
 	}
 
 	return signature, nil
@@ -278,12 +293,12 @@ func (b *Block) Verify(sig BlockSignature) (bool, error) {
 		return false, err
 	}
 
-	pubKey := crypto.ToECDSAPub(sig.Validator)
+	pubKey := keys.ToPublicKey(sig.Validator)
 
-	r, s, err := crypto.DecodeSignature(sig.Signature)
+	r, s, err := keys.DecodeSignature(sig.Signature)
 	if err != nil {
 		return false, err
 	}
 
-	return crypto.Verify(pubKey, signBytes, r, s), nil
+	return keys.Verify(pubKey, signBytes, r, s), nil
 }

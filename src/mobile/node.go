@@ -2,12 +2,13 @@ package mobile
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/mosaicnetworks/babble/src/babble"
-	"github.com/mosaicnetworks/babble/src/crypto"
+	"github.com/mosaicnetworks/babble/src/crypto/keys"
 	"github.com/mosaicnetworks/babble/src/node"
 	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/mosaicnetworks/babble/src/proxy"
@@ -31,7 +32,6 @@ func New(privKey string,
 	config *MobileConfig) *Node {
 
 	babbleConfig := config.toBabbleConfig()
-	babbleConfig.BindAddr = nodeAddr
 
 	babbleConfig.Logger.WithFields(logrus.Fields{
 		"nodeAddr": nodeAddr,
@@ -42,10 +42,15 @@ func New(privKey string,
 	babbleConfig.BindAddr = nodeAddr
 
 	//Check private key
-	pemKey := &crypto.PemKey{}
-	key, err := pemKey.ReadKeyFromBuf([]byte(privKey))
+	keyBytes, err := hex.DecodeString(privKey)
 	if err != nil {
-		exceptionHandler.OnException(fmt.Sprintf("Failed to read private key: %s", err))
+		exceptionHandler.OnException(fmt.Sprintf("Failed to decode private key bytes: %s", err))
+		return nil
+	}
+
+	key, err := keys.ParsePrivateKey(keyBytes)
+	if err != nil {
+		exceptionHandler.OnException(fmt.Sprintf("Failed to parse private key: %s", err))
 		return nil
 	}
 
@@ -64,13 +69,14 @@ func New(privKey string,
 	babbleConfig.LoadPeers = false
 
 	//mobileApp implements the ProxyHandler interface, and we use it to
-	//instantiates an InmemProxy
+	//instantiate an InmemProxy
 	mobileApp := newMobileApp(commitHandler, exceptionHandler, babbleConfig.Logger)
 	babbleConfig.Proxy = inmem.NewInmemProxy(mobileApp, babbleConfig.Logger)
 
 	engine := babble.NewBabble(babbleConfig)
 
 	engine.Peers = peerSet
+	engine.GenesisPeers = peerSet
 
 	if err := engine.Init(); err != nil {
 		exceptionHandler.OnException(fmt.Sprintf("Cannot initialize engine: %s", err))
@@ -80,7 +86,7 @@ func New(privKey string,
 	return &Node{
 		node:   engine.Node,
 		proxy:  babbleConfig.Proxy,
-		nodeID: engine.Node.ID(),
+		nodeID: engine.Node.GetID(),
 		logger: babbleConfig.Logger,
 	}
 }
@@ -91,6 +97,10 @@ func (n *Node) Run(async bool) {
 	} else {
 		n.node.Run(true)
 	}
+}
+
+func (n *Node) Leave() {
+	n.node.Leave()
 }
 
 func (n *Node) Shutdown() {
@@ -111,6 +121,18 @@ func (n *Node) GetPeers() string {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	if err := enc.Encode(peers); err != nil {
+		return ""
+	}
+
+	return buf.String()
+}
+
+func (n *Node) GetStats() string {
+	stats := n.node.GetStats()
+
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	if err := enc.Encode(stats); err != nil {
 		return ""
 	}
 

@@ -56,9 +56,8 @@ func (r *RollingIndex) GetItem(index int) (interface{}, error) {
 }
 
 func (r *RollingIndex) Set(item interface{}, index int) error {
-
-	//only allow to set items with index <= lastIndex + 1
-	//so that we may assume there are no gaps between items
+	//only allow to setting items with index <= lastIndex + 1 so we may assume
+	//there are no gaps between items
 	if 0 <= r.lastIndex && index > r.lastIndex+1 {
 		return NewStoreErr(r.name, SkippedIndex, strconv.Itoa(index))
 	}
@@ -73,8 +72,8 @@ func (r *RollingIndex) Set(item interface{}, index int) error {
 		return nil
 	}
 
-	//replace and existing item
-	//make sure index is also greater or equal than the oldest cached item's index
+	//replace an existing item. Make sure index is also greater or equal than
+	//the oldest cached item's index
 	cachedItems := len(r.items)
 	oldestCachedIndex := r.lastIndex - cachedItems + 1
 

@@ -15,12 +15,9 @@ type InmemStore struct {
 	frameCache             *cm.LRU          //round received => Frame
 	consensusCache         *cm.RollingIndex //consensus index => hash
 	totConsensusEvents     int
-	peerSetCache           *PeerSetCache //start round => PeerSet
-	repertoireByPubKey     map[string]*peers.Peer
-	repertoireByID         map[uint32]*peers.Peer
+	peerSetCache           *PeerSetCache           //start round => PeerSet
 	participantEventsCache *ParticipantEventsCache //pubkey => Events
-	rootsByParticipant     map[string]*Root        //[participant] => Root
-	rootsBySelfParent      map[string]*Root        //[Root.SelfParent.Hash] => Root
+	roots                  map[string]*Root        //[participant] => Root
 	lastRound              int
 	lastConsensusEvents    map[string]string //[participant] => hex() of last consensus event
 	lastBlock              int
@@ -35,14 +32,11 @@ func NewInmemStore(cacheSize int) *InmemStore {
 		frameCache:             cm.NewLRU(cacheSize, nil),
 		consensusCache:         cm.NewRollingIndex("ConsensusCache", cacheSize),
 		peerSetCache:           NewPeerSetCache(),
-		repertoireByPubKey:     make(map[string]*peers.Peer),
-		repertoireByID:         make(map[uint32]*peers.Peer),
 		participantEventsCache: NewParticipantEventsCache(cacheSize),
-		rootsByParticipant:     make(map[string]*Root),
-		rootsBySelfParent:      make(map[string]*Root),
-		lastRound:              -1,
-		lastBlock:              -1,
-		lastConsensusEvents:    map[string]string{},
+		roots:               make(map[string]*Root),
+		lastRound:           -1,
+		lastBlock:           -1,
+		lastConsensusEvents: map[string]string{},
 	}
 	return store
 }
@@ -55,8 +49,7 @@ func (s *InmemStore) GetPeerSet(round int) (*peers.PeerSet, error) {
 	return s.peerSetCache.Get(round)
 }
 
-//SetPeerSet updates the peerSetCache, participantEventsCache, rootsCache, and
-//Repertoire.
+//SetPeerSet updates the peerSetCache and participantEventsCache
 func (s *InmemStore) SetPeerSet(round int, peerSet *peers.PeerSet) error {
 	//Update PeerSetCache
 	err := s.peerSetCache.Set(round, peerSet)
@@ -64,49 +57,41 @@ func (s *InmemStore) SetPeerSet(round int, peerSet *peers.PeerSet) error {
 		return err
 	}
 
-	//Extend Repertoire, PartipantEventsCache, and Roots with new peers
 	for _, p := range peerSet.Peers {
-		if err := s.AddParticipant(p); err != nil {
-			return err
-		}
+		s.addParticipant(p)
 	}
 
 	return nil
 }
 
-func (s *InmemStore) GetFuturePeerSets(baseRound int) (map[int][]*peers.Peer, error) {
-	return s.peerSetCache.GetFuture(baseRound)
-}
-
-func (s *InmemStore) AddParticipant(p *peers.Peer) error {
+func (s *InmemStore) addParticipant(p *peers.Peer) error {
 	if _, ok := s.participantEventsCache.participants.ByID[p.ID()]; !ok {
 		if err := s.participantEventsCache.AddPeer(p); err != nil {
 			return err
 		}
 	}
 
-	if _, ok := s.rootsByParticipant[p.PubKeyHex]; !ok {
-		root := NewBaseRoot(p.ID())
-		s.rootsByParticipant[p.PubKeyHex] = root
-		s.rootsBySelfParent[root.Head] = root
+	if _, ok := s.roots[p.PubKeyString()]; !ok {
+		s.roots[p.PubKeyString()] = NewRoot()
 	}
-
-	s.repertoireByPubKey[p.PubKeyHex] = p
-	s.repertoireByID[p.ID()] = p
 
 	return nil
 }
 
+func (s *InmemStore) GetAllPeerSets() (map[int][]*peers.Peer, error) {
+	return s.peerSetCache.GetAll()
+}
+
+func (s *InmemStore) FirstRound(id uint32) (int, bool) {
+	return s.peerSetCache.FirstRound(id)
+}
+
 func (s *InmemStore) RepertoireByPubKey() map[string]*peers.Peer {
-	return s.repertoireByPubKey
+	return s.peerSetCache.RepertoireByPubKey()
 }
 
 func (s *InmemStore) RepertoireByID() map[uint32]*peers.Peer {
-	return s.repertoireByID
-}
-
-func (s *InmemStore) RootsBySelfParent() map[string]*Root {
-	return s.rootsBySelfParent
+	return s.peerSetCache.RepertoireByID()
 }
 
 func (s *InmemStore) GetEvent(key string) (*Event, error) {
@@ -138,68 +123,21 @@ func (s *InmemStore) ParticipantEvents(participant string, skip int) ([]string, 
 }
 
 func (s *InmemStore) ParticipantEvent(participant string, index int) (string, error) {
-	ev, err := s.participantEventsCache.GetItem(participant, index)
-	if err != nil {
-		root, ok := s.rootsByParticipant[participant]
-		if !ok {
-			return "", cm.NewStoreErr("InmemStore.Roots", cm.NoRoot, participant)
-		}
-		pe, ok := root.PastByIndex(index)
-		if ok {
-			ev = pe.Hash
-			err = nil
-		}
-	}
-	return ev, err
+	return s.participantEventsCache.GetItem(participant, index)
 }
 
-func (s *InmemStore) LastEventFrom(participant string) (last string, isRoot bool, err error) {
-	//try to get the last event from this participant
+func (s *InmemStore) LastEventFrom(participant string) (last string, err error) {
 	last, err = s.participantEventsCache.GetLast(participant)
-
-	//if there is none, grab the root
-	if err != nil && cm.Is(err, cm.Empty) {
-		root, ok := s.rootsByParticipant[participant]
-		if ok {
-			last = root.Head
-			isRoot = true
-			err = nil
-		} else {
-			err = cm.NewStoreErr("InmemStore.Roots", cm.NoRoot, participant)
-		}
-	}
 	return
 }
 
-func (s *InmemStore) LastConsensusEventFrom(participant string) (last string, isRoot bool, err error) {
-	//try to get the last consensus event from this participant
-	last, ok := s.lastConsensusEvents[participant]
-	//if there is none, grab the root
-	if !ok {
-		root, ok := s.rootsByParticipant[participant]
-		if ok {
-			last = root.Head
-			isRoot = true
-		} else {
-			err = cm.NewStoreErr("InmemStore.Roots", cm.NoRoot, participant)
-		}
-	}
+func (s *InmemStore) LastConsensusEventFrom(participant string) (last string, err error) {
+	last, _ = s.lastConsensusEvents[participant]
 	return
 }
 
 func (s *InmemStore) KnownEvents() map[uint32]int {
-	known := s.participantEventsCache.Known()
-
-	for p, pid := range s.repertoireByPubKey {
-		if known[pid.ID()] == -1 {
-			root, ok := s.rootsByParticipant[p]
-			if ok {
-				known[pid.ID()] = root.GetHead().Index
-			}
-		}
-	}
-
-	return known
+	return s.participantEventsCache.Known()
 }
 
 func (s *InmemStore) ConsensusEvents() []string {
@@ -259,7 +197,7 @@ func (s *InmemStore) RoundEvents(r int) int {
 }
 
 func (s *InmemStore) GetRoot(participant string) (*Root, error) {
-	res, ok := s.rootsByParticipant[participant]
+	res, ok := s.roots[participant]
 	if !ok {
 		return nil, cm.NewStoreErr("RootCache", cm.KeyNotFound, participant)
 	}
@@ -312,35 +250,21 @@ func (s *InmemStore) SetFrame(frame *Frame) error {
 func (s *InmemStore) Reset(frame *Frame) error {
 	//Clear all caches
 	s.peerSetCache = NewPeerSetCache()
-	s.repertoireByPubKey = make(map[string]*peers.Peer)
-	s.repertoireByID = make(map[uint32]*peers.Peer)
 	s.eventCache = cm.NewLRU(s.cacheSize, nil)
 	s.roundCache = cm.NewLRU(s.cacheSize, nil)
 	s.blockCache = cm.NewLRU(s.cacheSize, nil)
 	s.frameCache = cm.NewLRU(s.cacheSize, nil)
 	s.participantEventsCache = NewParticipantEventsCache(s.cacheSize)
-	s.rootsByParticipant = make(map[string]*Root)
-	s.rootsBySelfParent = make(map[string]*Root)
+	s.roots = make(map[string]*Root)
 	s.lastRound = -1
 	s.lastBlock = -1
 	s.consensusCache = cm.NewRollingIndex("ConsensusCache", s.cacheSize)
 	s.lastConsensusEvents = map[string]string{}
 
 	//Set Roots from Frame
-	s.rootsByParticipant = frame.Roots
+	s.roots = frame.Roots
 
-	for _, r := range frame.Roots {
-		s.rootsBySelfParent[r.Head] = r
-	}
-
-	//Set PeerSet, which also populates the Repertoires as a side effect.
-	peerSet := peers.NewPeerSet(frame.Peers)
-
-	if err := s.SetPeerSet(frame.Round, peerSet); err != nil {
-		return err
-	}
-
-	for round, ps := range frame.FuturePeerSets {
+	for round, ps := range frame.PeerSets {
 		if err := s.SetPeerSet(round, peers.NewPeerSet(ps)); err != nil {
 			return err
 		}
@@ -352,10 +276,6 @@ func (s *InmemStore) Reset(frame *Frame) error {
 
 func (s *InmemStore) Close() error {
 	return nil
-}
-
-func (s *InmemStore) NeedBoostrap() bool {
-	return false
 }
 
 func (s *InmemStore) StorePath() string {
