@@ -4,12 +4,21 @@
 
 SECURITY:
 
-* keygen: Use plain-text representation of private key, rather that X509/PEM.
+FEATURES:
+
+IMPROVEMENTS:
+
+BUG FIXES:
+
+## v0.5.0 (July 14, 2019)
+
+SECURITY:
+
+* crypto: Use secp256k1 curve which is also used by Ethereum and Bitcoin.
 
 FEATURES:
 
-* hashgraph: Dynamic membership protocol.
-* crypto: Use secp256k1 curve which is also used by Ethereum and Bitcoin.
+* hashgraph: Dynamic Membership protocol.
 
 IMPROVEMENTS:
 

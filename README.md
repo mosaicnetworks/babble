@@ -4,11 +4,11 @@
 
 [![CircleCI](https://circleci.com/gh/mosaicnetworks/babble.svg?style=svg)](https://circleci.com/gh/mosaicnetworks/babble)
 
-Babble allows many computers to behave as one. It uses Peer to Peer (P2P)
-networking and a consensus algorithm to guarantee that multiple connected
+Babble enables multiple computers to behave as one. It uses Peer to Peer (P2P)
+networking and a consensus algorithm to guarantee that a group of connected
 computers process the same commands in the same order; a technique known as
-state machine replication. This makes for secure systems that can tolerate
-arbitrary failures including malicious behavior.
+state-machine replication. This makes for secure systems that can tolerate
+arbitrary failures, including malicious behavior.
 
 For guidance on how to install and use Babble please visit our
 [documentation](http://docs.babble.io) pages.
@@ -36,6 +36,16 @@ Babble projects the output of the consensus algorithm onto a linear blockchain
 which is more suitable for representing an ordered list of transactions and
 facilitates the creation of light-clients. For information about this projection
 please refer to [documentation](http://docs.babble.io/blockchain.html) pages.
+
+This blockchain mapping is also instrumental in two important features that were
+alluded to in Baird's paper, but not implemented:
+
+- A [fast-sync](http://docs.babble.io/fastsync.html) protocol which enables
+  nodes to join a cluster without having to download the entire history of
+  gossip.
+
+- A [dynamic membership](http://docs.babble.io/dynamic_membership.html)
+  protocol, which enables peers to join or leave a cluster on demand.
 
 ## Design
 

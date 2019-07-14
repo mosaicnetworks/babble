@@ -36,7 +36,7 @@ func (s *Service) Serve() {
 	serverMuxBabble := http.NewServeMux()
 	r := mux.NewRouter()
 	r.HandleFunc("/stats", s.GetStats)
-	r.HandleFunc("/block/", s.GetBlock)
+	r.HandleFunc("/block/{index}", s.GetBlock)
 	r.HandleFunc("/graph", s.GetGraph)
 	r.HandleFunc("/peers", s.GetPeers)
 	r.HandleFunc("/genesispeers", s.GetGenesisPeers)

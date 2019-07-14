@@ -6,5 +6,3 @@ ENV CGO_ENABLED 0
 RUN curl https://glide.sh/get | sh
 # Install Gox (Go cross-compiler)
 RUN go get -u -v github.com/mitchellh/gox
-# Install ghr (Creates github releases and uploads artifacts)
-RUN go get -u -v github.com/tcnksm/ghr

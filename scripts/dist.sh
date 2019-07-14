@@ -30,7 +30,7 @@ docker run --rm  \
     -e "BUILD_TAGS=$BUILD_TAGS" \
     -v "$(pwd)":/go/src/github.com/mosaicnetworks/babble \
     -w /go/src/github.com/mosaicnetworks/babble \
-    mosaicnetworks/glider:0.0.2 ./scripts/dist_build.sh
+    mosaicnetworks/glider:0.0.3 ./scripts/dist_build.sh
 
 # Add "babble" and $VERSION prefix to package name.
 rm -rf ./build/dist
