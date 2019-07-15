@@ -35,16 +35,17 @@ asynchronous BFT consensus algorithm.
 Babble projects the output of the consensus algorithm onto a linear blockchain
 which is more suitable for representing an ordered list of transactions and
 facilitates the creation of light-clients. For information about this projection
-please refer to [documentation](http://docs.babble.io/blockchain.html) pages.
+please refer to [documentation](http://docs.babble.io/en/latest/blockchain.html)
+pages.
 
 This blockchain mapping is also instrumental in two important features that were
 alluded to in Baird's paper, but not implemented:
 
-- A [fast-sync](http://docs.babble.io/fastsync.html) protocol which enables
-  nodes to join a cluster without having to download the entire history of
-  gossip.
+- A [fast-sync](http://docs.babble.io/en/latest/fastsync.html) protocol which
+  enables nodes to join a cluster without having to download the entire history
+  of gossip.
 
-- A [dynamic membership](http://docs.babble.io/dynamic_membership.html)
+- A [dynamic membership](http://docs.babble.io/en/latest/dynamic_membership.html)
   protocol, which enables peers to join or leave a cluster on demand.
 
 ## Design
@@ -151,8 +152,8 @@ the App, in consensus order and bundled into blocks, with a **CommitBlock**
 call. Transactions are just raw bytes and Babble does not need to know what they
 represent. Therefore, encoding and decoding transactions is done by the App.
 
-Refer to the [API documentation](http://docs.babble.io/latest/api.html) for more
-details and a quick-start guide.
+Refer to the [API documentation](http://docs.babble.io/en/latest/api.html) for
+more details and a quick-start guide.
 
 ## Dev
 
