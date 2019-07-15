@@ -24,6 +24,8 @@ IMPROVEMENTS:
 
 * node: FastSync protocol.
 * core: Bootstrap.
+* Enhanced peers leaving and joining functionality
+* Added peers endpoint to enable `peers.json` propagation
 
 BUG FIXES:
 
