@@ -4,6 +4,7 @@
 
 [![CircleCI](https://circleci.com/gh/mosaicnetworks/babble.svg?style=svg)](https://circleci.com/gh/mosaicnetworks/babble)
 [![Documentation Status](https://readthedocs.org/projects/babble/badge/?version=latest)](https://babble.readthedocs.io/en/latest/?badge=latest)
+[![Go Report](https://goreportcard.com/badge/github.com/mosaicnetworks/babble)](https://goreportcard.com/report/github.com/mosaicnetworks/babble)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 
