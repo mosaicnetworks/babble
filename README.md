@@ -3,6 +3,10 @@
 ## BFT Consensus platform for distributed applications
 
 [![CircleCI](https://circleci.com/gh/mosaicnetworks/babble.svg?style=svg)](https://circleci.com/gh/mosaicnetworks/babble)
+[![Documentation Status](https://readthedocs.org/projects/babble/badge/?version=latest)](https://babble.readthedocs.io/en/latest/?badge=latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+
 
 Babble enables multiple computers to behave as one. It uses Peer to Peer (P2P)
 networking and a consensus algorithm to guarantee that a group of connected
