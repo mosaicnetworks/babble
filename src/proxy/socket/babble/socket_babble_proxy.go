@@ -8,6 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// SocketBabbleProxy ...
 type SocketBabbleProxy struct {
 	nodeAddress string
 	bindAddress string
@@ -18,6 +19,7 @@ type SocketBabbleProxy struct {
 	server *SocketBabbleProxyServer
 }
 
+// NewSocketBabbleProxy ...
 func NewSocketBabbleProxy(
 	nodeAddr string,
 	bindAddr string,
@@ -53,6 +55,7 @@ func NewSocketBabbleProxy(
 	return proxy, nil
 }
 
+// SubmitTx ...
 func (p *SocketBabbleProxy) SubmitTx(tx []byte) error {
 	ack, err := p.client.SubmitTx(tx)
 

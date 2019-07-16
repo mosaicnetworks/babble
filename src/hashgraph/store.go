@@ -2,6 +2,7 @@ package hashgraph
 
 import "github.com/mosaicnetworks/babble/src/peers"
 
+// Store ...
 type Store interface {
 	CacheSize() int
 	GetPeerSet(int) (*peers.PeerSet, error)

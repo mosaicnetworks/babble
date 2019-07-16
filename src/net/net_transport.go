@@ -81,6 +81,7 @@ type netConn struct {
 	enc    *json.Encoder
 }
 
+// Release ...
 func (n *netConn) Release() error {
 	return n.conn.Close()
 }

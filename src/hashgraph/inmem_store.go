@@ -7,6 +7,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
+// InmemStore ...
 type InmemStore struct {
 	cacheSize              int
 	eventCache             *cm.LRU          //hash => Event
@@ -23,6 +24,7 @@ type InmemStore struct {
 	lastBlock              int
 }
 
+// NewInmemStore ...
 func NewInmemStore(cacheSize int) *InmemStore {
 	store := &InmemStore{
 		cacheSize:              cacheSize,
@@ -41,10 +43,12 @@ func NewInmemStore(cacheSize int) *InmemStore {
 	return store
 }
 
+// CacheSize ...
 func (s *InmemStore) CacheSize() int {
 	return s.cacheSize
 }
 
+// GetPeerSet ...
 func (s *InmemStore) GetPeerSet(round int) (*peers.PeerSet, error) {
 	return s.peerSetCache.Get(round)
 }
@@ -78,22 +82,27 @@ func (s *InmemStore) addParticipant(p *peers.Peer) error {
 	return nil
 }
 
+// GetAllPeerSets ...
 func (s *InmemStore) GetAllPeerSets() (map[int][]*peers.Peer, error) {
 	return s.peerSetCache.GetAll()
 }
 
+// FirstRound ...
 func (s *InmemStore) FirstRound(id uint32) (int, bool) {
 	return s.peerSetCache.FirstRound(id)
 }
 
+// RepertoireByPubKey ...
 func (s *InmemStore) RepertoireByPubKey() map[string]*peers.Peer {
 	return s.peerSetCache.RepertoireByPubKey()
 }
 
+// RepertoireByID ...
 func (s *InmemStore) RepertoireByID() map[uint32]*peers.Peer {
 	return s.peerSetCache.RepertoireByID()
 }
 
+// GetEvent ...
 func (s *InmemStore) GetEvent(key string) (*Event, error) {
 	res, ok := s.eventCache.Get(key)
 	if !ok {
@@ -103,6 +112,7 @@ func (s *InmemStore) GetEvent(key string) (*Event, error) {
 	return res.(*Event), nil
 }
 
+// SetEvent ...
 func (s *InmemStore) SetEvent(event *Event) error {
 	key := event.Hex()
 	_, err := s.GetEvent(key)
@@ -118,28 +128,34 @@ func (s *InmemStore) SetEvent(event *Event) error {
 	return nil
 }
 
+// ParticipantEvents ...
 func (s *InmemStore) ParticipantEvents(participant string, skip int) ([]string, error) {
 	return s.participantEventsCache.Get(participant, skip)
 }
 
+// ParticipantEvent ...
 func (s *InmemStore) ParticipantEvent(participant string, index int) (string, error) {
 	return s.participantEventsCache.GetItem(participant, index)
 }
 
+// LastEventFrom ...
 func (s *InmemStore) LastEventFrom(participant string) (last string, err error) {
 	last, err = s.participantEventsCache.GetLast(participant)
 	return
 }
 
+// LastConsensusEventFrom ...
 func (s *InmemStore) LastConsensusEventFrom(participant string) (last string, err error) {
 	last, _ = s.lastConsensusEvents[participant]
 	return
 }
 
+// KnownEvents ...
 func (s *InmemStore) KnownEvents() map[uint32]int {
 	return s.participantEventsCache.Known()
 }
 
+// ConsensusEvents ...
 func (s *InmemStore) ConsensusEvents() []string {
 	lastWindow, _ := s.consensusCache.GetLastWindow()
 	res := make([]string, len(lastWindow))
@@ -149,10 +165,12 @@ func (s *InmemStore) ConsensusEvents() []string {
 	return res
 }
 
+// ConsensusEventsCount ...
 func (s *InmemStore) ConsensusEventsCount() int {
 	return s.totConsensusEvents
 }
 
+// AddConsensusEvent ...
 func (s *InmemStore) AddConsensusEvent(event *Event) error {
 	s.consensusCache.Set(event.Hex(), s.totConsensusEvents)
 	s.totConsensusEvents++
@@ -160,6 +178,7 @@ func (s *InmemStore) AddConsensusEvent(event *Event) error {
 	return nil
 }
 
+// GetRound ...
 func (s *InmemStore) GetRound(r int) (*RoundInfo, error) {
 	res, ok := s.roundCache.Get(r)
 	if !ok {
@@ -168,6 +187,7 @@ func (s *InmemStore) GetRound(r int) (*RoundInfo, error) {
 	return res.(*RoundInfo), nil
 }
 
+// SetRound ...
 func (s *InmemStore) SetRound(r int, round *RoundInfo) error {
 	s.roundCache.Add(r, round)
 	if r > s.lastRound {
@@ -176,10 +196,12 @@ func (s *InmemStore) SetRound(r int, round *RoundInfo) error {
 	return nil
 }
 
+// LastRound ...
 func (s *InmemStore) LastRound() int {
 	return s.lastRound
 }
 
+// RoundWitnesses ...
 func (s *InmemStore) RoundWitnesses(r int) []string {
 	round, err := s.GetRound(r)
 	if err != nil {
@@ -188,6 +210,7 @@ func (s *InmemStore) RoundWitnesses(r int) []string {
 	return round.Witnesses()
 }
 
+// RoundEvents ...
 func (s *InmemStore) RoundEvents(r int) int {
 	round, err := s.GetRound(r)
 	if err != nil {
@@ -196,6 +219,7 @@ func (s *InmemStore) RoundEvents(r int) int {
 	return len(round.CreatedEvents)
 }
 
+// GetRoot ...
 func (s *InmemStore) GetRoot(participant string) (*Root, error) {
 	res, ok := s.roots[participant]
 	if !ok {
@@ -204,6 +228,7 @@ func (s *InmemStore) GetRoot(participant string) (*Root, error) {
 	return res, nil
 }
 
+// GetBlock ...
 func (s *InmemStore) GetBlock(index int) (*Block, error) {
 	res, ok := s.blockCache.Get(index)
 	if !ok {
@@ -212,6 +237,7 @@ func (s *InmemStore) GetBlock(index int) (*Block, error) {
 	return res.(*Block), nil
 }
 
+// SetBlock ...
 func (s *InmemStore) SetBlock(block *Block) error {
 	index := block.Index()
 	_, err := s.GetBlock(index)
@@ -225,10 +251,12 @@ func (s *InmemStore) SetBlock(block *Block) error {
 	return nil
 }
 
+// LastBlockIndex ...
 func (s *InmemStore) LastBlockIndex() int {
 	return s.lastBlock
 }
 
+// GetFrame ...
 func (s *InmemStore) GetFrame(index int) (*Frame, error) {
 	res, ok := s.frameCache.Get(index)
 	if !ok {
@@ -237,6 +265,7 @@ func (s *InmemStore) GetFrame(index int) (*Frame, error) {
 	return res.(*Frame), nil
 }
 
+// SetFrame ...
 func (s *InmemStore) SetFrame(frame *Frame) error {
 	index := frame.Round
 	_, err := s.GetFrame(index)
@@ -247,6 +276,7 @@ func (s *InmemStore) SetFrame(frame *Frame) error {
 	return nil
 }
 
+// Reset ...
 func (s *InmemStore) Reset(frame *Frame) error {
 	//Clear all caches
 	s.peerSetCache = NewPeerSetCache()
@@ -274,10 +304,12 @@ func (s *InmemStore) Reset(frame *Frame) error {
 	return s.SetFrame(frame)
 }
 
+// Close ...
 func (s *InmemStore) Close() error {
 	return nil
 }
 
+// StorePath ...
 func (s *InmemStore) StorePath() string {
 	return ""
 }

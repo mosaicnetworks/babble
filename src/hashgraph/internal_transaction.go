@@ -14,13 +14,17 @@ import (
 InternalTransactionBody
 *******************************************************************************/
 
+// TransactionType ...
 type TransactionType uint8
 
 const (
+	// PEER_ADD ...
 	PEER_ADD TransactionType = iota
+	// PEER_REMOVE ...
 	PEER_REMOVE
 )
 
+// String ...
 func (t TransactionType) String() string {
 	switch t {
 	case PEER_ADD:
@@ -32,12 +36,13 @@ func (t TransactionType) String() string {
 	}
 }
 
+// InternalTransactionBody ...
 type InternalTransactionBody struct {
 	Type TransactionType
 	Peer peers.Peer
 }
 
-//json encoding of body
+//Marshal - json encoding of body
 func (i *InternalTransactionBody) Marshal() ([]byte, error) {
 	var b bytes.Buffer
 
@@ -59,29 +64,30 @@ func (i *InternalTransactionBody) Hash() ([]byte, error) {
 	return crypto.SHA256(hashBytes), nil
 }
 
-/*******************************************************************************
-InternalTransaction
-*******************************************************************************/
-
+// InternalTransaction ...
 type InternalTransaction struct {
 	Body      InternalTransactionBody
 	Signature string
 }
 
+// NewInternalTransaction ...
 func NewInternalTransaction(tType TransactionType, peer peers.Peer) InternalTransaction {
 	return InternalTransaction{
 		Body: InternalTransactionBody{Type: tType, Peer: peer},
 	}
 }
 
+// NewInternalTransactionJoin ...
 func NewInternalTransactionJoin(peer peers.Peer) InternalTransaction {
 	return NewInternalTransaction(PEER_ADD, peer)
 }
 
+// NewInternalTransactionLeave ...
 func NewInternalTransactionLeave(peer peers.Peer) InternalTransaction {
 	return NewInternalTransaction(PEER_REMOVE, peer)
 }
 
+// Marshal ...
 func (t *InternalTransaction) Marshal() ([]byte, error) {
 	var b bytes.Buffer
 
@@ -94,6 +100,7 @@ func (t *InternalTransaction) Marshal() ([]byte, error) {
 	return b.Bytes(), nil
 }
 
+// Unmarshal ...
 func (t *InternalTransaction) Unmarshal(data []byte) error {
 	b := bytes.NewBuffer(data)
 
@@ -123,6 +130,7 @@ func (t *InternalTransaction) Sign(privKey *ecdsa.PrivateKey) error {
 	return err
 }
 
+// Verify ...
 func (t *InternalTransaction) Verify() (bool, error) {
 	pubBytes := t.Body.Peer.PubKeyBytes()
 	pubKey := keys.ToPublicKey(pubBytes)

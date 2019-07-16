@@ -40,6 +40,7 @@ func PublicKeyID(pub *ecdsa.PublicKey) uint32 {
 	return Hash32(FromPublicKey(pub))
 }
 
+// Hash32 ...
 func Hash32(data []byte) uint32 {
 	h := fnv.New32a()
 	h.Write(data)

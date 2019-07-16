@@ -2,6 +2,7 @@ package common
 
 import "strconv"
 
+// RollingIndex ...
 type RollingIndex struct {
 	name      string
 	size      int
@@ -9,6 +10,7 @@ type RollingIndex struct {
 	items     []interface{}
 }
 
+// NewRollingIndex ...
 func NewRollingIndex(name string, size int) *RollingIndex {
 	return &RollingIndex{
 		name:      name,
@@ -18,10 +20,12 @@ func NewRollingIndex(name string, size int) *RollingIndex {
 	}
 }
 
+// GetLastWindow ...
 func (r *RollingIndex) GetLastWindow() (lastWindow []interface{}, lastIndex int) {
 	return r.items, r.lastIndex
 }
 
+// Get ...
 func (r *RollingIndex) Get(skipIndex int) ([]interface{}, error) {
 	res := make([]interface{}, 0)
 
@@ -42,6 +46,7 @@ func (r *RollingIndex) Get(skipIndex int) ([]interface{}, error) {
 	return r.items[start:], nil
 }
 
+// GetItem ...
 func (r *RollingIndex) GetItem(index int) (interface{}, error) {
 	items := len(r.items)
 	oldestCached := r.lastIndex - items + 1
@@ -55,6 +60,7 @@ func (r *RollingIndex) GetItem(index int) (interface{}, error) {
 	return r.items[findex], nil
 }
 
+// Set ...
 func (r *RollingIndex) Set(item interface{}, index int) error {
 	//only allow to setting items with index <= lastIndex + 1 so we may assume
 	//there are no gaps between items
@@ -88,6 +94,7 @@ func (r *RollingIndex) Set(item interface{}, index int) error {
 	return nil
 }
 
+// Roll ...
 func (r *RollingIndex) Roll() {
 	newList := make([]interface{}, 0, 2*r.size)
 	newList = append(newList, r.items[r.size:]...)

@@ -8,6 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// SocketAppProxyServer ...
 type SocketAppProxyServer struct {
 	netListener *net.Listener
 	rpcServer   *rpc.Server
@@ -15,6 +16,7 @@ type SocketAppProxyServer struct {
 	logger      *logrus.Logger
 }
 
+// NewSocketAppProxyServer ...
 func NewSocketAppProxyServer(bindAddress string, logger *logrus.Logger) (*SocketAppProxyServer, error) {
 	server := &SocketAppProxyServer{
 		submitCh: make(chan []byte),
@@ -60,6 +62,7 @@ func (p *SocketAppProxyServer) listen() {
 	}
 }
 
+// SubmitTx ...
 func (p *SocketAppProxyServer) SubmitTx(tx []byte, ack *bool) error {
 	p.logger.Debug("SubmitTx")
 

@@ -21,9 +21,7 @@ const (
 	//		Peers rather than hard-coded.
 	ROOT_DEPTH = 10
 
-	//COIN_ROUND_FREQ defines the frequency of coin rounds. The value is
-	//		arbitrary. Do something smarter.
-
+	// COIN_ROUND_FREQ ...
 	COIN_ROUND_FREQ = float64(4)
 )
 
@@ -629,10 +627,6 @@ func (h *Hashgraph) removeProcessedSignatures(processedSignatures map[string]boo
 	}
 }
 
-/*******************************************************************************
-Public Methods
-*******************************************************************************/
-
 //InsertEventAndRunConsensus inserts an Event in the Hashgraph and call the
 //consensus methods.
 func (h *Hashgraph) InsertEventAndRunConsensus(event *Event, setWireInfo bool) error {
@@ -670,22 +664,23 @@ func (h *Hashgraph) InsertEvent(event *Event, setWireInfo bool) error {
 		return fmt.Errorf("Invalid Event signature")
 	}
 
-	if err, warn := h.checkSelfParent(event); err != nil {
+	err, warn := h.checkSelfParent(event)
+	if err != nil {
 		h.logger.WithFields(logrus.Fields{
 			"event":       event.Hex(),
 			"creator":     event.Creator(),
 			"self_parent": event.SelfParent(),
 		}).WithError(err).Errorf("CheckSelfParent")
 		return err
-	} else {
-		if warn != nil {
-			h.logger.WithFields(logrus.Fields{
-				"event":       event.Hex(),
-				"creator":     event.Creator(),
-				"self_parent": event.SelfParent(),
-			}).WithError(warn).Warnf("CheckSelfParent")
-			return warn
-		}
+	}
+	if warn != nil {
+		h.logger.WithFields(logrus.Fields{
+			"event":       event.Hex(),
+			"creator":     event.Creator(),
+			"self_parent": event.SelfParent(),
+		}).WithError(warn).Warnf("CheckSelfParent")
+		return warn
+
 	}
 
 	if err := h.checkOtherParent(event); err != nil {
@@ -1619,10 +1614,6 @@ func middleBit(ehex string) bool {
 	}
 	return true
 }
-
-/*******************************************************************************
-InternalCommitCallback
-*******************************************************************************/
 
 /*
 InternalCommitCallback is called by the Hashgraph to commit a Block. The

@@ -14,6 +14,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Babble is a struct containing the key parts
+// of a babble node
 type Babble struct {
 	Config       *BabbleConfig
 	Node         *node.Node
@@ -24,6 +26,8 @@ type Babble struct {
 	Service      *service.Service
 }
 
+// NewBabble is a factory method to produce
+// a Babble instance.
 func NewBabble(config *BabbleConfig) *Babble {
 	engine := &Babble{
 		Config: config,
@@ -32,6 +36,7 @@ func NewBabble(config *BabbleConfig) *Babble {
 	return engine
 }
 
+// Init initialises the babble engine
 func (b *Babble) Init() error {
 
 	if err := b.initPeers(); err != nil {
@@ -67,6 +72,7 @@ func (b *Babble) Init() error {
 	return nil
 }
 
+// Run starts the Babble Node running
 func (b *Babble) Run() {
 	if b.Service != nil {
 		go b.Service.Serve()

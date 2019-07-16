@@ -102,6 +102,7 @@ inserts them in the hashgraph (thereby populating the InmemStore) before running
 the consensus methods.
 
 *******************************************************************************/
+
 //CacheSize sets the inmem cache size
 func (s *BadgerStore) CacheSize() int {
 	return s.inmemStore.CacheSize()
@@ -127,6 +128,7 @@ func (s *BadgerStore) GetRound(r int) (*RoundInfo, error) {
 	return s.inmemStore.GetRound(r)
 }
 
+// RoundWitnesses ...
 func (s *BadgerStore) RoundWitnesses(r int) []string {
 	round, err := s.GetRound(r)
 	if err != nil {
@@ -135,6 +137,7 @@ func (s *BadgerStore) RoundWitnesses(r int) []string {
 	return round.Witnesses()
 }
 
+// RoundEvents ...
 func (s *BadgerStore) RoundEvents(r int) int {
 	round, err := s.GetRound(r)
 	if err != nil {
@@ -143,58 +146,72 @@ func (s *BadgerStore) RoundEvents(r int) int {
 	return len(round.CreatedEvents)
 }
 
+// GetFrame ...
 func (s *BadgerStore) GetFrame(rr int) (*Frame, error) {
 	return s.inmemStore.GetFrame(rr)
 }
 
+// GetPeerSet ...
 func (s *BadgerStore) GetPeerSet(round int) (peerSet *peers.PeerSet, err error) {
 	return s.inmemStore.GetPeerSet(round)
 }
 
+// GetAllPeerSets ...
 func (s *BadgerStore) GetAllPeerSets() (map[int][]*peers.Peer, error) {
 	return s.inmemStore.GetAllPeerSets()
 }
 
+// FirstRound ...
 func (s *BadgerStore) FirstRound(id uint32) (int, bool) {
 	return s.inmemStore.FirstRound(id)
 }
 
+// RepertoireByPubKey ...
 func (s *BadgerStore) RepertoireByPubKey() map[string]*peers.Peer {
 	return s.inmemStore.RepertoireByPubKey()
 }
 
+// RepertoireByID ...
 func (s *BadgerStore) RepertoireByID() map[uint32]*peers.Peer {
 	return s.inmemStore.RepertoireByID()
 }
 
+// LastEventFrom ...
 func (s *BadgerStore) LastEventFrom(participant string) (last string, err error) {
 	return s.inmemStore.LastEventFrom(participant)
 }
 
+// LastConsensusEventFrom ...
 func (s *BadgerStore) LastConsensusEventFrom(participant string) (last string, err error) {
 	return s.inmemStore.LastConsensusEventFrom(participant)
 }
 
+// KnownEvents ...
 func (s *BadgerStore) KnownEvents() map[uint32]int {
 	return s.inmemStore.KnownEvents()
 }
 
+// ConsensusEvents ...
 func (s *BadgerStore) ConsensusEvents() []string {
 	return s.inmemStore.ConsensusEvents()
 }
 
+// ConsensusEventsCount ...
 func (s *BadgerStore) ConsensusEventsCount() int {
 	return s.inmemStore.ConsensusEventsCount()
 }
 
+// AddConsensusEvent ...
 func (s *BadgerStore) AddConsensusEvent(event *Event) error {
 	return s.inmemStore.AddConsensusEvent(event)
 }
 
+// LastRound ...
 func (s *BadgerStore) LastRound() int {
 	return s.inmemStore.LastRound()
 }
 
+// LastBlockIndex ...
 func (s *BadgerStore) LastBlockIndex() int {
 	return s.inmemStore.LastBlockIndex()
 }
@@ -209,6 +226,7 @@ and to the DB.
 
 *******************************************************************************/
 
+// SetPeerSet ...
 func (s *BadgerStore) SetPeerSet(round int, peerSet *peers.PeerSet) error {
 	//Update the cache
 	if err := s.inmemStore.SetPeerSet(round, peerSet); err != nil {
@@ -247,6 +265,7 @@ func (s *BadgerStore) addParticipant(p *peers.Peer) error {
 	return nil
 }
 
+// SetEvent ...
 func (s *BadgerStore) SetEvent(event *Event) error {
 	//try to add it to the cache
 	if err := s.inmemStore.SetEvent(event); err != nil {
@@ -256,6 +275,7 @@ func (s *BadgerStore) SetEvent(event *Event) error {
 	return s.dbSetEvents([]*Event{event})
 }
 
+// SetRound ...
 func (s *BadgerStore) SetRound(r int, round *RoundInfo) error {
 	if err := s.inmemStore.SetRound(r, round); err != nil {
 		return err
@@ -263,6 +283,7 @@ func (s *BadgerStore) SetRound(r int, round *RoundInfo) error {
 	return s.dbSetRound(r, round)
 }
 
+// GetRoot ...
 func (s *BadgerStore) GetRoot(participant string) (*Root, error) {
 	root, err := s.inmemStore.GetRoot(participant)
 	if err != nil {
@@ -271,6 +292,7 @@ func (s *BadgerStore) GetRoot(participant string) (*Root, error) {
 	return root, mapError(err, "Root", string(participantRootKey(participant)))
 }
 
+// GetBlock ...
 func (s *BadgerStore) GetBlock(rr int) (*Block, error) {
 	res, err := s.inmemStore.GetBlock(rr)
 	if err != nil {
@@ -279,6 +301,7 @@ func (s *BadgerStore) GetBlock(rr int) (*Block, error) {
 	return res, mapError(err, "Block", string(blockKey(rr)))
 }
 
+// SetBlock ...
 func (s *BadgerStore) SetBlock(block *Block) error {
 	if err := s.inmemStore.SetBlock(block); err != nil {
 		return err
@@ -286,6 +309,7 @@ func (s *BadgerStore) SetBlock(block *Block) error {
 	return s.dbSetBlock(block)
 }
 
+// SetFrame ...
 func (s *BadgerStore) SetFrame(frame *Frame) error {
 	if err := s.inmemStore.SetFrame(frame); err != nil {
 		return err
@@ -293,6 +317,7 @@ func (s *BadgerStore) SetFrame(frame *Frame) error {
 	return s.dbSetFrame(frame)
 }
 
+// Reset ...
 func (s *BadgerStore) Reset(frame *Frame) error {
 	//Reset InmemStore
 	if err := s.inmemStore.Reset(frame); err != nil {
@@ -318,6 +343,7 @@ func (s *BadgerStore) Reset(frame *Frame) error {
 	return nil
 }
 
+// Close ...
 func (s *BadgerStore) Close() error {
 	if err := s.inmemStore.Close(); err != nil {
 		return err
@@ -325,6 +351,7 @@ func (s *BadgerStore) Close() error {
 	return s.db.Close()
 }
 
+// StorePath ...
 func (s *BadgerStore) StorePath() string {
 	return s.path
 }

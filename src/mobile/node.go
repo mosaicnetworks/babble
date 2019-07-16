@@ -16,6 +16,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Node ...
 type Node struct {
 	nodeID uint32
 	node   *node.Node
@@ -91,6 +92,7 @@ func New(privKey string,
 	}
 }
 
+// Run ...
 func (n *Node) Run(async bool) {
 	if async {
 		n.node.RunAsync(true)
@@ -99,14 +101,17 @@ func (n *Node) Run(async bool) {
 	}
 }
 
+// Leave ...
 func (n *Node) Leave() {
 	n.node.Leave()
 }
 
+// Shutdown ...
 func (n *Node) Shutdown() {
 	n.node.Shutdown()
 }
 
+// SubmitTx ...
 func (n *Node) SubmitTx(tx []byte) {
 	//have to make a copy or the tx will be garbage collected and weird stuff
 	//happens in transaction pool
@@ -115,6 +120,7 @@ func (n *Node) SubmitTx(tx []byte) {
 	n.proxy.SubmitCh() <- t
 }
 
+// GetPeers ...
 func (n *Node) GetPeers() string {
 	peers := n.node.GetPeers()
 
@@ -127,6 +133,7 @@ func (n *Node) GetPeers() string {
 	return buf.String()
 }
 
+// GetStats ...
 func (n *Node) GetStats() string {
 	stats := n.node.GetStats()
 

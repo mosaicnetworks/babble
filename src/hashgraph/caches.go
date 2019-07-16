@@ -11,29 +11,33 @@ import (
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
+// Key ...
 type Key struct {
 	x, y string
 }
 
+// ToString ...
 func (k Key) ToString() string {
 	return fmt.Sprintf("{%s, %s}", k.x, k.y)
 }
 
+// TreKey ...
 type TreKey struct {
 	x, y, z string
 }
 
+// ToString ...
 func (k TreKey) ToString() string {
 	return fmt.Sprintf("{%s, %s, %s}", k.x, k.y, k.z)
 }
 
-//------------------------------------------------------------------------------
-
+// ParticipantEventsCache ...
 type ParticipantEventsCache struct {
 	participants *peers.PeerSet
 	rim          *cm.RollingIndexMap
 }
 
+// NewParticipantEventsCache ...
 func NewParticipantEventsCache(size int) *ParticipantEventsCache {
 	return &ParticipantEventsCache{
 		participants: peers.NewPeerSet([]*peers.Peer{}),
@@ -41,6 +45,7 @@ func NewParticipantEventsCache(size int) *ParticipantEventsCache {
 	}
 }
 
+// AddPeer ...
 func (pec *ParticipantEventsCache) AddPeer(peer *peers.Peer) error {
 	pec.participants = pec.participants.WithNewPeer(peer)
 	return pec.rim.AddKey(peer.ID())
@@ -76,6 +81,7 @@ func (pec *ParticipantEventsCache) Get(participant string, skipIndex int) ([]str
 	return res, nil
 }
 
+// GetItem ...
 func (pec *ParticipantEventsCache) GetItem(participant string, index int) (string, error) {
 	id, err := pec.participantID(participant)
 	if err != nil {
@@ -89,6 +95,7 @@ func (pec *ParticipantEventsCache) GetItem(participant string, index int) (strin
 	return item.(string), nil
 }
 
+// GetLast ...
 func (pec *ParticipantEventsCache) GetLast(participant string) (string, error) {
 	id, err := pec.participantID(participant)
 	if err != nil {
@@ -102,6 +109,7 @@ func (pec *ParticipantEventsCache) GetLast(participant string) (string, error) {
 	return last.(string), nil
 }
 
+// Set ...
 func (pec *ParticipantEventsCache) Set(participant string, hash string, index int) error {
 	id, err := pec.participantID(participant)
 	if err != nil {
@@ -110,13 +118,12 @@ func (pec *ParticipantEventsCache) Set(participant string, hash string, index in
 	return pec.rim.Set(id, hash, index)
 }
 
-//returns [participant id] => lastKnownIndex
+// Known returns [participant id] => lastKnownIndex
 func (pec *ParticipantEventsCache) Known() map[uint32]int {
 	return pec.rim.Known()
 }
 
-//------------------------------------------------------------------------------
-
+// PeerSetCache ...
 type PeerSetCache struct {
 	rounds             sort.IntSlice
 	peerSets           map[int]*peers.PeerSet
@@ -125,6 +132,7 @@ type PeerSetCache struct {
 	firstRounds        map[uint32]int
 }
 
+// NewPeerSetCache ...
 func NewPeerSetCache() *PeerSetCache {
 	return &PeerSetCache{
 		rounds:             sort.IntSlice{},
@@ -135,6 +143,7 @@ func NewPeerSetCache() *PeerSetCache {
 	}
 }
 
+// Set ...
 func (c *PeerSetCache) Set(round int, peerSet *peers.PeerSet) error {
 	if _, ok := c.peerSets[round]; ok {
 		return cm.NewStoreErr("PeerSetCache", cm.KeyAlreadyExists, strconv.Itoa(round))
@@ -158,6 +167,7 @@ func (c *PeerSetCache) Set(round int, peerSet *peers.PeerSet) error {
 
 }
 
+// Get ...
 func (c *PeerSetCache) Get(round int) (*peers.PeerSet, error) {
 	//check if directly in peerSets
 	ps, ok := c.peerSets[round]
@@ -184,6 +194,7 @@ func (c *PeerSetCache) Get(round int) (*peers.PeerSet, error) {
 	return c.peerSets[c.rounds[len(c.rounds)-1]], nil
 }
 
+// GetAll ...
 func (c *PeerSetCache) GetAll() (map[int][]*peers.Peer, error) {
 	res := make(map[int][]*peers.Peer)
 	for _, r := range c.rounds {
@@ -192,14 +203,17 @@ func (c *PeerSetCache) GetAll() (map[int][]*peers.Peer, error) {
 	return res, nil
 }
 
+// RepertoireByID ...
 func (c *PeerSetCache) RepertoireByID() map[uint32]*peers.Peer {
 	return c.repertoireByID
 }
 
+// RepertoireByPubKey ...
 func (c *PeerSetCache) RepertoireByPubKey() map[string]*peers.Peer {
 	return c.repertoireByPubKey
 }
 
+// FirstRound ...
 func (c *PeerSetCache) FirstRound(id uint32) (int, bool) {
 	fr, ok := c.firstRounds[id]
 	if ok {
@@ -208,26 +222,33 @@ func (c *PeerSetCache) FirstRound(id uint32) (int, bool) {
 	return math.MaxInt32, false
 }
 
-//------------------------------------------------------------------------------
-
+// PendingRound ...
 type PendingRound struct {
 	Index   int
 	Decided bool
 }
 
+// OrderedPendingRounds ...
 type OrderedPendingRounds []*PendingRound
 
-func (a OrderedPendingRounds) Len() int      { return len(a) }
+// Len returns the length
+func (a OrderedPendingRounds) Len() int { return len(a) }
+
+// Swap swaps 2 elements
 func (a OrderedPendingRounds) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+
+// Less returns true if element i is less than element j.
 func (a OrderedPendingRounds) Less(i, j int) bool {
 	return a[i].Index < a[j].Index
 }
 
+// PendingRoundsCache ...
 type PendingRoundsCache struct {
 	items       map[int]*PendingRound
 	sortedItems OrderedPendingRounds
 }
 
+// NewPendingRoundsCache ...
 func NewPendingRoundsCache() *PendingRoundsCache {
 	return &PendingRoundsCache{
 		items:       make(map[int]*PendingRound),
@@ -235,21 +256,25 @@ func NewPendingRoundsCache() *PendingRoundsCache {
 	}
 }
 
+// Queued ...
 func (c *PendingRoundsCache) Queued(round int) bool {
 	_, ok := c.items[round]
 	return ok
 }
 
+// Set ...
 func (c *PendingRoundsCache) Set(pendingRound *PendingRound) {
 	c.items[pendingRound.Index] = pendingRound
 	c.sortedItems = append(c.sortedItems, pendingRound)
 	sort.Sort(c.sortedItems)
 }
 
+// GetOrderedPendingRounds ...
 func (c *PendingRoundsCache) GetOrderedPendingRounds() OrderedPendingRounds {
 	return c.sortedItems
 }
 
+// Update ...
 func (c *PendingRoundsCache) Update(decidedRounds []int) {
 	for _, drn := range decidedRounds {
 		if dr, ok := c.items[drn]; ok {
@@ -258,6 +283,7 @@ func (c *PendingRoundsCache) Update(decidedRounds []int) {
 	}
 }
 
+// Clean ...
 func (c *PendingRoundsCache) Clean(processedRounds []int) {
 	for _, pr := range processedRounds {
 		delete(c.items, pr)
@@ -270,40 +296,46 @@ func (c *PendingRoundsCache) Clean(processedRounds []int) {
 	c.sortedItems = newSortedItems
 }
 
-//------------------------------------------------------------------------------
-
+// SigPool ...
 type SigPool struct {
 	items map[string]BlockSignature
 }
 
+// NewSigPool ...
 func NewSigPool() *SigPool {
 	return &SigPool{
 		items: make(map[string]BlockSignature),
 	}
 }
 
+// Add ...
 func (sp *SigPool) Add(blockSignature BlockSignature) {
 	sp.items[blockSignature.Key()] = blockSignature
 }
 
+// Remove ...
 func (sp *SigPool) Remove(key string) {
 	delete(sp.items, key)
 }
 
+// RemoveSlice ...
 func (sp *SigPool) RemoveSlice(sigs []BlockSignature) {
 	for _, s := range sigs {
 		delete(sp.items, s.Key())
 	}
 }
 
+// Len ...
 func (sp *SigPool) Len() int {
 	return len(sp.items)
 }
 
+// Items ...
 func (sp *SigPool) Items() map[string]BlockSignature {
 	return sp.items
 }
 
+// Slice ...
 func (sp *SigPool) Slice() []BlockSignature {
 	res := []BlockSignature{}
 	for _, bs := range sp.items {

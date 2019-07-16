@@ -12,8 +12,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// DefaultKeyfile ...
 const DefaultKeyfile = "priv_key"
 
+// BabbleConfig ...
 type BabbleConfig struct {
 	NodeConfig node.Config `mapstructure:",squash"`
 
@@ -31,6 +33,7 @@ type BabbleConfig struct {
 	Logger    *logrus.Logger
 }
 
+// NewDefaultConfig ...
 func NewDefaultConfig() *BabbleConfig {
 
 	logger := logrus.New()
@@ -55,14 +58,17 @@ func NewDefaultConfig() *BabbleConfig {
 	return config
 }
 
+// BadgerDir ...
 func (c *BabbleConfig) BadgerDir() string {
 	return filepath.Join(c.DataDir, "badger_db")
 }
 
+// Keyfile ...
 func (c *BabbleConfig) Keyfile() string {
 	return filepath.Join(c.DataDir, DefaultKeyfile)
 }
 
+// DefaultDataDir ...
 func DefaultDataDir() string {
 	// Try to place the data folder in the user's home dir
 	home := HomeDir()
@@ -79,6 +85,7 @@ func DefaultDataDir() string {
 	return ""
 }
 
+// HomeDir ...
 func HomeDir() string {
 	if home := os.Getenv("HOME"); home != "" {
 		return home
@@ -89,6 +96,7 @@ func HomeDir() string {
 	return ""
 }
 
+// LogLevel ...
 func LogLevel(l string) logrus.Level {
 	switch l {
 	case "debug":

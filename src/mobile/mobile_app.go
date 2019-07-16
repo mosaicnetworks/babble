@@ -28,6 +28,7 @@ func newMobileApp(commitHandler CommitHandler,
 	return mobileApp
 }
 
+// CommitHandler ...
 func (m *mobileApp) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, error) {
 	blockBytes, err := block.Marshal()
 	if err != nil {
@@ -44,10 +45,12 @@ func (m *mobileApp) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, 
 	return commitResponse, nil
 }
 
+// SnapshotHandler ...
 func (m *mobileApp) SnapshotHandler(blockIndex int) ([]byte, error) {
 	return []byte{}, nil
 }
 
+// RestoreHandler ...
 func (m *mobileApp) RestoreHandler(snapshot []byte) ([]byte, error) {
 	return []byte{}, nil
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Service ...
 type Service struct {
 	bindAddress string
 	node        *node.Node
@@ -18,6 +19,7 @@ type Service struct {
 	logger      *logrus.Logger
 }
 
+// NewService ...
 func NewService(bindAddress string, n *node.Node, logger *logrus.Logger) *Service {
 	service := Service{
 		bindAddress: bindAddress,
@@ -50,10 +52,12 @@ func (s *Service) Serve() {
 	}
 }
 
+// CORSServer ...
 type CORSServer struct {
 	r *mux.Router
 }
 
+// ServeHTTP ...
 func (s *CORSServer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	if origin := req.Header.Get("Origin"); origin != "" {
 		rw.Header().Set("Access-Control-Allow-Origin", origin)
@@ -69,6 +73,7 @@ func (s *CORSServer) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	s.r.ServeHTTP(rw, req)
 }
 
+// GetStats ...
 func (s *Service) GetStats(w http.ResponseWriter, r *http.Request) {
 	stats := s.node.GetStats()
 
@@ -77,6 +82,7 @@ func (s *Service) GetStats(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(stats)
 }
 
+// GetBlock ...
 func (s *Service) GetBlock(w http.ResponseWriter, r *http.Request) {
 	param := r.URL.Path[len("/block/"):]
 
@@ -105,6 +111,7 @@ func (s *Service) GetBlock(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(block)
 }
 
+// GetGraph ...
 func (s *Service) GetGraph(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -115,10 +122,12 @@ func (s *Service) GetGraph(w http.ResponseWriter, r *http.Request) {
 	encoder.Encode(res)
 }
 
+// GetPeers ...
 func (s *Service) GetPeers(w http.ResponseWriter, r *http.Request) {
 	returnPeerSet(w, r, s.node.GetPeers())
 }
 
+// GetGenesisPeers ...
 func (s *Service) GetGenesisPeers(w http.ResponseWriter, r *http.Request) {
 	returnPeerSet(w, r, s.node.GetGenesisPeers())
 }

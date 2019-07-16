@@ -14,6 +14,7 @@ type testLoggerAdapter struct {
 	prefix string
 }
 
+// Write ...
 func (a *testLoggerAdapter) Write(d []byte) (int, error) {
 	if d[len(d)-1] == '\n' {
 		d = d[:len(d)-1]
