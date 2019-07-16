@@ -18,6 +18,7 @@ const (
 	framePrefix      = "frame"
 )
 
+//BadgerStore struct contains the badger store and inmem store references
 type BadgerStore struct {
 	inmemStore *InmemStore
 	db         *badger.DB
@@ -101,23 +102,27 @@ inserts them in the hashgraph (thereby populating the InmemStore) before running
 the consensus methods.
 
 *******************************************************************************/
-
+//CacheSize sets the inmem cache size
 func (s *BadgerStore) CacheSize() int {
 	return s.inmemStore.CacheSize()
 }
 
+//GetEvent returns the event for the given key
 func (s *BadgerStore) GetEvent(key string) (*Event, error) {
 	return s.inmemStore.GetEvent(key)
 }
 
+//ParticipantEvents returns that participant's Events from InMem
 func (s *BadgerStore) ParticipantEvents(participant string, skip int) ([]string, error) {
 	return s.inmemStore.ParticipantEvents(participant, skip)
 }
 
+//ParticipantEvent returns a given event from the given participant from InMem
 func (s *BadgerStore) ParticipantEvent(participant string, index int) (string, error) {
 	return s.inmemStore.ParticipantEvent(participant, index)
 }
 
+//GetRound returns the round from InMem
 func (s *BadgerStore) GetRound(r int) (*RoundInfo, error) {
 	return s.inmemStore.GetRound(r)
 }
@@ -231,9 +236,9 @@ func (s *BadgerStore) addParticipant(p *peers.Peer) error {
 		return err
 	}
 
-	root, err := s.dbGetRoot(p.PubKeyString())
+	_, err := s.dbGetRoot(p.PubKeyString())
 	if err != nil {
-		root = NewRoot()
+		root := NewRoot()
 		if err := s.dbSetRoot(p.PubKeyString(), root); err != nil {
 			return err
 		}
