@@ -13,19 +13,17 @@ import (
 )
 
 const (
-	/*
-		ROOT_DEPTH determines how many FrameEvents are included in the Root. It
-		is preferable not to make ROOT_DEPTH configurable because if peers use
-		diffent values, they will produce different Roots, different Frames, and
-		different Blocks. Perhaps this parameter should be tied to the number of
-		Peers rather than hard-coded.
-	*/
+
+	//ROOT_DEPTH determines how many FrameEvents are included in the Root. It
+	//		is preferable not to make ROOT_DEPTH configurable because if peers use
+	//		diffent values, they will produce different Roots, different Frames, and
+	//		different Blocks. Perhaps this parameter should be tied to the number of
+	//		Peers rather than hard-coded.
 	ROOT_DEPTH = 10
 
-	/*
-		COIN_ROUND_FREQ defines the frequency of coin rounds. The value is
-		arbitrary. Do something smarter.
-	*/
+	//COIN_ROUND_FREQ defines the frequency of coin rounds. The value is
+	//		arbitrary. Do something smarter.
+
 	COIN_ROUND_FREQ = float64(4)
 )
 
@@ -1200,9 +1198,9 @@ func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 
 	for _, ev := range events {
 		p := ev.Core.Creator()
-		r, ok := roots[p]
+		_, ok := roots[p]
 		if !ok {
-			r, err = h.createRoot(p, ev.Core.SelfParent())
+			r, err := h.createRoot(p, ev.Core.SelfParent())
 			if err != nil {
 				return nil, err
 			}

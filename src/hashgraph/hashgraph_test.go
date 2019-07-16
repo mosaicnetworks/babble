@@ -1466,8 +1466,8 @@ func TestProcessDecidedRounds(t *testing.T) {
 		t.Fatalf("Block0.Transactions[0] should be 'e21', not %s", tx)
 	}
 
-	frame1, err := h.GetFrame(block0.RoundReceived())
-	frame1Hash, err := frame1.Hash()
+	frame1, _ := h.GetFrame(block0.RoundReceived())
+	frame1Hash, _ := frame1.Hash()
 	if !reflect.DeepEqual(block0.FrameHash(), frame1Hash) {
 		t.Fatalf("Block0.FrameHash should be %v, not %v", frame1Hash, block0.FrameHash())
 	}
@@ -1493,8 +1493,8 @@ func TestProcessDecidedRounds(t *testing.T) {
 		t.Fatalf("Block1.Transactions[1] should be 'f02b', not %s", tx)
 	}
 
-	frame2, err := h.GetFrame(block1.RoundReceived())
-	frame2Hash, err := frame2.Hash()
+	frame2, _ := h.GetFrame(block1.RoundReceived())
+	frame2Hash, _ := frame2.Hash()
 	if !reflect.DeepEqual(block1.FrameHash(), frame2Hash) {
 		t.Fatalf("Block1.FrameHash should be %v, not %v", frame2Hash, block1.FrameHash())
 	}
@@ -1922,11 +1922,11 @@ func TestBootstrap(t *testing.T) {
 
 	//Now we want to create a new Hashgraph based on the database of the previous
 	//Hashgraph and see if we can boostrap it to the same state.
-	recycledStore, err := NewBadgerStore(cacheSize, badgerDir)
+	recycledStore, _ := NewBadgerStore(cacheSize, badgerDir)
 
 	nh := NewHashgraph(recycledStore, DummyInternalCommitCallback, logrus.New().WithField("id", "bootstrapped"))
 
-	err = nh.Bootstrap()
+	err := nh.Bootstrap()
 	if err != nil {
 		t.Fatal(err)
 	}
