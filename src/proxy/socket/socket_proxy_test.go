@@ -129,7 +129,6 @@ func TestSocketProxyClient(t *testing.T) {
 		t.Fatalf("Cannot create SocketBabbleProxy: %s", err)
 	}
 
-
 	transactions := [][]byte{
 		[]byte("tx 1"),
 		[]byte("tx 2"),

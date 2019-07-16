@@ -33,10 +33,10 @@ func NewInmemStore(cacheSize int) *InmemStore {
 		consensusCache:         cm.NewRollingIndex("ConsensusCache", cacheSize),
 		peerSetCache:           NewPeerSetCache(),
 		participantEventsCache: NewParticipantEventsCache(cacheSize),
-		roots:               make(map[string]*Root),
-		lastRound:           -1,
-		lastBlock:           -1,
-		lastConsensusEvents: map[string]string{},
+		roots:                  make(map[string]*Root),
+		lastRound:              -1,
+		lastBlock:              -1,
+		lastConsensusEvents:    map[string]string{},
 	}
 	return store
 }

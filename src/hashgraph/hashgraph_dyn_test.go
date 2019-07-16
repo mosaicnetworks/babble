@@ -94,17 +94,17 @@ func initR2DynHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 	}
 
 	plays := []play{
-		play{1, 1, "w01", "w00", "e10", [][]byte{[]byte("e10")}, nil},
-		play{2, 1, "w02", "e10", "e21", [][]byte{[]byte("e21")}, nil},
-		play{0, 1, "w00", "e21", "e12", [][]byte{[]byte("e12")}, nil},
-		play{1, 2, "e10", "e12", "w11", [][]byte{[]byte("w11")}, nil},
-		play{2, 2, "e21", "w11", "w12", [][]byte{[]byte("w12")}, nil},
-		play{0, 2, "e12", "w12", "w10", [][]byte{[]byte("w10")}, nil},
-		play{1, 3, "w11", "w10", "f10", [][]byte{[]byte("f10")}, nil},
-		play{2, 3, "w12", "f10", "w22", [][]byte{[]byte("w22")}, nil},
-		play{0, 3, "w10", "w22", "w20", [][]byte{[]byte("w20")}, nil},
-		play{1, 4, "f10", "w20", "w21", [][]byte{[]byte("w21")}, nil},
-		play{2, 4, "w22", "w21", "g21", [][]byte{[]byte("g21")}, nil},
+		{1, 1, "w01", "w00", "e10", [][]byte{[]byte("e10")}, nil},
+		{2, 1, "w02", "e10", "e21", [][]byte{[]byte("e21")}, nil},
+		{0, 1, "w00", "e21", "e12", [][]byte{[]byte("e12")}, nil},
+		{1, 2, "e10", "e12", "w11", [][]byte{[]byte("w11")}, nil},
+		{2, 2, "e21", "w11", "w12", [][]byte{[]byte("w12")}, nil},
+		{0, 2, "e12", "w12", "w10", [][]byte{[]byte("w10")}, nil},
+		{1, 3, "w11", "w10", "f10", [][]byte{[]byte("f10")}, nil},
+		{2, 3, "w12", "f10", "w22", [][]byte{[]byte("w22")}, nil},
+		{0, 3, "w10", "w22", "w20", [][]byte{[]byte("w20")}, nil},
+		{1, 4, "f10", "w20", "w21", [][]byte{[]byte("w21")}, nil},
+		{2, 4, "w22", "w21", "g21", [][]byte{[]byte("g21")}, nil},
 	}
 
 	playEvents(plays, nodes, index, orderedEvents)
@@ -134,14 +134,14 @@ func initR2DynHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 	***************************************************************************/
 
 	plays = []play{
-		play{3, 0, "R3", "g21", "w33", [][]byte{[]byte("w33")}, nil},
-		play{0, 4, "w20", "w33", "w30", [][]byte{[]byte("w30")}, nil},
-		play{1, 5, "w21", "w30", "w31", [][]byte{[]byte("w31")}, nil},
-		play{2, 5, "g21", "w31", "w32", [][]byte{[]byte("w32")}, nil},
-		play{3, 1, "w33", "w32", "w43", [][]byte{[]byte("w43")}, nil},
-		play{0, 5, "w30", "w43", "w40", [][]byte{[]byte("w40")}, nil},
-		play{1, 6, "w31", "w40", "w41", [][]byte{[]byte("w41")}, nil},
-		play{2, 6, "w32", "w41", "w42", [][]byte{[]byte("w42")}, nil},
+		{3, 0, "R3", "g21", "w33", [][]byte{[]byte("w33")}, nil},
+		{0, 4, "w20", "w33", "w30", [][]byte{[]byte("w30")}, nil},
+		{1, 5, "w21", "w30", "w31", [][]byte{[]byte("w31")}, nil},
+		{2, 5, "g21", "w31", "w32", [][]byte{[]byte("w32")}, nil},
+		{3, 1, "w33", "w32", "w43", [][]byte{[]byte("w43")}, nil},
+		{0, 5, "w30", "w43", "w40", [][]byte{[]byte("w40")}, nil},
+		{1, 6, "w31", "w40", "w41", [][]byte{[]byte("w41")}, nil},
+		{2, 6, "w32", "w41", "w42", [][]byte{[]byte("w42")}, nil},
 	}
 
 	orderedEvents = &[]*Event{}
@@ -171,15 +171,15 @@ func initR2DynHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 	***************************************************************************/
 
 	plays = []play{
-		play{3, 2, "w43", "w42", "w53", [][]byte{[]byte("w53")}, nil},
-		play{2, 7, "w42", "w53", "w52", [][]byte{[]byte("w52")}, nil},
-		play{1, 7, "w41", "w52", "w51", [][]byte{[]byte("w51")}, nil},
-		play{3, 3, "w53", "w51", "j31", [][]byte{[]byte("j31")}, nil},
-		play{2, 8, "w52", "j31", "w62", [][]byte{[]byte("w62")}, nil},
-		play{1, 8, "w51", "w62", "w61", [][]byte{[]byte("w61")}, nil},
-		play{3, 4, "j31", "w61", "w63", [][]byte{[]byte("w63")}, nil},
-		play{2, 9, "w62", "w63", "h23", [][]byte{[]byte("h23")}, nil},
-		play{1, 9, "w61", "h23", "w71", [][]byte{[]byte("w71")}, nil},
+		{3, 2, "w43", "w42", "w53", [][]byte{[]byte("w53")}, nil},
+		{2, 7, "w42", "w53", "w52", [][]byte{[]byte("w52")}, nil},
+		{1, 7, "w41", "w52", "w51", [][]byte{[]byte("w51")}, nil},
+		{3, 3, "w53", "w51", "j31", [][]byte{[]byte("j31")}, nil},
+		{2, 8, "w52", "j31", "w62", [][]byte{[]byte("w62")}, nil},
+		{1, 8, "w51", "w62", "w61", [][]byte{[]byte("w61")}, nil},
+		{3, 4, "j31", "w61", "w63", [][]byte{[]byte("w63")}, nil},
+		{2, 9, "w62", "w63", "h23", [][]byte{[]byte("h23")}, nil},
+		{1, 9, "w61", "h23", "w71", [][]byte{[]byte("w71")}, nil},
 	}
 
 	orderedEvents = &[]*Event{}
@@ -209,37 +209,37 @@ func TestR2DynDivideRounds(t *testing.T) {
 		t, r int
 	}
 	expectedTimestamps := map[string]tr{
-		"w00": tr{0, 0},
-		"w01": tr{0, 0},
-		"w02": tr{0, 0},
-		"e10": tr{1, 0},
-		"e21": tr{2, 0},
-		"e12": tr{3, 0},
-		"w11": tr{4, 1},
-		"w12": tr{5, 1},
-		"w10": tr{6, 1},
-		"f10": tr{7, 1},
-		"w22": tr{8, 2},
-		"w20": tr{9, 2},
-		"w21": tr{10, 2},
-		"g21": tr{11, 2},
-		"w33": tr{12, 3},
-		"w30": tr{13, 3},
-		"w31": tr{14, 3},
-		"w32": tr{15, 3},
-		"w43": tr{16, 4},
-		"w40": tr{17, 4},
-		"w41": tr{18, 4},
-		"w42": tr{19, 4},
-		"w53": tr{20, 5},
-		"w52": tr{21, 5},
-		"w51": tr{22, 5},
-		"j31": tr{23, 5},
-		"w62": tr{24, 6},
-		"w61": tr{25, 6},
-		"w63": tr{26, 6},
-		"h23": tr{27, 6},
-		"w71": tr{28, 7},
+		"w00": {0, 0},
+		"w01": {0, 0},
+		"w02": {0, 0},
+		"e10": {1, 0},
+		"e21": {2, 0},
+		"e12": {3, 0},
+		"w11": {4, 1},
+		"w12": {5, 1},
+		"w10": {6, 1},
+		"f10": {7, 1},
+		"w22": {8, 2},
+		"w20": {9, 2},
+		"w21": {10, 2},
+		"g21": {11, 2},
+		"w33": {12, 3},
+		"w30": {13, 3},
+		"w31": {14, 3},
+		"w32": {15, 3},
+		"w43": {16, 4},
+		"w40": {17, 4},
+		"w41": {18, 4},
+		"w42": {19, 4},
+		"w53": {20, 5},
+		"w52": {21, 5},
+		"w51": {22, 5},
+		"j31": {23, 5},
+		"w62": {24, 6},
+		"w61": {25, 6},
+		"w63": {26, 6},
+		"h23": {27, 6},
+		"w71": {28, 7},
 	}
 
 	for e, et := range expectedTimestamps {
@@ -258,14 +258,14 @@ func TestR2DynDivideRounds(t *testing.T) {
 	/**************************************************************************/
 
 	expectedWitnesses := map[int][]string{
-		0: []string{"w00", "w01", "w02"},
-		1: []string{"w10", "w11", "w12"},
-		2: []string{"w20", "w21", "w22"},
-		3: []string{"w30", "w31", "w32", "w33"},
-		4: []string{"w40", "w41", "w42", "w43"},
-		5: []string{"w51", "w52", "w53"},
-		6: []string{"w61", "w62", "w63"},
-		7: []string{"w71"},
+		0: {"w00", "w01", "w02"},
+		1: {"w10", "w11", "w12"},
+		2: {"w20", "w21", "w22"},
+		3: {"w30", "w31", "w32", "w33"},
+		4: {"w40", "w41", "w42", "w43"},
+		5: {"w51", "w52", "w53"},
+		6: {"w61", "w62", "w63"},
+		7: {"w71"},
 	}
 
 	for i := 0; i < 8; i++ {
@@ -293,53 +293,53 @@ func TestR2DynDecideFame(t *testing.T) {
 	}
 
 	expectedEvents := map[int]map[string]RoundEvent{
-		0: map[string]RoundEvent{
-			"w00": RoundEvent{Witness: true, Famous: common.True},
-			"w01": RoundEvent{Witness: true, Famous: common.True},
-			"w02": RoundEvent{Witness: true, Famous: common.True},
-			"e10": RoundEvent{Witness: false, Famous: common.Undefined},
-			"e21": RoundEvent{Witness: false, Famous: common.Undefined},
-			"e12": RoundEvent{Witness: false, Famous: common.Undefined},
+		0: {
+			"w00": {Witness: true, Famous: common.True},
+			"w01": {Witness: true, Famous: common.True},
+			"w02": {Witness: true, Famous: common.True},
+			"e10": {Witness: false, Famous: common.Undefined},
+			"e21": {Witness: false, Famous: common.Undefined},
+			"e12": {Witness: false, Famous: common.Undefined},
 		},
-		1: map[string]RoundEvent{
-			"w10": RoundEvent{Witness: true, Famous: common.True},
-			"w11": RoundEvent{Witness: true, Famous: common.True},
-			"w12": RoundEvent{Witness: true, Famous: common.True},
-			"f10": RoundEvent{Witness: false, Famous: common.Undefined},
+		1: {
+			"w10": {Witness: true, Famous: common.True},
+			"w11": {Witness: true, Famous: common.True},
+			"w12": {Witness: true, Famous: common.True},
+			"f10": {Witness: false, Famous: common.Undefined},
 		},
-		2: map[string]RoundEvent{
-			"w20": RoundEvent{Witness: true, Famous: common.True},
-			"w21": RoundEvent{Witness: true, Famous: common.True},
-			"w22": RoundEvent{Witness: true, Famous: common.True},
-			"g21": RoundEvent{Witness: false, Famous: common.Undefined},
+		2: {
+			"w20": {Witness: true, Famous: common.True},
+			"w21": {Witness: true, Famous: common.True},
+			"w22": {Witness: true, Famous: common.True},
+			"g21": {Witness: false, Famous: common.Undefined},
 		},
-		3: map[string]RoundEvent{
-			"w30": RoundEvent{Witness: true, Famous: common.True},
-			"w31": RoundEvent{Witness: true, Famous: common.True},
-			"w32": RoundEvent{Witness: true, Famous: common.True},
-			"w33": RoundEvent{Witness: true, Famous: common.True},
+		3: {
+			"w30": {Witness: true, Famous: common.True},
+			"w31": {Witness: true, Famous: common.True},
+			"w32": {Witness: true, Famous: common.True},
+			"w33": {Witness: true, Famous: common.True},
 		},
-		4: map[string]RoundEvent{
-			"w40": RoundEvent{Witness: true, Famous: common.True},
-			"w41": RoundEvent{Witness: true, Famous: common.True},
-			"w42": RoundEvent{Witness: true, Famous: common.True},
-			"w43": RoundEvent{Witness: true, Famous: common.True},
+		4: {
+			"w40": {Witness: true, Famous: common.True},
+			"w41": {Witness: true, Famous: common.True},
+			"w42": {Witness: true, Famous: common.True},
+			"w43": {Witness: true, Famous: common.True},
 		},
-		5: map[string]RoundEvent{
-			"w51": RoundEvent{Witness: true, Famous: common.True},
-			"w52": RoundEvent{Witness: true, Famous: common.True},
-			"w53": RoundEvent{Witness: true, Famous: common.True},
-			"j31": RoundEvent{Witness: false, Famous: common.Undefined},
+		5: {
+			"w51": {Witness: true, Famous: common.True},
+			"w52": {Witness: true, Famous: common.True},
+			"w53": {Witness: true, Famous: common.True},
+			"j31": {Witness: false, Famous: common.Undefined},
 		},
-		6: map[string]RoundEvent{
-			"w61": RoundEvent{Witness: true, Famous: common.Undefined},
-			"w62": RoundEvent{Witness: true, Famous: common.Undefined},
-			"w63": RoundEvent{Witness: true, Famous: common.Undefined},
-			"h23": RoundEvent{Witness: false, Famous: common.Undefined},
+		6: {
+			"w61": {Witness: true, Famous: common.Undefined},
+			"w62": {Witness: true, Famous: common.Undefined},
+			"w63": {Witness: true, Famous: common.Undefined},
+			"h23": {Witness: false, Famous: common.Undefined},
 		},
-		7: map[string]RoundEvent{
+		7: {
 			//created
-			"w71": RoundEvent{Witness: true, Famous: common.Undefined},
+			"w71": {Witness: true, Famous: common.Undefined},
 		},
 	}
 
@@ -369,14 +369,14 @@ func TestR2DynDecideRoundReceived(t *testing.T) {
 	}
 
 	expectedConsensusEvents := map[int][]string{
-		0: []string{},
-		1: []string{index["w00"], index["w01"], index["w02"], index["e10"], index["e21"], index["e12"]},
-		2: []string{index["w11"], index["w12"], index["w10"], index["f10"]},
-		3: []string{index["w22"], index["w20"], index["w21"], index["g21"]},
-		4: []string{index["w33"], index["w30"], index["w31"], index["w32"]},
-		5: []string{index["w43"], index["w40"], index["w41"], index["w42"]},
-		6: []string{},
-		7: []string{},
+		0: {},
+		1: {index["w00"], index["w01"], index["w02"], index["e10"], index["e21"], index["e12"]},
+		2: {index["w11"], index["w12"], index["w10"], index["f10"]},
+		3: {index["w22"], index["w20"], index["w21"], index["g21"]},
+		4: {index["w33"], index["w30"], index["w31"], index["w32"]},
+		5: {index["w43"], index["w40"], index["w41"], index["w42"]},
+		6: {},
+		7: {},
 	}
 
 	for i := 0; i < 8; i++ {
@@ -512,17 +512,17 @@ func initUsurperHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 	}
 
 	plays := []play{
-		play{1, 1, "w01", "w00", "e10", [][]byte{[]byte("e10")}, nil},
-		play{2, 1, "w02", "e10", "e21", [][]byte{[]byte("e21")}, nil},
-		play{0, 1, "w00", "e21", "e12", [][]byte{[]byte("e12")}, nil},
-		play{1, 2, "e10", "e12", "w11", [][]byte{[]byte("w11")}, nil},
-		play{2, 2, "e21", "w11", "w12", [][]byte{[]byte("w12")}, nil},
-		play{0, 2, "e12", "w12", "w10", [][]byte{[]byte("w10")}, nil},
-		play{1, 3, "w11", "w10", "f10", [][]byte{[]byte("f10")}, nil},
-		play{2, 3, "w12", "f10", "w22", [][]byte{[]byte("w22")}, nil},
-		play{0, 3, "w10", "w22", "w20", [][]byte{[]byte("w20")}, nil},
-		play{1, 4, "f10", "w20", "w21", [][]byte{[]byte("w21")}, nil},
-		play{2, 4, "w22", "w21", "g21", [][]byte{[]byte("g21")}, nil},
+		{1, 1, "w01", "w00", "e10", [][]byte{[]byte("e10")}, nil},
+		{2, 1, "w02", "e10", "e21", [][]byte{[]byte("e21")}, nil},
+		{0, 1, "w00", "e21", "e12", [][]byte{[]byte("e12")}, nil},
+		{1, 2, "e10", "e12", "w11", [][]byte{[]byte("w11")}, nil},
+		{2, 2, "e21", "w11", "w12", [][]byte{[]byte("w12")}, nil},
+		{0, 2, "e12", "w12", "w10", [][]byte{[]byte("w10")}, nil},
+		{1, 3, "w11", "w10", "f10", [][]byte{[]byte("f10")}, nil},
+		{2, 3, "w12", "f10", "w22", [][]byte{[]byte("w22")}, nil},
+		{0, 3, "w10", "w22", "w20", [][]byte{[]byte("w20")}, nil},
+		{1, 4, "f10", "w20", "w21", [][]byte{[]byte("w21")}, nil},
+		{2, 4, "w22", "w21", "g21", [][]byte{[]byte("g21")}, nil},
 	}
 
 	playEvents(plays, nodes, index, orderedEvents)
@@ -549,12 +549,12 @@ func initUsurperHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 	}
 
 	plays = []play{
-		play{0, 4, "w20", "g21", "w30", [][]byte{[]byte("w30")}, nil},
-		play{1, 5, "w21", "w30", "w31", [][]byte{[]byte("w31")}, nil},
-		play{2, 5, "g21", "w31", "w32", [][]byte{[]byte("w32")}, nil},
-		play{3, 0, "R3", "w32", "x32", [][]byte{[]byte("x32")}, nil},
-		play{0, 5, "w30", "x32", "h03", [][]byte{[]byte("h03")}, nil},
-		play{1, 6, "w31", "h03", "w41", [][]byte{[]byte("w41")}, nil},
+		{0, 4, "w20", "g21", "w30", [][]byte{[]byte("w30")}, nil},
+		{1, 5, "w21", "w30", "w31", [][]byte{[]byte("w31")}, nil},
+		{2, 5, "g21", "w31", "w32", [][]byte{[]byte("w32")}, nil},
+		{3, 0, "R3", "w32", "x32", [][]byte{[]byte("x32")}, nil},
+		{0, 5, "w30", "x32", "h03", [][]byte{[]byte("h03")}, nil},
+		{1, 6, "w31", "h03", "w41", [][]byte{[]byte("w41")}, nil},
 	}
 
 	orderedEvents = &[]*Event{}
@@ -584,26 +584,26 @@ func TestUsurperDivideRounds(t *testing.T) {
 		t, r int
 	}
 	expectedTimestamps := map[string]tr{
-		"w00": tr{0, 0},
-		"w01": tr{0, 0},
-		"w02": tr{0, 0},
-		"e10": tr{1, 0},
-		"e21": tr{2, 0},
-		"e12": tr{3, 0},
-		"w11": tr{4, 1},
-		"w12": tr{5, 1},
-		"w10": tr{6, 1},
-		"f10": tr{7, 1},
-		"w22": tr{8, 2},
-		"w20": tr{9, 2},
-		"w21": tr{10, 2},
-		"g21": tr{11, 2},
-		"w30": tr{12, 3},
-		"w31": tr{13, 3},
-		"w32": tr{14, 3},
-		"x32": tr{15, 3},
-		"h03": tr{16, 3},
-		"w41": tr{17, 4},
+		"w00": {0, 0},
+		"w01": {0, 0},
+		"w02": {0, 0},
+		"e10": {1, 0},
+		"e21": {2, 0},
+		"e12": {3, 0},
+		"w11": {4, 1},
+		"w12": {5, 1},
+		"w10": {6, 1},
+		"f10": {7, 1},
+		"w22": {8, 2},
+		"w20": {9, 2},
+		"w21": {10, 2},
+		"g21": {11, 2},
+		"w30": {12, 3},
+		"w31": {13, 3},
+		"w32": {14, 3},
+		"x32": {15, 3},
+		"h03": {16, 3},
+		"w41": {17, 4},
 	}
 
 	for e, et := range expectedTimestamps {
@@ -622,11 +622,11 @@ func TestUsurperDivideRounds(t *testing.T) {
 	/**************************************************************************/
 
 	expectedWitnesses := map[int][]string{
-		0: []string{"w00", "w01", "w02"},
-		1: []string{"w10", "w11", "w12"},
-		2: []string{"w20", "w21", "w22"},
-		3: []string{"w30", "w31", "w32"},
-		4: []string{"w41"},
+		0: {"w00", "w01", "w02"},
+		1: {"w10", "w11", "w12"},
+		2: {"w20", "w21", "w22"},
+		3: {"w30", "w31", "w32"},
+		4: {"w41"},
 	}
 
 	for i := 0; i < 3; i++ {
@@ -676,14 +676,14 @@ func initMonologueHashgraph(t testing.TB) (*Hashgraph, map[string]string) {
 	}
 
 	plays := []play{
-		play{0, 1, "w00", "", "w10", [][]byte{[]byte("w10")}, nil},
-		play{0, 2, "w10", "", "w20", [][]byte{[]byte("w20")}, nil},
-		play{0, 3, "w20", "", "w30", [][]byte{[]byte("w30")}, nil},
-		play{0, 4, "w30", "", "w40", [][]byte{[]byte("w40")}, nil},
-		play{0, 5, "w40", "", "w50", [][]byte{[]byte("w40")}, nil},
-		play{0, 6, "w50", "", "w60", [][]byte{[]byte("w60")}, nil},
-		play{0, 7, "w60", "", "w70", [][]byte{[]byte("w70")}, nil},
-		play{0, 8, "w70", "", "w80", [][]byte{[]byte("w80")}, nil},
+		{0, 1, "w00", "", "w10", [][]byte{[]byte("w10")}, nil},
+		{0, 2, "w10", "", "w20", [][]byte{[]byte("w20")}, nil},
+		{0, 3, "w20", "", "w30", [][]byte{[]byte("w30")}, nil},
+		{0, 4, "w30", "", "w40", [][]byte{[]byte("w40")}, nil},
+		{0, 5, "w40", "", "w50", [][]byte{[]byte("w40")}, nil},
+		{0, 6, "w50", "", "w60", [][]byte{[]byte("w60")}, nil},
+		{0, 7, "w60", "", "w70", [][]byte{[]byte("w70")}, nil},
+		{0, 8, "w70", "", "w80", [][]byte{[]byte("w80")}, nil},
 	}
 
 	playEvents(plays, nodes, index, orderedEvents)
@@ -707,15 +707,15 @@ func TestMonologueDivideRounds(t *testing.T) {
 		t, r int
 	}
 	expectedTimestamps := map[string]tr{
-		"w00": tr{0, 0},
-		"w10": tr{1, 1},
-		"w20": tr{2, 2},
-		"w30": tr{3, 3},
-		"w40": tr{4, 4},
-		"w50": tr{5, 5},
-		"w60": tr{6, 6},
-		"w70": tr{7, 7},
-		"w80": tr{8, 8},
+		"w00": {0, 0},
+		"w10": {1, 1},
+		"w20": {2, 2},
+		"w30": {3, 3},
+		"w40": {4, 4},
+		"w50": {5, 5},
+		"w60": {6, 6},
+		"w70": {7, 7},
+		"w80": {8, 8},
 	}
 
 	for e, et := range expectedTimestamps {
@@ -734,15 +734,15 @@ func TestMonologueDivideRounds(t *testing.T) {
 	/**************************************************************************/
 
 	expectedWitnesses := map[int][]string{
-		0: []string{"w00"},
-		1: []string{"w10"},
-		2: []string{"w20"},
-		3: []string{"w30"},
-		4: []string{"w40"},
-		5: []string{"w50"},
-		6: []string{"w60"},
-		7: []string{"w70"},
-		8: []string{"w80"},
+		0: {"w00"},
+		1: {"w10"},
+		2: {"w20"},
+		3: {"w30"},
+		4: {"w40"},
+		5: {"w50"},
+		6: {"w60"},
+		7: {"w70"},
+		8: {"w80"},
 	}
 
 	for i := 0; i < 9; i++ {
@@ -770,32 +770,32 @@ func TestMonologueDecideFame(t *testing.T) {
 	}
 
 	expectedEvents := map[int]map[string]RoundEvent{
-		0: map[string]RoundEvent{
-			"w00": RoundEvent{Witness: true, Famous: common.True},
+		0: {
+			"w00": {Witness: true, Famous: common.True},
 		},
-		1: map[string]RoundEvent{
-			"w10": RoundEvent{Witness: true, Famous: common.True},
+		1: {
+			"w10": {Witness: true, Famous: common.True},
 		},
-		2: map[string]RoundEvent{
-			"w20": RoundEvent{Witness: true, Famous: common.True},
+		2: {
+			"w20": {Witness: true, Famous: common.True},
 		},
-		3: map[string]RoundEvent{
-			"w30": RoundEvent{Witness: true, Famous: common.True},
+		3: {
+			"w30": {Witness: true, Famous: common.True},
 		},
-		4: map[string]RoundEvent{
-			"w40": RoundEvent{Witness: true, Famous: common.True},
+		4: {
+			"w40": {Witness: true, Famous: common.True},
 		},
-		5: map[string]RoundEvent{
-			"w50": RoundEvent{Witness: true, Famous: common.True},
+		5: {
+			"w50": {Witness: true, Famous: common.True},
 		},
-		6: map[string]RoundEvent{
-			"w60": RoundEvent{Witness: true, Famous: common.True},
+		6: {
+			"w60": {Witness: true, Famous: common.True},
 		},
-		7: map[string]RoundEvent{
-			"w70": RoundEvent{Witness: true, Famous: common.Undefined},
+		7: {
+			"w70": {Witness: true, Famous: common.Undefined},
 		},
-		8: map[string]RoundEvent{
-			"w80": RoundEvent{Witness: true, Famous: common.Undefined},
+		8: {
+			"w80": {Witness: true, Famous: common.Undefined},
 		},
 	}
 
@@ -825,13 +825,13 @@ func TestMonologueDecideRoundReceived(t *testing.T) {
 	}
 
 	expectedConsensusEvents := map[int][]string{
-		0: []string{},
-		1: []string{index["w00"]},
-		2: []string{index["w10"]},
-		3: []string{index["w20"]},
-		4: []string{index["w30"]},
-		5: []string{index["w40"]},
-		6: []string{index["w50"]},
+		0: {},
+		1: {index["w00"]},
+		2: {index["w10"]},
+		3: {index["w20"]},
+		4: {index["w30"]},
+		5: {index["w40"]},
+		6: {index["w50"]},
 	}
 
 	for i := 0; i < 7; i++ {

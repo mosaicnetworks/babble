@@ -32,7 +32,7 @@ func TestNetworkTransport_PooledConn(t *testing.T) {
 	resp := SyncResponse{
 		FromID: 1,
 		Events: []hashgraph.WireEvent{
-			hashgraph.WireEvent{
+			{
 				Body: hashgraph.WireBody{
 					Transactions:         [][]byte(nil),
 					SelfParentIndex:      1,

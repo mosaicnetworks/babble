@@ -89,4 +89,3 @@ func NewTestLogger(t testing.TB) *logrus.Logger {
 	logger.Level = logrus.DebugLevel
 	return logger
 }
-

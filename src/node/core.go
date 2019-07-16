@@ -457,7 +457,7 @@ func (c *Core) Commit(block *hg.Block) error {
 		"block":                         block.Index(),
 		"state_hash":                    fmt.Sprintf("%X", commitResponse.StateHash),
 		"internal_transaction_receipts": commitResponse.InternalTransactionReceipts,
-		"err": err,
+		"err":                           err,
 	}).Debug("CommitBlock Response")
 
 	//XXX Handle errors

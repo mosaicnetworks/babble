@@ -62,7 +62,7 @@ func TestTransport_Sync(t *testing.T) {
 		resp := SyncResponse{
 			FromID: 1,
 			Events: []hashgraph.WireEvent{
-				hashgraph.WireEvent{
+				{
 					Body: hashgraph.WireBody{
 						Transactions:         [][]byte(nil),
 						SelfParentIndex:      1,
@@ -132,7 +132,7 @@ func TestTransport_EagerSync(t *testing.T) {
 		args := EagerSyncRequest{
 			FromID: 0,
 			Events: []hashgraph.WireEvent{
-				hashgraph.WireEvent{
+				{
 					Body: hashgraph.WireBody{
 						Transactions:         [][]byte(nil),
 						SelfParentIndex:      1,
@@ -216,7 +216,7 @@ func TestTransport_FastForward(t *testing.T) {
 				"pub2": hashgraph.NewRoot(),
 			},
 			Events: []*hashgraph.FrameEvent{
-				&hashgraph.FrameEvent{
+				{
 					Core: hashgraph.NewEvent(
 						[][]byte{
 							[]byte("tx1"),
@@ -226,7 +226,7 @@ func TestTransport_FastForward(t *testing.T) {
 							hashgraph.NewInternalTransaction(hashgraph.PEER_ADD, *peers.NewPeer("pub3", "addr3", "monika")),
 						},
 						[]hashgraph.BlockSignature{
-							hashgraph.BlockSignature{
+							{
 								[]byte("pub1"),
 								0,
 								"the signature",
