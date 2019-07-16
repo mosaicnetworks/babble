@@ -24,7 +24,7 @@ func EncodeSignature(r, s *big.Int) string {
 	return fmt.Sprintf("%s|%s", r.Text(36), s.Text(36))
 }
 
-//DecodeSignature parses a string representaion of a signature as produced by
+//DecodeSignature parses a string representation of a signature as produced by
 //EncodeSignature.
 func DecodeSignature(sig string) (r, s *big.Int, err error) {
 	values := strings.Split(sig, "|")

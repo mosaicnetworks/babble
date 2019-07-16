@@ -617,7 +617,7 @@ func (n *Node) join() error {
 		n.core.AcceptedRound = resp.AcceptedRound
 		n.setBabblingOrCatchingUpState()
 	} else {
-		// Then JoinRequest was explicitely refused by the curren peer-set. This
+		// Then JoinRequest was explicitly refused by the curren peer-set. This
 		// is not an error.
 		n.logger.Debug("JoinRequest refused. Shutting down.")
 		n.Shutdown()
