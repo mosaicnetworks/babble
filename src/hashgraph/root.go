@@ -27,12 +27,13 @@ func (r *Root) Insert(frameEvent *FrameEvent) {
 	r.Events = append(r.Events, frameEvent)
 }
 
-func (root *Root) Marshal() ([]byte, error) {
+// Marshal ...
+func (r *Root) Marshal() ([]byte, error) {
 	var b bytes.Buffer
 
 	enc := json.NewEncoder(&b)
 
-	if err := enc.Encode(root); err != nil {
+	if err := enc.Encode(r); err != nil {
 		return nil, err
 	}
 
@@ -40,16 +41,17 @@ func (root *Root) Marshal() ([]byte, error) {
 }
 
 //Unmarshal decodes data into a Root object
-func (root *Root) Unmarshal(data []byte) error {
+func (r *Root) Unmarshal(data []byte) error {
 	b := bytes.NewBuffer(data)
 
 	dec := json.NewDecoder(b) //will read from b
 
-	return dec.Decode(root)
+	return dec.Decode(r)
 }
 
-func (root *Root) Hash() (string, error) {
-	hashBytes, err := root.Marshal()
+// Hash ...
+func (r *Root) Hash() (string, error) {
+	hashBytes, err := r.Marshal()
 	if err != nil {
 		return "", err
 	}

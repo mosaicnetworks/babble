@@ -7,6 +7,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/crypto/keys"
 )
 
+// GetPrivPublKeys ...
 func GetPrivPublKeys() string {
 	key, err := keys.GenerateECDSAKey()
 	if err != nil {

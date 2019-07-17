@@ -7,10 +7,12 @@ application.
 
 //------------------------------------------------------------------------------
 
+// CommitHandler ...
 type CommitHandler interface {
 	OnCommit([]byte) (stateHash []byte)
 }
 
+// ExceptionHandler ...
 type ExceptionHandler interface {
 	OnException(string)
 }

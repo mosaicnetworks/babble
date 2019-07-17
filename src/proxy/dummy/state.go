@@ -18,6 +18,7 @@ import (
 * transactions.
  */
 
+// State ...
 type State struct {
 	committedTxs [][]byte
 	stateHash    []byte
@@ -25,6 +26,7 @@ type State struct {
 	logger       *logrus.Logger
 }
 
+// NewState ...
 func NewState(logger *logrus.Logger) *State {
 	state := &State{
 		committedTxs: [][]byte{},
@@ -38,6 +40,7 @@ func NewState(logger *logrus.Logger) *State {
 	return state
 }
 
+// CommitHandler ...
 func (a *State) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, error) {
 	a.logger.WithField("block", block).Debug("CommitBlock")
 
@@ -60,6 +63,7 @@ func (a *State) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, erro
 	return response, nil
 }
 
+// SnapshotHandler ...
 func (a *State) SnapshotHandler(blockIndex int) ([]byte, error) {
 	a.logger.WithField("block", blockIndex).Debug("GetSnapshot")
 
@@ -72,12 +76,14 @@ func (a *State) SnapshotHandler(blockIndex int) ([]byte, error) {
 	return snapshot, nil
 }
 
+// RestoreHandler ...
 func (a *State) RestoreHandler(snapshot []byte) ([]byte, error) {
 	a.stateHash = snapshot
 
 	return a.stateHash, nil
 }
 
+// GetCommittedTransactions ...
 func (a *State) GetCommittedTransactions() [][]byte {
 	return a.committedTxs
 }

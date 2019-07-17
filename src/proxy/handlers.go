@@ -7,6 +7,7 @@ These types are exported and need to be implemented and used by the calling
 application.
 */
 
+// ProxyHandler ...
 type ProxyHandler interface {
 	//CommitHandler is called when Babble commits a block to the application. It
 	//returns the state hash resulting from applying the block's transactions to the

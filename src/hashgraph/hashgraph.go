@@ -13,19 +13,15 @@ import (
 )
 
 const (
-	/*
-		ROOT_DEPTH determines how many FrameEvents are included in the Root. It
-		is preferable not to make ROOT_DEPTH configurable because if peers use
-		diffent values, they will produce different Roots, different Frames, and
-		different Blocks. Perhaps this parameter should be tied to the number of
-		Peers rather than hard-coded.
-	*/
+
+	//ROOT_DEPTH determines how many FrameEvents are included in the Root. It
+	//		is preferable not to make ROOT_DEPTH configurable because if peers use
+	//		diffent values, they will produce different Roots, different Frames, and
+	//		different Blocks. Perhaps this parameter should be tied to the number of
+	//		Peers rather than hard-coded.
 	ROOT_DEPTH = 10
 
-	/*
-		COIN_ROUND_FREQ defines the frequency of coin rounds. The value is
-		arbitrary. Do something smarter.
-	*/
+	// COIN_ROUND_FREQ ...
 	COIN_ROUND_FREQ = float64(4)
 )
 
@@ -631,10 +627,6 @@ func (h *Hashgraph) removeProcessedSignatures(processedSignatures map[string]boo
 	}
 }
 
-/*******************************************************************************
-Public Methods
-*******************************************************************************/
-
 //InsertEventAndRunConsensus inserts an Event in the Hashgraph and call the
 //consensus methods.
 func (h *Hashgraph) InsertEventAndRunConsensus(event *Event, setWireInfo bool) error {
@@ -672,22 +664,23 @@ func (h *Hashgraph) InsertEvent(event *Event, setWireInfo bool) error {
 		return fmt.Errorf("Invalid Event signature")
 	}
 
-	if err, warn := h.checkSelfParent(event); err != nil {
+	err, warn := h.checkSelfParent(event)
+	if err != nil {
 		h.logger.WithFields(logrus.Fields{
 			"event":       event.Hex(),
 			"creator":     event.Creator(),
 			"self_parent": event.SelfParent(),
 		}).WithError(err).Errorf("CheckSelfParent")
 		return err
-	} else {
-		if warn != nil {
-			h.logger.WithFields(logrus.Fields{
-				"event":       event.Hex(),
-				"creator":     event.Creator(),
-				"self_parent": event.SelfParent(),
-			}).WithError(warn).Warnf("CheckSelfParent")
-			return warn
-		}
+	}
+	if warn != nil {
+		h.logger.WithFields(logrus.Fields{
+			"event":       event.Hex(),
+			"creator":     event.Creator(),
+			"self_parent": event.SelfParent(),
+		}).WithError(warn).Warnf("CheckSelfParent")
+		return warn
+
 	}
 
 	if err := h.checkOtherParent(event); err != nil {
@@ -1200,9 +1193,9 @@ func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 
 	for _, ev := range events {
 		p := ev.Core.Creator()
-		r, ok := roots[p]
+		_, ok := roots[p]
 		if !ok {
-			r, err = h.createRoot(p, ev.Core.SelfParent())
+			r, err := h.createRoot(p, ev.Core.SelfParent())
 			if err != nil {
 				return nil, err
 			}
@@ -1621,10 +1614,6 @@ func middleBit(ehex string) bool {
 	}
 	return true
 }
-
-/*******************************************************************************
-InternalCommitCallback
-*******************************************************************************/
 
 /*
 InternalCommitCallback is called by the Hashgraph to commit a Block. The

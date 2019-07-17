@@ -2,26 +2,38 @@ package common
 
 import "fmt"
 
+// StoreErrType ...
 type StoreErrType uint32
 
 const (
+	// KeyNotFound ...
 	KeyNotFound StoreErrType = iota
+	// TooLate ...
 	TooLate
+	// PassedIndex ...
 	PassedIndex
+	// SkippedIndex ...
 	SkippedIndex
+	// NoRoot ...
 	NoRoot
+	// UnknownParticipant ...
 	UnknownParticipant
+	// Empty ...
 	Empty
+	// KeyAlreadyExists ...
 	KeyAlreadyExists
+	// NoPeerSet ...
 	NoPeerSet
 )
 
+// StoreErr ...
 type StoreErr struct {
 	dataType string
 	errType  StoreErrType
 	key      string
 }
 
+// NewStoreErr ...
 func NewStoreErr(dataType string, errType StoreErrType, key string) StoreErr {
 	return StoreErr{
 		dataType: dataType,
@@ -30,6 +42,7 @@ func NewStoreErr(dataType string, errType StoreErrType, key string) StoreErr {
 	}
 }
 
+// Error ...
 func (e StoreErr) Error() string {
 	m := ""
 	switch e.errType {
@@ -56,6 +69,7 @@ func (e StoreErr) Error() string {
 	return fmt.Sprintf("%s, %s, %s", e.dataType, e.key, m)
 }
 
+// Is ...
 func Is(err error, t StoreErrType) bool {
 	storeErr, ok := err.(StoreErr)
 	return ok && storeErr.errType == t

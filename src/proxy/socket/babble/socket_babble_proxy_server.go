@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// SocketBabbleProxyServer ...
 type SocketBabbleProxyServer struct {
 	netListener *net.Listener
 	rpcServer   *rpc.Server
@@ -19,6 +20,7 @@ type SocketBabbleProxyServer struct {
 	logger      *logrus.Logger
 }
 
+// NewSocketBabbleProxyServer ...
 func NewSocketBabbleProxyServer(
 	bindAddress string,
 	handler proxy.ProxyHandler,
@@ -68,6 +70,7 @@ func (p *SocketBabbleProxyServer) listen() error {
 	}
 }
 
+// CommitBlock ...
 func (p *SocketBabbleProxyServer) CommitBlock(block hashgraph.Block, response *proxy.CommitResponse) (err error) {
 	*response, err = p.handler.CommitHandler(block)
 
@@ -80,6 +83,7 @@ func (p *SocketBabbleProxyServer) CommitBlock(block hashgraph.Block, response *p
 	return
 }
 
+// GetSnapshot ...
 func (p *SocketBabbleProxyServer) GetSnapshot(blockIndex int, snapshot *[]byte) (err error) {
 	*snapshot, err = p.handler.SnapshotHandler(blockIndex)
 
@@ -96,6 +100,7 @@ func (p *SocketBabbleProxyServer) GetSnapshot(blockIndex int, snapshot *[]byte) 
 	return
 }
 
+// Restore ...
 func (p *SocketBabbleProxyServer) Restore(snapshot []byte, stateHash *[]byte) (err error) {
 	*stateHash, err = p.handler.RestoreHandler(snapshot)
 

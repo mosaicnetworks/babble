@@ -7,12 +7,14 @@ import (
 	"time"
 )
 
+// SocketBabbleProxyClient ...
 type SocketBabbleProxyClient struct {
 	nodeAddr string
 	timeout  time.Duration
 	rpc      *rpc.Client
 }
 
+// NewSocketBabbleProxyClient ...
 func NewSocketBabbleProxyClient(nodeAddr string, timeout time.Duration) *SocketBabbleProxyClient {
 	return &SocketBabbleProxyClient{
 		nodeAddr: nodeAddr,
@@ -34,6 +36,7 @@ func (p *SocketBabbleProxyClient) getConnection() error {
 	return nil
 }
 
+// SubmitTx ...
 func (p *SocketBabbleProxyClient) SubmitTx(tx []byte) (*bool, error) {
 	if err := p.getConnection(); err != nil {
 		return nil, err

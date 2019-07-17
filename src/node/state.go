@@ -22,6 +22,7 @@ const (
 	Shutdown
 )
 
+// String ...
 func (s State) String() string {
 	switch s {
 	case Babbling:

@@ -4,6 +4,7 @@ import (
 	"fmt"
 )
 
+// RollingIndexMap ...
 type RollingIndexMap struct {
 	name    string
 	size    int
@@ -11,6 +12,7 @@ type RollingIndexMap struct {
 	mapping map[uint32]*RollingIndex
 }
 
+// NewRollingIndexMap ...
 func NewRollingIndexMap(name string, size int) *RollingIndexMap {
 	return &RollingIndexMap{
 		name:    name,
@@ -20,6 +22,7 @@ func NewRollingIndexMap(name string, size int) *RollingIndexMap {
 	}
 }
 
+// AddKey ...
 func (rim *RollingIndexMap) AddKey(key uint32) error {
 	if _, ok := rim.mapping[key]; ok {
 		return NewStoreErr(rim.name, KeyAlreadyExists, fmt.Sprint(key))
@@ -29,7 +32,7 @@ func (rim *RollingIndexMap) AddKey(key uint32) error {
 	return nil
 }
 
-//return key items with index > skip
+//Get return key items with index > skip
 func (rim *RollingIndexMap) Get(key uint32, skipIndex int) ([]interface{}, error) {
 	items, ok := rim.mapping[key]
 	if !ok {
@@ -44,10 +47,12 @@ func (rim *RollingIndexMap) Get(key uint32, skipIndex int) ([]interface{}, error
 	return cached, nil
 }
 
+// GetItem ...
 func (rim *RollingIndexMap) GetItem(key uint32, index int) (interface{}, error) {
 	return rim.mapping[key].GetItem(index)
 }
 
+// GetLast ...
 func (rim *RollingIndexMap) GetLast(key uint32) (interface{}, error) {
 	pe, ok := rim.mapping[key]
 	if !ok {
@@ -60,6 +65,7 @@ func (rim *RollingIndexMap) GetLast(key uint32) (interface{}, error) {
 	return cached[len(cached)-1], nil
 }
 
+// Set ...
 func (rim *RollingIndexMap) Set(key uint32, item interface{}, index int) error {
 	items, ok := rim.mapping[key]
 	if !ok {
@@ -69,7 +75,7 @@ func (rim *RollingIndexMap) Set(key uint32, item interface{}, index int) error {
 	return items.Set(item, index)
 }
 
-//returns [key] => lastKnownIndex
+//Known returns [key] => lastKnownIndex
 func (rim *RollingIndexMap) Known() map[uint32]int {
 	known := make(map[uint32]int)
 	for k, items := range rim.mapping {

@@ -6,6 +6,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/babble"
 )
 
+// MobileConfig ...
 type MobileConfig struct {
 	Heartbeat      int    //heartbeat timeout in milliseconds
 	TCPTimeout     int    //TCP timeout in milliseconds
@@ -18,6 +19,7 @@ type MobileConfig struct {
 	Moniker        string //optional name
 }
 
+// NewMobileConfig ...
 func NewMobileConfig(heartbeat int,
 	tcpTimeout int,
 	maxPool int,
@@ -41,6 +43,7 @@ func NewMobileConfig(heartbeat int,
 	}
 }
 
+// DefaultMobileConfig ...
 func DefaultMobileConfig() *MobileConfig {
 	return &MobileConfig{
 		Heartbeat:      10,

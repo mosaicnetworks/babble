@@ -9,6 +9,7 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
+// Frame ...
 type Frame struct {
 	Round    int //RoundReceived
 	Peers    []*peers.Peer
@@ -17,6 +18,7 @@ type Frame struct {
 	PeerSets map[int][]*peers.Peer //[round] => Peers
 }
 
+// SortedFrameEvents ...
 func (f *Frame) SortedFrameEvents() []*FrameEvent {
 	sorted := SortedFrameEvents{}
 	for _, r := range f.Roots {
@@ -27,7 +29,7 @@ func (f *Frame) SortedFrameEvents() []*FrameEvent {
 	return sorted
 }
 
-//json encoding of Frame
+//Marshal - json encoding of Frame
 func (f *Frame) Marshal() ([]byte, error) {
 	b := new(bytes.Buffer)
 	jh := new(codec.JsonHandle)
@@ -41,6 +43,7 @@ func (f *Frame) Marshal() ([]byte, error) {
 	return b.Bytes(), nil
 }
 
+// Unmarshal ...
 func (f *Frame) Unmarshal(data []byte) error {
 	b := bytes.NewBuffer(data)
 	jh := new(codec.JsonHandle)
@@ -54,6 +57,7 @@ func (f *Frame) Unmarshal(data []byte) error {
 	return nil
 }
 
+// Hash ...
 func (f *Frame) Hash() ([]byte, error) {
 	hashBytes, err := f.Marshal()
 	if err != nil {
