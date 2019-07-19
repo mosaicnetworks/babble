@@ -1,6 +1,7 @@
 package keys
 
 import (
+	"encoding/hex"
 	"io/ioutil"
 	"os"
 	"path"
@@ -11,9 +12,6 @@ import (
 )
 
 func TestSimpleKeyfile(t *testing.T) {
-
-	t.Logf("wordBits: %d", wordBits)
-	t.Logf("wordBytes: %d", wordBytes)
 
 	// Create a test dir
 	os.Mkdir("test_data", os.ModeDir|0700)
@@ -50,6 +48,61 @@ func TestSimpleKeyfile(t *testing.T) {
 	if !reflect.DeepEqual(*nKey, *key) {
 		t.Fatalf("Keys do not match")
 	}
+
+	t.Log(err)
+}
+
+func TestFilePermissions(t *testing.T) {
+
+	// Create a test dir
+	os.Mkdir("test_data", os.ModeDir|0700)
+	dir, err := ioutil.TempDir("test_data", "babble")
+	if err != nil {
+		t.Fatalf("err: %v ", err)
+	}
+	defer os.RemoveAll(dir)
+
+	// Initialize a key and try a write
+	key, _ := GenerateECDSAKey()
+	rawKey := hex.EncodeToString(DumpPrivateKey(key))
+
+	badKeyPath := path.Join(dir, "priv_key_bad")
+
+	// random selection of permissions that should not be accepted. There might
+	// be a more clever way to build this list.
+	shouldErr := []os.FileMode{
+		0777, 0766, 0744,
+		0677, 0666, 0644,
+		0477, 0466, 0444,
+	}
+
+	for _, fm := range shouldErr {
+		ioutil.WriteFile(badKeyPath, []byte(rawKey), fm)
+
+		badKeyFile := NewSimpleKeyfile(badKeyPath)
+
+		if _, err := badKeyFile.ReadKey(); err == nil {
+			t.Fatalf("%o || badKeyFile should return permissions error", fm)
+		}
+	}
+
+	goodKeyPath := path.Join(dir, "priv_key_good")
+
+	// random selection of permissions that should pass
+	shouldNotErr := []os.FileMode{
+		0700, 0600, 0500, 0400,
+	}
+
+	for _, fm := range shouldNotErr {
+		ioutil.WriteFile(goodKeyPath, []byte(rawKey), fm)
+
+		badKeyFile := NewSimpleKeyfile(goodKeyPath)
+
+		if _, err := badKeyFile.ReadKey(); err != nil {
+			t.Fatalf("%o || badKeyFile should not return error. Got %v", fm, err)
+		}
+	}
+
 }
 
 func TestSignatureEncoding(t *testing.T) {

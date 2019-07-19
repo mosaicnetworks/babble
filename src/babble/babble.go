@@ -181,22 +181,8 @@ func (b *Babble) initKey() error {
 		simpleKeyfile := keys.NewSimpleKeyfile(b.Config.Keyfile())
 
 		privKey, err := simpleKeyfile.ReadKey()
-
 		if err != nil {
-			b.Config.Logger.Warn(fmt.Sprintf("Cannot read private key from file: %v", err))
-
-			privKey, err = keys.GenerateECDSAKey()
-			if err != nil {
-				b.Config.Logger.Error("Error generating a new ECDSA key")
-				return err
-			}
-
-			if err := simpleKeyfile.WriteKey(privKey); err != nil {
-				b.Config.Logger.Error("Error saving private key", err)
-				return err
-			}
-
-			b.Config.Logger.Debug("Generated a new private key")
+			b.Config.Logger.Errorf("Error reading private key from file: %v", err)
 		}
 
 		b.Config.Key = privKey
