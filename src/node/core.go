@@ -44,12 +44,12 @@ type Core struct {
 	Head string
 	Seq  int
 
-	// AcceptedRound is the first round at which the node's last JoinRequest
-	// takes effect. A node will not create SelfEvents before reaching
-	// AcceptedRound.Default -1.
+	// AcceptedRound is the first round at which the node's last join request
+	// (InternalTransaction) takes effect. A node will not create SelfEvents
+	// before reaching AcceptedRound. Default -1.
 	AcceptedRound int
 
-	// RemovedRound is the round at which the node's last LeaveRequest takes
+	// RemovedRound is the round at which the node's last leave request takes
 	// effect (if there is one). Default -1.
 	RemovedRound int
 
@@ -394,35 +394,48 @@ func (c *Core) GetAnchorBlockWithFrame() (*hg.Block, *hg.Frame, error) {
 Leave
 *******************************************************************************/
 
-// Leave causes the node to leave the network
+// Leave causes the node to politely leave the network. If the node is not
+// alone, it submits an InternalTransaction to be removed from the
+// validator-set. Otherwise it does nothing.
 func (c *Core) Leave(leaveTimeout time.Duration) error {
-	p, ok := c.peers.ByID[c.validator.ID()]
+	// Do nothing if we are not a validator.
+	p, ok := c.validators.ByID[c.validator.ID()]
 	if !ok {
-		return fmt.Errorf("Leaving: Peer not found")
+		c.logger.Debugf("Leave: not a validator, do nothing")
 	}
+
+	// Do nothing if we are the only validator.
+	if len(c.validators.Peers) <= 1 {
+		c.logger.Debugf("Leave: alone, do nothing")
+		return nil
+	}
+
+	// Otherwise, submit an InternalTransaction
+
+	c.logger.Debugf("Leave: submit InternalTransaction")
 
 	itx := hg.NewInternalTransaction(hg.PEER_REMOVE, *p)
 	itx.Sign(c.validator.Key)
 
 	promise := c.AddInternalTransaction(itx)
 
-	//Wait for the InternalTransaction to go through consensus
+	// Wait for the InternalTransaction to go through consensus
 	timeout := time.After(leaveTimeout)
 	select {
 	case resp := <-promise.RespCh:
 		c.logger.WithFields(logrus.Fields{
 			"leaving_round": resp.AcceptedRound,
 			"peers":         len(resp.Peers),
-		}).Debug("LeaveRequest processed")
+		}).Debug("leave request processed")
 		c.RemovedRound = resp.AcceptedRound
 	case <-timeout:
-		err := fmt.Errorf("Timeout waiting for LeaveRequest to go through consensus")
+		err := fmt.Errorf("Timeout waiting for leave request to go through consensus")
 		c.logger.WithError(err).Error()
 		return err
 	}
 
+	// Wait for node to reach accepted round
 	if c.peers.Len() >= 1 {
-		//Wait for node to reach accepted round
 		timeout = time.After(leaveTimeout)
 		for {
 			select {
@@ -457,7 +470,7 @@ func (c *Core) Commit(block *hg.Block) error {
 		"block":                         block.Index(),
 		"state_hash":                    fmt.Sprintf("%X", commitResponse.StateHash),
 		"internal_transaction_receipts": commitResponse.InternalTransactionReceipts,
-		"err":                           err,
+		"err": err,
 	}).Debug("CommitBlock Response")
 
 	//XXX Handle errors
@@ -673,19 +686,18 @@ func (c *Core) AddTransactions(txs [][]byte) {
 	c.transactionPool = append(c.transactionPool, txs...)
 }
 
-// AddInternalTransaction adds an internal transaction
+// AddInternalTransaction adds an InternalTransaction to the  pool, and creates
+// a corresponding promise.
 func (c *Core) AddInternalTransaction(tx hg.InternalTransaction) *JoinPromise {
-	//create promise
 	promise := NewJoinPromise(tx)
 
-	//save it to promise store, for later use by the Commit callback
+	// Save it to promise store, for later use by the Commit callback
 	c.promises[tx.HashString()] = promise
 
-	//submit the internal tx to be processed asynchronously by the gossip
-	//routines
+	// Submit the internal tx to be processed asynchronously by the gossip
+	// routines
 	c.internalTransactionPool = append(c.internalTransactionPool, tx)
 
-	//return the promise
 	return promise
 }
 
