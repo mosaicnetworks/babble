@@ -12,7 +12,7 @@ echo "Generating key pair for node$N"
 docker run  \
     -u $(id -u) \
     -v $dest:/.babble \
-    --rm mosaicnetworks/babble:0.5.0 keygen 
+    --rm mosaicnetworks/babble:latest keygen 
 
 # get genesis.peers.json
 echo "Fetching peers.genesis.json from node1"
@@ -23,14 +23,14 @@ echo "Fetching peers.json from node1"
 curl -s http://172.77.5.1:80/peers > $dest/peers.json
 
 # start the new node
-docker run -d --name=client$N --net=babblenet --ip=172.77.10.$N -it mosaicnetworks/dummy:0.5.0 \
+docker run -d --name=client$N --net=babblenet --ip=172.77.10.$N -it mosaicnetworks/dummy:latest \
     --name="client $N" \
     --client-listen="172.77.10.$N:1339" \
     --proxy-connect="172.77.5.$N:1338" \
     --discard \
     --log="debug" 
 
-docker create --name=node$N --net=babblenet --ip=172.77.5.$N mosaicnetworks/babble:0.5.0 run \
+docker create --name=node$N --net=babblenet --ip=172.77.5.$N mosaicnetworks/babble:latest run \
     --moniker="node$N" \
     --cache-size=50000 \
     --listen="172.77.5.$N:1337" \

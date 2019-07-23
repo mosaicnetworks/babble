@@ -21,7 +21,7 @@ do
     docker run  \
         -u $(id -u) \
         -v $dest:/.babble \
-        --rm mosaicnetworks/babble:0.5.0 keygen 
+        --rm mosaicnetworks/babble:latest keygen 
     echo "$IPBASE$i:$PORT" > $dest/addr
 done
 
