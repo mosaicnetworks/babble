@@ -30,9 +30,13 @@ func NewService(bindAddress string, n *node.Node, logger *logrus.Logger) *Servic
 	return &service
 }
 
-//Serve defines endpoints and starts ListenAndServe
+// Serve registers the API handlers with the DefaultServerMux of the http
+// package. It calls ListenAndServe but does not process errors returned by it.
+// This is because we do not want to throw an error when Babble is used in-mem
+// and we want to expose the Babble API on the same endpoint (address:port) as
+// the application's API.
 func (s *Service) Serve() {
-	s.logger.WithField("bind_address", s.bindAddress).Debug("Babble Service serving")
+	s.logger.WithField("bind_address", s.bindAddress).Debug("Starting Babble API service")
 
 	// Add handlers to DefaultServerMux
 	http.HandleFunc("/stats", s.GetStats)
@@ -41,12 +45,10 @@ func (s *Service) Serve() {
 	http.HandleFunc("/peers", s.GetPeers)
 	http.HandleFunc("/genesispeers", s.GetGenesisPeers)
 
-	// Use DefaultServerMux
-	err := http.ListenAndServe(s.bindAddress, nil)
-
-	if err != nil {
-		s.logger.WithField("error", err).Error("Service failed")
-	}
+	// It is possible that another server, started in the same process, is
+	// simultaneously using the DefaultServerMux. In which case, the handlers
+	// will be accessible from both servers.
+	http.ListenAndServe(s.bindAddress, nil)
 }
 
 // GetStats ...
