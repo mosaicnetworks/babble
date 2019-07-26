@@ -74,7 +74,7 @@ func (b *Babble) Init() error {
 
 // Run starts the Babble Node running
 func (b *Babble) Run() {
-	if b.Service != nil {
+	if b.Config.ServiceAddr != "" {
 		go b.Service.Serve()
 	}
 
@@ -230,9 +230,7 @@ func (b *Babble) initNode() error {
 }
 
 func (b *Babble) initService() error {
-	if b.Config.ServiceAddr != "" {
-		b.Service = service.NewService(b.Config.ServiceAddr, b.Node, b.Config.Logger)
-	}
+	b.Service = service.NewService(b.Config.ServiceAddr, b.Node, b.Config.Logger)
 	return nil
 }
 

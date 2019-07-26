@@ -27,28 +27,39 @@ func NewService(bindAddress string, n *node.Node, logger *logrus.Logger) *Servic
 		logger:      logger,
 	}
 
+	service.registerHandlers()
+
 	return &service
 }
 
-// Serve registers the API handlers with the DefaultServerMux of the http
-// package. It calls ListenAndServe but does not process errors returned by it.
-// This is because we do not want to throw an error when Babble is used in-mem
-// and we want to expose the Babble API on the same endpoint (address:port) as
-// the application's API.
-func (s *Service) Serve() {
-	s.logger.WithField("bind_address", s.bindAddress).Debug("Starting Babble API service")
-
-	// Add handlers to DefaultServerMux
+// registerHandlers registers the API handlers with the DefaultServerMux of the
+// http package. It is possible that another server in the same process is
+// simultaneously using the DefaultServerMux. In which case, the handlers will
+// be accessible from both servers. This is usefull when Babble is used
+// in-memory and expecpted to use the same endpoint (address:port) as the
+// application's API.
+func (s *Service) registerHandlers() {
+	s.logger.Debug("Registering Babble API handlers")
 	http.HandleFunc("/stats", s.GetStats)
-	http.HandleFunc("/block/{index}", s.GetBlock)
+	http.HandleFunc("/block/", s.GetBlock)
 	http.HandleFunc("/graph", s.GetGraph)
 	http.HandleFunc("/peers", s.GetPeers)
 	http.HandleFunc("/genesispeers", s.GetGenesisPeers)
+}
 
-	// It is possible that another server, started in the same process, is
-	// simultaneously using the DefaultServerMux. In which case, the handlers
-	// will be accessible from both servers.
-	http.ListenAndServe(s.bindAddress, nil)
+// Serve calls ListenAndServe. This is a blocking call. It is not necessary to
+// call Serve when Babble is used in-memory and another server has already been
+// started with the DefaultServerMux and the same address:port combination.
+// Indeed, Babble API handlers have already been registered when the service was
+// instantiated.
+func (s *Service) Serve() {
+	s.logger.WithField("bind_address", s.bindAddress).Debug("Serving Babble API")
+
+	// Use the DefaultServerMux
+	err := http.ListenAndServe(s.bindAddress, nil)
+	if err != nil {
+		s.logger.Error(err)
+	}
 }
 
 // GetStats ...
