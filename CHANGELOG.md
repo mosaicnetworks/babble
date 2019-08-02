@@ -9,6 +9,11 @@ FEATURES:
 IMPROVEMENTS:
 
 BUG FIXES:
+
+## v0.5.1 (July 23, 2019)
+
+BUG FIXES:
+
 * core: Do nothing on 'leave' when the node is alone.
 
 ## v0.5.0 (July 14, 2019)
