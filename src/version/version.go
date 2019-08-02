@@ -1,13 +1,6 @@
 package version
 
-// Maj is the major release
-const Maj = "0"
-
-// Min is the minor release
-const Min = "5"
-
-// Fix is the patch fix number
-const Fix = "0"
+const flag = "develop"
 
 var (
 	// Version is The full version string
@@ -18,6 +11,8 @@ var (
 )
 
 func init() {
+	Version += "-" + flag
+
 	if GitCommit != "" {
 		Version += "-" + GitCommit[:8]
 	}
