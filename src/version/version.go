@@ -1,6 +1,9 @@
 package version
 
-const flag = "develop"
+// Flag contains extra info about the version. It is helpul for tracking
+// versions while developing. It should always by empty on the master branch.
+// This will be inforced in a continuous integration test.
+const Flag = "develop"
 
 var (
 	// Version is The full version string
@@ -11,7 +14,7 @@ var (
 )
 
 func init() {
-	Version += "-" + flag
+	Version += "-" + Flag
 
 	if GitCommit != "" {
 		Version += "-" + GitCommit[:8]
