@@ -4,7 +4,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/config"
 )
 
-//CLIConfig contains configuration for the Run command
+// CLIConfig contains configuration for the Run command
 type CLIConfig struct {
 	Babble     config.Config `mapstructure:",squash"`
 	ProxyAddr  string        `mapstructure:"proxy-listen"`
@@ -12,7 +12,7 @@ type CLIConfig struct {
 	Standalone bool          `mapstructure:"standalone"`
 }
 
-//NewDefaultCLIConfig creates a CLIConfig with default values
+// NewDefaultCLIConfig creates a CLIConfig with default values
 func NewDefaultCLIConfig() *CLIConfig {
 	return &CLIConfig{
 		Babble:     *config.NewDefaultConfig(),

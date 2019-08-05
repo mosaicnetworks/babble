@@ -24,7 +24,7 @@ type Babble struct {
 	Peers        *peers.PeerSet
 	GenesisPeers *peers.PeerSet
 	Service      *service.Service
-	logger       *logrus.Logger
+	logger       *logrus.Entry
 }
 
 // NewBabble is a factory method to produce

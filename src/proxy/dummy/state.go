@@ -23,11 +23,11 @@ type State struct {
 	committedTxs [][]byte
 	stateHash    []byte
 	snapshots    map[int][]byte
-	logger       *logrus.Logger
+	logger       *logrus.Entry
 }
 
 // NewState ...
-func NewState(logger *logrus.Logger) *State {
+func NewState(logger *logrus.Entry) *State {
 	state := &State{
 		committedTxs: [][]byte{},
 		stateHash:    []byte{},

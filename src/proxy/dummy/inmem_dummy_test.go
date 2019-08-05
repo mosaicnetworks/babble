@@ -13,7 +13,7 @@ import (
 )
 
 func TestInmemDummyAppSide(t *testing.T) {
-	logger := common.NewTestLogger(t)
+	logger := common.NewTestEntry(t)
 
 	dummy := NewInmemDummyClient(logger)
 
@@ -36,7 +36,7 @@ func TestInmemDummyAppSide(t *testing.T) {
 }
 
 func TestInmemDummyServerSide(t *testing.T) {
-	logger := common.NewTestLogger(t)
+	logger := common.NewTestEntry(t)
 
 	dummy := NewInmemDummyClient(logger)
 

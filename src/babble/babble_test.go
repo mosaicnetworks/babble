@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mosaicnetworks/babble/src/config"
 	bkeys "github.com/mosaicnetworks/babble/src/crypto/keys"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
@@ -17,10 +18,10 @@ func TestInitStore(t *testing.T) {
 	os.Mkdir("test_data", os.ModeDir|0777)
 	defer os.RemoveAll("test_data")
 
-	conf := NewDefaultConfig()
+	conf := config.NewDefaultConfig()
 	conf.DataDir = "test_data"
 	conf.Store = true
-	conf.NodeConfig.Bootstrap = false
+	conf.Bootstrap = false
 
 	jsonPeerSet := peers.NewJSONPeerSet("test_data", true)
 

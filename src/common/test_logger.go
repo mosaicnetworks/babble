@@ -83,10 +83,10 @@ func (a *testLoggerAdapter) Write(d []byte) (int, error) {
 	//END STANDARD LOGGING
 }
 
-//NewTestLogger is a factory method
-func NewTestLogger(t testing.TB) *logrus.Logger {
+// NewTestEntry returns a logrus Entry for testing
+func NewTestEntry(t testing.TB) *logrus.Entry {
 	logger := logrus.New()
 	logger.Out = &testLoggerAdapter{t: t}
 	logger.Level = logrus.DebugLevel
-	return logger
+	return logrus.NewEntry(logger)
 }

@@ -4,8 +4,6 @@ import (
 	"reflect"
 	"testing"
 	"time"
-
-	"github.com/mosaicnetworks/babble/src/common"
 )
 
 /*
@@ -113,7 +111,6 @@ func TestCatchUp(t *testing.T) {
 }
 
 func TestFastSync(t *testing.T) {
-	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
@@ -143,7 +140,7 @@ func TestFastSync(t *testing.T) {
 	checkGossip(nodes[1:], 0, t)
 
 	//Can't re-run it; have to reinstantiate a new node.
-	node0 = recycleNode(node0, logger, t)
+	node0 = recycleNode(node0, t)
 	nodes[0] = node0
 
 	//Run parallel routine to check node0 eventually reaches CatchingUp state.

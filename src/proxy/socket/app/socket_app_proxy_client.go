@@ -15,12 +15,12 @@ import (
 type SocketAppProxyClient struct {
 	clientAddr string
 	timeout    time.Duration
-	logger     *logrus.Logger
+	logger     *logrus.Entry
 	rpc        *rpc.Client
 }
 
 // NewSocketAppProxyClient ...
-func NewSocketAppProxyClient(clientAddr string, timeout time.Duration, logger *logrus.Logger) *SocketAppProxyClient {
+func NewSocketAppProxyClient(clientAddr string, timeout time.Duration, logger *logrus.Entry) *SocketAppProxyClient {
 	return &SocketAppProxyClient{
 		clientAddr: clientAddr,
 		timeout:    timeout,

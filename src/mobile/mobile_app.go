@@ -14,12 +14,12 @@ This type is not exported
 type mobileApp struct {
 	commitHandler    CommitHandler
 	exceptionHandler ExceptionHandler
-	logger           *logrus.Logger
+	logger           *logrus.Entry
 }
 
 func newMobileApp(commitHandler CommitHandler,
 	exceptionHandler ExceptionHandler,
-	logger *logrus.Logger) *mobileApp {
+	logger *logrus.Entry) *mobileApp {
 	mobileApp := &mobileApp{
 		commitHandler:    commitHandler,
 		exceptionHandler: exceptionHandler,

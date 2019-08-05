@@ -21,7 +21,7 @@ type Node struct {
 	nodeID uint32
 	node   *node.Node
 	proxy  proxy.AppProxy
-	logger *logrus.Logger
+	logger *logrus.Entry
 }
 
 // New initializes Node struct

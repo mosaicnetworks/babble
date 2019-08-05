@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/champii/babble/common"
 	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/sirupsen/logrus"
+	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 )
 
 const (
@@ -107,6 +107,18 @@ func NewDefaultConfig() *Config {
 	return config
 }
 
+// NewTestConfig returns a Preset Test Configuration
+func NewTestConfig(t testing.TB) *Config {
+	config := NewDefaultConfig()
+
+	config.logger = logrus.New()
+	config.logger.Level = LogLevel(config.LogLevel)
+	config.logger.Formatter = new(prefixed.TextFormatter)
+	config.logger.SetReportCaller(true)
+
+	return config
+}
+
 // BadgerDir returs the full path of the folder containing the Babdger database.
 func (c *Config) BadgerDir() string {
 	return filepath.Join(c.DataDir, DefaultBadgerFile)
@@ -117,13 +129,14 @@ func (c *Config) Keyfile() string {
 	return filepath.Join(c.DataDir, DefaultKeyfile)
 }
 
-// Logger returns the config's Logger
-func (c *Config) Logger() *logrus.Logger {
+// Logger returns the logrus Entry
+func (c *Config) Logger() *logrus.Entry {
 	if c.logger == nil {
 		c.logger = logrus.New()
 		c.logger.Level = LogLevel(c.LogLevel)
+		c.logger.Formatter = new(prefixed.TextFormatter)
 	}
-	return c.logger
+	return c.logger.WithField("prefix", "BABBLE")
 }
 
 // DefaultDataDir ...
@@ -172,11 +185,4 @@ func LogLevel(l string) logrus.Level {
 	default:
 		return logrus.DebugLevel
 	}
-}
-
-// TestConfig returns a Preset Test Configuration
-func TestConfig(t testing.TB) *Config {
-	config := NewDefaultConfig()
-	config.logger = common.NewTestLogger(t)
-	return config
 }

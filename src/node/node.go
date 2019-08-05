@@ -73,13 +73,14 @@ func NewNode(conf *config.Config,
 	trans net.Transport,
 	proxy proxy.AppProxy,
 ) *Node {
+
 	//Prepare sigintCh to relay SIGINT system calls
 	sigintCh := make(chan os.Signal)
 	signal.Notify(sigintCh, os.Interrupt, syscall.SIGINT)
 
 	node := Node{
 		conf:         conf,
-		logger:       conf.Logger().WithField("this_id", validator.ID()),
+		logger:       conf.Logger(),
 		core:         NewCore(validator, peers, genesisPeers, store, proxy.CommitBlock, conf.Logger()),
 		trans:        trans,
 		netCh:        trans.Consumer(),

@@ -12,7 +12,7 @@ import (
 
 func TestNetworkTransport_PooledConn(t *testing.T) {
 	// Transport 1 is consumer
-	trans1, err := NewTCPTransport("127.0.0.1:0", nil, 2, time.Second, 2*time.Second, common.NewTestLogger(t))
+	trans1, err := NewTCPTransport("127.0.0.1:0", nil, 2, time.Second, 2*time.Second, common.NewTestEntry(t))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestNetworkTransport_PooledConn(t *testing.T) {
 	}()
 
 	// Transport 2 makes outbound request, 3 conn pool
-	trans2, err := NewTCPTransport("127.0.0.1:0", nil, 3, time.Second, 2*time.Second, common.NewTestLogger(t))
+	trans2, err := NewTCPTransport("127.0.0.1:0", nil, 3, time.Second, 2*time.Second, common.NewTestEntry(t))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

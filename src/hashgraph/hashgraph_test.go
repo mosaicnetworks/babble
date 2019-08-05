@@ -73,7 +73,7 @@ type play struct {
 }
 
 func testLogger(t testing.TB) *logrus.Entry {
-	return common.NewTestLogger(t).WithField("id", "test")
+	return common.NewTestEntry(t)
 }
 
 /* Initialisation functions */

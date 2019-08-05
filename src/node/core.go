@@ -95,13 +95,7 @@ func NewCore(
 	genesisPeers *peers.PeerSet,
 	store hg.Store,
 	proxyCommitCallback proxy.CommitCallback,
-	logger *logrus.Logger) *Core {
-
-	if logger == nil {
-		logger = logrus.New()
-		logger.Level = logrus.DebugLevel
-	}
-	logEntry := logger.WithField("id", validator.ID())
+	logger *logrus.Entry) *Core {
 
 	peerSelector := NewRandomPeerSelector(peers, validator.ID())
 
@@ -117,7 +111,7 @@ func NewCore(
 		selfBlockSignatures:     hg.NewSigPool(),
 		promises:                make(map[string]*JoinPromise),
 		heads:                   make(map[uint32]*hg.Event),
-		logger:                  logEntry,
+		logger:                  logger,
 		Head:                    "",
 		Seq:                     -1,
 		AcceptedRound:           -1,
@@ -125,7 +119,7 @@ func NewCore(
 		TargetRound:             -1,
 	}
 
-	core.hg = hg.NewHashgraph(store, core.Commit, logEntry)
+	core.hg = hg.NewHashgraph(store, core.Commit, logger)
 
 	core.hg.Init(genesisPeers)
 

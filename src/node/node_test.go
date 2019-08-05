@@ -19,7 +19,6 @@ import (
 	"github.com/mosaicnetworks/babble/src/net"
 	"github.com/mosaicnetworks/babble/src/peers"
 	dummy "github.com/mosaicnetworks/babble/src/proxy/dummy"
-	"github.com/sirupsen/logrus"
 )
 
 /*
@@ -34,18 +33,17 @@ var ip = 9990
 
 func TestAddTransaction(t *testing.T) {
 	keys, p := initPeers(t, 2)
-	testLogger := common.NewTestLogger(t)
-	conf := config.TestConfig(t)
+	conf := config.NewTestConfig(t)
 
 	//Start two nodes
 
 	peers := p.Peers
 
-	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, conf.TCPTimeout, conf.JoinTimeout, common.NewTestLogger(t))
+	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, conf.TCPTimeout, conf.JoinTimeout, conf.Logger())
 	if err != nil {
 		t.Fatalf("Fatal err: %v", err)
 	}
-	peer0Proxy := dummy.NewInmemDummyClient(testLogger)
+	peer0Proxy := dummy.NewInmemDummyClient(common.NewTestEntry(t))
 	defer peer0Trans.Close()
 
 	genesisPeerSet := clonePeerSet(t, p.Peers)
@@ -61,14 +59,14 @@ func TestAddTransaction(t *testing.T) {
 
 	node0.RunAsync(false)
 
-	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, conf.TCPTimeout, conf.JoinTimeout, common.NewTestLogger(t))
+	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, conf.TCPTimeout, conf.JoinTimeout, conf.Logger())
 	if err != nil {
 		t.Fatalf("Fatal 2 err: %v", err)
 	}
-	peer1Proxy := dummy.NewInmemDummyClient(testLogger)
+	peer1Proxy := dummy.NewInmemDummyClient(common.NewTestEntry(t))
 	defer peer1Trans.Close()
 
-	node1 := NewNode(config.TestConfig(t),
+	node1 := NewNode(config.NewTestConfig(t),
 		NewValidator(keys[1], peers[1].Moniker),
 		p,
 		genesisPeerSet,
@@ -219,7 +217,6 @@ func TestBootstrapAllNodes(t *testing.T) {
 
 	//create a first network with BadgerStore and wait till it reaches 10 blocks
 	//before shutting it down
-	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(t, 4)
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
@@ -234,7 +231,7 @@ func TestBootstrapAllNodes(t *testing.T) {
 
 	//Now try to recreate a network from the databases created in the first step
 	//and advance it to 20 blocks
-	newNodes := recycleNodes(nodes, logger, t)
+	newNodes := recycleNodes(nodes, t)
 
 	err = gossip(newNodes, 20, true, 3*time.Second)
 	if err != nil {
@@ -307,7 +304,7 @@ func newNode(peer *peers.Peer,
 	heartbeatTimeout time.Duration,
 	t testing.TB) *Node {
 
-	conf := config.TestConfig(t)
+	conf := config.NewTestConfig(t)
 	conf.HeartbeatTimeout = heartbeatTimeout
 	conf.TCPTimeout = time.Second
 	conf.JoinTimeout = joinTimeoutSeconds * time.Second
@@ -318,7 +315,7 @@ func newNode(peer *peers.Peer,
 	t.Logf("Starting node on %s", peer.NetAddr)
 
 	trans, err := net.NewTCPTransport(peer.NetAddr,
-		nil, 2, conf.TCPTimeout, conf.JoinTimeout, common.NewTestLogger(t))
+		nil, 2, conf.TCPTimeout, conf.JoinTimeout, conf.Logger())
 	if err != nil {
 		t.Fatalf("Fatal failed to create transport for peer %d: %s", peer.ID(), err)
 	}
@@ -335,7 +332,7 @@ func newNode(peer *peers.Peer,
 		store = hg.NewInmemStore(conf.CacheSize)
 	}
 
-	prox := dummy.NewInmemDummyClient(common.NewTestLogger(t))
+	prox := dummy.NewInmemDummyClient(common.NewTestEntry(t))
 	node := NewNode(conf,
 		NewValidator(k, peer.Moniker),
 		peers,
@@ -391,16 +388,16 @@ func initNodes(keys []*ecdsa.PrivateKey,
 	return nodes
 }
 
-func recycleNodes(oldNodes []*Node, logger *logrus.Logger, t *testing.T) []*Node {
+func recycleNodes(oldNodes []*Node, t *testing.T) []*Node {
 	newNodes := []*Node{}
 	for _, oldNode := range oldNodes {
-		newNode := recycleNode(oldNode, logger, t)
+		newNode := recycleNode(oldNode, t)
 		newNodes = append(newNodes, newNode)
 	}
 	return newNodes
 }
 
-func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
+func recycleNode(oldNode *Node, t *testing.T) *Node {
 	conf := oldNode.conf
 	key := oldNode.core.validator.Key
 	moniker := oldNode.core.validator.Moniker
@@ -420,12 +417,12 @@ func recycleNode(oldNode *Node, logger *logrus.Logger, t *testing.T) *Node {
 	}
 
 	trans, err := net.NewTCPTransport(oldNode.trans.LocalAddr(),
-		nil, 2, conf.TCPTimeout, conf.JoinTimeout, logger)
+		nil, 2, conf.TCPTimeout, conf.JoinTimeout, conf.Logger())
 	if err != nil {
 		t.Error("Fatal Error 2 recycleNode", err)
 		t.Fatal(err)
 	}
-	prox := dummy.NewInmemDummyClient(logger)
+	prox := dummy.NewInmemDummyClient(common.NewTestEntry(t))
 
 	conf.Bootstrap = true
 
