@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/common"
+	"github.com/mosaicnetworks/babble/src/config"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
 	dummy "github.com/mosaicnetworks/babble/src/proxy/dummy"
@@ -14,7 +15,7 @@ import (
 func TestProcessSync(t *testing.T) {
 	keys, p := initPeers(t, 2)
 	testLogger := common.NewTestLogger(t)
-	config := TestConfig(t)
+	config := config.TestConfig(t)
 
 	//Start two nodes
 
@@ -119,7 +120,7 @@ func TestProcessSync(t *testing.T) {
 func TestProcessEagerSync(t *testing.T) {
 	keys, p := initPeers(t, 2)
 	testLogger := common.NewTestLogger(t)
-	config := TestConfig(t)
+	config := config.TestConfig(t)
 
 	//Start two nodes
 
@@ -203,7 +204,7 @@ func TestProcessEagerSync(t *testing.T) {
 func TestProcessFastForward(t *testing.T) {
 	keys, p := initPeers(t, 2)
 	testLogger := common.NewTestLogger(t)
-	config := TestConfig(t)
+	config := config.TestConfig(t)
 
 	//Start two nodes
 

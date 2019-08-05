@@ -15,12 +15,11 @@ Test FastForward and state transitions when fast-sync is enabled.
 */
 
 func TestFastForward(t *testing.T) {
-	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
 	defer shutdownNodes(nodes)
 
 	target := 20
@@ -56,7 +55,6 @@ func TestFastForward(t *testing.T) {
 }
 
 func TestCatchUp(t *testing.T) {
-	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
@@ -67,7 +65,7 @@ func TestCatchUp(t *testing.T) {
 	// setup to listen regardless of whether a node is running or not. We should
 	// probably change this at some point.
 
-	normalNodes := initNodes(keys[1:], peers, genesisPeerSet, 1000000, 100, 5, false, "inmem", 50*time.Millisecond, logger, t)
+	normalNodes := initNodes(keys[1:], peers, genesisPeerSet, 1000000, 100, 5, false, "inmem", 50*time.Millisecond, t)
 	defer shutdownNodes(normalNodes)
 	//defer drawGraphs(normalNodes, t)
 
@@ -80,7 +78,7 @@ func TestCatchUp(t *testing.T) {
 	checkGossip(normalNodes, 0, t)
 
 	//node0 has fast-sync enabled
-	node0 := newNode(peers.Peers[0], keys[0], peers, genesisPeerSet, 1000000, 100, 5, true, "inmem", 10*time.Millisecond, logger, t)
+	node0 := newNode(peers.Peers[0], keys[0], peers, genesisPeerSet, 1000000, 100, 5, true, "inmem", 10*time.Millisecond, t)
 	defer node0.Shutdown()
 
 	//Run parallel routine to check node0 eventually reaches CatchingUp state.
@@ -121,7 +119,7 @@ func TestFastSync(t *testing.T) {
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
 	//all nodes have fast-sync enabled
-	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 400, 5, true, "inmem", 10*time.Millisecond, logger, t) //make cache high to draw graphs
+	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 400, 5, true, "inmem", 10*time.Millisecond, t) //make cache high to draw graphs
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 

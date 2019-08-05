@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mosaicnetworks/babble/src/config"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
 	"github.com/mosaicnetworks/babble/src/peers"
@@ -22,7 +23,7 @@ type Node struct {
 	// object is used to manage the node's state.
 	state
 
-	conf *Config
+	conf *config.Config
 
 	logger *logrus.Entry
 
@@ -64,7 +65,7 @@ type Node struct {
 }
 
 // NewNode is a factory method that returns a Node instance
-func NewNode(conf *Config,
+func NewNode(conf *config.Config,
 	validator *Validator,
 	peers *peers.PeerSet,
 	genesisPeers *peers.PeerSet,
@@ -78,8 +79,8 @@ func NewNode(conf *Config,
 
 	node := Node{
 		conf:         conf,
-		logger:       conf.Logger.WithField("this_id", validator.ID()),
-		core:         NewCore(validator, peers, genesisPeers, store, proxy.CommitBlock, conf.Logger),
+		logger:       conf.Logger().WithField("this_id", validator.ID()),
+		core:         NewCore(validator, peers, genesisPeers, store, proxy.CommitBlock, conf.Logger()),
 		trans:        trans,
 		netCh:        trans.Consumer(),
 		proxy:        proxy,

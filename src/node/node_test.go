@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/common"
+	"github.com/mosaicnetworks/babble/src/config"
 	bkeys "github.com/mosaicnetworks/babble/src/crypto/keys"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
@@ -34,13 +35,13 @@ var ip = 9990
 func TestAddTransaction(t *testing.T) {
 	keys, p := initPeers(t, 2)
 	testLogger := common.NewTestLogger(t)
-	config := TestConfig(t)
+	conf := config.TestConfig(t)
 
 	//Start two nodes
 
 	peers := p.Peers
 
-	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, config.TCPTimeout, config.JoinTimeout, common.NewTestLogger(t))
+	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, conf.TCPTimeout, conf.JoinTimeout, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatalf("Fatal err: %v", err)
 	}
@@ -49,29 +50,29 @@ func TestAddTransaction(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, p.Peers)
 
-	node0 := NewNode(config,
+	node0 := NewNode(conf,
 		NewValidator(keys[0], peers[0].Moniker),
 		p,
 		genesisPeerSet,
-		hg.NewInmemStore(config.CacheSize),
+		hg.NewInmemStore(conf.CacheSize),
 		peer0Trans,
 		peer0Proxy)
 	node0.Init()
 
 	node0.RunAsync(false)
 
-	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, config.TCPTimeout, config.JoinTimeout, common.NewTestLogger(t))
+	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, conf.TCPTimeout, conf.JoinTimeout, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatalf("Fatal 2 err: %v", err)
 	}
 	peer1Proxy := dummy.NewInmemDummyClient(testLogger)
 	defer peer1Trans.Close()
 
-	node1 := NewNode(TestConfig(t),
+	node1 := NewNode(config.TestConfig(t),
 		NewValidator(keys[1], peers[1].Moniker),
 		p,
 		genesisPeerSet,
-		hg.NewInmemStore(config.CacheSize),
+		hg.NewInmemStore(conf.CacheSize),
 		peer1Trans,
 		peer1Proxy)
 	node1.Init()
@@ -121,12 +122,11 @@ func TestAddTransaction(t *testing.T) {
 }
 
 func TestGossip(t *testing.T) {
-	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 5, false, "inmem", 5*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
 	//defer drawGraphs(nodes, t)
 
 	target := 50
@@ -140,12 +140,11 @@ func TestGossip(t *testing.T) {
 }
 
 func TestMissingNodeGossip(t *testing.T) {
-	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
 	//defer drawGraphs(nodes, t)
 
 	err := gossip(nodes[1:], 10, true, 6*time.Second)
@@ -158,12 +157,11 @@ func TestMissingNodeGossip(t *testing.T) {
 }
 
 func TestSyncLimit(t *testing.T) {
-	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
 	defer shutdownNodes(nodes)
 
 	err := gossip(nodes, 10, false, 3*time.Second)
@@ -198,12 +196,11 @@ func TestSyncLimit(t *testing.T) {
 }
 
 func TestShutdown(t *testing.T) {
-	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
 	runNodes(nodes, false)
 
 	nodes[0].Shutdown()
@@ -226,7 +223,7 @@ func TestBootstrapAllNodes(t *testing.T) {
 	keys, peers := initPeers(t, 4)
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 10, false, "badger", 6*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 10, false, "badger", 6*time.Millisecond, t)
 
 	err := gossip(nodes, 10, true, 3*time.Second)
 	if err != nil {
@@ -251,13 +248,12 @@ func TestBootstrapAllNodes(t *testing.T) {
 }
 
 func BenchmarkGossip(b *testing.B) {
-	logger := common.NewTestLogger(b)
 	for n := 0; n < b.N; n++ {
 		keys, peers := initPeers(b, 4)
 
 		genesisPeerSet := clonePeerSet(b, peers.Peers)
 
-		nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, logger, b)
+		nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, b)
 		gossip(nodes, 50, true, 3*time.Second)
 	}
 }
@@ -309,23 +305,20 @@ func newNode(peer *peers.Peer,
 	enableSyncLimit bool,
 	storeType string,
 	heartbeatTimeout time.Duration,
-	logger *logrus.Logger,
 	t testing.TB) *Node {
 
-	conf := NewConfig(
-		heartbeatTimeout,
-		time.Second,
-		joinTimeoutSeconds*time.Second,
-		cacheSize,
-		syncLimit,
-		enableSyncLimit,
-		logger,
-	)
+	conf := config.TestConfig(t)
+	conf.HeartbeatTimeout = heartbeatTimeout
+	conf.TCPTimeout = time.Second
+	conf.JoinTimeout = joinTimeoutSeconds * time.Second
+	conf.CacheSize = cacheSize
+	conf.SyncLimit = syncLimit
+	conf.EnableFastSync = enableSyncLimit
 
 	t.Logf("Starting node on %s", peer.NetAddr)
 
 	trans, err := net.NewTCPTransport(peer.NetAddr,
-		nil, 2, conf.TCPTimeout, conf.JoinTimeout, logger)
+		nil, 2, conf.TCPTimeout, conf.JoinTimeout, common.NewTestLogger(t))
 	if err != nil {
 		t.Fatalf("Fatal failed to create transport for peer %d: %s", peer.ID(), err)
 	}
@@ -342,7 +335,7 @@ func newNode(peer *peers.Peer,
 		store = hg.NewInmemStore(conf.CacheSize)
 	}
 
-	prox := dummy.NewInmemDummyClient(logger)
+	prox := dummy.NewInmemDummyClient(common.NewTestLogger(t))
 	node := NewNode(conf,
 		NewValidator(k, peer.Moniker),
 		peers,
@@ -369,7 +362,6 @@ func initNodes(keys []*ecdsa.PrivateKey,
 	enableSyncLimit bool,
 	storeType string,
 	heartbeatTimeout time.Duration,
-	logger *logrus.Logger,
 	t testing.TB) []*Node {
 
 	nodes := []*Node{}
@@ -392,7 +384,6 @@ func initNodes(keys []*ecdsa.PrivateKey,
 			enableSyncLimit,
 			storeType,
 			heartbeatTimeout,
-			logger,
 			t)
 
 		nodes = append(nodes, node)

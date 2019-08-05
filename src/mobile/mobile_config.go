@@ -3,7 +3,7 @@ package mobile
 import (
 	"time"
 
-	"github.com/mosaicnetworks/babble/src/babble"
+	"github.com/mosaicnetworks/babble/src/config"
 )
 
 // MobileConfig ...
@@ -57,21 +57,18 @@ func DefaultMobileConfig() *MobileConfig {
 	}
 }
 
-func (c *MobileConfig) toBabbleConfig() *babble.BabbleConfig {
-	babbleConfig := babble.NewDefaultConfig()
-
-	babbleConfig.Logger.SetLevel(babble.LogLevel(c.LogLevel))
+func (c *MobileConfig) toBabbleConfig() *config.Config {
+	babbleConfig := config.NewDefaultConfig()
 
 	babbleConfig.MaxPool = c.MaxPool
 	babbleConfig.Store = c.Store
 	babbleConfig.LogLevel = c.LogLevel
 	babbleConfig.Moniker = c.Moniker
-
-	babbleConfig.NodeConfig.HeartbeatTimeout = time.Duration(c.Heartbeat) * time.Millisecond
-	babbleConfig.NodeConfig.TCPTimeout = time.Duration(c.TCPTimeout) * time.Millisecond
-	babbleConfig.NodeConfig.CacheSize = c.CacheSize
-	babbleConfig.NodeConfig.SyncLimit = c.SyncLimit
-	babbleConfig.NodeConfig.EnableFastSync = c.EnableFastSync
+	babbleConfig.HeartbeatTimeout = time.Duration(c.Heartbeat) * time.Millisecond
+	babbleConfig.TCPTimeout = time.Duration(c.TCPTimeout) * time.Millisecond
+	babbleConfig.CacheSize = c.CacheSize
+	babbleConfig.SyncLimit = c.SyncLimit
+	babbleConfig.EnableFastSync = c.EnableFastSync
 
 	return babbleConfig
 }
