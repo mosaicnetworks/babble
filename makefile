@@ -36,4 +36,4 @@ alltests:
 
  
 
-.PHONY: vendor install build dist test extratests alltests tests
+.PHONY: vendor install build dist test flagtest extratests alltests tests
