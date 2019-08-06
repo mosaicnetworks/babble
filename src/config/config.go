@@ -86,7 +86,7 @@ type Config struct {
 	logger *logrus.Logger
 }
 
-// NewDefaultConfig ...
+// NewDefaultConfig retunrns the a config object with default values.
 func NewDefaultConfig() *Config {
 
 	config := &Config{
@@ -107,13 +107,19 @@ func NewDefaultConfig() *Config {
 	return config
 }
 
-// NewTestConfig returns a Preset Test Configuration
+// NewTestConfig returns a config object with default values and a special
+// logger. the logger forces formatting and colors even when there is no tty
+// attached, which makes for more readable logs. The logger also provides info
+// about the calling function.
 func NewTestConfig(t testing.TB) *Config {
 	config := NewDefaultConfig()
 
 	config.logger = logrus.New()
 	config.logger.Level = LogLevel(config.LogLevel)
-	config.logger.Formatter = new(prefixed.TextFormatter)
+	config.logger.Formatter = &prefixed.TextFormatter{
+		ForceColors:     true,
+		ForceFormatting: true,
+	}
 	config.logger.SetReportCaller(true)
 
 	return config
@@ -129,14 +135,14 @@ func (c *Config) Keyfile() string {
 	return filepath.Join(c.DataDir, DefaultKeyfile)
 }
 
-// Logger returns the logrus Entry
+// Logger returns a formatted logrus Entry, with prefix set to "babble".
 func (c *Config) Logger() *logrus.Entry {
 	if c.logger == nil {
 		c.logger = logrus.New()
 		c.logger.Level = LogLevel(c.LogLevel)
 		c.logger.Formatter = new(prefixed.TextFormatter)
 	}
-	return c.logger.WithField("prefix", "BABBLE")
+	return c.logger.WithField("prefix", "babble")
 }
 
 // DefaultDataDir ...
