@@ -457,15 +457,23 @@ Commit
 
 // Commit the Block to the App using the proxyCommitCallback
 func (c *Core) Commit(block *hg.Block) error {
+	c.logger.WithFields(logrus.Fields{
+		"block":        block.Index(),
+		"txs":          len(block.Transactions()),
+		"internal_txs": len(block.InternalTransactions()),
+	}).Info("Commit")
+
 	//Commit the Block to the App
 	commitResponse, err := c.proxyCommitCallback(*block)
+	if err != nil {
+		c.logger.WithError(err).Error("Commit response")
+	}
 
 	c.logger.WithFields(logrus.Fields{
-		"block":                         block.Index(),
-		"state_hash":                    fmt.Sprintf("%X", commitResponse.StateHash),
-		"internal_transaction_receipts": commitResponse.InternalTransactionReceipts,
-		"err": err,
-	}).Debug("CommitBlock Response")
+		"block":                 block.Index(),
+		"internal_txs_receipts": len(commitResponse.InternalTransactionReceipts),
+		"state_hash":            common.EncodeToString(commitResponse.StateHash),
+	}).Info("Commit response")
 
 	//XXX Handle errors
 
@@ -574,7 +582,7 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, receipts [
 		c.logger.WithFields(logrus.Fields{
 			"effective_round": effectiveRound,
 			"validators":      len(validators.Peers),
-		}).Debug("Validators Changed")
+		}).Info("Validators changed")
 
 		// Update the current list of communicating peers. This is not
 		// necessarily equal to the latest recorded validator_set.

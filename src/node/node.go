@@ -164,7 +164,7 @@ func (n *Node) RunAsync(gossip bool) {
 // Leave causes the node to politely leave the network via a LeaveRequest and
 // wait for the node to be removed from the validator-list via consensus.
 func (n *Node) Leave() error {
-	n.logger.Debug("LEAVING")
+	n.logger.Info("LEAVING")
 
 	defer n.Shutdown()
 
@@ -181,7 +181,7 @@ func (n *Node) Leave() error {
 // be finished, stopping the control-timer, and closing the transport.
 func (n *Node) Shutdown() {
 	if n.getState() != Shutdown {
-		n.logger.Debug("Shutdown")
+		n.logger.Info("SHUTDOWN")
 
 		//Exit any non-shutdown state immediately
 		n.setState(Shutdown)
@@ -320,7 +320,7 @@ Babbling
 // babble periodically initiates gossip or monologue as triggered by the
 // controlTimer.
 func (n *Node) babble(gossip bool) {
-	n.logger.Debug("BABBLING")
+	n.logger.Info("BABBLING")
 
 	for {
 		select {
@@ -507,7 +507,7 @@ CatchingUp
 
 // fastForward enacts "CatchingUp"
 func (n *Node) fastForward() error {
-	n.logger.Debug("CATCHING-UP")
+	n.logger.Info("CATCHING-UP")
 
 	//wait until sync routines finish
 	n.waitRoutines()
@@ -594,7 +594,7 @@ Joining
 // join attempts to add the node's validator public-key to the current
 // validator-set via an InternalTransaction which has to go through consensus.
 func (n *Node) join() error {
-	n.logger.Debug("JOINING")
+	n.logger.Info("JOINING")
 
 	peer := n.core.peerSelector.Next()
 
@@ -621,7 +621,7 @@ func (n *Node) join() error {
 	} else {
 		// Then JoinRequest was explicitly refused by the curren peer-set. This
 		// is not an error.
-		n.logger.Debug("JoinRequest refused. Shutting down.")
+		n.logger.Info("JoinRequest rejected")
 		n.Shutdown()
 	}
 
