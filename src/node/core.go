@@ -396,6 +396,7 @@ func (c *Core) Leave(leaveTimeout time.Duration) error {
 	p, ok := c.validators.ByID[c.validator.ID()]
 	if !ok {
 		c.logger.Debugf("Leave: not a validator, do nothing")
+		return nil
 	}
 
 	// Do nothing if we are the only validator.
@@ -405,7 +406,6 @@ func (c *Core) Leave(leaveTimeout time.Duration) error {
 	}
 
 	// Otherwise, submit an InternalTransaction
-
 	c.logger.Debugf("Leave: submit InternalTransaction")
 
 	itx := hg.NewInternalTransaction(hg.PEER_REMOVE, *p)
