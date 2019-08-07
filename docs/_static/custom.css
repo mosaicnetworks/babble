@@ -1,12 +1,15 @@
-@import url("https://fonts.googleapis.com/css?family=Roboto&display=swap");
+@import url("https://fonts.googleapis.com/css?family=Open+Sans&display=swap");
 
 html {
   margin: 0 !important;
 }
 
 body {
-  font-family: "Roboto", sans-serif !important;
+  font-family: "Open Sans", Helvetica, Arial, sans-serif !important;
+  /* font-family: "Playfair Display", serif !important; */
   margin: 0 !important;
+  line-height: 1.5 !important;
+  font-size: 16px !important;
   -webkit-font-smoothing: antialiased !important;
 }
 
@@ -15,17 +18,24 @@ h2,
 h3,
 h4,
 h5 {
-  font-family: "Roboto", sans-serif !important;
+  font-family: "Open Sans", Helvetica, Arial, sans-serif !important;
+  /* font-family: "Playfair Display", serif !important; */
+}
+
+div.sphinxsidebar {
+  min-height: 100vh !important;
 }
 
 .sphinxsidebarwrapper {
+  margin-right: 10px !important;
   padding-top: 35px !important;
   padding-bottom: 35px !important;
   padding-right: 30px !important;
   padding-left: 60px !important;
   background: #fafafa !important;
-  margin-right: 10px !important;
   margin-top: -30px !important;
+  /* box-shadow: 0 4px 20px -6px #ddd !important; */
+  /* border-right: 1px solid #ededed !important; */
 }
 
 .sphinxsidebarwrapper a {
