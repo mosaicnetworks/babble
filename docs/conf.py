@@ -82,13 +82,28 @@ todo_include_todos = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+# html_theme = 'sphinx_rtd_theme'
+html_theme = 'alabaster'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
 # html_theme_options = {}
+html_theme_options = {
+    'logo': 'babblelogo.png',
+    'github_user': 'mosaicnetworks',
+    'github_repo': 'babble',
+    'github_button': 'true',
+    'body_text_align': 'justify',
+    'show_related': 'true',
+    'fixed_sidebar': 'false',
+    'logo_name': 'true',
+    'logo_text_align': 'center',
+    'show_powered_by': 'false',
+    'sidebar_width': '400px', 
+    'page_width': '98%'
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
