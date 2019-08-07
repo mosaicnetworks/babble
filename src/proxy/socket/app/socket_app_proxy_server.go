@@ -13,11 +13,11 @@ type SocketAppProxyServer struct {
 	netListener *net.Listener
 	rpcServer   *rpc.Server
 	submitCh    chan []byte
-	logger      *logrus.Logger
+	logger      *logrus.Entry
 }
 
 // NewSocketAppProxyServer ...
-func NewSocketAppProxyServer(bindAddress string, logger *logrus.Logger) (*SocketAppProxyServer, error) {
+func NewSocketAppProxyServer(bindAddress string, logger *logrus.Entry) (*SocketAppProxyServer, error) {
 	server := &SocketAppProxyServer{
 		submitCh: make(chan []byte),
 		logger:   logger,

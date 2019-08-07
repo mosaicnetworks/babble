@@ -10,18 +10,18 @@ import (
 type InmemProxy struct {
 	handler  proxy.ProxyHandler
 	submitCh chan []byte
-	logger   *logrus.Logger
+	logger   *logrus.Entry
 }
 
 // NewInmemProxy instantiates an InmemProxy from a set of handlers.
 // If no logger, a new one is created
 func NewInmemProxy(handler proxy.ProxyHandler,
-	logger *logrus.Logger) *InmemProxy {
+	logger *logrus.Entry) *InmemProxy {
 
 	if logger == nil {
-		logger = logrus.New()
-
-		logger.Level = logrus.DebugLevel
+		log := logrus.New()
+		log.Level = logrus.DebugLevel
+		logger = logrus.NewEntry(log)
 	}
 
 	return &InmemProxy{

@@ -25,13 +25,13 @@ func NewSocketBabbleProxy(
 	bindAddr string,
 	handler proxy.ProxyHandler,
 	timeout time.Duration,
-	logger *logrus.Logger,
+	logger *logrus.Entry,
 ) (*SocketBabbleProxy, error) {
 
 	if logger == nil {
-		logger = logrus.New()
-
-		logger.Level = logrus.DebugLevel
+		log := logrus.New()
+		log.Level = logrus.DebugLevel
+		logger = logrus.NewEntry(log)
 	}
 
 	client := NewSocketBabbleProxyClient(nodeAddr, timeout)

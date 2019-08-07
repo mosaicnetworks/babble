@@ -15,11 +15,11 @@ type Service struct {
 	bindAddress string
 	node        *node.Node
 	graph       *node.Graph
-	logger      *logrus.Logger
+	logger      *logrus.Entry
 }
 
 // NewService ...
-func NewService(bindAddress string, n *node.Node, logger *logrus.Logger) *Service {
+func NewService(bindAddress string, n *node.Node, logger *logrus.Entry) *Service {
 	service := Service{
 		bindAddress: bindAddress,
 		node:        n,

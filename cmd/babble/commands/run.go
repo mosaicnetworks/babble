@@ -26,30 +26,30 @@ func NewRunCmd() *cobra.Command {
 *******************************************************************************/
 
 func runBabble(cmd *cobra.Command, args []string) error {
-	if !config.Standalone {
+	if !_config.Standalone {
 		p, err := aproxy.NewSocketAppProxy(
-			config.ClientAddr,
-			config.ProxyAddr,
-			config.Babble.NodeConfig.HeartbeatTimeout,
-			config.Babble.Logger,
+			_config.ClientAddr,
+			_config.ProxyAddr,
+			_config.Babble.HeartbeatTimeout,
+			_config.Babble.Logger(),
 		)
 
 		if err != nil {
-			config.Babble.Logger.Error("Cannot initialize socket AppProxy:", err)
+			_config.Babble.Logger().Error("Cannot initialize socket AppProxy:", err)
 			return err
 		}
 
-		config.Babble.Proxy = p
+		_config.Babble.Proxy = p
 	} else {
-		p := dummy.NewInmemDummyClient(config.Babble.Logger)
+		p := dummy.NewInmemDummyClient(_config.Babble.Logger())
 
-		config.Babble.Proxy = p
+		_config.Babble.Proxy = p
 	}
 
-	engine := babble.NewBabble(&config.Babble)
+	engine := babble.NewBabble(&_config.Babble)
 
 	if err := engine.Init(); err != nil {
-		config.Babble.Logger.Error("Cannot initialize engine:", err)
+		_config.Babble.Logger().Error("Cannot initialize engine:", err)
 		return err
 	}
 
@@ -65,33 +65,33 @@ func runBabble(cmd *cobra.Command, args []string) error {
 //AddRunFlags adds flags to the Run command
 func AddRunFlags(cmd *cobra.Command) {
 
-	cmd.Flags().String("datadir", config.Babble.DataDir, "Top-level directory for configuration and data")
-	cmd.Flags().String("log", config.Babble.LogLevel, "debug, info, warn, error, fatal, panic")
-	cmd.Flags().String("moniker", config.Babble.Moniker, "Optional name")
+	cmd.Flags().String("datadir", _config.Babble.DataDir, "Top-level directory for configuration and data")
+	cmd.Flags().String("log", _config.Babble.LogLevel, "debug, info, warn, error, fatal, panic")
+	cmd.Flags().String("moniker", _config.Babble.Moniker, "Optional name")
 
 	// Network
-	cmd.Flags().StringP("listen", "l", config.Babble.BindAddr, "Listen IP:Port for babble node")
-	cmd.Flags().DurationP("timeout", "t", config.Babble.NodeConfig.TCPTimeout, "TCP Timeout")
-	cmd.Flags().DurationP("join-timeout", "j", config.Babble.NodeConfig.JoinTimeout, "Join Timeout")
-	cmd.Flags().Int("max-pool", config.Babble.MaxPool, "Connection pool size max")
+	cmd.Flags().StringP("listen", "l", _config.Babble.BindAddr, "Listen IP:Port for babble node")
+	cmd.Flags().DurationP("timeout", "t", _config.Babble.TCPTimeout, "TCP Timeout")
+	cmd.Flags().DurationP("join-timeout", "j", _config.Babble.JoinTimeout, "Join Timeout")
+	cmd.Flags().Int("max-pool", _config.Babble.MaxPool, "Connection pool size max")
 
 	// Proxy
-	cmd.Flags().Bool("standalone", config.Standalone, "Do not create a proxy")
-	cmd.Flags().StringP("proxy-listen", "p", config.ProxyAddr, "Listen IP:Port for babble proxy")
-	cmd.Flags().StringP("client-connect", "c", config.ClientAddr, "IP:Port to connect to client")
+	cmd.Flags().Bool("standalone", _config.Standalone, "Do not create a proxy")
+	cmd.Flags().StringP("proxy-listen", "p", _config.ProxyAddr, "Listen IP:Port for babble proxy")
+	cmd.Flags().StringP("client-connect", "c", _config.ClientAddr, "IP:Port to connect to client")
 
 	// Service
-	cmd.Flags().StringP("service-listen", "s", config.Babble.ServiceAddr, "Listen IP:Port for HTTP service")
+	cmd.Flags().StringP("service-listen", "s", _config.Babble.ServiceAddr, "Listen IP:Port for HTTP service")
 
 	// Store
-	cmd.Flags().Bool("store", config.Babble.Store, "Use badgerDB instead of in-mem DB")
-	cmd.Flags().Bool("bootstrap", config.Babble.NodeConfig.Bootstrap, "Load from database")
-	cmd.Flags().Int("cache-size", config.Babble.NodeConfig.CacheSize, "Number of items in LRU caches")
+	cmd.Flags().Bool("store", _config.Babble.Store, "Use badgerDB instead of in-mem DB")
+	cmd.Flags().Bool("bootstrap", _config.Babble.Bootstrap, "Load from database")
+	cmd.Flags().Int("cache-size", _config.Babble.CacheSize, "Number of items in LRU caches")
 
 	// Node configuration
-	cmd.Flags().Duration("heartbeat", config.Babble.NodeConfig.HeartbeatTimeout, "Time between gossips")
-	cmd.Flags().Int("sync-limit", config.Babble.NodeConfig.SyncLimit, "Max number of events for sync")
-	cmd.Flags().Bool("fast-sync", config.Babble.NodeConfig.EnableFastSync, "Enable FastSync")
+	cmd.Flags().Duration("heartbeat", _config.Babble.HeartbeatTimeout, "Time between gossips")
+	cmd.Flags().Int("sync-limit", _config.Babble.SyncLimit, "Max number of events for sync")
+	cmd.Flags().Bool("fast-sync", _config.Babble.EnableFastSync, "Enable FastSync")
 }
 
 func loadConfig(cmd *cobra.Command, args []string) error {
@@ -101,32 +101,29 @@ func loadConfig(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	config, err = parseConfig()
+	_config, err = parseConfig()
 	if err != nil {
 		return err
 	}
 
-	config.Babble.Logger.Level = babble.LogLevel(config.Babble.LogLevel)
-	config.Babble.NodeConfig.Logger = config.Babble.Logger
-
-	config.Babble.Logger.WithFields(logrus.Fields{
-		"babble.DataDir":               config.Babble.DataDir,
-		"babble.BindAddr":              config.Babble.BindAddr,
-		"babble.ServiceAddr":           config.Babble.ServiceAddr,
-		"babble.MaxPool":               config.Babble.MaxPool,
-		"babble.Store":                 config.Babble.Store,
-		"babble.LoadPeers":             config.Babble.LoadPeers,
-		"babble.LogLevel":              config.Babble.LogLevel,
-		"babble.Moniker":               config.Babble.Moniker,
-		"babble.Node.HeartbeatTimeout": config.Babble.NodeConfig.HeartbeatTimeout,
-		"babble.Node.TCPTimeout":       config.Babble.NodeConfig.TCPTimeout,
-		"babble.Node.JoinTimeout":      config.Babble.NodeConfig.JoinTimeout,
-		"babble.Node.CacheSize":        config.Babble.NodeConfig.CacheSize,
-		"babble.Node.SyncLimit":        config.Babble.NodeConfig.SyncLimit,
-		"babble.Node.EnableFastSync":   config.Babble.NodeConfig.EnableFastSync,
-		"ProxyAddr":                    config.ProxyAddr,
-		"ClientAddr":                   config.ClientAddr,
-		"Standalone":                   config.Standalone,
+	_config.Babble.Logger().WithFields(logrus.Fields{
+		"babble.DataDir":          _config.Babble.DataDir,
+		"babble.BindAddr":         _config.Babble.BindAddr,
+		"babble.ServiceAddr":      _config.Babble.ServiceAddr,
+		"babble.MaxPool":          _config.Babble.MaxPool,
+		"babble.Store":            _config.Babble.Store,
+		"babble.LoadPeers":        _config.Babble.LoadPeers,
+		"babble.LogLevel":         _config.Babble.LogLevel,
+		"babble.Moniker":          _config.Babble.Moniker,
+		"babble.HeartbeatTimeout": _config.Babble.HeartbeatTimeout,
+		"babble.TCPTimeout":       _config.Babble.TCPTimeout,
+		"babble.JoinTimeout":      _config.Babble.JoinTimeout,
+		"babble.CacheSize":        _config.Babble.CacheSize,
+		"babble.SyncLimit":        _config.Babble.SyncLimit,
+		"babble.EnableFastSync":   _config.Babble.EnableFastSync,
+		"ProxyAddr":               _config.ProxyAddr,
+		"ClientAddr":              _config.ClientAddr,
+		"Standalone":              _config.Standalone,
 	}).Debug("RUN")
 
 	return nil
@@ -139,15 +136,15 @@ func bindFlagsLoadViper(cmd *cobra.Command) error {
 		return err
 	}
 
-	viper.SetConfigName("babble")              // name of config file (without extension)
-	viper.AddConfigPath(config.Babble.DataDir) // search root directory
+	viper.SetConfigName("babble")               // name of config file (without extension)
+	viper.AddConfigPath(_config.Babble.DataDir) // search root directory
 	// viper.AddConfigPath(filepath.Join(config.Babble.DataDir, "babble")) // search root directory /config
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		config.Babble.Logger.Debugf("Using config file: %s", viper.ConfigFileUsed())
+		_config.Babble.Logger().Debugf("Using config file: %s", viper.ConfigFileUsed())
 	} else if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-		config.Babble.Logger.Debugf("No config file found in: %s", config.Babble.DataDir)
+		_config.Babble.Logger().Debugf("No config file found in: %s", _config.Babble.DataDir)
 	} else {
 		return err
 	}

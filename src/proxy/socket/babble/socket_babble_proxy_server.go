@@ -17,7 +17,7 @@ type SocketBabbleProxyServer struct {
 	rpcServer   *rpc.Server
 	handler     proxy.ProxyHandler
 	timeout     time.Duration
-	logger      *logrus.Logger
+	logger      *logrus.Entry
 }
 
 // NewSocketBabbleProxyServer ...
@@ -25,7 +25,7 @@ func NewSocketBabbleProxyServer(
 	bindAddress string,
 	handler proxy.ProxyHandler,
 	timeout time.Duration,
-	logger *logrus.Logger,
+	logger *logrus.Entry,
 ) (*SocketBabbleProxyServer, error) {
 
 	server := &SocketBabbleProxyServer{

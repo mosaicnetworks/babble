@@ -1,23 +1,21 @@
 package version
 
-// Maj is the major release
-const Maj = "0"
-
-// Min is the minor release
-const Min = "5"
-
-// Fix is the patch fix number
-const Fix = "0"
+// Flag contains extra info about the version. It is helpul for tracking
+// versions while developing. It should always by empty on the master branch.
+// This will be inforced in a continuous integration test.
+const Flag = "develop"
 
 var (
 	// Version is The full version string
-	Version = "0.5.0"
+	Version = "0.5.1"
 
 	// GitCommit is set with --ldflags "-X main.gitCommit=$(git rev-parse HEAD)"
 	GitCommit string
 )
 
 func init() {
+	Version += "-" + Flag
+
 	if GitCommit != "" {
 		Version += "-" + GitCommit[:8]
 	}

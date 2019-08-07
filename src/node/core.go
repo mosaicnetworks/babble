@@ -95,13 +95,7 @@ func NewCore(
 	genesisPeers *peers.PeerSet,
 	store hg.Store,
 	proxyCommitCallback proxy.CommitCallback,
-	logger *logrus.Logger) *Core {
-
-	if logger == nil {
-		logger = logrus.New()
-		logger.Level = logrus.DebugLevel
-	}
-	logEntry := logger.WithField("id", validator.ID())
+	logger *logrus.Entry) *Core {
 
 	peerSelector := NewRandomPeerSelector(peers, validator.ID())
 
@@ -117,7 +111,7 @@ func NewCore(
 		selfBlockSignatures:     hg.NewSigPool(),
 		promises:                make(map[string]*JoinPromise),
 		heads:                   make(map[uint32]*hg.Event),
-		logger:                  logEntry,
+		logger:                  logger,
 		Head:                    "",
 		Seq:                     -1,
 		AcceptedRound:           -1,
@@ -125,7 +119,7 @@ func NewCore(
 		TargetRound:             -1,
 	}
 
-	core.hg = hg.NewHashgraph(store, core.Commit, logEntry)
+	core.hg = hg.NewHashgraph(store, core.Commit, logger)
 
 	core.hg.Init(genesisPeers)
 
@@ -402,6 +396,7 @@ func (c *Core) Leave(leaveTimeout time.Duration) error {
 	p, ok := c.validators.ByID[c.validator.ID()]
 	if !ok {
 		c.logger.Debugf("Leave: not a validator, do nothing")
+		return nil
 	}
 
 	// Do nothing if we are the only validator.
@@ -411,7 +406,6 @@ func (c *Core) Leave(leaveTimeout time.Duration) error {
 	}
 
 	// Otherwise, submit an InternalTransaction
-
 	c.logger.Debugf("Leave: submit InternalTransaction")
 
 	itx := hg.NewInternalTransaction(hg.PEER_REMOVE, *p)
@@ -463,15 +457,23 @@ Commit
 
 // Commit the Block to the App using the proxyCommitCallback
 func (c *Core) Commit(block *hg.Block) error {
+	c.logger.WithFields(logrus.Fields{
+		"block":        block.Index(),
+		"txs":          len(block.Transactions()),
+		"internal_txs": len(block.InternalTransactions()),
+	}).Info("Commit")
+
 	//Commit the Block to the App
 	commitResponse, err := c.proxyCommitCallback(*block)
+	if err != nil {
+		c.logger.WithError(err).Error("Commit response")
+	}
 
 	c.logger.WithFields(logrus.Fields{
-		"block":                         block.Index(),
-		"state_hash":                    fmt.Sprintf("%X", commitResponse.StateHash),
-		"internal_transaction_receipts": commitResponse.InternalTransactionReceipts,
-		"err": err,
-	}).Debug("CommitBlock Response")
+		"block":                 block.Index(),
+		"internal_txs_receipts": len(commitResponse.InternalTransactionReceipts),
+		"state_hash":            common.EncodeToString(commitResponse.StateHash),
+	}).Info("Commit response")
 
 	//XXX Handle errors
 
@@ -580,7 +582,7 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, receipts [
 		c.logger.WithFields(logrus.Fields{
 			"effective_round": effectiveRound,
 			"validators":      len(validators.Peers),
-		}).Debug("Validators Changed")
+		}).Info("Validators changed")
 
 		// Update the current list of communicating peers. This is not
 		// necessarily equal to the latest recorded validator_set.

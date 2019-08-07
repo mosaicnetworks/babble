@@ -5,7 +5,7 @@ import (
 )
 
 var (
-	config = NewDefaultCLIConfig()
+	_config = NewDefaultCLIConfig()
 )
 
 //RootCmd is the root command for Babble

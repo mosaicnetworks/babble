@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/mosaicnetworks/babble/src/config"
 	"github.com/mosaicnetworks/babble/src/crypto/keys"
 	h "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
@@ -14,23 +15,24 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Babble is a struct containing the key parts
-// of a babble node
+// Babble is a struct containing the key parts of a babble node
 type Babble struct {
-	Config       *BabbleConfig
+	Config       *config.Config
 	Node         *node.Node
 	Transport    net.Transport
 	Store        h.Store
 	Peers        *peers.PeerSet
 	GenesisPeers *peers.PeerSet
 	Service      *service.Service
+	logger       *logrus.Entry
 }
 
 // NewBabble is a factory method to produce
 // a Babble instance.
-func NewBabble(config *BabbleConfig) *Babble {
+func NewBabble(c *config.Config) *Babble {
 	engine := &Babble{
-		Config: config,
+		Config: c,
+		logger: c.Logger(),
 	}
 
 	return engine
@@ -40,32 +42,32 @@ func NewBabble(config *BabbleConfig) *Babble {
 func (b *Babble) Init() error {
 
 	if err := b.initPeers(); err != nil {
-		b.Config.Logger.WithError(err).Error("babble.go:Init() initPeers")
+		b.logger.WithError(err).Error("babble.go:Init() initPeers")
 		return err
 	}
 
 	if err := b.initStore(); err != nil {
-		b.Config.Logger.WithError(err).Error("babble.go:Init() initStore")
+		b.logger.WithError(err).Error("babble.go:Init() initStore")
 		return err
 	}
 
 	if err := b.initTransport(); err != nil {
-		b.Config.Logger.WithError(err).Error("babble.go:Init() initTransport")
+		b.logger.WithError(err).Error("babble.go:Init() initTransport")
 		return err
 	}
 
 	if err := b.initKey(); err != nil {
-		b.Config.Logger.WithError(err).Error("babble.go:Init() initKey")
+		b.logger.WithError(err).Error("babble.go:Init() initKey")
 		return err
 	}
 
 	if err := b.initNode(); err != nil {
-		b.Config.Logger.WithError(err).Error("babble.go:Init() initNode")
+		b.logger.WithError(err).Error("babble.go:Init() initNode")
 		return err
 	}
 
 	if err := b.initService(); err != nil {
-		b.Config.Logger.WithError(err).Error("babble.go:Init() initService")
+		b.logger.WithError(err).Error("babble.go:Init() initService")
 		return err
 	}
 
@@ -86,9 +88,9 @@ func (b *Babble) initTransport() error {
 		b.Config.BindAddr,
 		nil,
 		b.Config.MaxPool,
-		b.Config.NodeConfig.TCPTimeout,
-		b.Config.NodeConfig.JoinTimeout,
-		b.Config.Logger,
+		b.Config.TCPTimeout,
+		b.Config.JoinTimeout,
+		b.Config.Logger(),
 	)
 
 	if err != nil {
@@ -128,7 +130,7 @@ func (b *Babble) initPeers() error {
 
 	genesisParticipants, err := genesisPeerStore.PeerSet()
 	if err != nil { // If there is any error, the current peer set is used as the genesis peer set
-		b.Config.Logger.Debugf("could not read peers.genesis.json: %v", err)
+		b.logger.Debugf("could not read peers.genesis.json: %v", err)
 		b.GenesisPeers = participants
 	} else {
 		b.GenesisPeers = genesisParticipants
@@ -139,15 +141,15 @@ func (b *Babble) initPeers() error {
 
 func (b *Babble) initStore() error {
 	if !b.Config.Store {
-		b.Config.Logger.Debug("Creating InmemStore")
-		b.Store = h.NewInmemStore(b.Config.NodeConfig.CacheSize)
+		b.logger.Debug("Creating InmemStore")
+		b.Store = h.NewInmemStore(b.Config.CacheSize)
 	} else {
 		dbPath := b.Config.BadgerDir()
 
-		b.Config.Logger.WithField("path", dbPath).Debug("Creating BadgerStore")
+		b.logger.WithField("path", dbPath).Debug("Creating BadgerStore")
 
-		if !b.Config.NodeConfig.Bootstrap {
-			b.Config.Logger.Debug("No Bootstrap")
+		if !b.Config.Bootstrap {
+			b.logger.Debug("No Bootstrap")
 
 			backup := backupFileName(dbPath)
 
@@ -157,15 +159,15 @@ func (b *Babble) initStore() error {
 				if !os.IsNotExist(err) {
 					return err
 				}
-				b.Config.Logger.Debug("Nothing to backup")
+				b.logger.Debug("Nothing to backup")
 			} else {
-				b.Config.Logger.WithField("path", backup).Debug("Created backup")
+				b.logger.WithField("path", backup).Debug("Created backup")
 			}
 		}
 
-		b.Config.Logger.WithField("path", dbPath).Debug("Opening BadgerStore")
+		b.logger.WithField("path", dbPath).Debug("Opening BadgerStore")
 
-		dbStore, err := h.NewBadgerStore(b.Config.NodeConfig.CacheSize, dbPath)
+		dbStore, err := h.NewBadgerStore(b.Config.CacheSize, dbPath)
 		if err != nil {
 			return err
 		}
@@ -182,7 +184,7 @@ func (b *Babble) initKey() error {
 
 		privKey, err := simpleKeyfile.ReadKey()
 		if err != nil {
-			b.Config.Logger.Errorf("Error reading private key from file: %v", err)
+			b.logger.Errorf("Error reading private key from file: %v", err)
 		}
 
 		b.Config.Key = privKey
@@ -197,7 +199,7 @@ func (b *Babble) initNode() error {
 	p, ok := b.Peers.ByID[validator.ID()]
 	if ok {
 		if p.Moniker != validator.Moniker {
-			b.Config.Logger.WithFields(logrus.Fields{
+			b.logger.WithFields(logrus.Fields{
 				"json_moniker": p.Moniker,
 				"cli_moniker":  validator.Moniker,
 			}).Debugf("Using moniker from peers.json file")
@@ -205,7 +207,7 @@ func (b *Babble) initNode() error {
 		}
 	}
 
-	b.Config.Logger.WithFields(logrus.Fields{
+	b.Config.Logger().WithFields(logrus.Fields{
 		"genesis_peers": len(b.GenesisPeers.Peers),
 		"peers":         len(b.Peers.Peers),
 		"id":            validator.ID(),
@@ -213,7 +215,7 @@ func (b *Babble) initNode() error {
 	}).Debug("PARTICIPANTS")
 
 	b.Node = node.NewNode(
-		&b.Config.NodeConfig,
+		b.Config,
 		validator,
 		b.Peers,
 		b.GenesisPeers,
@@ -230,7 +232,7 @@ func (b *Babble) initNode() error {
 }
 
 func (b *Babble) initService() error {
-	b.Service = service.NewService(b.Config.ServiceAddr, b.Node, b.Config.Logger)
+	b.Service = service.NewService(b.Config.ServiceAddr, b.Node, b.Config.Logger())
 	return nil
 }
 

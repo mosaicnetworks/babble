@@ -16,14 +16,15 @@ type SocketAppProxy struct {
 	client *SocketAppProxyClient
 	server *SocketAppProxyServer
 
-	logger *logrus.Logger
+	logger *logrus.Entry
 }
 
 // NewSocketAppProxy ...
-func NewSocketAppProxy(clientAddr string, bindAddr string, timeout time.Duration, logger *logrus.Logger) (*SocketAppProxy, error) {
+func NewSocketAppProxy(clientAddr string, bindAddr string, timeout time.Duration, logger *logrus.Entry) (*SocketAppProxy, error) {
 	if logger == nil {
-		logger = logrus.New()
-		logger.Level = logrus.DebugLevel
+		log := logrus.New()
+		log.Level = logrus.DebugLevel
+		logger = logrus.NewEntry(log)
 	}
 
 	client := NewSocketAppProxyClient(clientAddr, timeout, logger)

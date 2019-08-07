@@ -13,12 +13,12 @@ import (
 type DummySocketClient struct {
 	state       *State
 	babbleProxy *socket.SocketBabbleProxy
-	logger      *logrus.Logger
+	logger      *logrus.Entry
 }
 
 //NewDummySocketClient instantiates a DummySocketClient and starts the
 //SocketBabbleProxy
-func NewDummySocketClient(clientAddr string, nodeAddr string, logger *logrus.Logger) (*DummySocketClient, error) {
+func NewDummySocketClient(clientAddr string, nodeAddr string, logger *logrus.Entry) (*DummySocketClient, error) {
 	state := NewState(logger)
 
 	babbleProxy, err := socket.NewSocketBabbleProxy(nodeAddr, clientAddr, state, 1*time.Second, logger)

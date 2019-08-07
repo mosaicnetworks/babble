@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mosaicnetworks/babble/src/common"
 	bkeys "github.com/mosaicnetworks/babble/src/crypto/keys"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
@@ -18,12 +17,11 @@ Tests for dynamic membership protocol (adding/removing peers)
 */
 
 func TestMonologue(t *testing.T) {
-	logger := common.NewTestLogger(t)
 	keys, peers := initPeers(t, 1)
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 5, false, "inmem", 5*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
 	//defer drawGraphs(nodes, t)
 
 	target := 50
@@ -36,12 +34,11 @@ func TestMonologue(t *testing.T) {
 }
 
 func TestJoinRequest(t *testing.T) {
-	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
-	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 1000, 5, false, "inmem", 5*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
@@ -59,7 +56,7 @@ func TestJoinRequest(t *testing.T) {
 		"monika",
 	)
 
-	newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, logger, t)
+	newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
 	defer newNode.Shutdown()
 
 	err = newNode.join()
@@ -80,12 +77,11 @@ func TestJoinRequest(t *testing.T) {
 }
 
 func TestLeaveRequest(t *testing.T) {
-	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
-	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 1000, 5, false, "inmem", 5*time.Millisecond, logger, t)
+	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
@@ -116,13 +112,12 @@ func TestLeaveRequest(t *testing.T) {
 }
 
 func TestJoinFull(t *testing.T) {
-	logger := common.NewTestLogger(t)
 	keys, peerSet := initPeers(t, 4)
 
 	f := func(fastSync bool) {
 		genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
-		initialNodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 400, 5, fastSync, "inmem", 10*time.Millisecond, logger, t)
+		initialNodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 400, 5, fastSync, "inmem", 10*time.Millisecond, t)
 		defer shutdownNodes(initialNodes)
 
 		target := 30
@@ -139,7 +134,7 @@ func TestJoinFull(t *testing.T) {
 			"monika",
 		)
 
-		newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 400, 5, fastSync, "inmem", 10*time.Millisecond, logger, t)
+		newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 400, 5, fastSync, "inmem", 10*time.Millisecond, t)
 		defer newNode.Shutdown()
 
 		newNode.RunAsync(true)

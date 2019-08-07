@@ -3,7 +3,7 @@ jobs:
   build:
     working_directory: /go/src/github.com/mosaicnetworks/babble
     docker:
-      - image: mosaicnetworks/glider:0.0.1
+      - image: mosaicnetworks/glider:0.0.4
     steps:
       - checkout
       - restore_cache:
@@ -15,6 +15,14 @@ jobs:
           key: v0-glide-cache-{{ checksum "glide.yaml" }}
           paths:
             - /home/circleci/.glide
+      - run:
+          name: Check version flag
+          command: |
+            echo $CIRCLE_BRANCH
+            if [ "$CIRCLE_BRANCH" == "master" ];
+            then
+              make flagtest
+            fi
       - run:
           name: Run unit tests
           command: make test
