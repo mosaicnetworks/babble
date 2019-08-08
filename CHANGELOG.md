@@ -1,14 +1,14 @@
 # Change Log
 
-## UNRELEASED
-
-SECURITY:
-
-FEATURES:
+## v0.5.2 (August 8, 2019)
 
 IMPROVEMENTS:
 
+* log: Custom formatter for logrus. More info logs.
+
 BUG FIXES:
+
+* mobile: Process InternalTransactions
 
 ## v0.5.1 (July 23, 2019)
 
