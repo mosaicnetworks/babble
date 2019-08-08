@@ -17,3 +17,5 @@ import:
   version: BTCD_0_12_0_BETA 
   subpackages:
   - btcec
+- package: github.com/x-cray/logrus-prefixed-formatter
+  version: v0.5.2

@@ -1,0 +1,56 @@
+@import url("https://fonts.googleapis.com/css?family=Open+Sans&display=swap");
+
+html {
+  margin: 0 !important;
+}
+
+body {
+  font-family: "Open Sans", Helvetica, Arial, sans-serif !important;
+  /* font-family: "Playfair Display", serif !important; */
+  margin: 0 !important;
+  line-height: 1.5 !important;
+  font-size: 16px !important;
+  -webkit-font-smoothing: antialiased !important;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5 {
+  font-family: "Open Sans", Helvetica, Arial, sans-serif !important;
+  /* font-family: "Playfair Display", serif !important; */
+}
+
+div.sphinxsidebar {
+  min-height: 100vh !important;
+}
+
+.sphinxsidebarwrapper {
+  margin-right: 10px !important;
+  padding-top: 35px !important;
+  padding-bottom: 35px !important;
+  padding-right: 30px !important;
+  padding-left: 60px !important;
+  background: #fafafa !important;
+  margin-top: -30px !important;
+  /* box-shadow: 0 4px 20px -6px #ddd !important; */
+  /* border-right: 1px solid #ededed !important; */
+}
+
+.sphinxsidebarwrapper a {
+  /* color: #fff !important; */
+}
+
+.logo {
+  margin-bottom: 15px !important;
+  width: 230px !important;
+}
+
+.footer {
+  /* padding-right: 50px !important; */
+}
+
+div.sphinxsidebarwrapper h1.logo-name {
+  margin-bottom: 40px !important;
+}

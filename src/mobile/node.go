@@ -21,7 +21,7 @@ type Node struct {
 	nodeID uint32
 	node   *node.Node
 	proxy  proxy.AppProxy
-	logger *logrus.Logger
+	logger *logrus.Entry
 }
 
 // New initializes Node struct
@@ -34,7 +34,7 @@ func New(privKey string,
 
 	babbleConfig := config.toBabbleConfig()
 
-	babbleConfig.Logger.WithFields(logrus.Fields{
+	babbleConfig.Logger().WithFields(logrus.Fields{
 		"nodeAddr": nodeAddr,
 		"peers":    jsonPeers,
 		"config":   fmt.Sprintf("%v", config),
@@ -71,8 +71,8 @@ func New(privKey string,
 
 	//mobileApp implements the ProxyHandler interface, and we use it to
 	//instantiate an InmemProxy
-	mobileApp := newMobileApp(commitHandler, exceptionHandler, babbleConfig.Logger)
-	babbleConfig.Proxy = inmem.NewInmemProxy(mobileApp, babbleConfig.Logger)
+	mobileApp := newMobileApp(commitHandler, exceptionHandler, babbleConfig.Logger())
+	babbleConfig.Proxy = inmem.NewInmemProxy(mobileApp, babbleConfig.Logger())
 
 	engine := babble.NewBabble(babbleConfig)
 
@@ -88,7 +88,7 @@ func New(privKey string,
 		node:   engine.Node,
 		proxy:  babbleConfig.Proxy,
 		nodeID: engine.Node.GetID(),
-		logger: babbleConfig.Logger,
+		logger: babbleConfig.Logger(),
 	}
 }
 

@@ -16,5 +16,13 @@ jobs:
           paths:
             - /home/circleci/.glide
       - run:
+          name: Check version flag
+          command: |
+            echo $CIRCLE_BRANCH
+            if [ "$CIRCLE_BRANCH" == "master" ];
+            then
+              make flagtest
+            fi
+      - run:
           name: Run unit tests
           command: make test

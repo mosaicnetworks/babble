@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/common"
+	"github.com/mosaicnetworks/babble/src/config"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
 	dummy "github.com/mosaicnetworks/babble/src/proxy/dummy"
@@ -13,14 +14,13 @@ import (
 
 func TestProcessSync(t *testing.T) {
 	keys, p := initPeers(t, 2)
-	testLogger := common.NewTestLogger(t)
-	config := TestConfig(t)
+	config := config.NewTestConfig(t)
 
 	//Start two nodes
 
 	peers := p.Peers
 
-	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, time.Second, testLogger)
+	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, time.Second, config.Logger())
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -34,12 +34,12 @@ func TestProcessSync(t *testing.T) {
 		genesisPeerSet,
 		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
-		dummy.NewInmemDummyClient(testLogger))
+		dummy.NewInmemDummyClient(common.NewTestEntry(t)))
 	node0.Init()
 
 	node0.RunAsync(false)
 
-	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, time.Second, testLogger)
+	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, time.Second, config.Logger())
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestProcessSync(t *testing.T) {
 		genesisPeerSet,
 		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
-		dummy.NewInmemDummyClient(testLogger))
+		dummy.NewInmemDummyClient(common.NewTestEntry(t)))
 	node1.Init()
 
 	node1.RunAsync(false)
@@ -118,14 +118,13 @@ func TestProcessSync(t *testing.T) {
 
 func TestProcessEagerSync(t *testing.T) {
 	keys, p := initPeers(t, 2)
-	testLogger := common.NewTestLogger(t)
-	config := TestConfig(t)
+	config := config.NewTestConfig(t)
 
 	//Start two nodes
 
 	peers := p.Peers
 
-	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, time.Second, testLogger)
+	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, time.Second, config.Logger())
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -139,12 +138,12 @@ func TestProcessEagerSync(t *testing.T) {
 		genesisPeerSet,
 		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
-		dummy.NewInmemDummyClient(testLogger))
+		dummy.NewInmemDummyClient(common.NewTestEntry(t)))
 	node0.Init()
 
 	node0.RunAsync(false)
 
-	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, time.Second, testLogger)
+	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, time.Second, config.Logger())
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -156,7 +155,7 @@ func TestProcessEagerSync(t *testing.T) {
 		genesisPeerSet,
 		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
-		dummy.NewInmemDummyClient(testLogger))
+		dummy.NewInmemDummyClient(common.NewTestEntry(t)))
 	node1.Init()
 
 	node1.RunAsync(false)
@@ -202,14 +201,13 @@ func TestProcessEagerSync(t *testing.T) {
 
 func TestProcessFastForward(t *testing.T) {
 	keys, p := initPeers(t, 2)
-	testLogger := common.NewTestLogger(t)
-	config := TestConfig(t)
+	config := config.NewTestConfig(t)
 
 	//Start two nodes
 
 	peers := p.Peers
 
-	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, time.Second, testLogger)
+	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, time.Second, config.Logger())
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -223,12 +221,12 @@ func TestProcessFastForward(t *testing.T) {
 		genesisPeerSet,
 		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
-		dummy.NewInmemDummyClient(testLogger))
+		dummy.NewInmemDummyClient(common.NewTestEntry(t)))
 	node0.Init()
 
 	node0.RunAsync(false)
 
-	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, time.Second, testLogger)
+	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, time.Second, config.Logger())
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -240,7 +238,7 @@ func TestProcessFastForward(t *testing.T) {
 		genesisPeerSet,
 		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
-		dummy.NewInmemDummyClient(testLogger))
+		dummy.NewInmemDummyClient(common.NewTestEntry(t)))
 	node1.Init()
 
 	node1.RunAsync(false)

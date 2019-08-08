@@ -31,7 +31,6 @@ var (
 )
 
 /*
-
 NetworkTransport provides a network based transport that can be
 used to communicate with babble on remote machines. It requires
 an underlying stream layer to provide a stream abstraction, which can
@@ -45,7 +44,7 @@ The response is an error string followed by the response object,
 both are encoded using msgpack
 */
 type NetworkTransport struct {
-	logger *logrus.Logger
+	logger *logrus.Entry
 
 	connPool     map[string][]*netConn
 	connPoolLock sync.Mutex
@@ -94,12 +93,15 @@ func NewNetworkTransport(
 	maxPool int,
 	timeout time.Duration,
 	joinTimeout time.Duration,
-	logger *logrus.Logger,
+	logger *logrus.Entry,
 ) *NetworkTransport {
+
 	if logger == nil {
-		logger = logrus.New()
-		logger.Level = logrus.DebugLevel
+		log := logrus.New()
+		log.Level = logrus.DebugLevel
+		logger = logrus.NewEntry(log)
 	}
+
 	trans := &NetworkTransport{
 		connPool:    make(map[string][]*netConn),
 		consumeCh:   make(chan RPC),

@@ -11,11 +11,11 @@ import (
 type InmemDummyClient struct {
 	*inmem.InmemProxy
 	state  *State
-	logger *logrus.Logger
+	logger *logrus.Entry
 }
 
 //NewInmemDummyClient instantiates an InemDummyClient
-func NewInmemDummyClient(logger *logrus.Logger) *InmemDummyClient {
+func NewInmemDummyClient(logger *logrus.Entry) *InmemDummyClient {
 	state := NewState(logger)
 
 	proxy := inmem.NewInmemProxy(state, logger)
