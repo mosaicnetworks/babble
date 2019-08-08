@@ -8,25 +8,25 @@ From Source
 
 Clone the `repository <https://github.com/mosaicnetworks/babble>`__ in the appropriate GOPATH subdirectory:
 
-::
+.. code:: bash
 
     $ mkdir -p $GOPATH/src/github.com/mosaicnetworks/
     $ cd $GOPATH/src/github.com/mosaicnetworks
     [...]/mosaicnetworks$ git clone https://github.com/mosaicnetworks/babble.git
 
 
-The easiest way to build binaries is to do so in a hermetic Docker container. 
-Use this simple command:  
+The easiest way to build binaries is to do so in a hermetic Docker container.
+Use this simple command:
 
-::
+.. code:: bash
 
-	[...]/babble$ make dist
+    [...]/babble$ make dist
 
-This will launch the build in a Docker container and write all the artifacts in  
-the build/ folder.  
+This will launch the build in a Docker container and write all the artifacts in
+the build/ folder.
 
-::
-	
+.. code:: bash
+
     [...]/babble$ tree build
     build/
     ├── dist
@@ -59,20 +59,20 @@ the build/ folder.
         │   └── babble.exe
         └── windows_amd64
             └── babble.exe
-    
+
 Go Devs
 ^^^^^^^
 
-Babble is written in `Golang <https://golang.org/>`__. Hence, the first step is 
-to install **Go version 1.9 or above** which is both the programming language  
-and a CLI tool for managing Go code. Go is very opinionated  and will require 
-you to `define a workspace <https://golang.org/doc/code.html#Workspaces>`__ 
-where all your go code will reside. 
+Babble is written in `Golang <https://golang.org/>`__. Hence, the first step is
+to install **Go version 1.9 or above** which is both the programming language
+and a CLI tool for managing Go code. Go is very opinionated and will require
+you to `define a workspace <https://golang.org/doc/code.html#Workspaces>`__
+where all your go code will reside.
 
-Dependencies  
+Dependencies
 ^^^^^^^^^^^^
 
-Babble uses `Glide <http://github.com/Masterminds/glide>`__ to manage 
+Babble uses `Glide <http://github.com/Masterminds/glide>`__ to manage
 dependencies. For Ubuntu users:
 
 ::
@@ -85,13 +85,13 @@ This will download all dependencies and put them in the **vendor** folder.
 Testing
 ^^^^^^^
 
-Babble has extensive unit-testing. Use the Go tool to run tests:  
+Babble has extensive unit-testing. Use the Go tool to run tests:
 
 ::
 
     [...]/babble$ make test
 
-If everything goes well, it should output something along these lines:  
+If everything goes well, it should output something along these lines:
 
 ::
 

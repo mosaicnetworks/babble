@@ -21,7 +21,7 @@ Make sure you have `Docker <https://docker.com>`__ installed.
 The demo will pull Docker images from our `official public Docker registry
 <https://hub.docker.com/u/mosaicnetworks/>`__
 
-::
+.. code:: bash
 
     [...]/babble$ cd demo
     [...]/babble/demo$ make
@@ -40,7 +40,7 @@ consensus figures:
 Running ``docker ps -a`` will show you that 9 docker containers have
 been launched:
 
-::
+.. code:: bash
 
     [...]/babble/demo$ docker ps -a
     CONTAINER ID        IMAGE                    COMMAND                  CREATED             STATUS              PORTS                   NAMES
@@ -61,7 +61,7 @@ The ``watcher`` container monitors consensus figures.
 Run the ``demo`` script to play with the ``Dummy App`` which is a simple chat
 application powered by the Babble consensus platform:
 
-::
+.. code:: bash
 
     [...]/babble/demo$ make demo
 
@@ -69,73 +69,73 @@ application powered by the Babble consensus platform:
 
 Finally, stop the testnet:
 
-::
+.. code:: bash
 
     [...]/babble/demo$ make stop
 
 Manual Setup
 ------------
 
-The above scripts hide a lot of the work required for setting up a Babble 
-network. They generate the configuration files automatically, copy them to the 
-right places and launch the nodes in Docker containers. We recommend looking at 
-these scripts closely to understand how the demo works. Here, we will attempt to 
-explain the individual steps that take place behind the scenes.
+The above scripts hide a lot of the work required for setting up a Babble
+network. They generate the configuration files automatically, copy them to the
+right places and launch the nodes in Docker containers. We recommend looking at
+these scripts closely to understand how the demo works. Here, we will attempt
+to explain the individual steps that take place behind the scenes.
 
 Configuration
 ~~~~~~~~~~~~~
 
 Babble reads configuration from the directory specified by the ``datadir`` flag
-which defaults to ``~/.babble`` on UNIX systems. This directory should contain 
-the following files: 
+which defaults to ``~/.babble`` on UNIX systems. This directory should contain
+the following files:
 
  - ``priv_key``    : The private key of the validator runnning the node.
  - ``peers.json``  : The current validator-set.
- - ``genesis.peers.json`` : (optional, default peers.json) The initial 
+ - ``genesis.peers.json`` : (optional, default peers.json) The initial
    validator-set of the network.
 
 Keys
 ****
 
-Every participant has a cryptographic key-pair that it uses to encrypt, sign and 
-verify messages. The private key is secret but the public key is used by other 
-nodes to verify messages signed with the private key. 
+Every participant has a cryptographic key-pair that it uses to encrypt, sign
+and verify messages. The private key is secret but the public key is used by
+other nodes to verify messages signed with the private key.
 
-The encryption scheme used by Babble is ECDSA with the secp256k1 curve (like 
+The encryption scheme used by Babble is ECDSA with the secp256k1 curve (like
 Bitcoin and Ethereum).
 
-Babble's ``keygen`` command can be used to generate key-pairs in the appropriate
-format.
+Babble's ``keygen`` command can be used to generate key-pairs in the
+appropriate format.
 
 Peers
 *****
 
 ``peers.json`` and ``genesis.peers.json`` are used to determine the current and
-initial validator-sets of a network.  
+initial validator-sets of a network.
 
 ``genesis.peers.json`` corresponds to the initial validator-set; the one that
-the hashgraph was started with. If ``genesis.peers.json`` is not provided, 
-Babble will use ``peers.json`` as the genesis validator-set. 
+the hashgraph was started with. If ``genesis.peers.json`` is not provided,
+Babble will use ``peers.json`` as the genesis validator-set.
 
 
-``peers.json`` corresponds to the current validator-set. These are the nodes 
-that are allowed to record new Events in the hashgraph, and who will gossip 
+``peers.json`` corresponds to the current validator-set. These are the nodes
+that are allowed to record new Events in the hashgraph, and who will gossip
 among each other.
 
-``peers.json`` and ``gensesis.peers.json`` are not necessarily equal because the
-:ref:`dynamic membership protcol <dynamic_membership>` enables new nodes to 
-join or leave a live Babble network dynamically. It is important for a joining 
-node to know the initial validator-set in order to replay and verify the 
+``peers.json`` and ``gensesis.peers.json`` are not necessarily equal because
+the :ref:`dynamic membership protcol <dynamic_membership>` enables new nodes to
+join or leave a live Babble network dynamically. It is important for a joining
+node to know the initial validator-set in order to replay and verify the
 hashgraph up to the point where it joins.
 
-It is possible to start a Babble network with just a single node, or with a 
+It is possible to start a Babble network with just a single node, or with a
 predefined validator-set composed of multiple nodes.
 
-In the latter case, someone, or some process, needs to aggregate the public keys 
-and network addresses of all participants into a single file (``peers.json``), 
-and ensure that everyone has a copy of this file. It is left to the user to 
-derive a scheme to produce the configuration files but the docker demo scripts 
-are a good place to start.
+In the latter case, someone, or some process, needs to aggregate the public
+keys and network addresses of all participants into a single file
+(``peers.json``), and ensure that everyone has a copy of this file. It is left
+to the user to derive a scheme to produce the configuration files but the
+docker demo scripts are a good place to start.
 
 Example
 *******
@@ -143,7 +143,7 @@ Example
 Let us say I want to participate in a Babble network. I am going to start by
 running ``babble keygen`` to create a key-pair:
 
-::
+.. code:: bash
 
   babble keygen
   Your private key has been saved to: /home/[user]/.babble/priv_key
@@ -151,14 +151,14 @@ running ``babble keygen`` to create a key-pair:
 
 Next, I am going to copy the public key (key.pub) and communicate it to whoever
 is responsible for producing the peers.json file. At the same time, I will tell
-them that I am going to be listening on 172.77.5.2:1337. You may also optionally 
-supply a moniker for each node, which is far more readable than a public key 
-address.
+them that I am going to be listening on 172.77.5.2:1337. You may also
+optionally supply a moniker for each node, which is far more readable than a
+public key address.
 
 Suppose three other people do the same thing. The resulting peers.json file
 could look something like this:
 
-::
+.. code:: json
 
     [
       {
@@ -184,15 +184,16 @@ could look something like this:
     ]
 
 Now everyone is going to take a copy of this peers.json file and put it in a
-folder together with the priv_key file they generated in the previous step. That 
-is the folder that they need to specify as the datadir when they run Babble.
+folder together with the priv_key file they generated in the previous step.
+That is the folder that they need to specify as the datadir when they run
+Babble.
 
 Babble Executable
 -----------------
 
 Let us take a look at the help provided by the Babble CLI:
 
-::
+.. code:: bash
 
     $ babble run --help
 
@@ -254,7 +255,7 @@ state.
 Here is how the Docker demo starts Babble nodes together wth the Dummy
 application:
 
-::
+.. code:: bash
 
     for i in $(seq 1 $N)
     do
@@ -263,9 +264,9 @@ application:
         --client-listen="172.77.10.$i:1339" \
         --proxy-connect="172.77.5.$i:1338" \
         --discard \
-        --log="debug" 
+        --log="debug"
     done
-    
+
     for i in $(seq 1 $N)
     do
         docker create --name=node$i --net=babblenet --ip=172.77.5.$i mosaicnetworks/babble:latest run \
@@ -279,8 +280,8 @@ application:
         --sync-limit=500 \
         --fast-sync=$FASTSYNC \
         --store \
-        --log="debug" 
-                
+        --log="debug"
+
         docker cp $MPWD/conf/node$i node$i:/.babble
         docker start node$i
     done
@@ -291,24 +292,24 @@ Stats, blocks and Logs
 Once a node is up and running, we can call the ``stats`` endpoint exposed
 by the HTTP service:
 
-::
+.. code:: bash
 
     curl -s http://172.77.5.1:80/stats
 
 Or request to see a specific block:
 
-::
+.. code:: bash
 
     curl -s http://172.77.5.1:80/block/1
 
 Or we can look at the logs produced by Babble:
 
-::
+.. code:: bash
 
     docker logs node1
 
 We can look at the current state of docker containers:
 
-::
+.. code:: bash
 
     docker ps --all
