@@ -1,5 +1,11 @@
 # Change Log
 
+## Unreleased
+
+FEATURES:
+
+* service: Enable CORS
+
 ## v0.5.2 (August 8, 2019)
 
 IMPROVEMENTS:
