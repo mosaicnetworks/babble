@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/mosaicnetworks/babble/src/node"
 	"github.com/mosaicnetworks/babble/src/peers"
@@ -12,6 +13,8 @@ import (
 
 // Service ...
 type Service struct {
+	sync.Mutex
+
 	bindAddress string
 	node        *node.Node
 	graph       *node.Graph
@@ -40,11 +43,23 @@ func NewService(bindAddress string, n *node.Node, logger *logrus.Entry) *Service
 // application's API.
 func (s *Service) registerHandlers() {
 	s.logger.Debug("Registering Babble API handlers")
-	http.HandleFunc("/stats", s.GetStats)
-	http.HandleFunc("/block/", s.GetBlock)
-	http.HandleFunc("/graph", s.GetGraph)
-	http.HandleFunc("/peers", s.GetPeers)
-	http.HandleFunc("/genesispeers", s.GetGenesisPeers)
+	http.HandleFunc("/stats", s.makeHandler(s.GetStats))
+	http.HandleFunc("/block/", s.makeHandler(s.GetBlock))
+	http.HandleFunc("/graph", s.makeHandler(s.GetGraph))
+	http.HandleFunc("/peers", s.makeHandler(s.GetPeers))
+	http.HandleFunc("/genesispeers", s.makeHandler(s.GetGenesisPeers))
+}
+
+func (s *Service) makeHandler(fn func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		s.Lock()
+		defer s.Unlock()
+
+		// enable CORS
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+
+		fn(w, r)
+	}
 }
 
 // Serve calls ListenAndServe. This is a blocking call. It is not necessary to
