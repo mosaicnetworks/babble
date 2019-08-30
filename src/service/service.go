@@ -2,9 +2,12 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"sync"
+
+	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 
 	"github.com/mosaicnetworks/babble/src/node"
 	"github.com/mosaicnetworks/babble/src/peers"
@@ -45,6 +48,7 @@ func (s *Service) registerHandlers() {
 	s.logger.Debug("Registering Babble API handlers")
 	http.HandleFunc("/stats", s.makeHandler(s.GetStats))
 	http.HandleFunc("/block/", s.makeHandler(s.GetBlock))
+	http.HandleFunc("/blocks/", s.makeHandler(s.GetBlocks))
 	http.HandleFunc("/graph", s.makeHandler(s.GetGraph))
 	http.HandleFunc("/peers", s.makeHandler(s.GetPeers))
 	http.HandleFunc("/genesispeers", s.makeHandler(s.GetGenesisPeers))
@@ -113,6 +117,71 @@ func (s *Service) GetBlock(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	json.NewEncoder(w).Encode(block)
+}
+
+// GetBlocks ...
+func (s *Service) GetBlocks(w http.ResponseWriter, r *http.Request) {
+	maxLimit := 5
+
+	qi := r.URL.Path[len("/blocks/"):]
+
+	var blocks []*hg.Block
+
+	ql := r.URL.Query().Get("limit")
+	if ql == "" {
+		ql = string(maxLimit)
+	}
+
+	stringLastBlockIndex := s.node.GetStats()["last_block_index"]
+	if stringLastBlockIndex == "-1" {
+		s.logger.WithError(errors.New("No blocks found")).Errorf("No blocks found")
+		http.Error(w, "No blocks found", http.StatusInternalServerError)
+		return
+	}
+
+	lastBlockIndex, err := strconv.Atoi(stringLastBlockIndex)
+	if err != nil {
+		s.logger.WithError(err).Errorf("Converting last block index to int")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	i, err := strconv.Atoi(qi)
+	if err != nil {
+		s.logger.WithError(err).Errorf("Converting block index to int")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	l, err := strconv.Atoi(ql)
+	if err != nil {
+		s.logger.WithError(err).Errorf("Converting blocks limit to int")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if l > maxLimit {
+		l = maxLimit
+	}
+
+	if l > lastBlockIndex {
+		l = lastBlockIndex
+	}
+
+	for i <= l {
+		block, err := s.node.GetBlock(i)
+		if err != nil {
+			s.logger.WithError(err).Errorf("Retrieving block %d", i)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		blocks = append(blocks, block)
+		i++
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(blocks)
 }
 
 // GetGraph ...
