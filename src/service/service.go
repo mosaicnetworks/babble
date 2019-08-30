@@ -2,7 +2,7 @@ package service
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"sync"
@@ -119,33 +119,33 @@ func (s *Service) GetBlock(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(block)
 }
 
-// GetBlocks ...
+// GetBlocks returns an array of blocks starting with blocks/[index]?limit=x and finishing
+// at x blocks later
 func (s *Service) GetBlocks(w http.ResponseWriter, r *http.Request) {
-	maxLimit := 5
-
-	qi := r.URL.Path[len("/blocks/"):]
-
+	// blocks slice
 	var blocks []*hg.Block
 
-	ql := r.URL.Query().Get("limit")
-	if ql == "" {
-		ql = string(maxLimit)
-	}
+	// max limit on blocks set back
+	maxLimit := 5
 
-	stringLastBlockIndex := s.node.GetStats()["last_block_index"]
-	if stringLastBlockIndex == "-1" {
-		s.logger.WithError(errors.New("No blocks found")).Errorf("No blocks found")
+	// check last block index and make sure a block exists
+	sLastBlockIndex := s.node.GetStats()["last_block_index"]
+	if sLastBlockIndex == "-1" {
+		s.logger.Errorf("No blocks found")
 		http.Error(w, "No blocks found", http.StatusInternalServerError)
 		return
 	}
 
-	lastBlockIndex, err := strconv.Atoi(stringLastBlockIndex)
+	// convert to int
+	lastBlockIndex, err := strconv.Atoi(sLastBlockIndex)
 	if err != nil {
 		s.logger.WithError(err).Errorf("Converting last block index to int")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	// parse starting block index
+	qi := r.URL.Path[len("/blocks/"):]
 	i, err := strconv.Atoi(qi)
 	if err != nil {
 		s.logger.WithError(err).Errorf("Converting block index to int")
@@ -153,6 +153,19 @@ func (s *Service) GetBlocks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if i > lastBlockIndex {
+		s.logger.Errorf("Requested index larger than last block index")
+		http.Error(w, "Requested starting index larger than last block index", http.StatusInternalServerError)
+		return
+	}
+
+	// get max limit, if empty set to maxlimit
+	ql := r.URL.Query().Get("limit")
+	if ql == "" {
+		ql = strconv.Itoa(maxLimit)
+	}
+
+	// parse to int
 	l, err := strconv.Atoi(ql)
 	if err != nil {
 		s.logger.WithError(err).Errorf("Converting blocks limit to int")
@@ -160,24 +173,30 @@ func (s *Service) GetBlocks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// make sure requested limit does not exceed max
 	if l > maxLimit {
 		l = maxLimit
 	}
 
-	if l > lastBlockIndex {
-		l = lastBlockIndex
+	// make limit does not exceed last block index
+	if i+l > lastBlockIndex {
+		l = lastBlockIndex - i
 	}
 
-	for i <= l {
-		block, err := s.node.GetBlock(i)
+	// get blocks
+	for c := 0; c <= l; {
+		fmt.Println("Fetching block: ", i+c)
+		fmt.Println("Limit: ", l)
+
+		block, err := s.node.GetBlock(i + c)
 		if err != nil {
-			s.logger.WithError(err).Errorf("Retrieving block %d", i)
+			s.logger.WithError(err).Errorf("Retrieving block %d", i+c)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		blocks = append(blocks, block)
-		i++
+		c++
 	}
 
 	w.Header().Set("Content-Type", "application/json")
