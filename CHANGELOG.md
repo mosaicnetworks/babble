@@ -6,6 +6,8 @@ SECURTY:
 
 FEATURES:
 
+- service: Add endpoint `/blocks/{startIndex}?limit={x}`
+
 IMPROVEMENTS:
 
 BUG FIXES:
@@ -14,40 +16,40 @@ BUG FIXES:
 
 FEATURES:
 
-* service: Enable CORS
+- service: Enable CORS
 
 ## v0.5.2 (August 8, 2019)
 
 IMPROVEMENTS:
 
-* log: Custom formatter for logrus. More info logs.
+- log: Custom formatter for logrus. More info logs.
 
 BUG FIXES:
 
-* mobile: Process InternalTransactions
+- mobile: Process InternalTransactions
 
 ## v0.5.1 (July 23, 2019)
 
 BUG FIXES:
 
-* core: Do nothing on 'leave' when the node is alone.
+- core: Do nothing on 'leave' when the node is alone.
 
 ## v0.5.0 (July 14, 2019)
 
 SECURITY:
 
-* crypto: Use secp256k1 curve which is also used by Ethereum and Bitcoin.
+- crypto: Use secp256k1 curve which is also used by Ethereum and Bitcoin.
 
 FEATURES:
 
-* hashgraph: Dynamic Membership protocol.
+- hashgraph: Dynamic Membership protocol.
 
 IMPROVEMENTS:
 
-* node: FastSync protocol.
-* core: Bootstrap.
-* Enhanced peers leaving and joining functionality
-* Added peers endpoint to enable `peers.json` propagation
+- node: FastSync protocol.
+- core: Bootstrap.
+- Enhanced peers leaving and joining functionality
+- Added peers endpoint to enable `peers.json` propagation
 
 BUG FIXES:
 
@@ -55,30 +57,30 @@ BUG FIXES:
 
 IMPROVEMENTS:
 
-* Bug fixes and refactoring pulled from develop branch
+- Bug fixes and refactoring pulled from develop branch
 
 ## v0.4.0 (October 14, 2018)
 
 SECURITY:
 
-* keygen: write keys to files instead of tty.
+- keygen: write keys to files instead of tty.
 
 FEATURES:
 
-* proxy: Introduced in-memory proxy.
-* cmd: Enable reading config from file (babble.toml, .json, or .yaml)
+- proxy: Introduced in-memory proxy.
+- cmd: Enable reading config from file (babble.toml, .json, or .yaml)
 
 IMPROVEMENTS:
 
-* node: major refactoring of configuration and initialization of Babble node.
-* node: Node ID is calculated from public key rather than from sorting the
-peers.json file.
+- node: major refactoring of configuration and initialization of Babble node.
+- node: Node ID is calculated from public key rather than from sorting the
+  peers.json file.
 
 ## v0.3.0 (September 4, 2018)
 
 FEATURES:
 
-* hashgraph: Replaced Leemon Baird's original "Fair" ordering method with
-Lamport timestamps.
-* hashgraph: Introduced the concept of Frames and Roots to enable initializing a
-hashgraph from a "non-zero" state.
+- hashgraph: Replaced Leemon Baird's original "Fair" ordering method with
+  Lamport timestamps.
+- hashgraph: Introduced the concept of Frames and Roots to enable initializing a
+  hashgraph from a "non-zero" state.
