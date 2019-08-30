@@ -2,7 +2,6 @@ package service
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 	"sync"
@@ -119,14 +118,20 @@ func (s *Service) GetBlock(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(block)
 }
 
-// GetBlocks returns an array of blocks starting with blocks/[index]?limit=x and finishing
-// at x blocks later
+/*
+GetBlocks will fetch an array of blocks starting at {startIndex} and finishing
+{x} blocks later.
+
+GET /blocks/{startIndex}?limit={x}
+example: /blocks/{0}?limit={50}
+returns: JSON []hashgraph.Block
+*/
 func (s *Service) GetBlocks(w http.ResponseWriter, r *http.Request) {
 	// blocks slice
 	var blocks []*hg.Block
 
 	// max limit on blocks set back
-	maxLimit := 5
+	maxLimit := 50
 
 	// check last block index and make sure a block exists
 	sLastBlockIndex := s.node.GetStats()["last_block_index"]
@@ -185,9 +190,6 @@ func (s *Service) GetBlocks(w http.ResponseWriter, r *http.Request) {
 
 	// get blocks
 	for c := 0; c <= l; {
-		fmt.Println("Fetching block: ", i+c)
-		fmt.Println("Limit: ", l)
-
 		block, err := s.node.GetBlock(i + c)
 		if err != nil {
 			s.logger.WithError(err).Errorf("Retrieving block %d", i+c)
