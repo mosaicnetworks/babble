@@ -266,6 +266,15 @@ func (n *Node) GetGenesisPeers() []*peers.Peer {
 	return n.core.genesisPeers.Peers
 }
 
+// GetValidators returns the validator-set associated to a round
+func (n *Node) GetValidators(round int) ([]*peers.Peer, error) {
+	peerSet, err := n.core.hg.Store.GetPeerSet(round)
+	if err != nil {
+		return nil, err
+	}
+	return peerSet.Peers, nil
+}
+
 /*******************************************************************************
 Background
 *******************************************************************************/
