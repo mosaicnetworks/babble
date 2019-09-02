@@ -7,6 +7,7 @@ SECURTY:
 FEATURES:
 
 - service: Add endpoint `/blocks/{startIndex}?limit={x}`
+- service: Deprecated `/block/{x}` endpoint
 
 IMPROVEMENTS:
 
