@@ -89,7 +89,7 @@ func (s *Service) GetStats(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(stats)
 }
 
-// GetBlock ...
+// GetBlock - DEPRECATED used /blocks/ instead
 func (s *Service) GetBlock(w http.ResponseWriter, r *http.Request) {
 	param := r.URL.Path[len("/block/"):]
 
@@ -120,10 +120,11 @@ func (s *Service) GetBlock(w http.ResponseWriter, r *http.Request) {
 
 /*
 GetBlocks will fetch an array of blocks starting at {startIndex} and finishing
-{x} blocks later.
+{x<=50} blocks later. If no limit param is provided it will just return the index requested
+rather than listing blocks.
 
 GET /blocks/{startIndex}?limit={x}
-example: /blocks/{0}?limit={50}
+example: /blocks/0?limit=50
 returns: JSON []hashgraph.Block
 */
 func (s *Service) GetBlocks(w http.ResponseWriter, r *http.Request) {
@@ -164,10 +165,19 @@ func (s *Service) GetBlocks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// get max limit, if empty set to maxlimit
+	// get max limit, if empty just send requested index
 	ql := r.URL.Query().Get("limit")
 	if ql == "" {
-		ql = strconv.Itoa(maxLimit)
+		block, err := s.node.GetBlock(i)
+		if err != nil {
+			s.logger.WithError(err).Errorf("Retrieving block %d", i)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(block)
+		return
 	}
 
 	// parse to int
