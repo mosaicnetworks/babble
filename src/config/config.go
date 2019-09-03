@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/sirupsen/logrus"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
@@ -114,14 +115,7 @@ func NewDefaultConfig() *Config {
 func NewTestConfig(t testing.TB) *Config {
 	config := NewDefaultConfig()
 
-	config.logger = logrus.New()
-	config.logger.Level = LogLevel(config.LogLevel)
-	config.logger.Formatter = &prefixed.TextFormatter{
-		ForceColors:     true,
-		ForceFormatting: true,
-	}
-	config.logger.SetReportCaller(true)
-
+	config.logger = common.NewTestLogger(t)
 	return config
 }
 

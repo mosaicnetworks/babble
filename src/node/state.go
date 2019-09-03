@@ -40,9 +40,14 @@ func (s State) String() string {
 	}
 }
 
+// WGLIMIT is the maximum number of goroutines that can be launched through
+// state.goFunc
+const WGLIMIT = 20
+
 type state struct {
-	state State
-	wg    sync.WaitGroup
+	state   State
+	wg      sync.WaitGroup
+	wgCount int32
 }
 
 func (b *state) getState() State {
@@ -57,11 +62,16 @@ func (b *state) setState(s State) {
 
 // Start a goroutine and add it to waitgroup
 func (b *state) goFunc(f func()) {
-	b.wg.Add(1)
-	go func() {
-		defer b.wg.Done()
-		f()
-	}()
+	tempWgCount := atomic.LoadInt32(&b.wgCount)
+	if tempWgCount < WGLIMIT {
+		b.wg.Add(1)
+		atomic.AddInt32(&b.wgCount, 1)
+		go func() {
+			defer b.wg.Done()
+			atomic.AddInt32(&b.wgCount, -1)
+			f()
+		}()
+	}
 }
 
 func (b *state) waitRoutines() {

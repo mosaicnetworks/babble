@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
+	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 )
 
 // This can be used as the destination for a logger and it'll
@@ -83,10 +84,21 @@ func (a *testLoggerAdapter) Write(d []byte) (int, error) {
 	//END STANDARD LOGGING
 }
 
-// NewTestEntry returns a logrus Entry for testing
-func NewTestEntry(t testing.TB) *logrus.Entry {
+// NewTestLogger return a logrus Logger for testing
+func NewTestLogger(t testing.TB) *logrus.Logger {
 	logger := logrus.New()
 	logger.Out = &testLoggerAdapter{t: t}
 	logger.Level = logrus.DebugLevel
+	logger.Formatter = &prefixed.TextFormatter{
+		ForceColors:     true,
+		ForceFormatting: true,
+	}
+	logger.SetReportCaller(true)
+	return logger
+}
+
+// NewTestEntry returns a logrus Entry for testing
+func NewTestEntry(t testing.TB) *logrus.Entry {
+	logger := NewTestLogger(t)
 	return logrus.NewEntry(logger)
 }
