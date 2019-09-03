@@ -374,6 +374,21 @@ func (n *Node) monologue() error {
 
 // gossip performs a pull-push gossip operation with the selected peer.
 func (n *Node) gossip(peer *peers.Peer) error {
+	var connected bool
+
+	defer func() {
+		//update peer selector
+		n.core.selectorLock.Lock()
+		newConnection := n.core.peerSelector.UpdateLast(peer.ID(), connected)
+		n.core.selectorLock.Unlock()
+		if newConnection {
+			n.logger.WithFields(logrus.Fields{
+				"peer_ID":      peer.ID(),
+				"peer_moniker": peer.Moniker,
+			}).Info("Connected")
+		}
+	}()
+
 	//pull
 	otherKnownEvents, err := n.pull(peer)
 	if err != nil {
@@ -388,12 +403,9 @@ func (n *Node) gossip(peer *peers.Peer) error {
 		return err
 	}
 
-	//update peer selector
-	n.core.selectorLock.Lock()
-	n.core.peerSelector.UpdateLast(peer.ID())
-	n.core.selectorLock.Unlock()
-
 	n.logStats()
+
+	connected = true
 
 	return nil
 }
