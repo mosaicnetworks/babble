@@ -6,7 +6,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
-//PeerSelector defines and interface for Peer Selectors
+// PeerSelector defines and interface for Peer Selectors
 type PeerSelector interface {
 	Peers() *peers.PeerSet
 	UpdateLast(peer uint32, connected bool) bool
@@ -63,12 +63,15 @@ func (ps *RandomPeerSelector) Peers() *peers.PeerSet {
 func (ps *RandomPeerSelector) UpdateLast(peer uint32, connected bool) (newConnection bool) {
 	ps.last = peer
 
-	old := ps.selectablePeersMap[peer].Connected
+	// The peer could have been removed in by an InternalTransaction
+	if _, ok := ps.selectablePeersMap[peer]; ok {
+		old := ps.selectablePeersMap[peer].Connected
 
-	ps.selectablePeersMap[peer].Connected = connected
+		ps.selectablePeersMap[peer].Connected = connected
 
-	if !old && connected {
-		return true
+		if !old && connected {
+			return true
+		}
 	}
 
 	return false
