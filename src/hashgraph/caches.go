@@ -164,7 +164,6 @@ func (c *PeerSetCache) Set(round int, peerSet *peers.PeerSet) error {
 	}
 
 	return nil
-
 }
 
 // Get ...
