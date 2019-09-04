@@ -6,10 +6,15 @@ import (
 	"strconv"
 	"sync"
 
+	hg "github.com/mosaicnetworks/babble/src/hashgraph"
+
 	"github.com/mosaicnetworks/babble/src/node"
 	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/sirupsen/logrus"
 )
+
+// MAXBLOCKS is the maximum number of blocks returned by the /blocks/ endpoint
+const MAXBLOCKS = 50
 
 // Service ...
 type Service struct {
@@ -45,6 +50,7 @@ func (s *Service) registerHandlers() {
 	s.logger.Debug("Registering Babble API handlers")
 	http.HandleFunc("/stats", s.makeHandler(s.GetStats))
 	http.HandleFunc("/block/", s.makeHandler(s.GetBlock))
+	http.HandleFunc("/blocks/", s.makeHandler(s.GetBlocks))
 	http.HandleFunc("/graph", s.makeHandler(s.GetGraph))
 	http.HandleFunc("/peers", s.makeHandler(s.GetPeers))
 	http.HandleFunc("/genesispeers", s.makeHandler(s.GetGenesisPeers))
@@ -86,7 +92,7 @@ func (s *Service) GetStats(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(stats)
 }
 
-// GetBlock ...
+// GetBlock - DEPRECATED used /blocks/ instead
 func (s *Service) GetBlock(w http.ResponseWriter, r *http.Request) {
 	param := r.URL.Path[len("/block/"):]
 
@@ -113,6 +119,74 @@ func (s *Service) GetBlock(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	json.NewEncoder(w).Encode(block)
+}
+
+/*
+GetBlocks will fetch an array of blocks starting at {startIndex} and finishing
+{counts<=MAXBLOCKS} blocks later. If no count param is provided it will just
+return the index requested rather than listing blocks.
+
+GET /blocks/{startIndex}?count={x}
+example: /blocks/0?count=50
+returns: JSON []hashgraph.Block
+*/
+func (s *Service) GetBlocks(w http.ResponseWriter, r *http.Request) {
+	// parse starting block index
+	qs := r.URL.Path[len("/blocks/"):]
+	requestStart, err := strconv.Atoi(qs)
+	if err != nil {
+		s.logger.WithError(err).Errorf("Parsing block index parameter")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	lastBlockIndex := s.node.GetLastBlockIndex()
+
+	if requestStart > lastBlockIndex {
+		http.Error(w, "Requested starting index larger than last block index", http.StatusInternalServerError)
+		return
+	}
+
+	count := 1
+
+	// get max limit, if empty just send requested index
+	qc := r.URL.Query().Get("count")
+	if qc != "" {
+		// parse to int
+		count, err = strconv.Atoi(qc)
+		if err != nil {
+			s.logger.WithError(err).Errorf("Converting blocks count to int")
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// make sure requested limit does not exceed max
+		if count > MAXBLOCKS {
+			count = MAXBLOCKS
+		}
+
+		// make limit does not exceed last block index
+		if requestStart+count-1 > lastBlockIndex {
+			count = lastBlockIndex - requestStart + 1
+		}
+	}
+
+	// blocks slice
+	var blocks []*hg.Block
+
+	// get blocks
+	for c := 0; c < count; c++ {
+		block, err := s.node.GetBlock(requestStart + c)
+		if err != nil {
+			s.logger.WithError(err).Errorf("Retrieving block %d", requestStart+c)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		blocks = append(blocks, block)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(blocks)
 }
 
 // GetGraph ...

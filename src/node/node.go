@@ -256,6 +256,11 @@ func (n *Node) GetBlock(blockIndex int) (*hg.Block, error) {
 	return n.core.hg.Store.GetBlock(blockIndex)
 }
 
+// GetLastBlockIndex returns the index of the last known block
+func (n *Node) GetLastBlockIndex() int {
+	return n.core.GetLastBlockIndex()
+}
+
 // GetPeers returns the current peers
 func (n *Node) GetPeers() []*peers.Peer {
 	return n.core.peers.Peers
