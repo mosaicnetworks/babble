@@ -8,6 +8,8 @@ FEATURES:
 
 - service: Add endpoint `/blocks/{startIndex}?limit={x}`
 - service: Deprecated `/block/{x}` endpoint
+- service: Add endpoint `/validators/{round}`
+- service: Add endpoint `/history`
 
 IMPROVEMENTS:
 

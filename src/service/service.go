@@ -54,6 +54,8 @@ func (s *Service) registerHandlers() {
 	http.HandleFunc("/graph", s.makeHandler(s.GetGraph))
 	http.HandleFunc("/peers", s.makeHandler(s.GetPeers))
 	http.HandleFunc("/genesispeers", s.makeHandler(s.GetGenesisPeers))
+	http.HandleFunc("/validators/", s.makeHandler(s.GetValidatorSet))
+	http.HandleFunc("/history", s.makeHandler(s.GetAllValidatorSets))
 }
 
 func (s *Service) makeHandler(fn func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
@@ -200,14 +202,81 @@ func (s *Service) GetGraph(w http.ResponseWriter, r *http.Request) {
 	encoder.Encode(res)
 }
 
-// GetPeers ...
+/*
+GetPeers returns the node's current peers, which is not necessarily equivalent
+to the current validator-set.
+
+GET /peers
+returns: JSON []peers.Peer
+*/
 func (s *Service) GetPeers(w http.ResponseWriter, r *http.Request) {
 	returnPeerSet(w, r, s.node.GetPeers())
 }
 
-// GetGenesisPeers ...
+/*
+GetGenesisPeers returns the genesis validator-set
+
+Get /genesispeers
+returns: JSON []peers.Peer
+*/
 func (s *Service) GetGenesisPeers(w http.ResponseWriter, r *http.Request) {
-	returnPeerSet(w, r, s.node.GetGenesisPeers())
+	ps, err := s.node.GetValidatorSet(0)
+	if err != nil {
+		s.logger.WithError(err).Errorf("Fetching genesis validator-set")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	returnPeerSet(w, r, ps)
+}
+
+/*
+GetValidatorSet returns the validator-set associated to a specific hashgraph
+round. If no round is specified, it returns the current validator-set.
+
+Get /validators/{round}
+returns: JSON []peers.Peer
+*/
+func (s *Service) GetValidatorSet(w http.ResponseWriter, r *http.Request) {
+	round := s.node.GetLastConsensusRoundIndex()
+
+	param := r.URL.Path[len("/validators/"):]
+	if param != "" {
+		r, err := strconv.Atoi(param)
+		if err != nil {
+			s.logger.WithError(err).Errorf("Parsing round parameter %s", param)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		round = r
+	}
+
+	validators, err := s.node.GetValidatorSet(round)
+	if err != nil {
+		s.logger.WithError(err).Errorf("Fetching round %d validators", round)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	returnPeerSet(w, r, validators)
+}
+
+/*
+GetAllValidatorSets returns the entire map of round to validator-sets which
+represents the history of the validator-set from the inception of the network.
+
+Get /history
+returns: JSON map[int][]peers.Peer
+*/
+func (s *Service) GetAllValidatorSets(w http.ResponseWriter, r *http.Request) {
+	allPeerSets, err := s.node.GetAllValidatorSets()
+	if err != nil {
+		s.logger.WithError(err).Errorf("Fetching validator-sets")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(allPeerSets)
 }
 
 func returnPeerSet(w http.ResponseWriter, r *http.Request, peers []*peers.Peer) {

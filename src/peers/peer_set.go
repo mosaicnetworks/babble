@@ -114,8 +114,8 @@ func (peerSet *PeerSet) Len() int {
 	return len(peerSet.ByPubKey)
 }
 
-//Hash uniquely identifies a PeerSet. It is computed by sorting the peers set
-//by ID, and hashing (SHA256) their public keys together, one by one.
+// Hash uniquely identifies a PeerSet. It is computed by hashing (SHA256) their
+// public keys together, one by one.
 func (peerSet *PeerSet) Hash() ([]byte, error) {
 	if len(peerSet.hash) == 0 {
 		hash := []byte{}

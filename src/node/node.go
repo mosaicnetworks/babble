@@ -261,23 +261,33 @@ func (n *Node) GetLastBlockIndex() int {
 	return n.core.GetLastBlockIndex()
 }
 
-// GetPeers returns the current peers
+// GetLastConsensusRoundIndex returns the index of the last consensus round
+func (n *Node) GetLastConsensusRoundIndex() int {
+	lcr := n.core.GetLastConsensusRoundIndex()
+	if lcr == nil {
+		return -1
+	}
+	return *lcr
+}
+
+// GetPeers returns the current peers. Not necessarily equal to the
+// current validator-set
 func (n *Node) GetPeers() []*peers.Peer {
 	return n.core.peers.Peers
 }
 
-// GetGenesisPeers returns the genesis peers
-func (n *Node) GetGenesisPeers() []*peers.Peer {
-	return n.core.genesisPeers.Peers
-}
-
-// GetValidators returns the validator-set associated to a round
-func (n *Node) GetValidators(round int) ([]*peers.Peer, error) {
+// GetValidatorSet returns the validator-set associated to a round
+func (n *Node) GetValidatorSet(round int) ([]*peers.Peer, error) {
 	peerSet, err := n.core.hg.Store.GetPeerSet(round)
 	if err != nil {
 		return nil, err
 	}
 	return peerSet.Peers, nil
+}
+
+// GetAllValidatorSets returns the entire history of validator-sets
+func (n *Node) GetAllValidatorSets() (map[int][]*peers.Peer, error) {
+	return n.core.hg.Store.GetAllPeerSets()
 }
 
 /*******************************************************************************
