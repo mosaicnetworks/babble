@@ -13,6 +13,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// MAXBLOCKS is the maximum number of blocks returned by the /blocks/ endpoint
+const MAXBLOCKS = 50
+
 // Service ...
 type Service struct {
 	sync.Mutex
@@ -120,95 +123,66 @@ func (s *Service) GetBlock(w http.ResponseWriter, r *http.Request) {
 
 /*
 GetBlocks will fetch an array of blocks starting at {startIndex} and finishing
-{x<=50} blocks later. If no limit param is provided it will just return the index requested
-rather than listing blocks.
+{counts<=MAXBLOCKS} blocks later. If no count param is provided it will just
+return the index requested rather than listing blocks.
 
-GET /blocks/{startIndex}?limit={x}
-example: /blocks/0?limit=50
+GET /blocks/{startIndex}?count={x}
+example: /blocks/0?count=50
 returns: JSON []hashgraph.Block
 */
 func (s *Service) GetBlocks(w http.ResponseWriter, r *http.Request) {
-	// blocks slice
-	var blocks []*hg.Block
-
-	// max limit on blocks set back
-	maxLimit := 50
-
-	// check last block index and make sure a block exists
-	sLastBlockIndex := s.node.GetStats()["last_block_index"]
-	if sLastBlockIndex == "-1" {
-		s.logger.Errorf("No blocks found")
-		http.Error(w, "No blocks found", http.StatusInternalServerError)
-		return
-	}
-
-	// convert to int
-	lastBlockIndex, err := strconv.Atoi(sLastBlockIndex)
-	if err != nil {
-		s.logger.WithError(err).Errorf("Converting last block index to int")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	// parse starting block index
-	qi := r.URL.Path[len("/blocks/"):]
-	i, err := strconv.Atoi(qi)
+	qs := r.URL.Path[len("/blocks/"):]
+	requestStart, err := strconv.Atoi(qs)
 	if err != nil {
-		s.logger.WithError(err).Errorf("Converting block index to int")
+		s.logger.WithError(err).Errorf("Parsing block index parameter")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if i > lastBlockIndex {
-		s.logger.Errorf("Requested index larger than last block index")
+	lastBlockIndex := s.node.GetLastBlockIndex()
+
+	if requestStart > lastBlockIndex {
 		http.Error(w, "Requested starting index larger than last block index", http.StatusInternalServerError)
 		return
 	}
 
+	count := 1
+
 	// get max limit, if empty just send requested index
-	ql := r.URL.Query().Get("limit")
-	if ql == "" {
-		block, err := s.node.GetBlock(i)
+	qc := r.URL.Query().Get("count")
+	if qc != "" {
+		// parse to int
+		count, err = strconv.Atoi(qc)
 		if err != nil {
-			s.logger.WithError(err).Errorf("Retrieving block %d", i)
+			s.logger.WithError(err).Errorf("Converting blocks count to int")
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(block)
-		return
+		// make sure requested limit does not exceed max
+		if count > MAXBLOCKS {
+			count = MAXBLOCKS
+		}
+
+		// make limit does not exceed last block index
+		if requestStart+count-1 > lastBlockIndex {
+			count = lastBlockIndex - requestStart + 1
+		}
 	}
 
-	// parse to int
-	l, err := strconv.Atoi(ql)
-	if err != nil {
-		s.logger.WithError(err).Errorf("Converting blocks limit to int")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// make sure requested limit does not exceed max
-	if l > maxLimit {
-		l = maxLimit
-	}
-
-	// make limit does not exceed last block index
-	if i+l > lastBlockIndex {
-		l = lastBlockIndex - i
-	}
+	// blocks slice
+	var blocks []*hg.Block
 
 	// get blocks
-	for c := 0; c <= l; {
-		block, err := s.node.GetBlock(i + c)
+	for c := 0; c < count; c++ {
+		block, err := s.node.GetBlock(requestStart + c)
 		if err != nil {
-			s.logger.WithError(err).Errorf("Retrieving block %d", i+c)
+			s.logger.WithError(err).Errorf("Retrieving block %d", requestStart+c)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
 		blocks = append(blocks, block)
-		c++
 	}
 
 	w.Header().Set("Content-Type", "application/json")
