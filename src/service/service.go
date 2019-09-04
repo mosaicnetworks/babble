@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"sync"
 
+	hg "github.com/mosaicnetworks/babble/src/hashgraph"
+
 	"github.com/mosaicnetworks/babble/src/node"
 	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/sirupsen/logrus"
@@ -45,6 +47,7 @@ func (s *Service) registerHandlers() {
 	s.logger.Debug("Registering Babble API handlers")
 	http.HandleFunc("/stats", s.makeHandler(s.GetStats))
 	http.HandleFunc("/block/", s.makeHandler(s.GetBlock))
+	http.HandleFunc("/blocks/", s.makeHandler(s.GetBlocks))
 	http.HandleFunc("/graph", s.makeHandler(s.GetGraph))
 	http.HandleFunc("/peers", s.makeHandler(s.GetPeers))
 	http.HandleFunc("/genesispeers", s.makeHandler(s.GetGenesisPeers))
@@ -86,7 +89,7 @@ func (s *Service) GetStats(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(stats)
 }
 
-// GetBlock ...
+// GetBlock - DEPRECATED used /blocks/ instead
 func (s *Service) GetBlock(w http.ResponseWriter, r *http.Request) {
 	param := r.URL.Path[len("/block/"):]
 
@@ -113,6 +116,103 @@ func (s *Service) GetBlock(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	json.NewEncoder(w).Encode(block)
+}
+
+/*
+GetBlocks will fetch an array of blocks starting at {startIndex} and finishing
+{x<=50} blocks later. If no limit param is provided it will just return the index requested
+rather than listing blocks.
+
+GET /blocks/{startIndex}?limit={x}
+example: /blocks/0?limit=50
+returns: JSON []hashgraph.Block
+*/
+func (s *Service) GetBlocks(w http.ResponseWriter, r *http.Request) {
+	// blocks slice
+	var blocks []*hg.Block
+
+	// max limit on blocks set back
+	maxLimit := 50
+
+	// check last block index and make sure a block exists
+	sLastBlockIndex := s.node.GetStats()["last_block_index"]
+	if sLastBlockIndex == "-1" {
+		s.logger.Errorf("No blocks found")
+		http.Error(w, "No blocks found", http.StatusInternalServerError)
+		return
+	}
+
+	// convert to int
+	lastBlockIndex, err := strconv.Atoi(sLastBlockIndex)
+	if err != nil {
+		s.logger.WithError(err).Errorf("Converting last block index to int")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// parse starting block index
+	qi := r.URL.Path[len("/blocks/"):]
+	i, err := strconv.Atoi(qi)
+	if err != nil {
+		s.logger.WithError(err).Errorf("Converting block index to int")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if i > lastBlockIndex {
+		s.logger.Errorf("Requested index larger than last block index")
+		http.Error(w, "Requested starting index larger than last block index", http.StatusInternalServerError)
+		return
+	}
+
+	// get max limit, if empty just send requested index
+	ql := r.URL.Query().Get("limit")
+	if ql == "" {
+		block, err := s.node.GetBlock(i)
+		if err != nil {
+			s.logger.WithError(err).Errorf("Retrieving block %d", i)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(block)
+		return
+	}
+
+	// parse to int
+	l, err := strconv.Atoi(ql)
+	if err != nil {
+		s.logger.WithError(err).Errorf("Converting blocks limit to int")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// make sure requested limit does not exceed max
+	if l > maxLimit {
+		l = maxLimit
+	}
+
+	// make limit does not exceed last block index
+	if i+l > lastBlockIndex {
+		l = lastBlockIndex - i
+	}
+
+	// get blocks
+	for c := 0; c <= l; {
+		block, err := s.node.GetBlock(i + c)
+		if err != nil {
+			s.logger.WithError(err).Errorf("Retrieving block %d", i+c)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		blocks = append(blocks, block)
+		c++
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(blocks)
 }
 
 // GetGraph ...
