@@ -240,6 +240,7 @@ func (n *Node) GetStats() map[string]string {
 		"undetermined_events":    strconv.Itoa(len(n.core.GetUndeterminedEvents())),
 		"transaction_pool":       strconv.Itoa(len(n.core.transactionPool)),
 		"num_peers":              strconv.Itoa(n.core.peerSelector.Peers().Len()),
+		"last_peer_change":       strconv.Itoa(n.core.LastPeerChangeRound),
 		"sync_rate":              strconv.FormatFloat(n.syncRate(), 'f', 2, 64),
 		"events_per_second":      strconv.FormatFloat(consensusEventsPerSecond, 'f', 2, 64),
 		"rounds_per_second":      strconv.FormatFloat(consensusRoundsPerSecond, 'f', 2, 64),

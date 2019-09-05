@@ -85,6 +85,9 @@ type Core struct {
 	// InternalTransactions go through consensus asynchronously.
 	promises map[string]*JoinPromise
 
+	// LastPeerChangeRound is updated whenever a join / leave request is accepted
+	LastPeerChangeRound int
+
 	logger *logrus.Entry
 }
 
@@ -117,6 +120,7 @@ func NewCore(
 		AcceptedRound:           -1,
 		RemovedRound:            -1,
 		TargetRound:             -1,
+		LastPeerChangeRound:     0,
 	}
 
 	core.hg = hg.NewHashgraph(store, core.Commit, logger)
@@ -536,6 +540,11 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, receipts [
 	currentPeers := c.peers
 	validators := c.validators
 
+	//Why +6? According to lemmas 5.15 and 5.17 of the original whitepaper, all
+	//consistent hashgraphs will have decided the fame of round r witnesses by
+	//round r+5 or before; so it is safe to set the new peer-set at round r+6.
+	effectiveRound := roundReceived + 6
+
 	changed := false
 	for _, r := range receipts {
 		txBody := r.InternalTransaction.Body
@@ -551,9 +560,11 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, receipts [
 			case hg.PEER_ADD:
 				validators = validators.WithNewPeer(&txBody.Peer)
 				currentPeers = currentPeers.WithNewPeer(&txBody.Peer)
+				c.LastPeerChangeRound = effectiveRound
 			case hg.PEER_REMOVE:
 				validators = validators.WithRemovedPeer(&txBody.Peer)
 				currentPeers = currentPeers.WithRemovedPeer(&txBody.Peer)
+				c.LastPeerChangeRound = effectiveRound
 			default:
 			}
 
@@ -562,11 +573,6 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, receipts [
 			c.logger.WithField("peer", txBody.Peer).Debug("InternalTransaction not accepted")
 		}
 	}
-
-	//Why +6? According to lemmas 5.15 and 5.17 of the original whitepaper, all
-	//consistent hashgraphs will have decided the fame of round r witnesses by
-	//round r+5 or before; so it is safe to set the new peer-set at round r+6.
-	effectiveRound := roundReceived + 6
 
 	if changed {
 		// Record the new validator-set in the underlying Hashgraph and in
