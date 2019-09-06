@@ -1,8 +1,6 @@
 # Change Log
 
-## Unreleased
-
-SECURTY:
+## v0.5.4 (September 6, 2019)
 
 FEATURES:
 
@@ -14,8 +12,6 @@ FEATURES:
 IMPROVEMENTS:
 
 * node: Limit number of concurrent gossip routines
-
-BUG FIXES:
 
 ## v0.5.3 (August 29, 2019)
 
