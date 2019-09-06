@@ -58,6 +58,10 @@ type Core struct {
 	// prevent them from having to wait.
 	TargetRound int
 
+	// LastPeerChangeRound is updated whenever a join / leave request is
+	// accepted
+	LastPeerChangeRound int
+
 	// Events that are not tied to this node's Head. This is managed by the Sync
 	// method. If the gossip condition is false (there is nothing interesting to
 	// record), items are added to heads; if the gossip condition is true, items
@@ -84,9 +88,6 @@ type Core struct {
 	// promises keeps track of pending JoinRequests while the corresponding
 	// InternalTransactions go through consensus asynchronously.
 	promises map[string]*JoinPromise
-
-	// LastPeerChangeRound is updated whenever a join / leave request is accepted
-	LastPeerChangeRound int
 
 	logger *logrus.Entry
 }
@@ -120,7 +121,7 @@ func NewCore(
 		AcceptedRound:           -1,
 		RemovedRound:            -1,
 		TargetRound:             -1,
-		LastPeerChangeRound:     0,
+		LastPeerChangeRound:     -1,
 	}
 
 	core.hg = hg.NewHashgraph(store, core.Commit, logger)
@@ -540,9 +541,9 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, receipts [
 	currentPeers := c.peers
 	validators := c.validators
 
-	//Why +6? According to lemmas 5.15 and 5.17 of the original whitepaper, all
-	//consistent hashgraphs will have decided the fame of round r witnesses by
-	//round r+5 or before; so it is safe to set the new peer-set at round r+6.
+	// Why +6? According to lemmas 5.15 and 5.17 of the original whitepaper, all
+	// consistent hashgraphs will have decided the fame of round r witnesses by
+	// round r+5 or before; so it is safe to set the new peer-set at round r+6.
 	effectiveRound := roundReceived + 6
 
 	changed := false
@@ -560,11 +561,9 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, receipts [
 			case hg.PEER_ADD:
 				validators = validators.WithNewPeer(&txBody.Peer)
 				currentPeers = currentPeers.WithNewPeer(&txBody.Peer)
-				c.LastPeerChangeRound = effectiveRound
 			case hg.PEER_REMOVE:
 				validators = validators.WithRemovedPeer(&txBody.Peer)
 				currentPeers = currentPeers.WithRemovedPeer(&txBody.Peer)
-				c.LastPeerChangeRound = effectiveRound
 			default:
 			}
 
@@ -575,8 +574,9 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, receipts [
 	}
 
 	if changed {
-		// Record the new validator-set in the underlying Hashgraph and in
-		// the core's validators field
+		// Record the new validator-set in the underlying Hashgraph and in the
+		// core's validators field
+		c.LastPeerChangeRound = effectiveRound
 
 		err := c.hg.Store.SetPeerSet(effectiveRound, validators)
 		if err != nil {
