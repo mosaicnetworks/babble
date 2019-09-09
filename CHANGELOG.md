@@ -3,8 +3,13 @@
 ## Unreleased
 
 SECURITY:
+
 FEATURES:
+
 IMPROVEMENTS:
+
+- hashgraph: better handling of "normal" SelfParent errors
+
 BUG FIXES:
 
 ## v0.5.4 (September 6, 2019)
