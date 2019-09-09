@@ -33,12 +33,12 @@ func TestRollingIndex(t *testing.T) {
 	}
 
 	err := RollingIndex.Set("ErrSkippedIndex", expectedLastIndex+2)
-	if err == nil || !Is(err, SkippedIndex) {
+	if err == nil || !IsStore(err, SkippedIndex) {
 		t.Fatalf("Should return ErrSkippedIndex")
 	}
 
 	_, err = RollingIndex.GetItem(9)
-	if err == nil || !Is(err, TooLate) {
+	if err == nil || !IsStore(err, TooLate) {
 		t.Fatalf("Should return ErrTooLate")
 	}
 
@@ -56,7 +56,7 @@ func TestRollingIndex(t *testing.T) {
 	}
 
 	_, err = RollingIndex.GetItem(lastIndex + 1)
-	if err == nil || !Is(err, KeyNotFound) {
+	if err == nil || !IsStore(err, KeyNotFound) {
 		t.Fatalf("Should return KeyNotFound")
 	}
 
@@ -95,7 +95,7 @@ func TestRollingIndexSkip(t *testing.T) {
 		items = append(items, item)
 	}
 
-	if _, err := RollingIndex.Get(0); err != nil && !Is(err, TooLate) {
+	if _, err := RollingIndex.Get(0); err != nil && !IsStore(err, TooLate) {
 		t.Fatalf("Skipping index 0 should return ErrTooLate")
 	}
 

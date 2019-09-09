@@ -35,10 +35,10 @@ func NewInmemStore(cacheSize int) *InmemStore {
 		consensusCache:         cm.NewRollingIndex("ConsensusCache", cacheSize),
 		peerSetCache:           NewPeerSetCache(),
 		participantEventsCache: NewParticipantEventsCache(cacheSize),
-		roots:                  make(map[string]*Root),
-		lastRound:              -1,
-		lastBlock:              -1,
-		lastConsensusEvents:    map[string]string{},
+		roots:               make(map[string]*Root),
+		lastRound:           -1,
+		lastBlock:           -1,
+		lastConsensusEvents: map[string]string{},
 	}
 	return store
 }
@@ -116,10 +116,10 @@ func (s *InmemStore) GetEvent(key string) (*Event, error) {
 func (s *InmemStore) SetEvent(event *Event) error {
 	key := event.Hex()
 	_, err := s.GetEvent(key)
-	if err != nil && !cm.Is(err, cm.KeyNotFound) {
+	if err != nil && !cm.IsStore(err, cm.KeyNotFound) {
 		return err
 	}
-	if cm.Is(err, cm.KeyNotFound) {
+	if cm.IsStore(err, cm.KeyNotFound) {
 		if err := s.participantEventsCache.Set(event.Creator(), key, event.Index()); err != nil {
 			return err
 		}
@@ -241,7 +241,7 @@ func (s *InmemStore) GetBlock(index int) (*Block, error) {
 func (s *InmemStore) SetBlock(block *Block) error {
 	index := block.Index()
 	_, err := s.GetBlock(index)
-	if err != nil && !cm.Is(err, cm.KeyNotFound) {
+	if err != nil && !cm.IsStore(err, cm.KeyNotFound) {
 		return err
 	}
 	s.blockCache.Add(index, block)
@@ -269,7 +269,7 @@ func (s *InmemStore) GetFrame(index int) (*Frame, error) {
 func (s *InmemStore) SetFrame(frame *Frame) error {
 	index := frame.Round
 	_, err := s.GetFrame(index)
-	if err != nil && !cm.Is(err, cm.KeyNotFound) {
+	if err != nil && !cm.IsStore(err, cm.KeyNotFound) {
 		return err
 	}
 	s.frameCache.Add(index, frame)

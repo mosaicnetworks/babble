@@ -49,7 +49,7 @@ func TestParticipantEventsCache(t *testing.T) {
 
 		index1 := 9
 		_, err := pec.GetItem(pk, index1)
-		if err == nil || !cm.Is(err, cm.TooLate) {
+		if err == nil || !cm.IsStore(err, cm.TooLate) {
 			t.Fatalf("Expected ErrTooLate")
 		}
 
@@ -85,7 +85,7 @@ func TestParticipantEventsCache(t *testing.T) {
 
 	//GET ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 	for pk := range participants.ByPubKey {
-		if _, err := pec.Get(pk, 0); err != nil && !cm.Is(err, cm.TooLate) {
+		if _, err := pec.Get(pk, 0); err != nil && !cm.IsStore(err, cm.TooLate) {
 			t.Fatalf("Skipping 0 elements should return ErrTooLate")
 		}
 
@@ -239,7 +239,7 @@ func TestPeerSetCache(t *testing.T) {
 	/**************************************************************************/
 
 	err = peerSetCache.Set(2, peerSet2.WithNewPeer(peers.NewPeer("broken", "", "")))
-	if err == nil || !cm.Is(err, cm.KeyAlreadyExists) {
+	if err == nil || !cm.IsStore(err, cm.KeyAlreadyExists) {
 		t.Fatalf("Resetting PeerSet 2 should throw a KeyAlreadyExists error")
 	}
 }

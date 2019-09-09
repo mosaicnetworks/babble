@@ -140,7 +140,7 @@ func (c *Core) SetHeadAndSeq() error {
 
 	if ok {
 		last, err := c.hg.Store.LastEventFrom(c.validator.PublicKeyHex())
-		if err != nil && !common.Is(err, common.Empty) {
+		if err != nil && !common.IsStore(err, common.Empty) {
 			return err
 		}
 
@@ -214,7 +214,9 @@ func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 		}
 
 		if err := c.InsertEventAndRunConsensus(ev, false); err != nil {
-			c.logger.WithError(err).Errorf("Inserting Event")
+			if !hg.IsNormalSelfParentError(err) {
+				c.logger.WithError(err).Errorf("Inserting Event")
+			}
 			return err
 		}
 

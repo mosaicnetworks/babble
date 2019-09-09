@@ -521,8 +521,10 @@ func (n *Node) sync(fromID uint32, events []hg.WireEvent) error {
 	elapsed := time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Sync()")
 	if err != nil {
-		n.logger.WithError(err).Error()
-		return err
+		if !hg.IsNormalSelfParentError(err) {
+			n.logger.WithError(err).Error()
+			return err
+		}
 	}
 
 	//Process SignaturePool

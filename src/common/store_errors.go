@@ -69,8 +69,9 @@ func (e StoreErr) Error() string {
 	return fmt.Sprintf("%s, %s, %s", e.dataType, e.key, m)
 }
 
-// Is ...
-func Is(err error, t StoreErrType) bool {
+// IsStore checks that an error is of type StoreErr and that it's code matches
+// the provided StoreErr code. ...
+func IsStore(err error, t StoreErrType) bool {
 	storeErr, ok := err.(StoreErr)
 	return ok && storeErr.errType == t
 }

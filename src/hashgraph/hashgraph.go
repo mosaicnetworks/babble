@@ -399,28 +399,30 @@ func (h *Hashgraph) roundDiff(x, y string) (int, error) {
 
 //Check the SelfParent is the Creator's last known Event
 //returns error, warning
-func (h *Hashgraph) checkSelfParent(event *Event) (err, warn error) {
+func (h *Hashgraph) checkSelfParent(event *Event) error {
 	selfParent := event.SelfParent()
 	creator := event.Creator()
 
 	creatorLastKnown, err := h.Store.LastEventFrom(creator)
 	if err != nil {
-		//First Event
-		if common.Is(err, common.Empty) && selfParent == "" {
-			return nil, nil
+		// First Event
+		if common.IsStore(err, common.Empty) && selfParent == "" {
+			return nil
 		}
-		return err, nil
+		// This is not a normal error
+		return NewSelfParentError(err.Error(), false)
 	}
 
 	selfParentLegit := selfParent == creatorLastKnown
 
-	//If you find this line using grep, the appearance of this event in the logs
-	//is to be expected in normal operation and may not be a cause for concern.
+	// This error is to be expected in normal operation and may not be a cause
+	// of concern. It can arrise when the hashgraph is being accessed
+	// concurrently by multiple go-routines.
 	if !selfParentLegit {
-		return nil, fmt.Errorf("Self-parent not last known event by creator")
+		return NewSelfParentError("Self-parent not last known event by creator", true)
 	}
 
-	return nil, nil
+	return nil
 }
 
 //Check if we know the OtherParent
@@ -631,7 +633,9 @@ func (h *Hashgraph) removeProcessedSignatures(processedSignatures map[string]boo
 //consensus methods.
 func (h *Hashgraph) InsertEventAndRunConsensus(event *Event, setWireInfo bool) error {
 	if err := h.InsertEvent(event, setWireInfo); err != nil {
-		h.logger.WithError(err).Errorf("InsertEvent")
+		if !IsNormalSelfParentError(err) {
+			h.logger.WithError(err).Errorf("InsertEvent")
+		}
 		return err
 	}
 	if err := h.DivideRounds(); err != nil {
@@ -664,23 +668,23 @@ func (h *Hashgraph) InsertEvent(event *Event, setWireInfo bool) error {
 		return fmt.Errorf("Invalid Event signature")
 	}
 
-	err, warn := h.checkSelfParent(event)
+	// checkSelfParent can return normal errors (expected when the hasghraph is
+	// accessed by multiple concurrent go-routines). Normal errors are only
+	// logged at the Trace level, which helps to keep logs clean in normal
+	// operations.
+	err := h.checkSelfParent(event)
 	if err != nil {
-		h.logger.WithFields(logrus.Fields{
+		fields := logrus.Fields{
 			"event":       event.Hex(),
 			"creator":     event.Creator(),
 			"self_parent": event.SelfParent(),
-		}).WithError(err).Errorf("CheckSelfParent")
+		}
+		if !IsNormalSelfParentError(err) {
+			h.logger.WithFields(fields).WithError(err).Errorf("CheckSelfParent")
+		} else {
+			h.logger.WithFields(fields).WithError(err).Tracef("CheckSelfParent")
+		}
 		return err
-	}
-	if warn != nil {
-		h.logger.WithFields(logrus.Fields{
-			"event":       event.Hex(),
-			"creator":     event.Creator(),
-			"self_parent": event.SelfParent(),
-		}).WithError(warn).Warnf("CheckSelfParent")
-		return warn
-
 	}
 
 	if err := h.checkOtherParent(event); err != nil {
@@ -744,7 +748,7 @@ func (h *Hashgraph) InsertFrameEvent(frameEvent *FrameEvent) error {
 	//Create/update RoundInfo object in store
 	roundInfo, err := h.Store.GetRound(frameEvent.Round)
 	if err != nil {
-		if !common.Is(err, common.KeyNotFound) {
+		if !common.IsStore(err, common.KeyNotFound) {
 			return err
 		}
 		roundInfo = NewRoundInfo()
@@ -803,7 +807,7 @@ func (h *Hashgraph) DivideRounds() error {
 
 			roundInfo, err := h.Store.GetRound(roundNumber)
 			if err != nil {
-				if !common.Is(err, common.KeyNotFound) {
+				if !common.IsStore(err, common.KeyNotFound) {
 					return err
 				}
 				roundInfo = NewRoundInfo()
@@ -1158,7 +1162,7 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 	//Try to get it from the Store first
 	frame, err := h.Store.GetFrame(roundReceived)
-	if err == nil || !common.Is(err, common.KeyNotFound) {
+	if err == nil || !common.IsStore(err, common.KeyNotFound) {
 		return frame, err
 	}
 
