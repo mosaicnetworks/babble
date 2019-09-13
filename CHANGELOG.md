@@ -1,16 +1,10 @@
 # Change Log
 
-## Unreleased
-
-SECURITY:
-
-FEATURES:
+## v0.5.5 (September 13, 2019)
 
 IMPROVEMENTS:
 
 - hashgraph: better handling of "normal" SelfParent errors
-
-BUG FIXES:
 
 ## v0.5.4 (September 6, 2019)
 
