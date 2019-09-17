@@ -71,6 +71,7 @@ func AddRunFlags(cmd *cobra.Command) {
 
 	// Network
 	cmd.Flags().StringP("listen", "l", _config.Babble.BindAddr, "Listen IP:Port for babble node")
+	cmd.Flags().StringP("advertise", "a", _config.Babble.AdvertiseAddr, "Advertise IP:Port for babble node")
 	cmd.Flags().DurationP("timeout", "t", _config.Babble.TCPTimeout, "TCP Timeout")
 	cmd.Flags().DurationP("join-timeout", "j", _config.Babble.JoinTimeout, "Join Timeout")
 	cmd.Flags().Int("max-pool", _config.Babble.MaxPool, "Connection pool size max")
@@ -109,6 +110,7 @@ func loadConfig(cmd *cobra.Command, args []string) error {
 	_config.Babble.Logger().WithFields(logrus.Fields{
 		"babble.DataDir":          _config.Babble.DataDir,
 		"babble.BindAddr":         _config.Babble.BindAddr,
+		"babble.AdvertiseAddr":    _config.Babble.AdvertiseAddr,
 		"babble.ServiceAddr":      _config.Babble.ServiceAddr,
 		"babble.MaxPool":          _config.Babble.MaxPool,
 		"babble.Store":            _config.Babble.Store,

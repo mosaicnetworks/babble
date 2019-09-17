@@ -34,8 +34,19 @@ type Config struct {
 	// LogLevel determines the chattiness of the log output.
 	LogLevel string `mapstructure:"log"`
 
-	// BindAddr is the address:port where this node gossips with other nodes.
+	// BindAddr is the local address:port where this node gossips with other
+	// nodes. This is an IP address that should be reachable by all other nodes
+	// in the cluster. By default, this is "0.0.0.0", meaning Babble will bind
+	// to all addresses on the local machine. However, in some cases, there may
+	// be a routable address that cannot be bound. Use AdvertiseAddr to enable
+	// gossiping a different address to support this. If this address is not
+	// routable, the node will be in a constant flapping state as other nodes
+	// will treat the non-routability as a failure
 	BindAddr string `mapstructure:"listen"`
+
+	// AdvertiseAddr is used to change the address that we advertise to other
+	// nodes in the cluster
+	AdvertiseAddr string `mapstructure:"advertise"`
 
 	// ServiceAddr is the address:port that serves the user-facing API.
 	ServiceAddr string `mapstructure:"service-listen"`

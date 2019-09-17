@@ -20,7 +20,7 @@ func TestProcessSync(t *testing.T) {
 
 	peers := p.Peers
 
-	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, time.Second, config.Logger())
+	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, "", 2, time.Second, time.Second, config.Logger())
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -39,7 +39,7 @@ func TestProcessSync(t *testing.T) {
 
 	node0.RunAsync(false)
 
-	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, time.Second, config.Logger())
+	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, "", 2, time.Second, time.Second, config.Logger())
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestProcessEagerSync(t *testing.T) {
 
 	peers := p.Peers
 
-	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, time.Second, config.Logger())
+	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, "", 2, time.Second, time.Second, config.Logger())
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestProcessEagerSync(t *testing.T) {
 
 	node0.RunAsync(false)
 
-	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, time.Second, config.Logger())
+	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, "", 2, time.Second, time.Second, config.Logger())
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -207,7 +207,7 @@ func TestProcessFastForward(t *testing.T) {
 
 	peers := p.Peers
 
-	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, time.Second, time.Second, config.Logger())
+	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, "", 2, time.Second, time.Second, config.Logger())
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -226,7 +226,7 @@ func TestProcessFastForward(t *testing.T) {
 
 	node0.RunAsync(false)
 
-	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, time.Second, time.Second, config.Logger())
+	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, "", 2, time.Second, time.Second, config.Logger())
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

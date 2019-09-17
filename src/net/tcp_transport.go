@@ -47,7 +47,7 @@ func (t *TCPStreamLayer) Addr() net.Addr {
 // a TCP streaming transport layer, with log output going to the supplied Logger
 func NewTCPTransport(
 	bindAddr string,
-	advertise net.Addr,
+	advertise string,
 	maxPool int,
 	timeout time.Duration,
 	joinTimeout time.Duration,
@@ -59,7 +59,7 @@ func NewTCPTransport(
 }
 
 func newTCPTransport(bindAddr string,
-	advertise net.Addr,
+	advertiseAddr string,
 	maxPool int,
 	timeout time.Duration,
 	joinTimeout time.Duration,
@@ -68,6 +68,15 @@ func newTCPTransport(bindAddr string,
 	list, err := net.Listen("tcp", bindAddr)
 	if err != nil {
 		return nil, err
+	}
+
+	// Try to resolve the advertise address
+	var advertise net.Addr
+	if advertiseAddr != "" {
+		advertise, err = net.ResolveTCPAddr("tcp", advertiseAddr)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Create stream

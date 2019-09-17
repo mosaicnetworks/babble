@@ -131,11 +131,6 @@ accordingly and calculates the consensus order. Then, **A** sends an
 Upon receiving the **EagerSyncRequest**, **B** updates its hashgraph and runs
 the consensus methods.
 
-The list of peers must be predefined and known to all peers. At the moment, it
-is not possible to dynamically modify the list of peers while the network is
-running but this is not a limitation of the Hashgraph algorithm, just an
-implementation prioritization.
-
 Core
 ----
 

@@ -39,7 +39,7 @@ func TestAddTransaction(t *testing.T) {
 
 	peers := p.Peers
 
-	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, nil, 2, conf.TCPTimeout, conf.JoinTimeout, conf.Logger())
+	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, "", 2, conf.TCPTimeout, conf.JoinTimeout, conf.Logger())
 	if err != nil {
 		t.Fatalf("Fatal err: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestAddTransaction(t *testing.T) {
 
 	node0.RunAsync(false)
 
-	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, nil, 2, conf.TCPTimeout, conf.JoinTimeout, conf.Logger())
+	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, "", 2, conf.TCPTimeout, conf.JoinTimeout, conf.Logger())
 	if err != nil {
 		t.Fatalf("Fatal 2 err: %v", err)
 	}
@@ -315,7 +315,7 @@ func newNode(peer *peers.Peer,
 	t.Logf("Starting node on %s", peer.NetAddr)
 
 	trans, err := net.NewTCPTransport(peer.NetAddr,
-		nil, 2, conf.TCPTimeout, conf.JoinTimeout, conf.Logger())
+		"", 2, conf.TCPTimeout, conf.JoinTimeout, conf.Logger())
 	if err != nil {
 		t.Fatalf("Fatal failed to create transport for peer %d: %s", peer.ID(), err)
 	}
@@ -417,7 +417,7 @@ func recycleNode(oldNode *Node, t *testing.T) *Node {
 	}
 
 	trans, err := net.NewTCPTransport(oldNode.trans.LocalAddr(),
-		nil, 2, conf.TCPTimeout, conf.JoinTimeout, conf.Logger())
+		"", 2, conf.TCPTimeout, conf.JoinTimeout, conf.Logger())
 	if err != nil {
 		t.Error("Fatal Error 2 recycleNode", err)
 		t.Fatal(err)

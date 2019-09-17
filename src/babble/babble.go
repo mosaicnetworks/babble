@@ -86,7 +86,7 @@ func (b *Babble) Run() {
 func (b *Babble) initTransport() error {
 	transport, err := net.NewTCPTransport(
 		b.Config.BindAddr,
-		nil,
+		b.Config.AdvertiseAddr,
 		b.Config.MaxPool,
 		b.Config.TCPTimeout,
 		b.Config.JoinTimeout,

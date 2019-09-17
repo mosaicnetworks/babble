@@ -203,6 +203,7 @@ Let us take a look at the help provided by the Babble CLI:
         babble run [flags]
 
     Flags:
+        -a, --advertise string        Advertise IP:Port for babble node
             --bootstrap               Load from database
             --cache-size int          Number of items in LRU caches (default 5000)
         -c, --client-connect string   IP:Port to connect to client (default "127.0.0.1:1339")
@@ -211,7 +212,7 @@ Let us take a look at the help provided by the Babble CLI:
             --heartbeat duration      Time between gossips (default 10ms)
         -h, --help                    Help for run
         -j, --join-timeout duration   Join Timeout (default 10s)
-        -l, --listen string           Listen IP:Port for babble node (default ":1337")
+        -l, --listen string           Listen IP:Port for babble node (default "127.0.0.1:1337")
             --log string              debug, info, warn, error, fatal, panic
             --max-pool int            Connection pool size max (default 2)
             --moniker string          Optional name
@@ -222,10 +223,13 @@ Let us take a look at the help provided by the Babble CLI:
             --sync-limit int          Max number of events for sync (default 1000)
         -t, --timeout duration        TCP Timeout (default 1s)
 
-
-So we have just seen what the ``datadir`` flag does. The ``listen`` flag
-corresponds to the NetAddr in the peers.json file; that is the endpoint that
-Babble uses to communicate with other Babble nodes.
+The ``listen`` flag controls the local address:port where this node gossips with
+other nodes. This is an IP address that should be reachable by all other nodes,
+but if the node is running behind some kind of NAT, it is possilbe to advertise
+a different address with the ``advertise`` flag. If ``advertise`` is not 
+specified, the node defaults to using the ``listen`` address. By default 
+``listen`` is ``127.0.0.1:1337``, meaning that Babble will bind to the loopback
+addresse on the local machine.
 
 As we explained in the architecture section, each Babble node works in
 conjunction with an application for which it orders transactions. When Babble
