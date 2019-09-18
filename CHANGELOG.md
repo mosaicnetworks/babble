@@ -1,17 +1,11 @@
 # Change Log
 
-## Unreleased
-
-SECURITY:
+## v0.5.6 (September 18, 2019)
 
 FEATURES:
 
 - net: Add configuration to advertise a different address than "BindAddr" to 
        the rest of the cluster.
-
-IMPROVEMENTS:
-
-BUG FIXES:
 
 ## v0.5.5 (September 13, 2019)
 
