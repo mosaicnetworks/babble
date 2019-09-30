@@ -3,9 +3,14 @@
 ## Unreleased
 
 SECURITY:
+
 FEATURES:
+
 IMPROVEMENTS:
+
 BUG FIXES:
+
+- node: Intercept SIGTERM as well as SIGINT to leave politely.
 
 ## v0.5.6 (September 18, 2019)
 

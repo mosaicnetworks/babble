@@ -47,9 +47,9 @@ type Node struct {
 	// submitted to Babble
 	submitCh chan []byte
 
-	// sigintCh is where the node listens for signals to politely leave the
-	// Babble network.
-	sigintCh chan os.Signal
+	// sigCh is where the node listens for signals to politely leave the Babble
+	// network. It listens to SIGINT and SIGTERM
+	sigCh chan os.Signal
 
 	// shutdownCh is where the node listens for commands to cleanly shutdown.
 	shutdownCh chan struct{}
@@ -74,9 +74,9 @@ func NewNode(conf *config.Config,
 	proxy proxy.AppProxy,
 ) *Node {
 
-	//Prepare sigintCh to relay SIGINT system calls
-	sigintCh := make(chan os.Signal)
-	signal.Notify(sigintCh, os.Interrupt, syscall.SIGINT)
+	//Prepare sigCh to relay SIGINT and SIGTERM system calls
+	sigCh := make(chan os.Signal)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	node := Node{
 		conf:         conf,
@@ -86,7 +86,7 @@ func NewNode(conf *config.Config,
 		netCh:        trans.Consumer(),
 		proxy:        proxy,
 		submitCh:     proxy.SubmitCh(),
-		sigintCh:     sigintCh,
+		sigCh:        sigCh,
 		shutdownCh:   make(chan struct{}),
 		controlTimer: NewRandomControlTimer(),
 	}
@@ -312,8 +312,8 @@ func (n *Node) doBackgroundWork() {
 			n.resetTimer()
 		case <-n.shutdownCh:
 			return
-		case <-n.sigintCh:
-			n.logger.Debug("Reacting to SIGINT - LEAVE")
+		case s := <-n.sigCh:
+			n.logger.Debugf("Process %s - LEAVE", s.String())
 			n.Leave()
 			os.Exit(0)
 		}
