@@ -248,6 +248,7 @@ func (n *Node) GetStats() map[string]string {
 		"id":                     fmt.Sprint(n.core.validator.ID()),
 		"state":                  n.getState().String(),
 		"moniker":                n.core.validator.Moniker,
+		"time":                   strconv.FormatInt(time.Now().UnixNano(), 10),
 	}
 	return s
 }
