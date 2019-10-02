@@ -1,12 +1,10 @@
 # Change Log
 
-## Unreleased
-
-SECURITY:
-
-FEATURES:
+## v0.5.7 (October 2, 2019)
 
 IMPROVEMENTS:
+
+- node: Add timestamp to stats 
 
 BUG FIXES:
 
