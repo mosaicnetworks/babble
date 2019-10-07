@@ -19,7 +19,7 @@ func TestInitStore(t *testing.T) {
 	defer os.RemoveAll("test_data")
 
 	conf := config.NewDefaultConfig()
-	conf.DataDir = "test_data"
+	conf.SetDataDir("test_data")
 	conf.Store = true
 	conf.Bootstrap = false
 

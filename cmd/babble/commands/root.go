@@ -8,7 +8,7 @@ var (
 	_config = NewDefaultCLIConfig()
 )
 
-//RootCmd is the root command for Babble
+// RootCmd is the root command for Babble
 var RootCmd = &cobra.Command{
 	Use:              "babble",
 	Short:            "babble consensus",
