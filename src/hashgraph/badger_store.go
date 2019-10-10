@@ -29,10 +29,10 @@ type BadgerStore struct {
 //found in path.
 func NewBadgerStore(cacheSize int, path string) (*BadgerStore, error) {
 
-	opts := badger.DefaultOptions
-	opts.Dir = path
-	opts.ValueDir = path
-	opts.SyncWrites = false
+	opts := badger.DefaultOptions(path).WithSyncWrites(false)
+	//	opts.Dir = path
+	//	opts.ValueDir = path
+	//	opts.SyncWrites = false
 
 	handle, err := badger.Open(opts)
 	if err != nil {
@@ -369,18 +369,21 @@ func (s *BadgerStore) dbGetRepertoire() (map[string]*peers.Peer, error) {
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 			item := it.Item()
 
-			peerBytes, err := item.Value()
+			err := item.Value(func(data []byte) error {
+				peer := &peers.Peer{}
+				err := peer.Unmarshal(data)
+				if err != nil {
+					return err
+				}
+
+				repertoire[peer.PubKeyString()] = peer
+				return err
+			})
+			//			peerBytes, err := item.Value()
 			if err != nil {
 				return err
 			}
 
-			peer := &peers.Peer{}
-			err = peer.Unmarshal(peerBytes)
-			if err != nil {
-				return err
-			}
-
-			repertoire[peer.PubKeyString()] = peer
 		}
 		return nil
 	})
@@ -407,7 +410,7 @@ func (s *BadgerStore) dbSetRepertoire(peer *peers.Peer) error {
 		return err
 	}
 
-	return tx.Commit(nil)
+	return tx.Commit()
 }
 
 func (s *BadgerStore) dbGetPeerSet(round int) (*peers.PeerSet, error) {
@@ -418,7 +421,7 @@ func (s *BadgerStore) dbGetPeerSet(round int) (*peers.PeerSet, error) {
 		if err != nil {
 			return err
 		}
-		peerSliceBytes, err = item.Value()
+		peerSliceBytes, err = item.ValueCopy(nil)
 		return err
 	})
 
@@ -444,7 +447,7 @@ func (s *BadgerStore) dbSetPeerSet(round int, peerSet *peers.PeerSet) error {
 		return err
 	}
 
-	return tx.Commit(nil)
+	return tx.Commit()
 }
 
 func (s *BadgerStore) dbGetEvent(key string) (*Event, error) {
@@ -454,7 +457,7 @@ func (s *BadgerStore) dbGetEvent(key string) (*Event, error) {
 		if err != nil {
 			return err
 		}
-		eventBytes, err = item.Value()
+		eventBytes, err = item.ValueCopy(nil)
 		return err
 	})
 
@@ -504,7 +507,7 @@ func (s *BadgerStore) dbSetEvents(events []*Event) error {
 			}
 		}
 	}
-	return tx.Commit(nil)
+	return tx.Commit()
 }
 
 func (s *BadgerStore) dbParticipantEvents(participant string, skip int) ([]string, error) {
@@ -514,7 +517,7 @@ func (s *BadgerStore) dbParticipantEvents(participant string, skip int) ([]strin
 		key := participantEventKey(participant, i)
 		item, errr := txn.Get(key)
 		for errr == nil {
-			v, errrr := item.Value()
+			v, errrr := item.ValueCopy(nil)
 			if errrr != nil {
 				break
 			}
@@ -542,7 +545,7 @@ func (s *BadgerStore) dbParticipantEvent(participant string, index int) (string,
 		if err != nil {
 			return err
 		}
-		data, err = item.Value()
+		data, err = item.ValueCopy(nil)
 		return err
 	})
 	if err != nil {
@@ -558,7 +561,7 @@ func (s *BadgerStore) dbTopologicalEvents() ([]*Event, error) {
 		key := topologicalEventKey(t)
 		item, errr := txn.Get(key)
 		for errr == nil {
-			v, errrr := item.Value()
+			v, errrr := item.ValueCopy(nil)
 			if errrr != nil {
 				break
 			}
@@ -568,7 +571,7 @@ func (s *BadgerStore) dbTopologicalEvents() ([]*Event, error) {
 			if err != nil {
 				return err
 			}
-			eventBytes, err := eventItem.Value()
+			eventBytes, err := eventItem.ValueCopy(nil)
 			if err != nil {
 				return err
 			}
@@ -610,7 +613,7 @@ func (s *BadgerStore) dbSetRoot(participant string, root *Root) error {
 		return err
 	}
 
-	return tx.Commit(nil)
+	return tx.Commit()
 }
 
 func (s *BadgerStore) dbGetRoot(participant string) (*Root, error) {
@@ -621,7 +624,7 @@ func (s *BadgerStore) dbGetRoot(participant string) (*Root, error) {
 		if err != nil {
 			return err
 		}
-		rootBytes, err = item.Value()
+		rootBytes, err = item.ValueCopy(nil)
 		return err
 	})
 
@@ -645,7 +648,7 @@ func (s *BadgerStore) dbGetRound(index int) (*RoundInfo, error) {
 		if err != nil {
 			return err
 		}
-		roundBytes, err = item.Value()
+		roundBytes, err = item.ValueCopy(nil)
 		return err
 	})
 
@@ -676,7 +679,7 @@ func (s *BadgerStore) dbSetRound(index int, round *RoundInfo) error {
 		return err
 	}
 
-	return tx.Commit(nil)
+	return tx.Commit()
 }
 
 func (s *BadgerStore) dbGetBlock(index int) (*Block, error) {
@@ -687,7 +690,7 @@ func (s *BadgerStore) dbGetBlock(index int) (*Block, error) {
 		if err != nil {
 			return err
 		}
-		blockBytes, err = item.Value()
+		blockBytes, err = item.ValueCopy(nil)
 		return err
 	})
 
@@ -718,7 +721,7 @@ func (s *BadgerStore) dbSetBlock(block *Block) error {
 		return err
 	}
 
-	return tx.Commit(nil)
+	return tx.Commit()
 }
 
 func (s *BadgerStore) dbGetFrame(index int) (*Frame, error) {
@@ -729,7 +732,7 @@ func (s *BadgerStore) dbGetFrame(index int) (*Frame, error) {
 		if err != nil {
 			return err
 		}
-		frameBytes, err = item.Value()
+		frameBytes, err = item.ValueCopy(nil)
 		return err
 	})
 
@@ -760,7 +763,7 @@ func (s *BadgerStore) dbSetFrame(frame *Frame) error {
 		return err
 	}
 
-	return tx.Commit(nil)
+	return tx.Commit()
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
