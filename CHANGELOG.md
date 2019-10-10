@@ -1,5 +1,12 @@
 # Change Log
 
+## Next Release (tba)
+
+IMPROVEMENTS:
+
+- badger_db: Update to use latest v1.6.0 release 
+
+
 ## v0.5.7 (October 2, 2019)
 
 IMPROVEMENTS:
