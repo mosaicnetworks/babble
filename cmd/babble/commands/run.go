@@ -4,7 +4,6 @@ import (
 	"github.com/mosaicnetworks/babble/src/babble"
 	"github.com/mosaicnetworks/babble/src/proxy/dummy"
 	aproxy "github.com/mosaicnetworks/babble/src/proxy/socket/app"
-	"github.com/mosaicnetworks/monetd/src/configuration"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -166,7 +165,7 @@ func bindFlagsLoadViper(cmd *cobra.Command) error {
 	}
 
 	// second unmarshal to read from config file
-	return viper.Unmarshal(configuration.Global)
+	return viper.Unmarshal(_config)
 }
 
 func logLevel(l string) logrus.Level {
