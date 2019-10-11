@@ -86,6 +86,7 @@ func AddRunFlags(cmd *cobra.Command) {
 
 	// Store
 	cmd.Flags().Bool("store", _config.Babble.Store, "Use badgerDB instead of in-mem DB")
+	cmd.Flags().String("db", _config.Babble.DatabaseDir, "Dabatabase directory")
 	cmd.Flags().Bool("bootstrap", _config.Babble.Bootstrap, "Load from database")
 	cmd.Flags().Int("cache-size", _config.Babble.CacheSize, "Number of items in LRU caches")
 
@@ -102,12 +103,11 @@ func loadConfig(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	_config, err = parseConfig()
-	if err != nil {
-		return err
-	}
+	// If --datadir was explicitely set, but not --db, this will update the
+	// default database dir to be inside the new datadir
+	_config.Babble.SetDataDir(_config.Babble.DataDir)
 
-	_config.Babble.Logger().WithFields(logrus.Fields{
+	logFields := logrus.Fields{
 		"babble.DataDir":          _config.Babble.DataDir,
 		"babble.BindAddr":         _config.Babble.BindAddr,
 		"babble.AdvertiseAddr":    _config.Babble.AdvertiseAddr,
@@ -126,21 +126,34 @@ func loadConfig(cmd *cobra.Command, args []string) error {
 		"ProxyAddr":               _config.ProxyAddr,
 		"ClientAddr":              _config.ClientAddr,
 		"Standalone":              _config.Standalone,
-	}).Debug("RUN")
+	}
+
+	if _config.Babble.Store {
+		logFields["babble.DatabaseDir"] = _config.Babble.DatabaseDir
+		logFields["babble.Bootstrap"] = _config.Babble.Bootstrap
+	}
+
+	_config.Babble.Logger().WithFields(logFields).Debug("RUN")
 
 	return nil
 }
 
-//Bind all flags and read the config into viper
+// Bind all flags and read the config into viper
 func bindFlagsLoadViper(cmd *cobra.Command) error {
-	// cmd.Flags() includes flags from this command and all persistent flags from the parent
+	// Register flags with viper. Include flags from this command and all other
+	// persistent flags from the parent
 	if err := viper.BindPFlags(cmd.Flags()); err != nil {
 		return err
 	}
 
+	// first unmarshal to read from CLI flags
+	if err := viper.Unmarshal(_config); err != nil {
+		return err
+	}
+
+	// look for config file in [datadir]/babble.toml (.json, .yaml also work)
 	viper.SetConfigName("babble")               // name of config file (without extension)
 	viper.AddConfigPath(_config.Babble.DataDir) // search root directory
-	// viper.AddConfigPath(filepath.Join(config.Babble.DataDir, "babble")) // search root directory /config
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
@@ -151,17 +164,8 @@ func bindFlagsLoadViper(cmd *cobra.Command) error {
 		return err
 	}
 
-	return nil
-}
-
-//Retrieve the default environment configuration.
-func parseConfig() (*CLIConfig, error) {
-	conf := NewDefaultCLIConfig()
-	err := viper.Unmarshal(conf)
-	if err != nil {
-		return nil, err
-	}
-	return conf, err
+	// second unmarshal to read from config file
+	return viper.Unmarshal(_config)
 }
 
 func logLevel(l string) logrus.Level {

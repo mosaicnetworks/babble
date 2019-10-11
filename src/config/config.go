@@ -35,10 +35,9 @@ type Config struct {
 	LogLevel string `mapstructure:"log"`
 
 	// BindAddr is the local address:port where this node gossips with other
-	// nodes. This is an IP address that should be reachable by all other nodes
-	// in the cluster. By default, this is "0.0.0.0", meaning Babble will bind
-	// to all addresses on the local machine. However, in some cases, there may
-	// be a routable address that cannot be bound. Use AdvertiseAddr to enable
+	// nodes. By default, this is "0.0.0.0", meaning Babble will bind to all
+	// addresses on the local machine. However, in some cases, there may be a
+	// routable address that cannot be bound. Use AdvertiseAddr to enable
 	// gossiping a different address to support this. If this address is not
 	// routable, the node will be in a constant flapping state as other nodes
 	// will treat the non-routability as a failure
@@ -73,6 +72,9 @@ type Config struct {
 
 	// Store is a flag that determines whether or not to use persistant storage.
 	Store bool `mapstructure:"store"`
+
+	// DatabaseDir is the directory containing database files.
+	DatabaseDir string `mapstructure:"db"`
 
 	// CacheSize is the max number of items in in-memory caches.
 	CacheSize int `mapstructure:"cache-size"`
@@ -113,6 +115,7 @@ func NewDefaultConfig() *Config {
 		SyncLimit:        1000,
 		MaxPool:          2,
 		Store:            false,
+		DatabaseDir:      DefaultDatabaseDir(),
 		LoadPeers:        true,
 	}
 
@@ -130,9 +133,15 @@ func NewTestConfig(t testing.TB) *Config {
 	return config
 }
 
-// BadgerDir returs the full path of the folder containing the Babdger database.
-func (c *Config) BadgerDir() string {
-	return filepath.Join(c.DataDir, DefaultBadgerFile)
+// SetDataDir sets the top-level Babble directory, and updates the database
+// directory if it is currently set to the default value. If the database
+// directory is not currently the default, it means the user has explicitely set
+// it to something else, so avoid changing it again here.
+func (c *Config) SetDataDir(dataDir string) {
+	c.DataDir = dataDir
+	if c.DatabaseDir == DefaultDatabaseDir() {
+		c.DatabaseDir = filepath.Join(dataDir, DefaultBadgerFile)
+	}
 }
 
 // Keyfile returns the full path of the file containing the private key.
@@ -150,15 +159,21 @@ func (c *Config) Logger() *logrus.Entry {
 	return c.logger.WithField("prefix", "babble")
 }
 
-// DefaultDataDir ...
+// DefaultDatabaseDir returns the default path for the badger database files.
+func DefaultDatabaseDir() string {
+	return filepath.Join(DefaultDataDir(), DefaultBadgerFile)
+}
+
+// DefaultDataDir return the default directory name for top-level Babble config
+// based on the underlying OS, attempting to respect conventions.
 func DefaultDataDir() string {
 	// Try to place the data folder in the user's home dir
 	home := HomeDir()
 	if home != "" {
 		if runtime.GOOS == "darwin" {
-			return filepath.Join(home, ".babble")
+			return filepath.Join(home, ".Babble")
 		} else if runtime.GOOS == "windows" {
-			return filepath.Join(home, "AppData", "Roaming", "BABBLE")
+			return filepath.Join(home, "AppData", "Roaming", "Babble")
 		} else {
 			return filepath.Join(home, ".babble")
 		}
@@ -167,7 +182,7 @@ func DefaultDataDir() string {
 	return ""
 }
 
-// HomeDir ...
+// HomeDir returns the user's home directory.
 func HomeDir() string {
 	if home := os.Getenv("HOME"); home != "" {
 		return home
@@ -178,7 +193,7 @@ func HomeDir() string {
 	return ""
 }
 
-// LogLevel ...
+// LogLevel parses a string into a Logrus log level.
 func LogLevel(l string) logrus.Level {
 	switch l {
 	case "debug":
