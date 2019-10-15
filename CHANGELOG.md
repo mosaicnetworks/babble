@@ -1,6 +1,6 @@
 # Change Log
 
-## Next Release (tba)
+## v0.5.8 (October 15, 2019)
 
 IMPROVEMENTS:
 

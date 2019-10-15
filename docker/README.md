@@ -2,7 +2,8 @@
 
 This folder contains the scripts to build and push various Docker images.
 
-All these images are publicly available on [Docker Hub](https://hub.docker.com/u/mosaicnetworks/) so it is not necessary  
+All these images are publicly available on 
+[Docker Hub](https://hub.docker.com/u/mosaicnetworks/) so it is not necessary  
 to build them in order to actually use them. 
 
 ## Mosaic Networks Developers
