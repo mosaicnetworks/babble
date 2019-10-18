@@ -289,7 +289,7 @@ To see Babble in action, we have provided a series of scripts to bootstrap a
 test network locally.
 
 **NOTE:**
-This has been tested on Ubuntu 16.04 and macOS.
+This has been tested on Ubuntu 18.04 and macOS.
 
 Make sure you have [Docker](https://docker.com) installed.
 
