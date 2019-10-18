@@ -1,10 +1,18 @@
 # Change Log
 
-## Next Release (tba)
+## Unreleased
+
+SECURITY:
+FEATURES:
+IMPROVEMENTS:
+BUG FIXES:
+
+## v0.5.8 (October 15, 2019)
 
 IMPROVEMENTS:
 
 - badger_db: Update to use latest v1.6.0 release 
+- config: Enable setting a different database directory with --db
 
 
 ## v0.5.7 (October 2, 2019)

@@ -35,6 +35,14 @@ commands directly to the *state*, Babble applications must forward the commands
 to Babble and let them be processed asynchronously by the consensus system
 before receiving them back, in blocks, ready to be applied to the *state*.
 
+Note that it is left to the application layer to filter out bad transactions 
+before relaying them from clients to the consensus engine. Unlike other 
+middleware designed to sit in front of the application (like Apache or 
+Tendermint), the user-facing API is app-specific, and Babble just takes care or
+managing the consensus "under the hood". This filtering partially addresses spam
+from anonymous clients, but doesn't protect against malicious nodes spamming the
+network; that is a potential enhancement on the roadmap.
+
 Consensus and Blockchain
 ------------------------
 

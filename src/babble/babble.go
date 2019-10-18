@@ -144,7 +144,7 @@ func (b *Babble) initStore() error {
 		b.logger.Debug("Creating InmemStore")
 		b.Store = h.NewInmemStore(b.Config.CacheSize)
 	} else {
-		dbPath := b.Config.BadgerDir()
+		dbPath := b.Config.DatabaseDir
 
 		b.logger.WithField("path", dbPath).Debug("Creating BadgerStore")
 
