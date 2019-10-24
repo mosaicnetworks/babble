@@ -18,7 +18,7 @@ func initBadgerStore(cacheSize int, t *testing.T) *BadgerStore {
 		t.Fatal(err)
 	}
 
-	store, err := NewBadgerStore(cacheSize, dir)
+	store, err := NewBadgerStore(cacheSize, dir, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

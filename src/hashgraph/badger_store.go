@@ -6,6 +6,7 @@ import (
 	"github.com/dgraph-io/badger"
 	cm "github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/peers"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -27,12 +28,13 @@ type BadgerStore struct {
 
 //NewBadgerStore opens an existing database or creates a new one if nothing is
 //found in path.
-func NewBadgerStore(cacheSize int, path string) (*BadgerStore, error) {
+func NewBadgerStore(cacheSize int, path string, logger *logrus.Entry) (*BadgerStore, error) {
 
 	opts := badger.DefaultOptions(path).WithSyncWrites(false)
-	//	opts.Dir = path
-	//	opts.ValueDir = path
-	//	opts.SyncWrites = false
+	if logger != nil {
+		sub := logger.WithFields(logrus.Fields{"ns": "badger"})
+		opts = opts.WithLogger(sub)
+	}
 
 	handle, err := badger.Open(opts)
 	if err != nil {
