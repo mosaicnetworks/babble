@@ -110,11 +110,6 @@ func (s *BadgerStore) CacheSize() int {
 	return s.inmemStore.CacheSize()
 }
 
-//GetEvent returns the event for the given key
-func (s *BadgerStore) GetEvent(key string) (*Event, error) {
-	return s.inmemStore.GetEvent(key)
-}
-
 //ParticipantEvents returns that participant's Events from InMem
 func (s *BadgerStore) ParticipantEvents(participant string, skip int) ([]string, error) {
 	return s.inmemStore.ParticipantEvents(participant, skip)
@@ -292,6 +287,16 @@ func (s *BadgerStore) GetRoot(participant string) (*Root, error) {
 		root, err = s.dbGetRoot(participant)
 	}
 	return root, mapError(err, "Root", string(participantRootKey(participant)))
+}
+
+//GetEvent returns the event for the given key
+func (s *BadgerStore) GetEvent(key string) (*Event, error) {
+	root, err := s.inmemStore.GetEvent(key)
+
+	if err != nil {
+		root, err = s.dbGetEvent(key)
+	}
+	return root, mapError(err, "Event", key)
 }
 
 // GetBlock ...
