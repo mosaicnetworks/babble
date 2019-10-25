@@ -1314,10 +1314,11 @@ func (h *Hashgraph) ProcessSigPool() error {
 			return err
 		}
 		if !valid {
+			bytesBlock, _ := block.Marshal()
 			h.logger.WithFields(logrus.Fields{
 				"index":     bs.Index,
 				"validator": peerSet.ByPubKey[bs.ValidatorHex()],
-				"block":     block,
+				"block":     string(bytesBlock),
 			}).Warning("Verifying Block signature. Invalid signature")
 			continue
 		}
