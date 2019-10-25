@@ -1,10 +1,7 @@
 # Change Log
 
-## Unreleased
+## v0.5.9 (October 25, 2019)
 
-SECURITY:
-FEATURES:
-IMPROVEMENTS:
 BUG FIXES:
 
 - badger_db: Fix error reading events expired from the cache
