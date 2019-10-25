@@ -37,6 +37,7 @@ do
     --sync-limit=500 \
     --fast-sync=$FASTSYNC \
     --store \
+    --bootstrap \
     --log="debug"
     
     docker cp $MPWD/conf/node$i node$i:/.babble
