@@ -7,6 +7,10 @@ FEATURES:
 IMPROVEMENTS:
 BUG FIXES:
 
+- badger_db: Fix error reading events expired from the cache
+- node:      Defer network starting listening after bootstrap process ends
+
+
 ## v0.5.8 (October 15, 2019)
 
 IMPROVEMENTS:
