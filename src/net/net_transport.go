@@ -113,8 +113,6 @@ func NewNetworkTransport(
 		joinTimeout: joinTimeout,
 	}
 
-	//	go trans.Listen()
-
 	return trans
 }
 
@@ -302,7 +300,7 @@ func decodeResponse(conn *netConn, resp interface{}) (bool, error) {
 	return true, nil
 }
 
-// Listen is used to handling incoming connections.
+// Listen opens the stream and handles incoming connections.
 func (n *NetworkTransport) Listen() {
 	for {
 		// Accept incoming connections

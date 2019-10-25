@@ -30,7 +30,10 @@ type BadgerStore struct {
 //found in path.
 func NewBadgerStore(cacheSize int, path string, logger *logrus.Entry) (*BadgerStore, error) {
 
-	opts := badger.DefaultOptions(path).WithSyncWrites(false)
+	opts := badger.DefaultOptions(path).
+		WithSyncWrites(false).
+		WithTruncate(true)
+
 	if logger != nil {
 		sub := logger.WithFields(logrus.Fields{"ns": "badger"})
 		opts = opts.WithLogger(sub)
@@ -289,14 +292,13 @@ func (s *BadgerStore) GetRoot(participant string) (*Root, error) {
 	return root, mapError(err, "Root", string(participantRootKey(participant)))
 }
 
-//GetEvent returns the event for the given key
+// GetEvent returns the event for the given key
 func (s *BadgerStore) GetEvent(key string) (*Event, error) {
-	root, err := s.inmemStore.GetEvent(key)
-
+	ev, err := s.inmemStore.GetEvent(key)
 	if err != nil {
-		root, err = s.dbGetEvent(key)
+		ev, err = s.dbGetEvent(key)
 	}
-	return root, mapError(err, "Event", key)
+	return ev, mapError(err, "Event", key)
 }
 
 // GetBlock ...

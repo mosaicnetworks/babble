@@ -8,6 +8,8 @@ IMPROVEMENTS:
 BUG FIXES:
 
 - badger_db: Fix error reading events expired from the cache
+- badger_db: Add the truncate option to truncate value log files to delete
+             corrupt data
 - node:      Defer network starting listening after bootstrap process ends
 
 
