@@ -174,3 +174,8 @@ func (i *InmemTransport) Close() error {
 	i.DisconnectAll()
 	return nil
 }
+
+// Listen is an empty function as there is no need to defer
+// initialisation of the InMem service
+func (i *InmemTransport) Listen() {
+}

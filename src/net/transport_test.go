@@ -26,6 +26,7 @@ func NewTestTransport(ttype int, addr string, t *testing.T) Transport {
 		if err != nil {
 			t.Fatal(err)
 		}
+		go tt.Listen()
 		return tt
 	default:
 		panic("Unknown transport type")

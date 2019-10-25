@@ -665,7 +665,15 @@ func (h *Hashgraph) InsertEvent(event *Event, setWireInfo bool) error {
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("Invalid Event signature")
+
+		fields := logrus.Fields{
+			"event":       event.Hex(),
+			"creator":     event.Creator(),
+			"self_parent": event.SelfParent(),
+		}
+		h.logger.WithFields(fields).Errorf("Invalid Event signature")
+
+		return fmt.Errorf("Invalid Event signature %s", event.Hex())
 	}
 
 	// checkSelfParent can return normal errors (expected when the hasghraph is

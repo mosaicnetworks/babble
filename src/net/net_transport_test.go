@@ -16,6 +16,7 @@ func TestNetworkTransport_PooledConn(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+	go trans1.Listen()
 	defer trans1.Close()
 	rpcCh := trans1.Consumer()
 
@@ -73,6 +74,7 @@ func TestNetworkTransport_PooledConn(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+	go trans2.Listen()
 	defer trans2.Close()
 
 	// Create wait group

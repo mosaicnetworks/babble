@@ -112,6 +112,8 @@ func (n *Node) Init() error {
 		}
 	}
 
+	go n.trans.Listen()
+
 	_, ok := n.core.peers.ByID[n.core.validator.ID()]
 	if ok {
 		n.logger.Debug("Node belongs to PeerSet")
