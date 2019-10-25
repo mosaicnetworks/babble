@@ -110,8 +110,11 @@ func (n *Node) Init() error {
 		if err := n.core.Bootstrap(); err != nil {
 			return err
 		}
+
+		n.logger.Debug("Bootstrap completed")
 	}
 
+	n.logger.Debug("Start Listening")
 	go n.trans.Listen()
 
 	_, ok := n.core.peers.ByID[n.core.validator.ID()]
