@@ -3,9 +3,14 @@
 ## Unreleased
 
 SECURITY:
+
 FEATURES:
+
 IMPROVEMENTS:
-BUG FIXES
+
+BUG FIXES:
+
+- core: Include Events from unknown participants in EventDiff
 
 ## v0.5.9 (October 25, 2019)
 
