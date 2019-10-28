@@ -113,16 +113,6 @@ func (s *BadgerStore) CacheSize() int {
 	return s.inmemStore.CacheSize()
 }
 
-//ParticipantEvents returns that participant's Events from InMem
-func (s *BadgerStore) ParticipantEvents(participant string, skip int) ([]string, error) {
-	return s.inmemStore.ParticipantEvents(participant, skip)
-}
-
-//ParticipantEvent returns a given event from the given participant from InMem
-func (s *BadgerStore) ParticipantEvent(participant string, index int) (string, error) {
-	return s.inmemStore.ParticipantEvent(participant, index)
-}
-
 //GetRound returns the round from InMem
 func (s *BadgerStore) GetRound(r int) (*RoundInfo, error) {
 	return s.inmemStore.GetRound(r)
@@ -290,6 +280,24 @@ func (s *BadgerStore) GetRoot(participant string) (*Root, error) {
 		root, err = s.dbGetRoot(participant)
 	}
 	return root, mapError(err, "Root", string(participantRootKey(participant)))
+}
+
+// ParticipantEvents returns that participant's Events
+func (s *BadgerStore) ParticipantEvents(participant string, skip int) ([]string, error) {
+	res, err := s.inmemStore.ParticipantEvents(participant, skip)
+	if err != nil {
+		res, err = s.dbParticipantEvents(participant, skip)
+	}
+	return res, err
+}
+
+// ParticipantEvent returns a given event from the given participant
+func (s *BadgerStore) ParticipantEvent(participant string, index int) (string, error) {
+	res, err := s.inmemStore.ParticipantEvent(participant, index)
+	if err != nil {
+		res, err = s.dbParticipantEvent(participant, index)
+	}
+	return res, err
 }
 
 // GetEvent returns the event for the given key
