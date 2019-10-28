@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	bkeys "github.com/mosaicnetworks/babble/src/crypto/keys"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
@@ -172,11 +174,14 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
 	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
-	defer shutdownNodes(nodes)
+	// defer shutdownNodesSlow(nodes[0:2])
 	//defer drawGraphs(nodes, t)
 
-	target := 30
-	err := gossip(nodes, target, false, 3*time.Second)
+	// The logs are enormous is set to DebugLevel, and fill any sensible buffer
+	nodes[0].logger.Level = logrus.InfoLevel
+
+	target := 15
+	err := gossip(nodes, target, false, 2*time.Second)
 	if err != nil {
 		t.Error("Fatal Error", err)
 		t.Fatal(err)
@@ -184,12 +189,15 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 	checkGossip(nodes, 0, t)
 
 	leavingNode := nodes[3]
+	defer leavingNode.Shutdown()
 
 	err = leavingNode.Leave()
 	if err != nil {
 		t.Error("Fatal Error 2", err)
 		t.Fatal(err)
 	}
+
+	time.Sleep(2 * time.Second)
 
 	key, _ := bkeys.GenerateECDSAKey()
 	peer := peers.NewPeer(
@@ -198,16 +206,46 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 		"new node",
 	)
 	newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 200, 5, false, "inmem", 10*time.Millisecond, t)
+<<<<<<< HEAD
 	defer newNode.Shutdown()
 
 	newNode.RunAsync(true)
+=======
+	//defer shutdownNodesSlow([]*Node{newNode})
+	// newNode.Shutdown()
+>>>>>>> 69efb9540a7bc694521f8683de183a62f7615cc0
 
 	// replace leaving node with new node
 	nodes[3] = newNode
 
+	defer shutdownNodesSlow(nodes)
+
+	/*
+		// Run parallel routine to check newNode eventually reaches CatchingUp state.
+		timeout := time.After(20 * time.Second) //TODO this process has been amended - may not be in CatchingUp state
+		go func() {
+			for {
+				select {
+				case <-timeout:
+
+					t.Error("Fatal Error - Timeout waiting for newNode to enter CatchingUp state")
+					t.Fatalf("Timeout waiting for newNode to enter CatchingUp state")
+				default:
+				}
+				if newNode.getState() == CatchingUp {
+					break
+				}
+			}
+		}()
+	*/
+
+	t.Log("Node 3 Created")
+	newNode.RunAsync(true)
+	time.Sleep(2 * time.Second)
+
 	//Gossip some more
-	secondTarget := target + 50
-	err = bombardAndWait(nodes, secondTarget, 6*time.Second)
+	secondTarget := target + 12
+	err = bombardAndWait(nodes, secondTarget, 2*time.Second)
 	if err != nil {
 		t.Error("Fatal Error 3", err)
 		t.Fatal(err)
@@ -216,6 +254,14 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 	start := newNode.core.hg.FirstConsensusRound
 	checkGossip(nodes, *start, t)
 	checkPeerSets(nodes, t)
+
+	// Pause before exiting
+	time.Sleep(3 * time.Second)
+}
+
+func TestPauseExtra(t *testing.T) {
+	// Pause before exiting
+	time.Sleep(5 * time.Second)
 }
 
 // TestAddingAndRemovingPeers is a complex test. The broad brush outline of the
@@ -313,7 +359,12 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	t.Log("Nodes56789", nodes56789)
 
 	t.Log("Final Step")
+	time.Sleep(3 * time.Second)
+}
 
+func TestPause2Extra(t *testing.T) {
+	// Pause before exiting
+	time.Sleep(5 * time.Second)
 }
 
 /*******************************************************************************
