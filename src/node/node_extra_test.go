@@ -200,23 +200,6 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 	newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 200, 5, false, "inmem", 10*time.Millisecond, t)
 	defer newNode.Shutdown()
 
-	// Run parallel routine to check newNode eventually reaches CatchingUp state.
-	timeout := time.After(12 * time.Second) //TODO this process has been amended - may not be in CatchingUp state
-	go func() {
-		for {
-			select {
-			case <-timeout:
-
-				t.Error("Fatal Error - Timeout waiting for newNode to enter CatchingUp state")
-				t.Fatalf("Timeout waiting for newNode to enter CatchingUp state")
-			default:
-			}
-			if newNode.getState() == CatchingUp {
-				break
-			}
-		}
-	}()
-
 	newNode.RunAsync(true)
 
 	// replace leaving node with new node
@@ -235,7 +218,8 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 	checkPeerSets(nodes, t)
 }
 
-//TestAddingAndRemovingPeers is a complex test. The broad brush outline of the process is as follows:
+// TestAddingAndRemovingPeers is a complex test. The broad brush outline of the
+// process is as follows:
 //
 //	1 Construct a network of 5 nodes and build a history of transactions.
 //	2 Remove a validator from the peer list
