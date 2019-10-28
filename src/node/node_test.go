@@ -43,6 +43,7 @@ func TestAddTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Fatal err: %v", err)
 	}
+	go peer0Trans.Listen()
 	peer0Proxy := dummy.NewInmemDummyClient(common.NewTestEntry(t))
 	defer peer0Trans.Close()
 
@@ -63,6 +64,7 @@ func TestAddTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Fatal 2 err: %v", err)
 	}
+	go peer1Trans.Listen()
 	peer1Proxy := dummy.NewInmemDummyClient(common.NewTestEntry(t))
 	defer peer1Trans.Close()
 
@@ -319,6 +321,7 @@ func newNode(peer *peers.Peer,
 	if err != nil {
 		t.Fatalf("Fatal failed to create transport for peer %d: %s", peer.ID(), err)
 	}
+	go trans.Listen()
 
 	var store hg.Store
 	switch storeType {
@@ -422,6 +425,8 @@ func recycleNode(oldNode *Node, t *testing.T) *Node {
 		t.Error("Fatal Error 2 recycleNode", err)
 		t.Fatal(err)
 	}
+
+	go trans.Listen()
 	prox := dummy.NewInmemDummyClient(common.NewTestEntry(t))
 
 	conf.Bootstrap = true

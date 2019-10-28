@@ -360,35 +360,6 @@ func (a ByTopologicalOrder) Less(i, j int) bool {
 	return a[i].topologicalIndex < a[j].topologicalIndex
 }
 
-// ByLamportTimestamp implements sort.Interface for []Event based on
-// the lamportTimestamp field.
-// THIS IS A TOTAL ORDER
-type ByLamportTimestamp []*Event
-
-// Len ...
-func (a ByLamportTimestamp) Len() int { return len(a) }
-
-// Swap ...
-func (a ByLamportTimestamp) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-
-// Less ...
-func (a ByLamportTimestamp) Less(i, j int) bool {
-	it, jt := -1, -1
-	if a[i].lamportTimestamp != nil {
-		it = *a[i].lamportTimestamp
-	}
-	if a[j].lamportTimestamp != nil {
-		jt = *a[j].lamportTimestamp
-	}
-	if it != jt {
-		return it < jt
-	}
-
-	wsi, _, _ := keys.DecodeSignature(a[i].Signature)
-	wsj, _, _ := keys.DecodeSignature(a[j].Signature)
-	return wsi.Cmp(wsj) < 0
-}
-
 // WireBody ...
 type WireBody struct {
 	Transactions         [][]byte

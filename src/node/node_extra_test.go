@@ -201,7 +201,7 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 	defer newNode.Shutdown()
 
 	// Run parallel routine to check newNode eventually reaches CatchingUp state.
-	timeout := time.After(6 * time.Second) //TODO this process has been amended - may not be in CatchingUp state
+	timeout := time.After(12 * time.Second) //TODO this process has been amended - may not be in CatchingUp state
 	go func() {
 		for {
 			select {

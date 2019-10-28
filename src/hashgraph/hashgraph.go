@@ -14,33 +14,33 @@ import (
 
 const (
 
-	//ROOT_DEPTH determines how many FrameEvents are included in the Root. It
-	//		is preferable not to make ROOT_DEPTH configurable because if peers use
-	//		diffent values, they will produce different Roots, different Frames, and
-	//		different Blocks. Perhaps this parameter should be tied to the number of
-	//		Peers rather than hard-coded.
+	// ROOT_DEPTH determines how many FrameEvents are included in the Root. It
+	// is preferable not to make ROOT_DEPTH configurable because if peers use
+	// diffent values, they will produce different Roots, different Frames, and
+	// different Blocks. Perhaps this parameter should be tied to the number of
+	// Peers rather than hard-coded.
 	ROOT_DEPTH = 10
 
-	// COIN_ROUND_FREQ ...
+	// COIN_ROUND_FREQ defines the frequency of coin rounds
 	COIN_ROUND_FREQ = float64(4)
 )
 
-//Hashgraph is a DAG of Events. It also contains methods to extract a consensus
-//order of Events and map them onto a blockchain.
+// Hashgraph is a DAG of Events. It also contains methods to extract a consensus
+// order of Events and map them onto a blockchain.
 type Hashgraph struct {
-	Store                   Store                  //store of Events, Rounds, and Blocks
-	UndeterminedEvents      []string               //[index] => hash . FIFO queue of Events whose consensus order is not yet determined
-	PendingRounds           *PendingRoundsCache    //FIFO queue of Rounds which have not attained consensus yet
-	PendingSignatures       *SigPool               //Pool of Block signatures that need to be processed (matched with Blocks)
-	LastConsensusRound      *int                   //index of last consensus round
-	FirstConsensusRound     *int                   //index of first consensus round (only used in tests)
-	AnchorBlock             *int                   //index of last block with enough signatures
-	roundLowerBound         *int                   //rounds and events below this lower bound have a special treatement (cf fastsync)
-	LastCommitedRoundEvents int                    //number of events in round before LastConsensusRound
-	ConsensusTransactions   int                    //number of consensus transactions
-	PendingLoadedEvents     int                    //number of loaded events that are not yet committed
-	commitCallback          InternalCommitCallback //commit block callback
-	topologicalIndex        int                    //counter used to order events in topological order (only local)
+	Store                   Store                  // store of Events, Rounds, and Blocks
+	UndeterminedEvents      []string               // [index] => hash . FIFO queue of Events whose consensus order is not yet determined
+	PendingRounds           *PendingRoundsCache    // FIFO queue of Rounds which have not attained consensus yet
+	PendingSignatures       *SigPool               // Pool of Block signatures that need to be processed (matched with Blocks)
+	LastConsensusRound      *int                   // index of last consensus round
+	FirstConsensusRound     *int                   // index of first consensus round (only used in tests)
+	AnchorBlock             *int                   // index of last block with enough signatures
+	roundLowerBound         *int                   // rounds and events below this lower bound have a special treatement (cf fastsync)
+	LastCommitedRoundEvents int                    // number of events in round before LastConsensusRound
+	ConsensusTransactions   int                    // number of consensus transactions
+	PendingLoadedEvents     int                    // number of loaded events that are not yet committed
+	commitCallback          InternalCommitCallback // commit block callback
+	topologicalIndex        int                    // counter used to order events in topological order (only local)
 
 	ancestorCache     *common.LRU
 	selfAncestorCache *common.LRU
@@ -52,8 +52,8 @@ type Hashgraph struct {
 	logger *logrus.Entry
 }
 
-//NewHashgraph instantiates a Hashgraph with an underlying data store and a
-//commit callback
+// NewHashgraph instantiates a Hashgraph with an underlying data store and a
+// commit callback
 func NewHashgraph(store Store, commitCallback InternalCommitCallback, logger *logrus.Entry) *Hashgraph {
 	if logger == nil {
 		log := logrus.New()
@@ -79,8 +79,8 @@ func NewHashgraph(store Store, commitCallback InternalCommitCallback, logger *lo
 	return &hashgraph
 }
 
-//Init sets the initial PeerSet, which also creates the corresponding Roots and
-//updates the Repertoire.
+// Init sets the initial PeerSet, which also creates the corresponding Roots and
+// updates the Repertoire.
 func (h *Hashgraph) Init(peerSet *peers.PeerSet) error {
 	if err := h.Store.SetPeerSet(0, peerSet); err != nil {
 		return fmt.Errorf("Error setting PeerSet: %v", err)
@@ -397,8 +397,7 @@ func (h *Hashgraph) roundDiff(x, y string) (int, error) {
 	return xRound - yRound, nil
 }
 
-//Check the SelfParent is the Creator's last known Event
-//returns error, warning
+// Check the SelfParent is the Creator's last known Event
 func (h *Hashgraph) checkSelfParent(event *Event) error {
 	selfParent := event.SelfParent()
 	creator := event.Creator()
@@ -665,7 +664,15 @@ func (h *Hashgraph) InsertEvent(event *Event, setWireInfo bool) error {
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("Invalid Event signature")
+
+		fields := logrus.Fields{
+			"event":       event.Hex(),
+			"creator":     event.Creator(),
+			"self_parent": event.SelfParent(),
+		}
+		h.logger.WithFields(fields).Errorf("Invalid Event signature")
+
+		return fmt.Errorf("Invalid Event signature %s", event.Hex())
 	}
 
 	// checkSelfParent can return normal errors (expected when the hasghraph is
@@ -1306,10 +1313,11 @@ func (h *Hashgraph) ProcessSigPool() error {
 			return err
 		}
 		if !valid {
+			bytesBlock, _ := block.Marshal()
 			h.logger.WithFields(logrus.Fields{
 				"index":     bs.Index,
 				"validator": peerSet.ByPubKey[bs.ValidatorHex()],
-				"block":     block,
+				"block":     string(bytesBlock),
 			}).Warning("Verifying Block signature. Invalid signature")
 			continue
 		}

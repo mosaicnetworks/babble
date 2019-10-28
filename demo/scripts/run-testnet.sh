@@ -29,7 +29,7 @@ do
     docker create --name=node$i --net=babblenet --ip=172.77.5.$i mosaicnetworks/babble:latest run \
     --heartbeat=100ms \
     --moniker="node$i" \
-    --cache-size=50000 \
+    --cache-size=2000 \
     --listen="172.77.5.$i:1337" \
     --proxy-listen="172.77.5.$i:1338" \
     --client-connect="172.77.10.$i:1339" \
@@ -37,6 +37,7 @@ do
     --sync-limit=500 \
     --fast-sync=$FASTSYNC \
     --store \
+    --bootstrap \
     --log="debug"
     
     docker cp $MPWD/conf/node$i node$i:/.babble

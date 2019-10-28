@@ -470,7 +470,7 @@ func (c *Core) Commit(block *hg.Block) error {
 		"internal_txs": len(block.InternalTransactions()),
 	}).Info("Commit")
 
-	//Commit the Block to the App
+	// Commit the Block to the App
 	commitResponse, err := c.proxyCommitCallback(*block)
 	if err != nil {
 		c.logger.WithError(err).Error("Commit response")
@@ -482,15 +482,13 @@ func (c *Core) Commit(block *hg.Block) error {
 		"state_hash":            common.EncodeToString(commitResponse.StateHash),
 	}).Info("Commit response")
 
-	//XXX Handle errors
-
-	//Handle the response to set Block StateHash and process InternalTransaction
-	//receipts which might update the PeerSet.
+	// Handle the response to set Block StateHash and process receipts which
+	// might update the PeerSet.
 	if err == nil {
 		block.Body.StateHash = commitResponse.StateHash
 		block.Body.InternalTransactionReceipts = commitResponse.InternalTransactionReceipts
 
-		//Sign the block if we belong to its validator-set
+		// Sign the block if we belong to its validator-set
 		blockPeerSet, err := c.hg.Store.GetPeerSet(block.RoundReceived())
 		if err != nil {
 			return err
@@ -625,23 +623,39 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, receipts [
 Diff
 *******************************************************************************/
 
-// EventDiff returns events that c knowns about and are not in 'known'
-func (c *Core) EventDiff(known map[uint32]int) (events []*hg.Event, err error) {
+// EventDiff returns Events that we are aware of, and that are not known by
+// another. They are returned in topological order. The parameter otherKnown is
+// a map containing the last Event index per participant, as seen by another
+// peer. We compare this to our view of events and return the diff.
+func (c *Core) EventDiff(otherKnown map[uint32]int) (events []*hg.Event, err error) {
+	// unknown is the container for the Events that will be returned by this
+	// method.
 	unknown := []*hg.Event{}
-	//known represents the index of the last event known for every participant
-	//compare this to our view of events and fill unknown with events that we know of
-	// and the other doesnt
-	for id, ct := range known {
+
+	myknown := c.KnownEvents()
+
+	// We loop through our known map first
+	for id := range myknown {
+
+		ct, ok := otherKnown[id]
+
+		// If the other is not yet aware of this validator. It will need all
+		// it's events (starting at index -1).
+		if !ok {
+			ct = -1
+		}
+
 		peer, ok := c.hg.Store.RepertoireByID()[id]
 		if !ok {
 			continue
 		}
 
-		//get participant Events with index > ct
+		// get participant Events with index > ct
 		participantEvents, err := c.hg.Store.ParticipantEvents(peer.PubKeyString(), ct)
 		if err != nil {
 			return []*hg.Event{}, err
 		}
+
 		for _, e := range participantEvents {
 			ev, err := c.hg.Store.GetEvent(e)
 			if err != nil {
@@ -649,7 +663,9 @@ func (c *Core) EventDiff(known map[uint32]int) (events []*hg.Event, err error) {
 			}
 			unknown = append(unknown, ev)
 		}
+
 	}
+
 	sort.Sort(hg.ByTopologicalOrder(unknown))
 
 	return unknown, nil

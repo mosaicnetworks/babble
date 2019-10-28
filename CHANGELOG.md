@@ -3,9 +3,24 @@
 ## Unreleased
 
 SECURITY:
+
 FEATURES:
+
 IMPROVEMENTS:
+
 BUG FIXES:
+
+- core: Include Events from unknown participants in EventDiff
+
+## v0.5.9 (October 25, 2019)
+
+BUG FIXES:
+
+- badger_db: Fix error reading events expired from the cache
+- badger_db: Add the truncate option to truncate value log files to delete
+             corrupt data
+- node:      Defer network starting listening after bootstrap process ends
+
 
 ## v0.5.8 (October 15, 2019)
 

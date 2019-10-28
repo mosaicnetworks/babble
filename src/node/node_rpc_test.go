@@ -24,6 +24,7 @@ func TestProcessSync(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+	go peer0Trans.Listen()
 	defer peer0Trans.Close()
 
 	genesisPeerSet := clonePeerSet(t, p.Peers)
@@ -43,6 +44,7 @@ func TestProcessSync(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+	go peer1Trans.Listen()
 	defer peer1Trans.Close()
 
 	node1 := NewNode(config,
@@ -128,6 +130,7 @@ func TestProcessEagerSync(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+	go peer0Trans.Listen()
 	defer peer0Trans.Close()
 
 	genesisPeerSet := clonePeerSet(t, p.Peers)
@@ -147,6 +150,7 @@ func TestProcessEagerSync(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+	go peer1Trans.Listen()
 	defer peer1Trans.Close()
 
 	node1 := NewNode(config,
@@ -211,6 +215,7 @@ func TestProcessFastForward(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+	go peer0Trans.Listen()
 	defer peer0Trans.Close()
 
 	genesisPeerSet := clonePeerSet(t, p.Peers)
@@ -230,6 +235,7 @@ func TestProcessFastForward(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+	go peer1Trans.Listen()
 	defer peer1Trans.Close()
 
 	node1 := NewNode(config,

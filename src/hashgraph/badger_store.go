@@ -30,7 +30,10 @@ type BadgerStore struct {
 //found in path.
 func NewBadgerStore(cacheSize int, path string, logger *logrus.Entry) (*BadgerStore, error) {
 
-	opts := badger.DefaultOptions(path).WithSyncWrites(false)
+	opts := badger.DefaultOptions(path).
+		WithSyncWrites(false).
+		WithTruncate(true)
+
 	if logger != nil {
 		sub := logger.WithFields(logrus.Fields{"ns": "badger"})
 		opts = opts.WithLogger(sub)
@@ -108,11 +111,6 @@ the consensus methods.
 //CacheSize sets the inmem cache size
 func (s *BadgerStore) CacheSize() int {
 	return s.inmemStore.CacheSize()
-}
-
-//GetEvent returns the event for the given key
-func (s *BadgerStore) GetEvent(key string) (*Event, error) {
-	return s.inmemStore.GetEvent(key)
 }
 
 //ParticipantEvents returns that participant's Events from InMem
@@ -292,6 +290,15 @@ func (s *BadgerStore) GetRoot(participant string) (*Root, error) {
 		root, err = s.dbGetRoot(participant)
 	}
 	return root, mapError(err, "Root", string(participantRootKey(participant)))
+}
+
+// GetEvent returns the event for the given key
+func (s *BadgerStore) GetEvent(key string) (*Event, error) {
+	ev, err := s.inmemStore.GetEvent(key)
+	if err != nil {
+		ev, err = s.dbGetEvent(key)
+	}
+	return ev, mapError(err, "Event", key)
 }
 
 // GetBlock ...
