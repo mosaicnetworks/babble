@@ -13,6 +13,7 @@ IMPROVEMENTS:
 BUG FIXES:
 
 - core: Include Events from unknown participants in EventDiff
+- node: Fix issue #128 regarding Extra tests
 
 ## v0.5.9 (October 25, 2019)
 

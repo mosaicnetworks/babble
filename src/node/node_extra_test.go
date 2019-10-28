@@ -66,9 +66,6 @@ func TestSuccessiveJoinRequestExtra(t *testing.T) {
 
 		target = target + 10
 	}
-
-	// Pause before exiting
-	time.Sleep(2 * time.Second)
 }
 
 func TestSuccessiveLeaveRequestExtra(t *testing.T) {
@@ -206,38 +203,14 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 		"new node",
 	)
 	newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 200, 5, false, "inmem", 10*time.Millisecond, t)
-<<<<<<< HEAD
 	defer newNode.Shutdown()
 
 	newNode.RunAsync(true)
-=======
-	//defer shutdownNodesSlow([]*Node{newNode})
-	// newNode.Shutdown()
->>>>>>> 69efb9540a7bc694521f8683de183a62f7615cc0
 
 	// replace leaving node with new node
 	nodes[3] = newNode
 
 	defer shutdownNodesSlow(nodes)
-
-	/*
-		// Run parallel routine to check newNode eventually reaches CatchingUp state.
-		timeout := time.After(20 * time.Second) //TODO this process has been amended - may not be in CatchingUp state
-		go func() {
-			for {
-				select {
-				case <-timeout:
-
-					t.Error("Fatal Error - Timeout waiting for newNode to enter CatchingUp state")
-					t.Fatalf("Timeout waiting for newNode to enter CatchingUp state")
-				default:
-				}
-				if newNode.getState() == CatchingUp {
-					break
-				}
-			}
-		}()
-	*/
 
 	t.Log("Node 3 Created")
 	newNode.RunAsync(true)
@@ -254,14 +227,6 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 	start := newNode.core.hg.FirstConsensusRound
 	checkGossip(nodes, *start, t)
 	checkPeerSets(nodes, t)
-
-	// Pause before exiting
-	time.Sleep(3 * time.Second)
-}
-
-func TestPauseExtra(t *testing.T) {
-	// Pause before exiting
-	time.Sleep(5 * time.Second)
 }
 
 // TestAddingAndRemovingPeers is a complex test. The broad brush outline of the
@@ -360,11 +325,6 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 
 	t.Log("Final Step")
 	time.Sleep(3 * time.Second)
-}
-
-func TestPause2Extra(t *testing.T) {
-	// Pause before exiting
-	time.Sleep(5 * time.Second)
 }
 
 /*******************************************************************************
