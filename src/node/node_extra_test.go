@@ -171,10 +171,9 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
 	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
-	// defer shutdownNodesSlow(nodes[0:2])
 	//defer drawGraphs(nodes, t)
 
-	// The logs are enormous is set to DebugLevel, and fill any sensible buffer
+	// The logs are enormous if set to DebugLevel, and fill any sensible buffer
 	nodes[0].logger.Level = logrus.InfoLevel
 
 	target := 15
@@ -194,8 +193,6 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(2 * time.Second)
-
 	key, _ := bkeys.GenerateECDSAKey()
 	peer := peers.NewPeer(
 		bkeys.PublicKeyHex(&key.PublicKey),
@@ -210,11 +207,8 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 	// replace leaving node with new node
 	nodes[3] = newNode
 
-	defer shutdownNodesSlow(nodes)
-
 	t.Log("Node 3 Created")
 	newNode.RunAsync(true)
-	time.Sleep(2 * time.Second)
 
 	//Gossip some more
 	secondTarget := target + 12
@@ -273,7 +267,6 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 
 	// New nodes array without node 4
 	nodes0123 := nodes01234[0:4]
-	time.Sleep(400 * time.Millisecond)
 	checkPeerSets(nodes0123, t)
 
 	// Step 3 - More history
@@ -322,9 +315,6 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	defer node9.Shutdown()
 
 	t.Log("Nodes56789", nodes56789)
-
-	t.Log("Final Step")
-	time.Sleep(3 * time.Second)
 }
 
 /*******************************************************************************
