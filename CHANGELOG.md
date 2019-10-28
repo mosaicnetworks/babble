@@ -8,6 +8,8 @@ FEATURES:
 
 IMPROVEMENTS:
 
+- spike: Documented a potential solution to automatically evict faulty peers.
+
 BUG FIXES:
 
 - core: Include Events from unknown participants in EventDiff
