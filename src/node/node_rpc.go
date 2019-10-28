@@ -252,9 +252,9 @@ func (n *Node) processJoinRequest(rpc net.RPC, cmd *net.JoinRequest) {
 
 	if ok, _ := cmd.InternalTransaction.Verify(); !ok {
 
-		respErr = fmt.Errorf("Unable to verify signature on join request")
-
-		n.logger.Debug("Unable to verify signature on join request")
+		msg := "Unable to verify signature on join request"
+		n.logger.Debug(msg)
+		respErr = fmt.Errorf(msg)
 
 	} else if _, ok := n.core.peers.ByPubKey[cmd.InternalTransaction.Body.Peer.PubKeyString()]; ok {
 
@@ -271,8 +271,7 @@ func (n *Node) processJoinRequest(rpc net.RPC, cmd *net.JoinRequest) {
 		peers = n.core.peers.Peers
 
 	} else {
-		//XXX run this by the App first
-		//Dispatch the InternalTransaction
+		// Dispatch the InternalTransaction
 		n.coreLock.Lock()
 		promise := n.core.AddInternalTransaction(cmd.InternalTransaction)
 		n.coreLock.Unlock()
