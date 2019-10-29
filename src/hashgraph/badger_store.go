@@ -518,7 +518,7 @@ func (s *BadgerStore) dbSetEvents(events []*Event) error {
 
 		if new {
 			//insert [topo_index] => [event hash]
-			topoKey := topologicalEventKey(event.topologicalIndex)
+			topoKey := topologicalEventKey(event.TopologicalIndex)
 			if err := tx.Set(topoKey, []byte(eventHex)); err != nil {
 				return err
 			}

@@ -84,7 +84,7 @@ type Event struct {
 	Body      EventBody
 	Signature string //creator's digital signature of body
 
-	topologicalIndex int
+	TopologicalIndex int
 
 	//used for sorting
 	round            *int
@@ -357,7 +357,7 @@ func (a ByTopologicalOrder) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 
 // Less ...
 func (a ByTopologicalOrder) Less(i, j int) bool {
-	return a[i].topologicalIndex < a[j].topologicalIndex
+	return a[i].TopologicalIndex < a[j].TopologicalIndex
 }
 
 // WireBody ...
