@@ -32,14 +32,14 @@ docker run -d --name=client$N --net=babblenet --ip=172.77.10.$N -it mosaicnetwor
 
 docker create --name=node$N --net=babblenet --ip=172.77.5.$N mosaicnetworks/babble:latest run \
     --moniker="node$N" \
-    --cache-size=2000 \
+    --cache-size=50000 \
     --listen="172.77.5.$N:1337" \
     --proxy-listen="172.77.5.$N:1338" \
     --client-connect="172.77.10.$N:1339" \
     --service-listen="172.77.5.$N:80" \
     --fast-sync=$FASTSYNC \
-    --log="debug"
-    #--store \
+    --log="debug" 
+    ## --store /
 
 docker cp $dest node$N:/.babble
 docker start node$N

@@ -295,7 +295,12 @@ func (s *BadgerStore) ParticipantEvents(participant string, skip int) ([]string,
 func (s *BadgerStore) ParticipantEvent(participant string, index int) (string, error) {
 	res, err := s.inmemStore.ParticipantEvent(participant, index)
 	if err != nil {
+		//XXX
+		fmt.Printf("XXX PE not found in cache: %s\n", err)
 		res, err = s.dbParticipantEvent(participant, index)
+		if err != nil {
+			fmt.Printf("XXX PE not found in DB: %s\n", err)
+		}
 	}
 	return res, err
 }

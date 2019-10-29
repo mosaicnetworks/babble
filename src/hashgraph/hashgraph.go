@@ -582,7 +582,7 @@ func (h *Hashgraph) createRoot(participant string, head string) (*Root, error) {
 	return root, nil
 }
 
-func (h *Hashgraph) setWireInfo(event *Event) error {
+func (h *Hashgraph) SetWireInfo(event *Event) error {
 	selfParentIndex := -1
 	otherParentCreatorID := uint32(0)
 	otherParentIndex := -1
@@ -707,7 +707,7 @@ func (h *Hashgraph) InsertEvent(event *Event, setWireInfo bool) error {
 	h.topologicalIndex++
 
 	if setWireInfo {
-		if err := h.setWireInfo(event); err != nil {
+		if err := h.SetWireInfo(event); err != nil {
 			return fmt.Errorf("SetWireInfo: %s", err)
 		}
 	}
