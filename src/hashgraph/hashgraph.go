@@ -703,7 +703,7 @@ func (h *Hashgraph) InsertEvent(event *Event, setWireInfo bool) error {
 		return err
 	}
 
-	event.TopologicalIndex = h.topologicalIndex
+	event.topologicalIndex = h.topologicalIndex
 	h.topologicalIndex++
 
 	if setWireInfo {

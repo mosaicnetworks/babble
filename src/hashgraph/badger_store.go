@@ -488,7 +488,7 @@ func (s *BadgerStore) dbGetEvent(key string) (*Event, error) {
 	}
 
 	event := new(Event)
-	if err := event.Unmarshal(eventBytes); err != nil {
+	if err := event.UnmarshalDB(eventBytes); err != nil {
 		return nil, err
 	}
 
@@ -501,7 +501,7 @@ func (s *BadgerStore) dbSetEvents(events []*Event) error {
 
 	for _, event := range events {
 		eventHex := event.Hex()
-		val, err := event.Marshal()
+		val, err := event.MarshalDB()
 		if err != nil {
 			return err
 		}
@@ -518,7 +518,7 @@ func (s *BadgerStore) dbSetEvents(events []*Event) error {
 
 		if new {
 			//insert [topo_index] => [event hash]
-			topoKey := topologicalEventKey(event.TopologicalIndex)
+			topoKey := topologicalEventKey(event.topologicalIndex)
 			if err := tx.Set(topoKey, []byte(eventHex)); err != nil {
 				return err
 			}
@@ -599,7 +599,7 @@ func (s *BadgerStore) dbTopologicalEvents() ([]*Event, error) {
 			}
 
 			event := new(Event)
-			if err := event.Unmarshal(eventBytes); err != nil {
+			if err := event.UnmarshalDB(eventBytes); err != nil {
 				return err
 			}
 			res = append(res, event)

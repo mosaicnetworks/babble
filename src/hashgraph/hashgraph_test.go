@@ -1874,9 +1874,9 @@ func TestResetFromFrame(t *testing.T) {
 		sort.Sort(ByTopologicalOrder(events))
 
 		for _, ev := range events {
-			marshalledEv, _ := ev.Marshal()
+			marshalledEv, _ := ev.MarshalDB()
 			unmarshalledEv := new(Event)
-			unmarshalledEv.Unmarshal(marshalledEv)
+			unmarshalledEv.UnmarshalDB(marshalledEv)
 
 			err = h2.InsertEventAndRunConsensus(unmarshalledEv, true)
 			if err != nil {

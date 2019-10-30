@@ -662,11 +662,6 @@ func (c *Core) EventDiff(otherKnown map[uint32]int) (events []*hg.Event, err err
 				return []*hg.Event{}, err
 			}
 
-			//XXX
-			if err := c.hg.SetWireInfo(ev); err != nil {
-				return []*hg.Event{}, err
-			}
-
 			unknown = append(unknown, ev)
 		}
 

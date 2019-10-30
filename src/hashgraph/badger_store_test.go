@@ -132,7 +132,7 @@ func TestDBEventMethods(t *testing.T) {
 				p.pubKey,
 				k)
 			event.Sign(p.privKey)
-			event.TopologicalIndex = topologicalIndex
+			event.topologicalIndex = topologicalIndex
 			topologicalIndex++
 			topologicalEvents = append(topologicalEvents, event)
 
