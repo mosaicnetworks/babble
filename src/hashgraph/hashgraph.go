@@ -478,13 +478,18 @@ func (h *Hashgraph) initEventCoordinates(event *Event) error {
 	return nil
 }
 
-//update first descendant of each last ancestor to point to event
+// update first descendant of each ancestor to point to event
 func (h *Hashgraph) updateAncestorFirstDescendant(event *Event) error {
 	for _, c := range event.lastAncestors {
 		ah := c.hash
 		for {
 			a, err := h.Store.GetEvent(ah)
 			if err != nil {
+				break
+			}
+
+			// XXX
+			if a.firstDescendants == nil {
 				break
 			}
 
@@ -524,7 +529,7 @@ func (h *Hashgraph) createFrameEvent(x string) (*FrameEvent, error) {
 
 	te, ok := roundInfo.CreatedEvents[x]
 	if !ok {
-		return nil, err
+		return nil, fmt.Errorf("round %d CreatedEvents[%s] not found", round, x)
 	}
 
 	witness := te.Witness
@@ -568,7 +573,6 @@ func (h *Hashgraph) createRoot(participant string, head string) (*Root, error) {
 					return nil, err
 				}
 				reverseRootEvents = append(reverseRootEvents, rev)
-
 			} else {
 				break
 			}
@@ -1005,7 +1009,11 @@ func (h *Hashgraph) DecideRoundReceived() error {
 		for i := r + 1; i <= h.Store.LastRound(); i++ {
 			tr, err := h.Store.GetRound(i)
 			if err != nil {
-				return err
+				// When a node joins, it can have a first event with round 0 (if
+				// it doesn't have any other-parent). If the other nodes have
+				// already processed many rounds (more than the cache-limit),
+				// then they will enter this condition upon looking for round 1.
+				break
 			}
 
 			tPeers, err := h.Store.GetPeerSet(i)
