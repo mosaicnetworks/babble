@@ -46,8 +46,8 @@ CoordinateMap
 
 // EventCoordinates combines the index and hash of an Event
 type EventCoordinates struct {
-	hash  string
-	index int
+	Hash  string
+	Index int
 }
 
 // CoordinatesMap is used by the Hashgraph consensus methods to efficiently
@@ -225,6 +225,8 @@ type eventWrapper struct {
 	SelfParentIndex      int
 	OtherParentIndex     int
 	TopologicalIndex     int
+	LastAncestors        CoordinatesMap
+	FirstDescendants     CoordinatesMap
 }
 
 // MarshalDB returns the JSON encoding of the Event along with some of the
@@ -243,6 +245,8 @@ func (e *Event) MarshalDB() ([]byte, error) {
 		SelfParentIndex:      e.Body.selfParentIndex,
 		OtherParentIndex:     e.Body.otherParentIndex,
 		TopologicalIndex:     e.topologicalIndex,
+		LastAncestors:        e.lastAncestors,
+		FirstDescendants:     e.firstDescendants,
 	}
 
 	return json.Marshal(wrapper)
@@ -264,6 +268,8 @@ func (e *Event) UnmarshalDB(data []byte) error {
 	e.Body.otherParentIndex = wrapper.OtherParentIndex
 	e.Signature = wrapper.Signature
 	e.topologicalIndex = wrapper.TopologicalIndex
+	e.lastAncestors = wrapper.LastAncestors
+	e.firstDescendants = wrapper.FirstDescendants
 
 	return nil
 }

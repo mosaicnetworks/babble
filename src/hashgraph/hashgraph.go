@@ -122,7 +122,7 @@ func (h *Hashgraph) _ancestor(x, y string) (bool, error) {
 
 	entry, ok := ex.lastAncestors[ey.Creator()]
 
-	res := ok && entry.index >= ey.Index()
+	res := ok && entry.Index >= ey.Index()
 
 	return res, nil
 }
@@ -197,7 +197,7 @@ func (h *Hashgraph) _stronglySee(x, y string, peers *peers.PeerSet) (bool, error
 	for p := range peers.ByPubKey {
 		xla, xlaok := ex.lastAncestors[p]
 		yfd, yfdok := ey.firstDescendants[p]
-		if xlaok && yfdok && xla.index >= yfd.index {
+		if xlaok && yfdok && xla.Index >= yfd.Index {
 			c++
 		}
 	}
@@ -456,23 +456,23 @@ func (h *Hashgraph) initEventCoordinates(event *Event) error {
 		event.lastAncestors = selfParentLastAncestors.Copy()
 		for p, ola := range otherParentLastAncestors {
 			sla, ok := event.lastAncestors[p]
-			if !ok || sla.index < ola.index {
+			if !ok || sla.Index < ola.Index {
 				event.lastAncestors[p] = EventCoordinates{
-					index: ola.index,
-					hash:  ola.hash,
+					Index: ola.Index,
+					Hash:  ola.Hash,
 				}
 			}
 		}
 	}
 
 	event.firstDescendants[event.Creator()] = EventCoordinates{
-		index: event.Index(),
-		hash:  event.Hex(),
+		Index: event.Index(),
+		Hash:  event.Hex(),
 	}
 
 	event.lastAncestors[event.Creator()] = EventCoordinates{
-		index: event.Index(),
-		hash:  event.Hex(),
+		Index: event.Index(),
+		Hash:  event.Hex(),
 	}
 
 	return nil
@@ -481,23 +481,18 @@ func (h *Hashgraph) initEventCoordinates(event *Event) error {
 // update first descendant of each ancestor to point to event
 func (h *Hashgraph) updateAncestorFirstDescendant(event *Event) error {
 	for _, c := range event.lastAncestors {
-		ah := c.hash
+		ah := c.Hash
 		for {
 			a, err := h.Store.GetEvent(ah)
 			if err != nil {
 				break
 			}
 
-			// XXX
-			if a.firstDescendants == nil {
-				break
-			}
-
 			_, ok := a.firstDescendants[event.Creator()]
 			if !ok {
 				a.firstDescendants[event.Creator()] = EventCoordinates{
-					index: event.Index(),
-					hash:  event.Hex(),
+					Index: event.Index(),
+					Hash:  event.Hex(),
 				}
 				if err := h.Store.SetEvent(a); err != nil {
 					return err
