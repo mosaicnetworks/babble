@@ -482,7 +482,14 @@ func (h *Hashgraph) initEventCoordinates(event *Event) error {
 func (h *Hashgraph) updateAncestorFirstDescendant(event *Event) error {
 	for _, c := range event.lastAncestors {
 		ah := c.Hash
+		counter := 0
 		for {
+
+			// XXX stopping condition
+			if counter >= ROOT_DEPTH {
+				break
+			}
+
 			a, err := h.Store.GetEvent(ah)
 			if err != nil {
 				break
@@ -501,6 +508,8 @@ func (h *Hashgraph) updateAncestorFirstDescendant(event *Event) error {
 			} else {
 				break
 			}
+
+			counter++
 		}
 	}
 	return nil
@@ -630,6 +639,24 @@ func (h *Hashgraph) removeProcessedSignatures(processedSignatures map[string]boo
 //InsertEventAndRunConsensus inserts an Event in the Hashgraph and call the
 //consensus methods.
 func (h *Hashgraph) InsertEventAndRunConsensus(event *Event, setWireInfo bool) error {
+
+	// XXX
+	defer func() {
+		if event.Index() == 0 {
+			round := "nil"
+			if event.round != nil {
+				round = strconv.Itoa(*event.round)
+			}
+
+			h.logger.WithFields(logrus.Fields{
+				"creator_id":         event.Body.creatorID,
+				"other_parent_index": event.Body.otherParentIndex,
+				"other_parent":       event.OtherParent(),
+				"round":              round,
+			}).Debug("XXX")
+		}
+	}()
+
 	if err := h.InsertEvent(event, setWireInfo); err != nil {
 		if !IsNormalSelfParentError(err) {
 			h.logger.WithError(err).Errorf("InsertEvent")

@@ -45,4 +45,3 @@ docker create --name=node$N --net=babblenet --ip=172.77.5.$N mosaicnetworks/babb
 
 docker cp $dest node$N:/.babble
 docker start node$N
-
