@@ -66,16 +66,6 @@ func (b *Babble) Init() error {
 		return err
 	}
 
-	if err := b.initNodeBootstrap(); err != nil {
-		b.logger.WithError(err).Error("babble.go:Init() initNodeBootstrap")
-		return err
-	}
-
-	if err := b.initNodeLaunch(); err != nil {
-		b.logger.WithError(err).Error("babble.go:Init() initNodeLaunch")
-		return err
-	}
-
 	if err := b.initService(); err != nil {
 		b.logger.WithError(err).Error("babble.go:Init() initService")
 		return err
@@ -90,24 +80,7 @@ func (b *Babble) Run() {
 		go b.Service.Serve()
 	}
 
-	//	if b.Config.MaintenanceMode {
-	//		b.Idle()
-	//	} else {
 	b.Node.Run(true)
-	//	}
-
-}
-
-//Idle is the suspend state loop to keep the program alive
-func (b *Babble) Idle() {
-
-	b.logger.Info("Babble suspended")
-	for {
-		time.Sleep(4000 * time.Millisecond)
-	}
-
-	b.logger.Info("Babble suspension complete")
-
 }
 
 func (b *Babble) initTransport() error {
@@ -251,23 +224,11 @@ func (b *Babble) initNode() error {
 		b.Config.Proxy,
 	)
 
-	if err := b.initNodeBootstrap(); err != nil {
-		return fmt.Errorf("failed to bootstrap node: %s", err)
-	}
-
-	if err := b.initNodeLaunch(); err != nil {
-		return fmt.Errorf("failed to launch node: %s", err)
+	if err := b.Node.Init(); err != nil {
+		return fmt.Errorf("failed to initialize node: %s", err)
 	}
 
 	return nil
-}
-
-func (b *Babble) initNodeBootstrap() error {
-	return b.Node.InitBootstrap()
-}
-
-func (b *Babble) initNodeLaunch() error {
-	return b.Node.InitLaunch()
 }
 
 func (b *Babble) initService() error {
