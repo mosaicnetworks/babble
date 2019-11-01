@@ -101,7 +101,7 @@ Public Methods
 // Init initialises the node based on its configuration. It controls the
 // boostrap process which loads the hashgraph from an existing database (if
 // bootstrap option is set in config). It also decides what state the node will
-// start in (Babbling, CatchingUp, or Joining) based on the current
+// start in (Babbling, CatchingUp, Suspended or Joining) based on the current
 // validator-set and the value of the fast-sync option.
 func (n *Node) Init() error {
 	if n.conf.Bootstrap {
@@ -112,6 +112,11 @@ func (n *Node) Init() error {
 		}
 
 		n.logger.Debug("Bootstrap completed")
+	}
+
+	if n.conf.MaintenanceMode {
+		n.setSuspendedState()
+		return nil
 	}
 
 	n.logger.Debug("Start Listening")
@@ -690,6 +695,11 @@ func (n *Node) setBabblingOrCatchingUpState() {
 		}
 		n.setState(Babbling)
 	}
+}
+
+// setSuspendedState sets the node's state to Suspended
+func (n *Node) setSuspendedState() {
+	n.setState(Suspended)
 }
 
 // addTransaction is a thread-safe function to add and incoming transaction to

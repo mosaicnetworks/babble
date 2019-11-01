@@ -6,7 +6,7 @@ import (
 )
 
 // State captures the state of a Babble node: Babbling, CatchingUp, Joining,
-// or Shutdown
+// Leaving, Suspended, or Shutdown
 type State uint32
 
 const (
@@ -20,6 +20,8 @@ const (
 	Leaving
 	//Shutdown is shutdown
 	Shutdown
+	//Suspended is initialised, but not gossipping
+	Suspended
 )
 
 // String ...
@@ -35,6 +37,8 @@ func (s State) String() string {
 		return "Leaving"
 	case Shutdown:
 		return "Shutdown"
+	case Suspended:
+		return "Suspended"
 	default:
 		return "Unknown"
 	}
