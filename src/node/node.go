@@ -103,7 +103,19 @@ Public Methods
 // bootstrap option is set in config). It also decides what state the node will
 // start in (Babbling, CatchingUp, Suspended or Joining) based on the current
 // validator-set and the value of the fast-sync option.
+// Init is no longer called directly from babble.
 func (n *Node) Init() error {
+	if err := n.InitBootstrap(); err != nil {
+		return err
+	}
+	if err := n.InitLaunch(); err != nil {
+		return err
+	}
+	return nil
+}
+
+//InitBootstrap checks if bootstrap is configured. If so, it launches it.
+func (n *Node) InitBootstrap() error {
 	if n.conf.Bootstrap {
 		n.logger.Debug("Bootstrap")
 
@@ -113,6 +125,11 @@ func (n *Node) Init() error {
 
 		n.logger.Debug("Bootstrap completed")
 	}
+	return nil
+}
+
+//InitLaunch sets the babble main loop running.
+func (n *Node) InitLaunch() error {
 
 	if n.conf.MaintenanceMode {
 		n.setSuspendedState()
@@ -145,12 +162,21 @@ func (n *Node) Run(gossip bool) {
 	// Execute some background work regardless of the state of the node.
 	go n.doBackgroundWork()
 
+	lastState := n.getState()
+	n.logger.WithField("state", lastState.String()).Debug("Initial State")
+	var counter uint8 = 0
+
 	//Execute Node State Machine
 	for {
 		//Run different routines depending on node state
 		state := n.getState()
 
-		n.logger.WithField("state", state.String()).Debug("Run loop")
+		if (counter&7 == 0) || (state != lastState) {
+			n.logger.WithField("state", state.String()).Debug("Run loop")
+			lastState = state
+			counter = 0
+		}
+		counter++
 
 		switch state {
 		case Babbling:
