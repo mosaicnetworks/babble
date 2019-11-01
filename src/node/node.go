@@ -159,6 +159,8 @@ func (n *Node) Run(gossip bool) {
 			n.fastForward()
 		case Joining:
 			n.join()
+		case Suspended:
+			time.Sleep(2000 * time.Millisecond)
 		case Shutdown:
 			return
 		}

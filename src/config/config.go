@@ -85,7 +85,7 @@ type Config struct {
 
 	// MaintenanceMode when set to true causes Babble to initialise in a
 	// suspended state. I.e. it does not start gossipping
-	MaintenanceMode bool `mapstructure:"maintenancemode"`
+	MaintenanceMode bool `mapstructure:"maintenance-mode"`
 
 	// Moniker defines the friendly name of this node
 	Moniker string `mapstructure:"moniker"`
