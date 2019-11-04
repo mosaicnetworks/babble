@@ -168,7 +168,7 @@ func TestJoinLate(t *testing.T) {
 
 	keys, peerSet := initPeers(t, 4)
 
-	initialNodes := initNodes(keys, peerSet, peerSet, 100, 400, 5, false, "badger", 10*time.Millisecond, t)
+	initialNodes := initNodes(keys, peerSet, peerSet, 400, 400, 5, false, "badger", 10*time.Millisecond, t)
 	defer shutdownNodes(initialNodes)
 
 	target := 100
@@ -185,7 +185,7 @@ func TestJoinLate(t *testing.T) {
 		"monika",
 	)
 
-	newNode := newNode(peer, key, peerSet, peerSet, 100, 400, 5, false, "badger", 10*time.Millisecond, t)
+	newNode := newNode(peer, key, peerSet, peerSet, 400, 400, 5, false, "badger", 10*time.Millisecond, t)
 	defer newNode.Shutdown()
 
 	newNode.RunAsync(true)

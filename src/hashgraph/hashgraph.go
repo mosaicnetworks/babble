@@ -485,8 +485,10 @@ func (h *Hashgraph) updateAncestorFirstDescendant(event *Event) error {
 		counter := 0
 		for {
 
-			// XXX stopping condition
-			if counter >= ROOT_DEPTH {
+			// 2 * ROOT_DEPTH is arbitrary. It is a stopping condition to avoid
+			// looping all the way down to the first events when a new validator
+			// is added.
+			if counter >= 2*ROOT_DEPTH {
 				break
 			}
 
@@ -639,24 +641,6 @@ func (h *Hashgraph) removeProcessedSignatures(processedSignatures map[string]boo
 //InsertEventAndRunConsensus inserts an Event in the Hashgraph and call the
 //consensus methods.
 func (h *Hashgraph) InsertEventAndRunConsensus(event *Event, setWireInfo bool) error {
-
-	// XXX
-	defer func() {
-		if event.Index() == 0 {
-			round := "nil"
-			if event.round != nil {
-				round = strconv.Itoa(*event.round)
-			}
-
-			h.logger.WithFields(logrus.Fields{
-				"creator_id":         event.Body.creatorID,
-				"other_parent_index": event.Body.otherParentIndex,
-				"other_parent":       event.OtherParent(),
-				"round":              round,
-			}).Debug("XXX")
-		}
-	}()
-
 	if err := h.InsertEvent(event, setWireInfo); err != nil {
 		if !IsNormalSelfParentError(err) {
 			h.logger.WithError(err).Errorf("InsertEvent")
