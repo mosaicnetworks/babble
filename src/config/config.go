@@ -83,6 +83,10 @@ type Config struct {
 	// database file.
 	Bootstrap bool `mapstructure:"bootstrap"`
 
+	// MaintenanceMode when set to true causes Babble to initialise in a
+	// suspended state. I.e. it does not start gossipping
+	MaintenanceMode bool `mapstructure:"maintenance-mode"`
+
 	// Moniker defines the friendly name of this node
 	Moniker string `mapstructure:"moniker"`
 
@@ -100,7 +104,7 @@ type Config struct {
 	logger *logrus.Logger
 }
 
-// NewDefaultConfig retunrns the a config object with default values.
+// NewDefaultConfig returns the a config object with default values.
 func NewDefaultConfig() *Config {
 
 	config := &Config{
@@ -115,6 +119,7 @@ func NewDefaultConfig() *Config {
 		SyncLimit:        1000,
 		MaxPool:          2,
 		Store:            false,
+		MaintenanceMode:  false,
 		DatabaseDir:      DefaultDatabaseDir(),
 		LoadPeers:        true,
 	}
