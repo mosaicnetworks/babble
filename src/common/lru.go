@@ -74,14 +74,14 @@ func (c *LRU) Get(key interface{}) (value interface{}, ok bool) {
 	return
 }
 
-// Check if a key is in the cache, without updating the recent-ness
+// Contains checks if a key is in the cache, without updating the recent-ness
 // or deleting it for being stale.
 func (c *LRU) Contains(key interface{}) (ok bool) {
 	_, ok = c.items[key]
 	return ok
 }
 
-// Returns the key value (or undefined if not found) without updating
+// Peek returns the key value (or undefined if not found) without updating
 // the "recently used"-ness of the key.
 func (c *LRU) Peek(key interface{}) (value interface{}, ok bool) {
 	if ent, ok := c.items[key]; ok {
