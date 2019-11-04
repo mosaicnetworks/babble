@@ -66,9 +66,22 @@ func (b *Babble) Init() error {
 		return err
 	}
 
+	if err := b.initNodeBootstrap(); err != nil {
+		b.logger.WithError(err).Error("babble.go:Init() initNodeBootstrap")
+		return err
+	}
+
 	if err := b.initService(); err != nil {
 		b.logger.WithError(err).Error("babble.go:Init() initService")
 		return err
+	}
+
+	// Do not start listening to Gossip Ports if in MaintenanceMode
+	if !b.Config.MaintenanceMode {
+		if err := b.initNodeListen(); err != nil {
+			b.logger.WithError(err).Error("babble.go:Init() initNodeListen")
+			return err
+		}
 	}
 
 	return nil
@@ -224,10 +237,27 @@ func (b *Babble) initNode() error {
 		b.Config.Proxy,
 	)
 
-	if err := b.Node.Init(); err != nil {
-		return fmt.Errorf("failed to initialize node: %s", err)
-	}
+	/*
+	   //TODO - remove this comment block
+	   // Replaced by InitBootstrap and InitListen
+	   	if err := b.Node.Init(); err != nil {
+	   		return fmt.Errorf("failed to initialize node: %s", err)
+	   	}
+	*/
+	return nil
+}
 
+func (b *Babble) initNodeBootstrap() error {
+	if err := b.Node.InitBootstrap(); err != nil {
+		return fmt.Errorf("failed to bootstrap node: %s", err)
+	}
+	return nil
+}
+
+func (b *Babble) initNodeListen() error {
+	if err := b.Node.InitListen(); err != nil {
+		return fmt.Errorf("failed to start node listening: %s", err)
+	}
 	return nil
 }
 
