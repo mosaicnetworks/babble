@@ -9,11 +9,14 @@ FEATURES:
 IMPROVEMENTS:
 
 - spike: Documented a potential solution to automatically evict faulty peers.
+- node: Add a suspended state which allows running a node without opening the 
+        network transport and starting the gossip routines.
 
 BUG FIXES:
 
 - core: Include Events from unknown participants in EventDiff
 - node: Fix issue #128 regarding Extra tests
+- store: Fix cache issues (issue #127) 
 
 ## v0.5.9 (October 25, 2019)
 
