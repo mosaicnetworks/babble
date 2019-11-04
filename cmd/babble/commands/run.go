@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"path/filepath"
+
 	"github.com/mosaicnetworks/babble/src/babble"
 	"github.com/mosaicnetworks/babble/src/proxy/dummy"
 	aproxy "github.com/mosaicnetworks/babble/src/proxy/socket/app"
@@ -68,6 +70,7 @@ func AddRunFlags(cmd *cobra.Command) {
 	cmd.Flags().String("datadir", _config.Babble.DataDir, "Top-level directory for configuration and data")
 	cmd.Flags().String("log", _config.Babble.LogLevel, "debug, info, warn, error, fatal, panic")
 	cmd.Flags().String("moniker", _config.Babble.Moniker, "Optional name")
+	cmd.Flags().BoolP("maintenance-mode", "R", _config.Babble.MaintenanceMode, "Start Babble in a suspended (non-gossipping) state")
 
 	// Network
 	cmd.Flags().StringP("listen", "l", _config.Babble.BindAddr, "Listen IP:Port for babble node")
@@ -123,6 +126,7 @@ func loadConfig(cmd *cobra.Command, args []string) error {
 		"babble.CacheSize":        _config.Babble.CacheSize,
 		"babble.SyncLimit":        _config.Babble.SyncLimit,
 		"babble.EnableFastSync":   _config.Babble.EnableFastSync,
+		"babble.MaintenanceMode":  _config.Babble.MaintenanceMode,
 		"ProxyAddr":               _config.ProxyAddr,
 		"ClientAddr":              _config.ClientAddr,
 		"Standalone":              _config.Standalone,
@@ -134,6 +138,8 @@ func loadConfig(cmd *cobra.Command, args []string) error {
 	}
 
 	_config.Babble.Logger().WithFields(logFields).Debug("RUN")
+
+	_config.Babble.Logger().WithField("MaintenanceMode", _config.Babble.MaintenanceMode).Info("RUN")
 
 	return nil
 }
@@ -159,7 +165,7 @@ func bindFlagsLoadViper(cmd *cobra.Command) error {
 	if err := viper.ReadInConfig(); err == nil {
 		_config.Babble.Logger().Debugf("Using config file: %s", viper.ConfigFileUsed())
 	} else if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-		_config.Babble.Logger().Debugf("No config file found in: %s", _config.Babble.DataDir)
+		_config.Babble.Logger().Debugf("No config file found in: %s", filepath.Join(_config.Babble.DataDir, "babble.toml"))
 	} else {
 		return err
 	}

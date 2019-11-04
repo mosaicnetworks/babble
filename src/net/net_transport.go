@@ -332,8 +332,13 @@ func (n *NetworkTransport) handleConn(conn net.Conn) {
 
 	for {
 		if err := n.handleCommand(r, dec, enc); err != nil {
-			if err != io.EOF {
-				n.logger.WithField("error", err).Error("Failed to decode incoming command")
+
+			if err == ErrTransportShutdown {
+				n.logger.WithField("error", err).Warn("Failed to decode incoming command")
+			} else {
+				if err != io.EOF {
+					n.logger.WithField("error", err).Error("Failed to decode incoming command")
+				}
 			}
 			return
 		}
