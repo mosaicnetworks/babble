@@ -1,6 +1,7 @@
 package hashgraph
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
@@ -31,9 +32,29 @@ type EventBody struct {
 	otherParentIndex     int
 }
 
+// Marshal returns the JSON encoding of an EventBody
+func (e *EventBody) Marshal() ([]byte, error) {
+	var b bytes.Buffer
+	enc := json.NewEncoder(&b) //will write to b
+	if err := enc.Encode(e); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
+}
+
+// Unmarshal converts a JSON encoded EventBody to an EventBody
+func (e *EventBody) Unmarshal(data []byte) error {
+	b := bytes.NewBuffer(data)
+	dec := json.NewDecoder(b) //will read from b
+	if err := dec.Decode(e); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Hash returns the SHA256 hash of the JSON encoded EventBody.
 func (e *EventBody) Hash() ([]byte, error) {
-	hashBytes, err := json.Marshal(e)
+	hashBytes, err := e.Marshal()
 	if err != nil {
 		return nil, err
 	}

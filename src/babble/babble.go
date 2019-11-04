@@ -224,9 +224,7 @@ func (b *Babble) initNode() error {
 		b.Config.Proxy,
 	)
 
-	b.Node.Init()
-
-	return nil
+	return b.Node.Init()
 }
 
 func (b *Babble) initService() error {
