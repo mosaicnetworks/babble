@@ -213,11 +213,15 @@ func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 			return err
 		}
 
+		// NormalSelfParentErrors are not reported. They can happen when two
+		// concurrent pulls are trying to insert the same events.
 		if err := c.InsertEventAndRunConsensus(ev, false); err != nil {
-			if !hg.IsNormalSelfParentError(err) {
+			if hg.IsNormalSelfParentError(err) {
+				continue
+			} else {
 				c.logger.WithError(err).Errorf("Inserting Event")
+				return err
 			}
-			return err
 		}
 
 		if we.Body.CreatorID == fromID {
@@ -248,9 +252,10 @@ func (c *Core) Sync(fromID uint32, unknownEvents []hg.WireEvent) error {
 		"target_round":              c.TargetRound,
 	}).Debug("Sync")
 
-	//Create new event with self head and other head only if there are pending
-	//loaded events or the pools are not empty
-	if c.Busy() {
+	// Create new event with self head and other head only if there are pending
+	// loaded events or the pools are not empty
+	if c.Busy() ||
+		c.Seq < 0 {
 		return c.RecordHeads()
 	}
 
@@ -661,6 +666,7 @@ func (c *Core) EventDiff(otherKnown map[uint32]int) (events []*hg.Event, err err
 			if err != nil {
 				return []*hg.Event{}, err
 			}
+
 			unknown = append(unknown, ev)
 		}
 

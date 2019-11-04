@@ -1,6 +1,7 @@
 package hashgraph
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -26,13 +27,13 @@ func createDummyEventBody() EventBody {
 func TestMarshallBody(t *testing.T) {
 	body := createDummyEventBody()
 
-	raw, err := body.Marshal()
+	raw, err := json.Marshal(body)
 	if err != nil {
 		t.Fatalf("Error marshalling EventBody: %s", err)
 	}
 
 	newBody := new(EventBody)
-	if err := newBody.Unmarshal(raw); err != nil {
+	if err := json.Unmarshal(raw, &newBody); err != nil {
 		t.Fatalf("Error unmarshalling EventBody: %s", err)
 	}
 
@@ -87,13 +88,13 @@ func TestMarshallEvent(t *testing.T) {
 		t.Fatalf("Error signing Event: %s", err)
 	}
 
-	raw, err := event.Marshal()
+	raw, err := event.MarshalDB()
 	if err != nil {
 		t.Fatalf("Error marshalling Event: %s", err)
 	}
 
 	newEvent := new(Event)
-	if err := newEvent.Unmarshal(raw); err != nil {
+	if err := newEvent.UnmarshalDB(raw); err != nil {
 		t.Fatalf("Error unmarshalling Event: %s", err)
 	}
 
