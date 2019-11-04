@@ -88,7 +88,6 @@ func NewTestLogger(t testing.TB) *logrus.Logger {
 	logger := logrus.New()
 	logger.Out = &testLoggerAdapter{t: t}
 	logger.Level = logrus.DebugLevel
-	logger.SetReportCaller(true)
 	return logger
 }
 

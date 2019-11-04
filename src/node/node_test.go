@@ -548,12 +548,6 @@ func shutdownNodesSlice(t *testing.T, nodes []*Node, keys []uint) {
 	}
 }
 
-func shutdownNodesSlow(nodes []*Node) {
-	shutdownNodes(nodes)
-	// Pause before exiting
-	time.Sleep(3 * time.Second)
-}
-
 func shutdownNodes(nodes []*Node) {
 	for _, n := range nodes {
 		n.Shutdown()
