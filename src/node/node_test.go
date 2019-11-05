@@ -28,7 +28,7 @@ Tests for regular gossip routines when fast-sync is disabled.
 NO FAST-SYNC, NO DYNAMIC PARTICIPANTS.
 
 */
-
+var logLevel = "info"
 var ip = 9990
 
 func TestAddTransaction(t *testing.T) {
@@ -126,7 +126,7 @@ func TestGossip(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 5, false, "inmem", 5*time.Millisecond, logLevel, t)
 	//defer drawGraphs(nodes, t)
 
 	target := 50
@@ -144,7 +144,7 @@ func TestMissingNodeGossip(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, logLevel, t)
 	//defer drawGraphs(nodes, t)
 
 	err := gossip(nodes[1:], 10, true, 6*time.Second)
@@ -161,7 +161,7 @@ func TestSyncLimit(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, logLevel, t)
 	defer shutdownNodes(nodes)
 
 	err := gossip(nodes, 10, false, 3*time.Second)
@@ -200,7 +200,7 @@ func TestShutdown(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, logLevel, t)
 	runNodes(nodes, false)
 
 	nodes[0].Shutdown()
@@ -222,7 +222,7 @@ func TestBootstrapAllNodes(t *testing.T) {
 	keys, peers := initPeers(t, 4)
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 10, false, "badger", 6*time.Millisecond, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 10, false, "badger", 6*time.Millisecond, logLevel, t)
 
 	err := gossip(nodes, 10, true, 3*time.Second)
 	if err != nil {
@@ -252,7 +252,7 @@ func BenchmarkGossip(b *testing.B) {
 
 		genesisPeerSet := clonePeerSet(b, peers.Peers)
 
-		nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, b)
+		nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, logLevel, b)
 		gossip(nodes, 50, true, 3*time.Second)
 	}
 }
@@ -304,6 +304,7 @@ func newNode(peer *peers.Peer,
 	enableSyncLimit bool,
 	storeType string,
 	heartbeatTimeout time.Duration,
+	logLevel string,
 	t testing.TB) *Node {
 
 	conf := config.NewTestConfig(t)
@@ -313,6 +314,7 @@ func newNode(peer *peers.Peer,
 	conf.CacheSize = cacheSize
 	conf.SyncLimit = syncLimit
 	conf.EnableFastSync = enableSyncLimit
+	conf.LogLevel = logLevel
 
 	t.Logf("Starting node on %s", peer.NetAddr)
 
@@ -362,6 +364,7 @@ func initNodes(keys []*ecdsa.PrivateKey,
 	enableSyncLimit bool,
 	storeType string,
 	heartbeatTimeout time.Duration,
+	logLevel string,
 	t testing.TB) []*Node {
 
 	nodes := []*Node{}
@@ -384,6 +387,7 @@ func initNodes(keys []*ecdsa.PrivateKey,
 			enableSyncLimit,
 			storeType,
 			heartbeatTimeout,
+			logLevel,
 			t)
 
 		nodes = append(nodes, node)
