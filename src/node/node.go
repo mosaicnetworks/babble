@@ -65,6 +65,12 @@ type Node struct {
 	start        time.Time
 	syncRequests int
 	syncErrors   int
+
+	// initialUndeterminedEvents keeps a record of how many undetermined events
+	// there were upon initalizing the node. This value is regularly compared
+	// to a current number of undetermined events and the SuspendLimit to
+	// suspend the node.
+	initialUndeterminedEvents int
 }
 
 // NewNode is a factory method that returns a Node instance
@@ -116,13 +122,9 @@ func (n *Node) Init() error {
 		n.logger.Debug("Bootstrap completed")
 	}
 
-	// if the maintenance-mode option is not enabled, open the transport and
-	// decide wether to babble normally, fast-forward, or join. Otherwise enter
-	// the suspended state.
+	// if the maintenance-mode option is not enabled, decide wether to babble
+	// normally, fast-forward, or join. Otherwise enter the suspended state.
 	if !n.conf.MaintenanceMode {
-		n.logger.Debug("Start Listening")
-		go n.trans.Listen()
-
 		_, ok := n.core.peers.ByID[n.core.validator.ID()]
 		if ok {
 			n.logger.Debug("Node belongs to PeerSet")
@@ -134,6 +136,10 @@ func (n *Node) Init() error {
 	} else {
 		n.setState(Suspended)
 	}
+
+	// record the number of initial undetermined events so as to suspend the
+	// node when undetermined events exceed this value by SuspendLimit.
+	n.initialUndeterminedEvents = len(n.core.GetUndeterminedEvents())
 
 	return nil
 }
@@ -197,20 +203,19 @@ func (n *Node) Shutdown() {
 	if n.getState() != Shutdown {
 		n.logger.Info("SHUTDOWN")
 
-		//Exit any non-shutdown state immediately
+		oldState := n.getState()
+
+		// exit any non-shutdown state immediately
 		n.setState(Shutdown)
 
-		//Stop and wait for concurrent operations
+		// stop and wait for concurrent operations
 		close(n.shutdownCh)
-
 		n.waitRoutines()
+		if oldState != Suspended {
+			n.controlTimer.Shutdown()
+		}
 
-		//For some reason this needs to be called after closing the shutdownCh
-		//Not entirely sure why...
-		n.controlTimer.Shutdown()
-
-		//transport and store should only be closed once all concurrent operations
-		//are finished otherwise they will panic trying to use close objects
+		// close transport and store
 		n.trans.Close()
 
 		n.core.hg.Store.Close()
@@ -219,19 +224,17 @@ func (n *Node) Shutdown() {
 
 // Suspend puts the node in Suspended mode, and closes the network transport
 func (n *Node) Suspend() {
-	if n.getState() != Suspended {
+	if n.getState() != Suspended &&
+		n.getState() != Shutdown {
+
 		n.logger.Info("SUSPEND")
 
 		// Exit any non-suspended state immediately
 		n.setState(Suspended)
 
 		// Stop and wait for concurrent operations
-		n.suspendCh <- struct{}{}
-
+		close(n.suspendCh)
 		n.waitRoutines()
-
-		// For some reason this needs to be called after closing the suspendCh
-		// Not entirely sure why...
 		n.controlTimer.Shutdown()
 
 		// transport should only be closed when all concurrent gossip operations
@@ -333,17 +336,11 @@ func (n *Node) GetAllValidatorSets() (map[int][]*peers.Peer, error) {
 Background
 *******************************************************************************/
 
-// doBackgroundWork coninuously listens to incoming RPC commands, incoming
-// transactions, and the sigint signal, regardless of the node's state.
+// doBackgroundWork coninuously listens to incoming transactions, and the sigint
+// signal, regardless of the node's state. It also listens to incoming gossip.
 func (n *Node) doBackgroundWork() {
 	for {
 		select {
-		case rpc := <-n.netCh:
-			n.goFunc(func() {
-				n.logger.Debug("Processing RPC")
-				n.processRPC(rpc)
-				n.resetTimer()
-			})
 		case t := <-n.submitCh:
 			n.logger.Debug("Adding Transaction")
 			n.addTransaction(t)
@@ -376,6 +373,17 @@ func (n *Node) resetTimer() {
 	}
 }
 
+// checkSuspend suspends the node if the number of undetermined events in the
+// hashgraph exceeds initialUndeterminedEvents by SuspendLimit.
+func (n *Node) checkSuspend() {
+	// suspend if too many undetermined events
+	if len(n.core.GetUndeterminedEvents())-n.initialUndeterminedEvents >
+		n.conf.SuspendLimit {
+
+		n.Suspend()
+	}
+}
+
 /*******************************************************************************
 Babbling
 *******************************************************************************/
@@ -385,8 +393,18 @@ Babbling
 func (n *Node) babble(gossip bool) {
 	n.logger.Info("BABBLING")
 
+	n.logger.Debug("Start Listening")
+	go n.trans.Listen()
+	defer n.trans.Close()
+
 	for {
 		select {
+		case rpc := <-n.netCh:
+			n.goFunc(func() {
+				n.processRPC(rpc)
+				n.resetTimer()
+			})
+			n.checkSuspend()
 		case <-n.controlTimer.tickCh:
 			if gossip {
 				peer := n.core.peerSelector.Next()
@@ -397,6 +415,7 @@ func (n *Node) babble(gossip bool) {
 				}
 			}
 			n.resetTimer()
+			n.checkSuspend()
 		case <-n.suspendCh:
 			return
 		case <-n.shutdownCh:
@@ -442,11 +461,6 @@ func (n *Node) gossip(peer *peers.Peer) error {
 				"peer_ID":      peer.ID(),
 				"peer_moniker": peer.Moniker,
 			}).Info("Connected")
-		}
-
-		// suspend if too many undetermined events
-		if len(n.core.GetUndeterminedEvents()) > n.conf.SuspendLimit {
-			n.Suspend()
 		}
 	}()
 
