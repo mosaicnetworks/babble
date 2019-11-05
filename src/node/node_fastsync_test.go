@@ -76,7 +76,7 @@ func TestCatchUp(t *testing.T) {
 	checkGossip(normalNodes, 0, t)
 
 	//node0 has fast-sync enabled
-	node0 := newNode(peers.Peers[0], keys[0], peers, genesisPeerSet, 1000000, 100, 5, true, "inmem", 10*time.Millisecond, t)
+	node0 := newNode(peers.Peers[0], keys[0], peers, genesisPeerSet, 1000000, 100, 5, true, "inmem", 10*time.Millisecond, false, t)
 	defer node0.Shutdown()
 
 	//Run parallel routine to check node0 eventually reaches CatchingUp state.

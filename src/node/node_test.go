@@ -246,6 +246,55 @@ func TestBootstrapAllNodes(t *testing.T) {
 	checkGossip([]*Node{nodes[0], newNodes[0]}, 0, t)
 }
 
+func TestSuspend(t *testing.T) {
+	os.RemoveAll("test_data")
+	os.Mkdir("test_data", os.ModeDir|0777)
+
+	// define 3 validators
+	keys, peers := initPeers(t, 3)
+	genesisPeerSet := clonePeerSet(t, peers.Peers)
+
+	// initialize 3 normal nodes
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 10, false, "badger", 10*time.Millisecond, t)
+
+	// ... and overwrite the 3rd node to make it suspended (maintenance mode)
+	nodes[2].Shutdown()
+	nodes[2] = newNode(peers.Peers[2],
+		keys[2],
+		genesisPeerSet,
+		peers,
+		1000,
+		1000,
+		10,
+		false,
+		"badger",
+		10*time.Millisecond,
+		true,
+		t)
+
+	// With only 2/3 of nodes gossipping, the cluster should never reach
+	// consensus on any Events. So they will keep producing undetermined events
+	// until the SuspendLimit is reached (300 by default). When the limit is
+	// reached, all nodes should be suspended, an no more undetermined events
+	// should be created. Gossip for 10 seconds which should be enough time for
+	// the limit to be reached; a non-nil error should be returned because no
+	// blocks are ever committed.
+	err := gossip(nodes, 1, true, 10*time.Second)
+	if err == nil {
+		t.Fatal("suspended nodes should not have created blocks")
+	}
+
+	if s := nodes[0].getState(); s != Suspended {
+		t.Fatalf("nodes[0] should be Suspended, not %v", s)
+	}
+	if s := nodes[1].getState(); s != Suspended {
+		t.Fatalf("nodes[1] should be Suspended, not %v", s)
+	}
+
+	t.Logf("nodes[0].UndeterminedEvents = %d", len(nodes[0].core.GetUndeterminedEvents()))
+	t.Logf("nodes[1].UndeterminedEvents = %d", len(nodes[1].core.GetUndeterminedEvents()))
+}
+
 func BenchmarkGossip(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		keys, peers := initPeers(b, 4)
@@ -304,6 +353,7 @@ func newNode(peer *peers.Peer,
 	enableSyncLimit bool,
 	storeType string,
 	heartbeatTimeout time.Duration,
+	maintenanceMode bool,
 	t testing.TB) *Node {
 
 	conf := config.NewTestConfig(t)
@@ -313,6 +363,7 @@ func newNode(peer *peers.Peer,
 	conf.CacheSize = cacheSize
 	conf.SyncLimit = syncLimit
 	conf.EnableFastSync = enableSyncLimit
+	conf.MaintenanceMode = maintenanceMode
 
 	t.Logf("Starting node on %s", peer.NetAddr)
 
@@ -384,6 +435,7 @@ func initNodes(keys []*ecdsa.PrivateKey,
 			enableSyncLimit,
 			storeType,
 			heartbeatTimeout,
+			false,
 			t)
 
 		nodes = append(nodes, node)

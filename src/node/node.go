@@ -54,6 +54,9 @@ type Node struct {
 	// shutdownCh is where the node listens for commands to cleanly shutdown.
 	shutdownCh chan struct{}
 
+	// suspendCh is used to signal the node to enter the Suspended state.
+	suspendCh chan struct{}
+
 	// The node runs the controlTimer in the background to periodically receive
 	// signals to initiate gossip routines. It is paused, reset, etc., based on
 	// the node's current state
@@ -88,6 +91,7 @@ func NewNode(conf *config.Config,
 		submitCh:     proxy.SubmitCh(),
 		sigCh:        sigCh,
 		shutdownCh:   make(chan struct{}),
+		suspendCh:    make(chan struct{}),
 		controlTimer: NewRandomControlTimer(),
 	}
 
@@ -128,7 +132,7 @@ func (n *Node) Init() error {
 			n.setState(Joining)
 		}
 	} else {
-		n.setSuspendedState()
+		n.setState(Suspended)
 	}
 
 	return nil
@@ -145,12 +149,10 @@ func (n *Node) Run(gossip bool) {
 	// Execute some background work regardless of the state of the node.
 	go n.doBackgroundWork()
 
-	//Execute Node State Machine
+	// Execute Node State Machine
 	for {
-		//Run different routines depending on node state
+		// Run different routines depending on node state
 		state := n.getState()
-
-		n.logger.WithField("state", state.String()).Debug("Run loop")
 
 		switch state {
 		case Babbling:
@@ -212,6 +214,29 @@ func (n *Node) Shutdown() {
 		n.trans.Close()
 
 		n.core.hg.Store.Close()
+	}
+}
+
+// Suspend puts the node in Suspended mode, and closes the network transport
+func (n *Node) Suspend() {
+	if n.getState() != Suspended {
+		n.logger.Info("SUSPEND")
+
+		// Exit any non-suspended state immediately
+		n.setState(Suspended)
+
+		// Stop and wait for concurrent operations
+		n.suspendCh <- struct{}{}
+
+		n.waitRoutines()
+
+		// For some reason this needs to be called after closing the suspendCh
+		// Not entirely sure why...
+		n.controlTimer.Shutdown()
+
+		// transport should only be closed when all concurrent gossip operations
+		// are finished otherwise they will panic trying to use closed objects
+		n.trans.Close()
 	}
 }
 
@@ -372,6 +397,8 @@ func (n *Node) babble(gossip bool) {
 				}
 			}
 			n.resetTimer()
+		case <-n.suspendCh:
+			return
 		case <-n.shutdownCh:
 			return
 		}
@@ -406,7 +433,7 @@ func (n *Node) gossip(peer *peers.Peer) error {
 	var connected bool
 
 	defer func() {
-		//update peer selector
+		// update peer selector
 		n.core.selectorLock.Lock()
 		newConnection := n.core.peerSelector.UpdateLast(peer.ID(), connected)
 		n.core.selectorLock.Unlock()
@@ -416,16 +443,21 @@ func (n *Node) gossip(peer *peers.Peer) error {
 				"peer_moniker": peer.Moniker,
 			}).Info("Connected")
 		}
+
+		// suspend if too many undetermined events
+		if len(n.core.GetUndeterminedEvents()) > n.conf.SuspendLimit {
+			n.Suspend()
+		}
 	}()
 
-	//pull
+	// pull
 	otherKnownEvents, err := n.pull(peer)
 	if err != nil {
 		n.logger.WithError(err).Error("gossip pull")
 		return err
 	}
 
-	//push
+	// push
 	err = n.push(peer, otherKnownEvents)
 	if err != nil {
 		n.logger.WithError(err).Error("gossip push")
@@ -697,11 +729,6 @@ func (n *Node) setBabblingOrCatchingUpState() {
 		}
 		n.setState(Babbling)
 	}
-}
-
-// setSuspendedState sets the node's state to Suspended
-func (n *Node) setSuspendedState() {
-	n.setState(Suspended)
 }
 
 // addTransaction is a thread-safe function to add and incoming transaction to

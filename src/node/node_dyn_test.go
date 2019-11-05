@@ -56,7 +56,7 @@ func TestJoinRequest(t *testing.T) {
 		"monika",
 	)
 
-	newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
+	newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, false, t)
 	defer newNode.Shutdown()
 
 	err = newNode.join()
@@ -134,7 +134,7 @@ func TestJoinFull(t *testing.T) {
 			"monika",
 		)
 
-		newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 400, 5, fastSync, "inmem", 10*time.Millisecond, t)
+		newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 400, 5, fastSync, "inmem", 10*time.Millisecond, false, t)
 		defer newNode.Shutdown()
 
 		newNode.RunAsync(true)

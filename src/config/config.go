@@ -98,6 +98,10 @@ type Config struct {
 	// application.
 	Proxy proxy.AppProxy
 
+	// SuspendLimit is the number of Undetermined Events (Events which haven't
+	// reached consensus) that will cause the node to become suspended
+	SuspendLimit int
+
 	// Key is the private key of the validator.
 	Key *ecdsa.PrivateKey
 
@@ -122,6 +126,7 @@ func NewDefaultConfig() *Config {
 		MaintenanceMode:  false,
 		DatabaseDir:      DefaultDatabaseDir(),
 		LoadPeers:        true,
+		SuspendLimit:     300,
 	}
 
 	return config
