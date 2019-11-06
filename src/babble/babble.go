@@ -228,7 +228,7 @@ func (b *Babble) initNode() error {
 }
 
 func (b *Babble) initService() error {
-	b.Service = service.NewService(b.Config.ServiceAddr, b.Node, b.Config.Logger())
+	//b.Service = service.NewService(b.Config.ServiceAddr, b.Node, b.Config.Logger())
 	return nil
 }
 

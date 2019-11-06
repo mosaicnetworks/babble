@@ -69,6 +69,7 @@ func (c *MobileConfig) toBabbleConfig() *config.Config {
 	babbleConfig.CacheSize = c.CacheSize
 	babbleConfig.SyncLimit = c.SyncLimit
 	babbleConfig.EnableFastSync = c.EnableFastSync
+	babbleConfig.ServiceAddr = ""
 
 	return babbleConfig
 }
