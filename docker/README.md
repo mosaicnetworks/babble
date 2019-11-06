@@ -26,6 +26,11 @@ Refer to demo/ for usage.
 This image describes a container that monitors the consensus stats for a Babble 
 docker network. It is based on the watch.sh script.
 
+## Mobile Image 
+
+The mobile image contains all the tools needed to build a mobile babble library.
+
+
 ## Glider Image
 
 The glider image contains all the tools to compile Babble for almost any platform.  
