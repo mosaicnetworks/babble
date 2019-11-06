@@ -108,8 +108,8 @@ func NewNode(conf *config.Config,
 Public Methods
 *******************************************************************************/
 
-// Init controls the bootstrap process and the opening of the network transport
-// for gossiping, based on the configuration options.
+// Init controls the bootstrap process and sets the node's initial state based
+// on configuration (Babbling, CatchingUp, Joining, or Suspended).
 func (n *Node) Init() error {
 
 	// if the bootstrap option is set, load the hashgraph from an existing
@@ -203,17 +203,13 @@ func (n *Node) Shutdown() {
 	if n.getState() != Shutdown {
 		n.logger.Info("SHUTDOWN")
 
-		oldState := n.getState()
-
 		// exit any non-shutdown state immediately
 		n.setState(Shutdown)
 
 		// stop and wait for concurrent operations
 		close(n.shutdownCh)
 		n.waitRoutines()
-		if oldState != Suspended {
-			n.controlTimer.Shutdown()
-		}
+		n.controlTimer.Shutdown()
 
 		// close transport and store
 		n.trans.Close()
