@@ -2,6 +2,7 @@ BABBLE_VERSION=0.5.9
 DUMMY_VERSION=0.5.7
 WATCHER_VERSION=0.0.2
 GLIDER_VERSION=0.0.4
+MOBILE_VERSION=0.0.1
 
 all: babble-image dummy-image watcher-image glider-image
 
@@ -24,4 +25,9 @@ watcher-image:
 glider-image:
 	docker build --no-cache=true -t mosaicnetworks/glider:$(GLIDER_VERSION) glider/
 
-.PHONY: all demo babble-image dummy-image watcher-image glider-image
+mobile-image:
+	docker build --no-cache=true -t mosaicnetworks/mobile:$(MOBILE_VERSION) mobile/
+
+
+
+.PHONY: all demo babble-image dummy-image watcher-image glider-image mobile-image
