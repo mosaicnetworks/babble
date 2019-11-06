@@ -14,7 +14,7 @@ import (
 
 func TestProcessSync(t *testing.T) {
 	keys, p := initPeers(t, 2)
-	config := config.NewTestConfig(t)
+	config := config.NewTestConfig(t, common.TestLogLevel)
 
 	//Start two nodes
 
@@ -35,7 +35,7 @@ func TestProcessSync(t *testing.T) {
 		genesisPeerSet,
 		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
-		dummy.NewInmemDummyClient(common.NewTestEntry(t)))
+		dummy.NewInmemDummyClient(common.NewTestEntry(t, common.TestLogLevel)))
 	node0.Init()
 
 	node0.RunAsync(false)
@@ -53,7 +53,7 @@ func TestProcessSync(t *testing.T) {
 		genesisPeerSet,
 		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
-		dummy.NewInmemDummyClient(common.NewTestEntry(t)))
+		dummy.NewInmemDummyClient(common.NewTestEntry(t, common.TestLogLevel)))
 	node1.Init()
 
 	node1.RunAsync(false)
@@ -120,7 +120,7 @@ func TestProcessSync(t *testing.T) {
 
 func TestProcessEagerSync(t *testing.T) {
 	keys, p := initPeers(t, 2)
-	config := config.NewTestConfig(t)
+	config := config.NewTestConfig(t, common.TestLogLevel)
 
 	//Start two nodes
 
@@ -141,7 +141,7 @@ func TestProcessEagerSync(t *testing.T) {
 		genesisPeerSet,
 		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
-		dummy.NewInmemDummyClient(common.NewTestEntry(t)))
+		dummy.NewInmemDummyClient(common.NewTestEntry(t, common.TestLogLevel)))
 	node0.Init()
 
 	node0.RunAsync(false)
@@ -159,7 +159,7 @@ func TestProcessEagerSync(t *testing.T) {
 		genesisPeerSet,
 		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
-		dummy.NewInmemDummyClient(common.NewTestEntry(t)))
+		dummy.NewInmemDummyClient(common.NewTestEntry(t, common.TestLogLevel)))
 	node1.Init()
 
 	node1.RunAsync(false)
@@ -205,7 +205,7 @@ func TestProcessEagerSync(t *testing.T) {
 
 func TestProcessFastForward(t *testing.T) {
 	keys, p := initPeers(t, 2)
-	config := config.NewTestConfig(t)
+	config := config.NewTestConfig(t, common.TestLogLevel)
 
 	//Start two nodes
 
@@ -226,7 +226,7 @@ func TestProcessFastForward(t *testing.T) {
 		genesisPeerSet,
 		hg.NewInmemStore(config.CacheSize),
 		peer0Trans,
-		dummy.NewInmemDummyClient(common.NewTestEntry(t)))
+		dummy.NewInmemDummyClient(common.NewTestEntry(t, common.TestLogLevel)))
 	node0.Init()
 
 	node0.RunAsync(false)
@@ -244,7 +244,7 @@ func TestProcessFastForward(t *testing.T) {
 		genesisPeerSet,
 		hg.NewInmemStore(config.CacheSize),
 		peer1Trans,
-		dummy.NewInmemDummyClient(common.NewTestEntry(t)))
+		dummy.NewInmemDummyClient(common.NewTestEntry(t, common.TestLogLevel)))
 	node1.Init()
 
 	node1.RunAsync(false)
