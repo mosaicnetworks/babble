@@ -21,33 +21,33 @@ cd "$DIR"
 
 # Delete the old dir
 echo "==> Removing old directory..."
-rm -rf build/pkg
-mkdir -p build/pkg
+rm -rf build/pkgmobile
+mkdir -p build/pkgmobile
 
 # Do a hermetic build inside a Docker container.
 docker run --rm  \
     -u `id -u $USER` \
     -e "BUILD_TAGS=$BUILD_TAGS" \
-    -v "$(pwd)":/go/src/github.com/mosaicnetworks/babble \
-    -w /go/src/github.com/mosaicnetworks/babble \
-    mosaicnetworks/glider:0.0.4 ./scripts/dist_build.sh
+    -v "$(pwd)":/workspace/go/src/github.com/mosaicnetworks/babble \
+    -w /workspace/go/src/github.com/mosaicnetworks/babble \
+    mosaicnetworks/mobile:0.0.1 ./scripts/dist_mobile_build.sh
 
 # Add "babble" and $VERSION prefix to package name.
-rm -rf ./build/dist
-mkdir -p ./build/dist
-for FILENAME in $(find ./build/pkg -mindepth 1 -maxdepth 1 -type f); do
+rm -rf ./build/distmobile
+mkdir -p ./build/distmobile
+for FILENAME in $(find ./build/pkgmobile -mindepth 1 -maxdepth 1 -type f); do
   FILENAME=$(basename "$FILENAME")
-	cp "./build/pkg/${FILENAME}" "./build/dist/babble_${VERSION}_${FILENAME}"
+	cp "./build/pkgmobile/${FILENAME}" "./build/distmobile/babble_${VERSION}_${FILENAME}"
 done
 
 # Make the checksums.
-pushd ./build/dist
+pushd ./build/distmobile
 shasum -a256 ./* > "./babble_${VERSION}_SHA256SUMS"
 popd
 
 # Done
 echo
 echo "==> Results:"
-ls -hl ./build/dist
+ls -hl ./build/distmobile
 
 exit 0

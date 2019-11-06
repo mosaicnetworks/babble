@@ -20,6 +20,11 @@ build:
 dist:
 	@BUILD_TAGS='$(BUILD_TAGS)' sh -c "'$(CURDIR)/scripts/dist.sh'"
 
+# dist builds aar for mobile android
+mobile-dist:
+	@BUILD_TAGS='$(BUILD_TAGS)' sh -c "'$(CURDIR)/scripts/dist_mobile.sh'"
+
+
 tests:  test
 
 test:
@@ -36,4 +41,4 @@ alltests:
 
  
 
-.PHONY: vendor install build dist test flagtest extratests alltests tests
+.PHONY: vendor install build dist test flagtest extratests alltests tests mobile-dist
