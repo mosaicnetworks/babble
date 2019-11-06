@@ -55,7 +55,8 @@ type Node struct {
 	shutdownCh chan struct{}
 
 	// suspendCh is used to signal the node to enter the Suspended state.
-	suspendCh chan struct{}
+	suspendCh    chan struct{}
+	suspendSigCh chan struct{}
 
 	// The node runs the controlTimer in the background to periodically receive
 	// signals to initiate gossip routines. It is paused, reset, etc., based on
@@ -98,6 +99,7 @@ func NewNode(conf *config.Config,
 		sigCh:        sigCh,
 		shutdownCh:   make(chan struct{}),
 		suspendCh:    make(chan struct{}),
+		suspendSigCh: make(chan struct{}),
 		controlTimer: NewRandomControlTimer(),
 	}
 
@@ -353,6 +355,8 @@ func (n *Node) doBackgroundWork() {
 			n.resetTimer()
 		case <-n.shutdownCh:
 			return
+		case <-n.suspendSigCh:
+			n.Suspend()
 		case s := <-n.sigCh:
 			n.logger.Debugf("Process %s - LEAVE", s.String())
 			n.Leave()
@@ -386,7 +390,7 @@ func (n *Node) checkSuspend() {
 	if len(n.core.GetUndeterminedEvents())-n.initialUndeterminedEvents >
 		n.conf.SuspendLimit {
 
-		n.Suspend()
+		n.suspendSigCh <- struct{}{}
 	}
 }
 
