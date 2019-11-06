@@ -56,7 +56,7 @@ func TestJoinRequest(t *testing.T) {
 		"monika",
 	)
 
-	newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, false, t)
+	newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
 	defer newNode.Shutdown()
 
 	err = newNode.join()
@@ -101,7 +101,7 @@ func TestLeaveRequest(t *testing.T) {
 
 	//Gossip some more
 	secondTarget := target + 50
-	err = bombardAndWait(nodes[0:3], secondTarget, 6*time.Second)
+	err = bombardAndWait(nodes[:3], secondTarget, 6*time.Second)
 	if err != nil {
 		t.Fatalf("Fatal Error: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestJoinFull(t *testing.T) {
 			"monika",
 		)
 
-		newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 400, 5, fastSync, "inmem", 10*time.Millisecond, false, t)
+		newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 400, 5, fastSync, "inmem", 10*time.Millisecond, t)
 		defer newNode.Shutdown()
 
 		newNode.RunAsync(true)

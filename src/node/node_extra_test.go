@@ -49,7 +49,7 @@ func TestJoinLateExtra(t *testing.T) {
 		"monika",
 	)
 
-	newNode := newNode(peer, key, peerSet, peerSet, 400, 400, 5, false, "badger", 10*time.Millisecond, false, t)
+	newNode := newNode(peer, key, peerSet, peerSet, 400, 400, 5, false, "badger", 10*time.Millisecond, t)
 	defer newNode.Shutdown()
 
 	newNode.RunAsync(true)
@@ -75,7 +75,7 @@ func TestSuccessiveJoinRequestExtra(t *testing.T) {
 	keys, peerSet := initPeers(t, 1)
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
-	node0 := newNode(peerSet.Peers[0], keys[0], peerSet, genesisPeerSet, 10000, 400, 5, false, "inmem", 10*time.Millisecond, false, t)
+	node0 := newNode(peerSet.Peers[0], keys[0], peerSet, genesisPeerSet, 10000, 400, 5, false, "inmem", 10*time.Millisecond, t)
 	defer node0.Shutdown()
 	node0.RunAsync(true)
 
@@ -91,7 +91,7 @@ func TestSuccessiveJoinRequestExtra(t *testing.T) {
 			fmt.Sprintf("127.0.0.1:%d", 4240+i),
 			fmt.Sprintf("monika%d", i),
 		)
-		newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000, 400, 5, false, "inmem", 10*time.Millisecond, false, t)
+		newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000, 400, 5, false, "inmem", 10*time.Millisecond, t)
 
 		t.Logf("starting new node %d, %d", i, peer.ID())
 		defer newNode.Shutdown()
@@ -245,7 +245,7 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 		fmt.Sprint("127.0.0.1:4242"),
 		"new node",
 	)
-	newNode := newNode(peer, key, peerSet, genesisPeerSet, 10000, 200, 5, false, "inmem", 10*time.Millisecond, false, t)
+	newNode := newNode(peer, key, peerSet, genesisPeerSet, 10000, 200, 5, false, "inmem", 10*time.Millisecond, t)
 	defer newNode.Shutdown()
 
 	newNode.RunAsync(true)
@@ -387,8 +387,17 @@ func launchNodeAndGossip(
 
 	t.Log(msg)
 
-	node = newNode(peer, k, peers, genesisPeers, cacheSize, syncLimit, joinTimeoutSeconds,
-		enableSyncLimit, storeType, heartbeatTimeout, false, t)
+	node = newNode(peer,
+		k,
+		peers,
+		genesisPeers,
+		cacheSize,
+		syncLimit,
+		joinTimeoutSeconds,
+		enableSyncLimit,
+		storeType,
+		heartbeatTimeout,
+		t)
 
 	nodes = append(append([]*Node{}, nodeSet...), node)
 	node.RunAsync(true)

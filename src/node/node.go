@@ -122,9 +122,13 @@ func (n *Node) Init() error {
 		n.logger.Debug("Bootstrap completed")
 	}
 
-	// if the maintenance-mode option is not enabled, decide wether to babble
-	// normally, fast-forward, or join. Otherwise enter the suspended state.
+	// if the maintenance-mode option is not enabled, open the network transport
+	// and decide wether to babble normally, fast-forward, or join. Otherwise
+	// enter the suspended state.
 	if !n.conf.MaintenanceMode {
+		n.logger.Debug("Start Listening")
+		go n.trans.Listen()
+
 		_, ok := n.core.peers.ByID[n.core.validator.ID()]
 		if ok {
 			n.logger.Debug("Node belongs to PeerSet")
@@ -337,6 +341,12 @@ Background
 func (n *Node) doBackgroundWork() {
 	for {
 		select {
+		case rpc := <-n.netCh:
+			n.goFunc(func() {
+				n.processRPC(rpc)
+				n.resetTimer()
+			})
+			n.checkSuspend()
 		case t := <-n.submitCh:
 			n.logger.Debug("Adding Transaction")
 			n.addTransaction(t)
@@ -389,18 +399,8 @@ Babbling
 func (n *Node) babble(gossip bool) {
 	n.logger.Info("BABBLING")
 
-	n.logger.Debug("Start Listening")
-	go n.trans.Listen()
-	defer n.trans.Close()
-
 	for {
 		select {
-		case rpc := <-n.netCh:
-			n.goFunc(func() {
-				n.processRPC(rpc)
-				n.resetTimer()
-			})
-			n.checkSuspend()
 		case <-n.controlTimer.tickCh:
 			if gossip {
 				peer := n.core.peerSelector.Next()
