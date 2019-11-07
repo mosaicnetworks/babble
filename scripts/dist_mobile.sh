@@ -43,6 +43,8 @@ done
 # Make the checksums.
 pushd ./build/distmobile
 shasum -a256 ./* > "./babble_${VERSION}_SHA256SUMS"
+ZIP="./babble_${VERSION}_android_library.zip"
+zip "$ZIP" ./*  -x "$ZIP"
 popd
 
 # Done
