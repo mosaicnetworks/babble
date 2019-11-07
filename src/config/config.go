@@ -131,10 +131,10 @@ func NewDefaultConfig() *Config {
 // logger. the logger forces formatting and colors even when there is no tty
 // attached, which makes for more readable logs. The logger also provides info
 // about the calling function.
-func NewTestConfig(t testing.TB) *Config {
+func NewTestConfig(t testing.TB, level logrus.Level) *Config {
 	config := NewDefaultConfig()
 
-	config.logger = common.NewTestLogger(t)
+	config.logger = common.NewTestLogger(t, level)
 	return config
 }
 

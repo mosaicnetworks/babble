@@ -421,14 +421,14 @@ func (n *Node) gossip(peer *peers.Peer) error {
 	//pull
 	otherKnownEvents, err := n.pull(peer)
 	if err != nil {
-		n.logger.WithError(err).Error("gossip pull")
+		n.logger.WithError(err).Warn("gossip pull")
 		return err
 	}
 
 	//push
 	err = n.push(peer, otherKnownEvents)
 	if err != nil {
-		n.logger.WithError(err).Error("gossip push")
+		n.logger.WithError(err).Warn("gossip push")
 		return err
 	}
 
@@ -453,7 +453,7 @@ func (n *Node) pull(peer *peers.Peer) (otherKnownEvents map[uint32]int, err erro
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestSync()")
 
 	if err != nil {
-		n.logger.WithField("error", err).Error("requestSync()")
+		n.logger.WithField("error", err).Warn("requestSync()")
 		return nil, err
 	}
 
@@ -513,7 +513,7 @@ func (n *Node) push(peer *peers.Peer, knownEvents map[uint32]int) error {
 		elapsed = time.Since(start)
 		n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestEagerSync()")
 		if err != nil {
-			n.logger.WithField("error", err).Error("requestEagerSync()")
+			n.logger.WithField("error", err).Warn("requestEagerSync()")
 			return err
 		}
 		n.logger.WithFields(logrus.Fields{

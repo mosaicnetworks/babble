@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mosaicnetworks/babble/src/common"
+
 	bkeys "github.com/mosaicnetworks/babble/src/crypto/keys"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
@@ -21,7 +23,7 @@ func TestMonologue(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 5, false, "inmem", 5*time.Millisecond, common.TestLogLevel, t)
 	//defer drawGraphs(nodes, t)
 
 	target := 50
@@ -34,11 +36,12 @@ func TestMonologue(t *testing.T) {
 }
 
 func TestJoinRequest(t *testing.T) {
+
 	keys, peerSet := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
-	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
+	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 1000, 5, false, "inmem", 5*time.Millisecond, common.TestLogLevel, t)
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
@@ -56,7 +59,7 @@ func TestJoinRequest(t *testing.T) {
 		"monika",
 	)
 
-	newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
+	newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, common.TestLogLevel, t)
 	defer newNode.Shutdown()
 
 	err = newNode.join()
@@ -77,11 +80,12 @@ func TestJoinRequest(t *testing.T) {
 }
 
 func TestLeaveRequest(t *testing.T) {
+
 	keys, peerSet := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
-	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
+	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 1000, 5, false, "inmem", 5*time.Millisecond, common.TestLogLevel, t)
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
@@ -117,7 +121,7 @@ func TestJoinFull(t *testing.T) {
 	f := func(fastSync bool) {
 		genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
-		initialNodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 400, 5, fastSync, "inmem", 10*time.Millisecond, t)
+		initialNodes := initNodes(keys, peerSet, genesisPeerSet, 1000000, 400, 5, fastSync, "inmem", 10*time.Millisecond, common.TestLogLevel, t)
 		defer shutdownNodes(initialNodes)
 
 		target := 30
@@ -134,7 +138,7 @@ func TestJoinFull(t *testing.T) {
 			"monika",
 		)
 
-		newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 400, 5, fastSync, "inmem", 10*time.Millisecond, t)
+		newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000000, 400, 5, fastSync, "inmem", 10*time.Millisecond, common.TestLogLevel, t)
 		defer newNode.Shutdown()
 
 		newNode.RunAsync(true)
