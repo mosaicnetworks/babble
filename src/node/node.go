@@ -214,8 +214,8 @@ func (n *Node) Shutdown() {
 
 		// stop and wait for concurrent operations
 		close(n.shutdownCh)
-		n.waitRoutines()
 		n.controlTimer.Shutdown()
+		n.waitRoutines()
 
 		// close transport and store
 		n.trans.Close()
@@ -235,13 +235,14 @@ func (n *Node) Suspend() {
 		n.setState(Suspended)
 
 		// Stop and wait for concurrent operations
-		close(n.suspendCh)
-		n.waitRoutines()
 		n.controlTimer.Shutdown()
+		n.waitRoutines()
 
 		// transport should only be closed when all concurrent gossip operations
 		// are finished otherwise they will panic trying to use closed objects
 		n.trans.Close()
+
+		close(n.suspendCh)
 	}
 }
 
@@ -348,15 +349,12 @@ func (n *Node) doBackgroundWork() {
 				n.processRPC(rpc)
 				n.resetTimer()
 			})
-			n.checkSuspend()
 		case t := <-n.submitCh:
 			n.logger.Debug("Adding Transaction")
 			n.addTransaction(t)
 			n.resetTimer()
 		case <-n.shutdownCh:
 			return
-		case <-n.suspendSigCh:
-			n.Suspend()
 		case s := <-n.sigCh:
 			n.logger.Debugf("Process %s - LEAVE", s.String())
 			n.Leave()
@@ -386,11 +384,14 @@ func (n *Node) resetTimer() {
 // checkSuspend suspends the node if the number of undetermined events in the
 // hashgraph exceeds initialUndeterminedEvents by SuspendLimit.
 func (n *Node) checkSuspend() {
+
+	undeterminedEvents := n.core.GetUndeterminedEvents()
+
 	// suspend if too many undetermined events
-	if len(n.core.GetUndeterminedEvents())-n.initialUndeterminedEvents >
+	if len(undeterminedEvents)-n.initialUndeterminedEvents >
 		n.conf.SuspendLimit {
 
-		n.suspendSigCh <- struct{}{}
+		n.Suspend()
 	}
 }
 
@@ -409,7 +410,9 @@ func (n *Node) babble(gossip bool) {
 			if gossip {
 				peer := n.core.peerSelector.Next()
 				if peer != nil {
-					n.goFunc(func() { n.gossip(peer) })
+					n.goFunc(func() {
+						n.gossip(peer)
+					})
 				} else {
 					n.monologue()
 				}

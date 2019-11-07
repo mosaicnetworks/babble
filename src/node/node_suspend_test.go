@@ -10,18 +10,19 @@ func TestAutoSuspend(t *testing.T) {
 	os.RemoveAll("test_data")
 	os.Mkdir("test_data", os.ModeDir|0777)
 
-	// define 3 validators
-	keys, peers := initPeers(t, 3)
+	// define 5 validators
+	keys, peers := initPeers(t, 5)
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	// initialize only two nodes
+	// initialize only three nodes
 	nodes := []*Node{
 		newNode(peers.Peers[0], keys[0], genesisPeerSet, peers, 1000, 1000, 10, false, "badger", 10*time.Millisecond, t),
 		newNode(peers.Peers[1], keys[1], genesisPeerSet, peers, 1000, 1000, 10, false, "badger", 10*time.Millisecond, t),
+		newNode(peers.Peers[2], keys[2], genesisPeerSet, peers, 1000, 1000, 10, false, "badger", 10*time.Millisecond, t),
 	}
 	defer shutdownNodes(nodes)
 
-	// With only 2/3 of nodes gossipping, the cluster should never reach
+	// With only 3/5 of nodes gossipping, the cluster should never reach
 	// consensus on any Events. So they will keep producing undetermined events
 	// until the SuspendLimit is reached (300 by default). When the limit is
 	// reached, all nodes should be suspended, an no more undetermined events
