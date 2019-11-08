@@ -55,8 +55,7 @@ type Node struct {
 	shutdownCh chan struct{}
 
 	// suspendCh is used to signal the node to enter the Suspended state.
-	suspendCh    chan struct{}
-	suspendSigCh chan struct{}
+	suspendCh chan struct{}
 
 	// The node runs the controlTimer in the background to periodically receive
 	// signals to initiate gossip routines. It is paused, reset, etc., based on
@@ -99,7 +98,6 @@ func NewNode(conf *config.Config,
 		sigCh:        sigCh,
 		shutdownCh:   make(chan struct{}),
 		suspendCh:    make(chan struct{}),
-		suspendSigCh: make(chan struct{}),
 		controlTimer: NewRandomControlTimer(),
 	}
 
@@ -214,7 +212,6 @@ func (n *Node) Shutdown() {
 
 		// stop and wait for concurrent operations
 		close(n.shutdownCh)
-		n.controlTimer.Shutdown()
 		n.waitRoutines()
 
 		// close transport and store
@@ -235,14 +232,12 @@ func (n *Node) Suspend() {
 		n.setState(Suspended)
 
 		// Stop and wait for concurrent operations
-		n.controlTimer.Shutdown()
+		close(n.suspendCh)
 		n.waitRoutines()
 
 		// transport should only be closed when all concurrent gossip operations
 		// are finished otherwise they will panic trying to use closed objects
 		n.trans.Close()
-
-		close(n.suspendCh)
 	}
 }
 

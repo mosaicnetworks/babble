@@ -173,27 +173,25 @@ func TestShutdown(t *testing.T) {
 
 	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, common.TestLogLevel, t)
 	runNodes(nodes, false)
+	defer shutdownNodes(nodes)
 
 	nodes[0].Shutdown()
-
 	err := nodes[1].gossip(peers.Peers[0])
 	if err == nil {
 		t.Fatal("Fatal Expected Timeout Error")
 	}
-
-	nodes[1].Shutdown()
 }
 
 func TestBootstrapAllNodes(t *testing.T) {
 	os.RemoveAll("test_data")
 	os.Mkdir("test_data", os.ModeDir|0777)
 
-	//create a first network with BadgerStore and wait till it reaches 10 blocks
-	//before shutting it down
+	// create a first network with BadgerStore and wait till it reaches 10
+	// blocks before shutting it down
 	keys, peers := initPeers(t, 4)
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 10, false, "badger", 6*time.Millisecond, common.TestLogLevel, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 10, false, "badger", 10*time.Millisecond, common.TestLogLevel, t)
 
 	err := gossip(nodes, 10, true, 3*time.Second)
 	if err != nil {
@@ -202,8 +200,8 @@ func TestBootstrapAllNodes(t *testing.T) {
 	}
 	checkGossip(nodes, 0, t)
 
-	//Now try to recreate a network from the databases created in the first step
-	//and advance it to 20 blocks
+	// Now try to recreate a network from the databases created in the first
+	// step and advance it to 20 blocks
 	newNodes := recycleNodes(nodes, t)
 
 	err = gossip(newNodes, 20, true, 3*time.Second)
