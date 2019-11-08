@@ -49,7 +49,7 @@ func (p *TestProxy) RestoreHandler(snapshot []byte) ([]byte, error) {
 }
 
 func NewTestProxy(t *testing.T) *TestProxy {
-	logger := common.NewTestEntry(t)
+	logger := common.NewTestEntry(t, common.TestLogLevel)
 
 	proxy := &TestProxy{
 		transactions: [][]byte{},

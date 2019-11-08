@@ -4,6 +4,9 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/mosaicnetworks/babble/src/common"
+	"github.com/sirupsen/logrus"
 )
 
 /*
@@ -17,7 +20,7 @@ func TestFastForward(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, common.TestLogLevel, t)
 	defer shutdownNodes(nodes)
 
 	target := 20
@@ -53,6 +56,7 @@ func TestFastForward(t *testing.T) {
 }
 
 func TestCatchUp(t *testing.T) {
+
 	keys, peers := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
@@ -60,10 +64,10 @@ func TestCatchUp(t *testing.T) {
 	// Initialize 4 nodes. The last one has fast-sync enabled. We will run the
 	// first 3 nodes first, and try to get the 4th one to catch-up.
 	nodes := []*Node{
-		newNode(peers.Peers[0], keys[0], genesisPeerSet, peers, 10000, 1000, 10, false, "inmem", 10*time.Millisecond, t),
-		newNode(peers.Peers[1], keys[1], genesisPeerSet, peers, 10000, 1000, 10, false, "inmem", 10*time.Millisecond, t),
-		newNode(peers.Peers[2], keys[2], genesisPeerSet, peers, 10000, 1000, 10, false, "inmem", 10*time.Millisecond, t),
-		newNode(peers.Peers[3], keys[3], genesisPeerSet, peers, 10000, 1000, 10, true, "inmem", 10*time.Millisecond, t),
+		newNode(peers.Peers[0], keys[0], genesisPeerSet, peers, 10000, 1000, 10, false, "inmem", 10*time.Millisecond, logrus.DebugLevel, t),
+		newNode(peers.Peers[1], keys[1], genesisPeerSet, peers, 10000, 1000, 10, false, "inmem", 10*time.Millisecond, logrus.DebugLevel, t),
+		newNode(peers.Peers[2], keys[2], genesisPeerSet, peers, 10000, 1000, 10, false, "inmem", 10*time.Millisecond, logrus.DebugLevel, t),
+		newNode(peers.Peers[3], keys[3], genesisPeerSet, peers, 10000, 1000, 10, true, "inmem", 10*time.Millisecond, logrus.DebugLevel, t),
 	}
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(normalNodes, t)
@@ -115,7 +119,7 @@ func TestFastSync(t *testing.T) {
 
 	// all nodes have fast-sync enabled
 	// make cache high to draw graphs
-	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 400, 5, true, "inmem", 10*time.Millisecond, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 400, 5, true, "inmem", 10*time.Millisecond, common.TestLogLevel, t)
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 

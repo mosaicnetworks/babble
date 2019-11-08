@@ -3,8 +3,11 @@
 ## Unreleased
 
 SECURITY:
-
 FEATURES:
+IMPROVEMENTS:
+BUG FIXES:
+
+## v0.5.10 (November 7, 2019)
 
 IMPROVEMENTS:
 

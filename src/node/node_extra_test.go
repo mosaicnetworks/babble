@@ -6,8 +6,11 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"os"
+	"strconv"
 	"testing"
 	"time"
+
+	"github.com/mosaicnetworks/babble/src/common"
 
 	"github.com/sirupsen/logrus"
 
@@ -27,12 +30,13 @@ fast-sync disabled
 */
 
 func TestJoinLateExtra(t *testing.T) {
+
 	os.RemoveAll("test_data")
 	os.Mkdir("test_data", os.ModeDir|0777)
 
 	keys, peerSet := initPeers(t, 4)
 
-	initialNodes := initNodes(keys, peerSet, peerSet, 400, 400, 5, false, "badger", 10*time.Millisecond, t)
+	initialNodes := initNodes(keys, peerSet, peerSet, 400, 400, 5, false, "badger", 30*time.Millisecond, common.TestLogLevel, t)
 	defer shutdownNodes(initialNodes)
 
 	target := 100
@@ -49,7 +53,7 @@ func TestJoinLateExtra(t *testing.T) {
 		"monika",
 	)
 
-	newNode := newNode(peer, key, peerSet, peerSet, 400, 400, 5, false, "badger", 10*time.Millisecond, t)
+	newNode := newNode(peer, key, peerSet, peerSet, 400, 400, 5, false, "badger", 30*time.Millisecond, common.TestLogLevel, t)
 	defer newNode.Shutdown()
 
 	newNode.RunAsync(true)
@@ -60,7 +64,7 @@ func TestJoinLateExtra(t *testing.T) {
 
 	//Gossip some more
 	secondTarget := target + 50
-	err = bombardAndWait(nodes, secondTarget, 10*time.Second)
+	err = bombardAndWait(nodes, secondTarget, 20*time.Second)
 	if err != nil {
 		t.Fatalf("Fatal Error: %v", err)
 	}
@@ -69,13 +73,16 @@ func TestJoinLateExtra(t *testing.T) {
 	checkGossip(nodes, *start, t)
 	checkPeerSets(nodes, t)
 	verifyNewPeerSet(nodes, newNode.core.AcceptedRound, 5, t)
+
+	time.Sleep(2 * time.Second)
 }
 
 func TestSuccessiveJoinRequestExtra(t *testing.T) {
+
 	keys, peerSet := initPeers(t, 1)
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
-	node0 := newNode(peerSet.Peers[0], keys[0], peerSet, genesisPeerSet, 10000, 400, 5, false, "inmem", 10*time.Millisecond, t)
+	node0 := newNode(peerSet.Peers[0], keys[0], peerSet, genesisPeerSet, 10000, 400, 5, false, "inmem", 30*time.Millisecond, common.TestLogLevel, t)
 	defer node0.Shutdown()
 	node0.RunAsync(true)
 
@@ -91,7 +98,7 @@ func TestSuccessiveJoinRequestExtra(t *testing.T) {
 			fmt.Sprintf("127.0.0.1:%d", 4240+i),
 			fmt.Sprintf("monika%d", i),
 		)
-		newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000, 400, 5, false, "inmem", 10*time.Millisecond, t)
+		newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000, 400, 5, false, "inmem", 30*time.Millisecond, common.TestLogLevel, t)
 
 		t.Logf("starting new node %d, %d", i, peer.ID())
 		defer newNode.Shutdown()
@@ -100,7 +107,7 @@ func TestSuccessiveJoinRequestExtra(t *testing.T) {
 		nodes = append(nodes, newNode)
 
 		//Gossip some more
-		err := bombardAndWait(nodes, target, 10*time.Second)
+		err := bombardAndWait(nodes, target, 20*time.Second)
 		if err != nil {
 			t.Error("Fatal Error in TestSuccessiveJoinRequestExtra", err)
 			t.Fatal(err)
@@ -121,7 +128,7 @@ func TestSuccessiveLeaveRequestExtra(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
-	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000, 10000, 20, false, "inmem", 10*time.Millisecond, t)
+	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000, 10000, 20, false, "inmem", 30*time.Millisecond, common.TestLogLevel, t)
 	defer shutdownNodes(nodes)
 
 	target := 0
@@ -153,7 +160,7 @@ func TestSuccessiveLeaveRequestExtra(t *testing.T) {
 
 		//Gossip some more
 		target += 10
-		err = bombardAndWait(nodes, target, 8*time.Second)
+		err = bombardAndWait(nodes, target, 16*time.Second)
 		if err != nil {
 			t.Error("Fatal Error 3", err)
 			t.Fatal(err)
@@ -173,7 +180,7 @@ func TestSimultaneousLeaveRequestExtra(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
-	nodes := initNodes(keys, peerSet, genesisPeerSet, 10000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
+	nodes := initNodes(keys, peerSet, genesisPeerSet, 10000, 1000, 5, false, "inmem", 30*time.Millisecond, common.TestLogLevel, t)
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
@@ -202,7 +209,7 @@ func TestSimultaneousLeaveRequestExtra(t *testing.T) {
 
 	//Gossip some more
 	secondTarget := target + 50
-	err = bombardAndWait(nodes[0:2], secondTarget, 6*time.Second)
+	err = bombardAndWait(nodes[0:2], secondTarget, 16*time.Second)
 	if err != nil {
 		t.Error("Fatal Error 4", err)
 		t.Fatal(err)
@@ -216,11 +223,9 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
-	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000, 10000, 5, false, "inmem", 5*time.Millisecond, t)
+	// N.B. Info level logs to keep the log size manageable
+	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000, 10000, 5, false, "inmem", 30*time.Millisecond, logrus.InfoLevel, t)
 	//defer drawGraphs(nodes, t)
-
-	// The logs are enormous if set to DebugLevel, and fill any sensible buffer
-	nodes[0].logger.Level = logrus.InfoLevel
 
 	target := 15
 	err := gossip(nodes, target, false, 2*time.Second)
@@ -245,7 +250,7 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 		fmt.Sprint("127.0.0.1:4242"),
 		"new node",
 	)
-	newNode := newNode(peer, key, peerSet, genesisPeerSet, 10000, 200, 5, false, "inmem", 10*time.Millisecond, t)
+	newNode := newNode(peer, key, peerSet, genesisPeerSet, 10000, 200, 5, false, "inmem", 30*time.Millisecond, common.TestLogLevel, t)
 	defer newNode.Shutdown()
 
 	newNode.RunAsync(true)
@@ -258,7 +263,7 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 
 	//Gossip some more
 	secondTarget := target + 12
-	err = bombardAndWait(nodes, secondTarget, 2*time.Second)
+	err = bombardAndWait(nodes, secondTarget, 16*time.Second)
 	if err != nil {
 		t.Error("Fatal Error 3", err)
 		t.Fatal(err)
@@ -302,7 +307,8 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	genesisPeerSet := clonePeerSet(t, peers01234.Peers)                                                              // Step 10
 
 	t.Log("Step 1")
-	nodes01234 := initNodes(keys[0:5], peers01234, genesisPeerSet, 10000, 400, 15, false, "inmem", 10*time.Millisecond, t) //make cache high to draw graphs
+	// N.B. Info level logs to keep the log size manageable
+	nodes01234 := initNodes(keys[0:5], peers01234, genesisPeerSet, 10000, 400, 15, false, "inmem", 30*time.Millisecond, logrus.InfoLevel, t) //make cache high to draw graphs
 
 	// Step 1b - gossip and build history
 	gossipAndCheck(nodes01234, 20, 8, "Step 1b", false, t)
@@ -321,7 +327,7 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	// Step 4 Add a new validator (node 5) and sync without using fast sync
 	node5, nodes01235 := launchNodeAndGossip("Step 4 and 5", nodes0123, peerlist.Peers[5], keys[5],
 		peers0123, genesisPeerSet, 10000, 100, 10, false,
-		"inmem", 10*time.Millisecond, t, 20, 8, true)
+		"inmem", 30*time.Millisecond, t, 20, 8, true, logrus.InfoLevel)
 	defer node5.Shutdown()
 
 	// Step 6 Add another validator (node 6) and sync without fast sync
@@ -329,19 +335,19 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 
 	node6, nodes012356 := launchNodeAndGossip("Step 6 and 7", nodes01235, peerlist.Peers[6], keys[6],
 		peers01235, genesisPeerSet, 10000, 100, 10, false,
-		"inmem", 10*time.Millisecond, t, 15, 8, true)
+		"inmem", 30*time.Millisecond, t, 15, 8, true, logrus.InfoLevel)
 	defer node6.Shutdown()
 
 	//  Step 8 Add Node 7, 8
 
 	node7, nodes0123567 := launchNodeAndGossip("Step 8", nodes012356, peerlist.Peers[7], keys[7],
 		peers012356, genesisPeerSet, 10000, 100, 10, false,
-		"inmem", 10*time.Millisecond, t, 14, 8, false)
+		"inmem", 30*time.Millisecond, t, 14, 8, false, logrus.InfoLevel)
 	defer node7.Shutdown()
 
 	node8, nodes01235678 := launchNodeAndGossip("Step 8b", nodes0123567, peerlist.Peers[8], keys[8],
 		peers0123567, genesisPeerSet, 10000, 100, 10, false,
-		"inmem", 10*time.Millisecond, t, 12, 8, false)
+		"inmem", 30*time.Millisecond, t, 12, 8, false, logrus.InfoLevel)
 	defer node8.Shutdown()
 
 	//  Step 9 Remove Nodes 0 to 3
@@ -357,7 +363,7 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 	//  Step 10 Add Node 9
 	node9, nodes56789 := launchNodeAndGossip("Step 10", nodes5678, peerlist.Peers[9], keys[9],
 		peers5678, genesisPeerSet, 10000, 100, 10, false,
-		"inmem", 10*time.Millisecond, t, 15, 8, false)
+		"inmem", 30*time.Millisecond, t, 15, 8, false, logrus.InfoLevel)
 	defer node9.Shutdown()
 
 	t.Log("Nodes56789", nodes56789)
@@ -383,7 +389,8 @@ func launchNodeAndGossip(
 	t *testing.T,
 	targetBlockInc int,
 	gossipTimeOutSeconds time.Duration,
-	checkFrames bool) (node *Node, nodes []*Node) {
+	checkFrames bool,
+	logLevel logrus.Level) (node *Node, nodes []*Node) {
 
 	t.Log(msg)
 
@@ -397,11 +404,28 @@ func launchNodeAndGossip(
 		enableSyncLimit,
 		storeType,
 		heartbeatTimeout,
+		logLevel,
 		t)
 
 	nodes = append(append([]*Node{}, nodeSet...), node)
 	node.RunAsync(true)
 
+	catchUpBlock, _ := strconv.ParseInt(nodes[0].GetStats()["last_block_index"], 10, 64)
+
+	// Let the new node catch up.
+	for {
+		time.Sleep(1 * time.Second)
+		stats := node.GetStats()
+		nodeState := stats["state"]
+		lastBlock, _ := strconv.ParseInt(stats["last_block_index"], 10, 64)
+		t.Logf("launchNodeAndGossip(%s): %d of %d ", nodeState, catchUpBlock, lastBlock)
+
+		if lastBlock >= catchUpBlock {
+			break
+		}
+	}
+
+	time.Sleep(1 * time.Second)
 	gossipAndCheck(nodes, targetBlockInc, gossipTimeOutSeconds, msg, checkFrames, t)
 
 	return node, nodes

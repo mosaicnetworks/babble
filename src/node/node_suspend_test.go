@@ -4,6 +4,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 func TestAutoSuspend(t *testing.T) {
@@ -16,9 +18,9 @@ func TestAutoSuspend(t *testing.T) {
 
 	// initialize only three nodes
 	nodes := []*Node{
-		newNode(peers.Peers[0], keys[0], genesisPeerSet, peers, 1000, 1000, 10, false, "badger", 10*time.Millisecond, t),
-		newNode(peers.Peers[1], keys[1], genesisPeerSet, peers, 1000, 1000, 10, false, "badger", 10*time.Millisecond, t),
-		newNode(peers.Peers[2], keys[2], genesisPeerSet, peers, 1000, 1000, 10, false, "badger", 10*time.Millisecond, t),
+		newNode(peers.Peers[0], keys[0], genesisPeerSet, peers, 1000, 1000, 10, false, "badger", 10*time.Millisecond, logrus.DebugLevel, t),
+		newNode(peers.Peers[1], keys[1], genesisPeerSet, peers, 1000, 1000, 10, false, "badger", 10*time.Millisecond, logrus.DebugLevel, t),
+		newNode(peers.Peers[2], keys[2], genesisPeerSet, peers, 1000, 1000, 10, false, "badger", 10*time.Millisecond, logrus.DebugLevel, t),
 	}
 	defer shutdownNodes(nodes)
 

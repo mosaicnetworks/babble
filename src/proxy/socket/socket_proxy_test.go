@@ -56,7 +56,7 @@ func (p *TestHandler) RestoreHandler(snapshot []byte) ([]byte, error) {
 }
 
 func NewTestHandler(t *testing.T) *TestHandler {
-	logger := common.NewTestEntry(t)
+	logger := common.NewTestEntry(t, common.TestLogLevel)
 
 	return &TestHandler{
 		blocks:     []hashgraph.Block{},
@@ -70,7 +70,7 @@ func TestSocketProxyServer(t *testing.T) {
 	clientAddr := "127.0.0.1:6990"
 	proxyAddr := "127.0.0.1:6991"
 
-	appProxy, err := aproxy.NewSocketAppProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestEntry(t))
+	appProxy, err := aproxy.NewSocketAppProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestEntry(t, common.TestLogLevel))
 
 	if err != nil {
 		t.Fatalf("Cannot create SocketAppProxy: %s", err)
@@ -96,7 +96,7 @@ func TestSocketProxyServer(t *testing.T) {
 
 	// now client part connecting to RPC service
 	// and calling methods
-	babbleProxy, err := bproxy.NewSocketBabbleProxy(proxyAddr, clientAddr, NewTestHandler(t), 1*time.Second, common.NewTestEntry(t))
+	babbleProxy, err := bproxy.NewSocketBabbleProxy(proxyAddr, clientAddr, NewTestHandler(t), 1*time.Second, common.NewTestEntry(t, common.TestLogLevel))
 
 	if err != nil {
 		t.Fatal(err)
@@ -113,7 +113,7 @@ func TestSocketProxyClient(t *testing.T) {
 	clientAddr := "127.0.0.1:6992"
 	proxyAddr := "127.0.0.1:6993"
 
-	logger := common.NewTestEntry(t)
+	logger := common.NewTestEntry(t, common.TestLogLevel)
 
 	//create app proxy
 	appProxy, err := aproxy.NewSocketAppProxy(clientAddr, proxyAddr, 1*time.Second, logger)
