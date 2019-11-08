@@ -221,23 +221,19 @@ func (n *Node) Shutdown() {
 	}
 }
 
-// Suspend puts the node in Suspended mode, and closes the network transport
+// Suspend puts the node in Suspended mode. It doesn't close the transport
+// because it needs to respond to incoming SyncRequests.
 func (n *Node) Suspend() {
 	if n.getState() != Suspended &&
 		n.getState() != Shutdown {
 
 		n.logger.Info("SUSPEND")
 
-		// Exit any non-suspended state immediately
 		n.setState(Suspended)
 
 		// Stop and wait for concurrent operations
 		close(n.suspendCh)
 		n.waitRoutines()
-
-		// transport should only be closed when all concurrent gossip operations
-		// are finished otherwise they will panic trying to use closed objects
-		n.trans.Close()
 	}
 }
 

@@ -73,9 +73,15 @@ func (n *Node) requestJoin(target string) (net.JoinResponse, error) {
 }
 
 func (n *Node) processRPC(rpc net.RPC) {
+
 	// Notify others that we are not in Babbling state to prevent
-	// them from hitting timeouts.
-	if n.getState() != Babbling {
+	// them from hitting timeouts. We also allow SyncRequests while Suspended
+	// because it enables the other nodes to be notified of this suspension.
+	_, isSyncRequest := rpc.Command.(*net.SyncRequest)
+
+	if !(n.getState() == Babbling ||
+		(n.getState() == Suspended && isSyncRequest)) {
+
 		n.logger.WithField("state", n.state.state).Debug("Not in Babbling state")
 		rpc.Respond(nil, fmt.Errorf("Not in Babbling state"))
 		return
