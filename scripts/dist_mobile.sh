@@ -11,6 +11,9 @@ if [ -z "$VERSION" ]; then
 fi
 echo "==> Building version $VERSION..."
 
+
+
+GIT="$(git rev-parse --abbrev-ref HEAD) $(git show --oneline -s)"
 # Get the parent directory of where this script is.
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ] ; do SOURCE="$(readlink "$SOURCE")"; done
@@ -43,6 +46,7 @@ done
 # Make the checksums.
 pushd ./build/distmobile
 shasum -a256 ./* > "./babble_${VERSION}_SHA256SUMS"
+echo "$GIT" > ./git.version
 ZIP="./babble_${VERSION}_android_library.zip"
 zip "$ZIP" ./*  -x "$ZIP"
 popd
