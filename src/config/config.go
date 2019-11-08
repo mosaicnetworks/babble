@@ -87,6 +87,10 @@ type Config struct {
 	// suspended state. I.e. it does not start gossipping
 	MaintenanceMode bool `mapstructure:"maintenance-mode"`
 
+	// SuspendLimit is the number of Undetermined Events (Events which haven't
+	// reached consensus) that will cause the node to become suspended
+	SuspendLimit int `mapstructure:"suspend-limit"`
+
 	// Moniker defines the friendly name of this node
 	Moniker string `mapstructure:"moniker"`
 
@@ -97,10 +101,6 @@ type Config struct {
 	// Proxy is the application proxy that enables Babble to communicate with
 	// application.
 	Proxy proxy.AppProxy
-
-	// SuspendLimit is the number of Undetermined Events (Events which haven't
-	// reached consensus) that will cause the node to become suspended
-	SuspendLimit int
 
 	// Key is the private key of the validator.
 	Key *ecdsa.PrivateKey
