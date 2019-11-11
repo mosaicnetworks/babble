@@ -164,11 +164,23 @@ func TestDBEventMethods(t *testing.T) {
 		}
 	}
 
-	//check topological order of events was correctly created
-	dbTopologicalEvents, err := store.dbTopologicalEvents()
-	if err != nil {
-		t.Fatal(err)
+	// check topological order of events was correctly created
+	dbTopologicalEvents := []*Event{}
+	index := 0
+	batchSize := 100
+	for {
+		topologicalEvents, err := store.dbTopologicalEvents(index*batchSize, batchSize)
+		if err != nil {
+			t.Fatal(err)
+		}
+		dbTopologicalEvents = append(dbTopologicalEvents, topologicalEvents...)
+		// Exit after the last batch
+		if len(topologicalEvents) < batchSize {
+			break
+		}
+		index++
 	}
+
 	if len(dbTopologicalEvents) != len(topologicalEvents) {
 		t.Fatalf("Length of dbTopologicalEvents should be %d, not %d",
 			len(topologicalEvents), len(dbTopologicalEvents))

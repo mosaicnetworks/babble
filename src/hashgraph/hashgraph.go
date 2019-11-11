@@ -1476,28 +1476,41 @@ func (h *Hashgraph) Bootstrap() error {
 			return fmt.Errorf("No Genesis PeerSet: %v", err)
 		}
 
-		//Initialize the InmemStore with Genesis PeerSet. This has side-effects:
-		//It will create the corresponding Roots and populate the Repertoires.
+		// Initialize the InmemStore with Genesis PeerSet. This has
+		// side-effects: it will create the corresponding Roots and populate the
+		// Repertoires.
 		badgerStore.inmemStore.SetPeerSet(0, peerSet)
 
-		//Retreive the Events from the underlying DB. They come out in topological
-		//order
-		topologicalEvents, err := badgerStore.dbTopologicalEvents()
-		if err != nil {
-			return err
-		}
-
-		//Insert the Events in the Hashgraph
-		for _, e := range topologicalEvents {
-			if err := h.InsertEventAndRunConsensus(e, true); err != nil {
+		// Retrieve the Events from the underlying DB, in batches of 100, and
+		// insert them sequentially into the hashgraph.
+		index := 0
+		batchSize := 100
+		for {
+			topologicalEvents, err := badgerStore.dbTopologicalEvents(index*batchSize, batchSize)
+			if err != nil {
 				return err
 			}
+
+			// Insert the Events in the Hashgraph
+			for _, e := range topologicalEvents {
+				if err := h.InsertEventAndRunConsensus(e, true); err != nil {
+					return err
+				}
+			}
+
+			// ProcessSigPool
+			if err := h.ProcessSigPool(); err != nil {
+				return err
+			}
+
+			// Exit after the last batch
+			if len(topologicalEvents) < batchSize {
+				break
+			}
+
+			index++
 		}
 
-		//ProcessSigPool
-		if err := h.ProcessSigPool(); err != nil {
-			return err
-		}
 	}
 
 	return nil
