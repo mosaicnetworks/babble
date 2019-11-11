@@ -105,7 +105,7 @@ Public Methods
 // validator-set and the value of the fast-sync option.
 func (n *Node) Init() error {
 	if n.conf.Bootstrap {
-		n.logger.Debug("Bootstrap")
+		//		n.logger.Debug("Bootstrap")
 
 		if err := n.core.Bootstrap(); err != nil {
 			return err
