@@ -167,7 +167,7 @@ func (b *Babble) initStore() error {
 
 		b.logger.WithField("path", dbPath).Debug("Opening BadgerStore")
 
-		dbStore, err := h.NewBadgerStore(b.Config.CacheSize, dbPath, b.logger)
+		dbStore, err := h.NewBadgerStore(b.Config.CacheSize, dbPath, b.logger, b.Config.MaintenanceMode)
 		if err != nil {
 			return err
 		}

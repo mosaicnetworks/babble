@@ -294,7 +294,7 @@ func newNode(peer *peers.Peer,
 	switch storeType {
 	case "badger":
 		path, _ := ioutil.TempDir("test_data", "badger")
-		store, err = hg.NewBadgerStore(conf.CacheSize, path, nil)
+		store, err = hg.NewBadgerStore(conf.CacheSize, path, nil, false)
 		if err != nil {
 			t.Fatalf("Fatal failed to create BadgerStore for peer %d: %s", peer.ID(), err)
 		}
@@ -377,7 +377,7 @@ func recycleNode(oldNode *Node, t *testing.T) *Node {
 	var store hg.Store
 	var err error
 	if _, ok := oldNode.core.hg.Store.(*hg.BadgerStore); ok {
-		store, err = hg.NewBadgerStore(conf.CacheSize, oldNode.core.hg.Store.StorePath(), nil)
+		store, err = hg.NewBadgerStore(conf.CacheSize, oldNode.core.hg.Store.StorePath(), nil, false)
 		if err != nil {
 			t.Error("Fatal Error recyleNode", err)
 			t.Fatal(err)
