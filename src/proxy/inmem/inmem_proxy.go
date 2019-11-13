@@ -59,17 +59,16 @@ func (p *InmemProxy) SubmitCh() chan []byte {
 func (p *InmemProxy) CommitBlock(block hg.Block) (proxy.CommitResponse, error) {
 	commitResponse, err := p.handler.CommitHandler(block)
 
-	p.logger.WithFields(logrus.Fields{
-		"index":          block.Index(),
-		"round_received": block.RoundReceived(),
-		"frame_hash":     block.FrameHash(),
-		"peers_hash":     block.PeersHash(),
-		"state_hash":     block.StateHash(),
-		"txs":            len(block.Transactions()),
-		"response":       commitResponse,
-		"err":            err,
-	}).Debug("InmemProxy.CommitBlock")
+	if p.logger.Level > logrus.InfoLevel {
+		blockBytes, _ := block.Marshal()
+		p.logger.WithFields(logrus.Fields{
+			"block":    string(blockBytes),
+			"txs":      len(block.Transactions()),
+			"response": commitResponse,
+			"err":      err,
+		}).Debug("InmemProxy.CommitBlock")
 
+	}
 	return commitResponse, err
 }
 
