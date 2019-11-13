@@ -817,3 +817,13 @@ func mapError(err error, name, key string) error {
 	}
 	return err
 }
+
+//GetMaintenanceMode is a getter
+func (s *BadgerStore) GetMaintenanceMode() bool {
+	return s.maintenanceMode
+}
+
+//SetMaintenanceMode is a setter
+func (s *BadgerStore) SetMaintenanceMode(val bool) {
+	s.maintenanceMode = val
+}

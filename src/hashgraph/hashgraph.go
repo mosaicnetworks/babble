@@ -1470,6 +1470,12 @@ that the application state was reset.
 */
 func (h *Hashgraph) Bootstrap() error {
 	if badgerStore, ok := h.Store.(*BadgerStore); ok {
+
+		if !badgerStore.GetMaintenanceMode() {
+			defer badgerStore.SetMaintenanceMode(false)
+		}
+
+		badgerStore.SetMaintenanceMode(true)
 		//Load Genesis PeerSet
 		peerSet, err := badgerStore.dbGetPeerSet(0)
 		if err != nil {
