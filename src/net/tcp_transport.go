@@ -31,7 +31,19 @@ func (t *TCPStreamLayer) Accept() (c net.Conn, err error) {
 
 // Close implements the net.Listener interface.
 func (t *TCPStreamLayer) Close() (err error) {
-	return t.listener.Close()
+	lnFile, _ := t.listener.File()
+
+	if err := t.listener.Close(); err != nil {
+		return err
+	}
+
+	if lnFile != nil {
+		if err := lnFile.Close(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Addr implements the net.Listener interface.

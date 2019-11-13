@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mosaicnetworks/babble/src/common"
-
 	"github.com/sirupsen/logrus"
 
 	bkeys "github.com/mosaicnetworks/babble/src/crypto/keys"
@@ -36,7 +34,7 @@ func TestJoinLateExtra(t *testing.T) {
 
 	keys, peerSet := initPeers(t, 4)
 
-	initialNodes := initNodes(keys, peerSet, peerSet, 400, 400, 5, false, "badger", 30*time.Millisecond, common.TestLogLevel, t)
+	initialNodes := initNodes(keys, peerSet, peerSet, 400, 400, 5, false, "badger", 30*time.Millisecond, t)
 	defer shutdownNodes(initialNodes)
 
 	target := 100
@@ -53,7 +51,7 @@ func TestJoinLateExtra(t *testing.T) {
 		"monika",
 	)
 
-	newNode := newNode(peer, key, peerSet, peerSet, 400, 400, 5, false, "badger", 30*time.Millisecond, common.TestLogLevel, t)
+	newNode := newNode(peer, key, peerSet, peerSet, 400, 400, 5, false, "badger", 30*time.Millisecond, t)
 	defer newNode.Shutdown()
 
 	newNode.RunAsync(true)
@@ -82,7 +80,7 @@ func TestSuccessiveJoinRequestExtra(t *testing.T) {
 	keys, peerSet := initPeers(t, 1)
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
-	node0 := newNode(peerSet.Peers[0], keys[0], peerSet, genesisPeerSet, 10000, 400, 5, false, "inmem", 30*time.Millisecond, common.TestLogLevel, t)
+	node0 := newNode(peerSet.Peers[0], keys[0], peerSet, genesisPeerSet, 10000, 400, 5, false, "inmem", 30*time.Millisecond, t)
 	defer node0.Shutdown()
 	node0.RunAsync(true)
 
@@ -98,7 +96,7 @@ func TestSuccessiveJoinRequestExtra(t *testing.T) {
 			fmt.Sprintf("127.0.0.1:%d", 4240+i),
 			fmt.Sprintf("monika%d", i),
 		)
-		newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000, 400, 5, false, "inmem", 30*time.Millisecond, common.TestLogLevel, t)
+		newNode := newNode(peer, key, peerSet, genesisPeerSet, 1000, 400, 5, false, "inmem", 30*time.Millisecond, t)
 
 		t.Logf("starting new node %d, %d", i, peer.ID())
 		defer newNode.Shutdown()
@@ -128,7 +126,7 @@ func TestSuccessiveLeaveRequestExtra(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
-	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000, 10000, 20, false, "inmem", 30*time.Millisecond, common.TestLogLevel, t)
+	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000, 10000, 20, false, "inmem", 30*time.Millisecond, t)
 	defer shutdownNodes(nodes)
 
 	target := 0
@@ -180,7 +178,7 @@ func TestSimultaneousLeaveRequestExtra(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
-	nodes := initNodes(keys, peerSet, genesisPeerSet, 10000, 1000, 5, false, "inmem", 30*time.Millisecond, common.TestLogLevel, t)
+	nodes := initNodes(keys, peerSet, genesisPeerSet, 10000, 1000, 5, false, "inmem", 30*time.Millisecond, t)
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
@@ -224,7 +222,7 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
 
 	// N.B. Info level logs to keep the log size manageable
-	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000, 10000, 5, false, "inmem", 30*time.Millisecond, logrus.InfoLevel, t)
+	nodes := initNodes(keys, peerSet, genesisPeerSet, 1000, 10000, 5, false, "inmem", 30*time.Millisecond, t)
 	//defer drawGraphs(nodes, t)
 
 	target := 15
@@ -250,7 +248,7 @@ func TestJoinLeaveRequestExtra(t *testing.T) {
 		fmt.Sprint("127.0.0.1:4242"),
 		"new node",
 	)
-	newNode := newNode(peer, key, peerSet, genesisPeerSet, 10000, 200, 5, false, "inmem", 30*time.Millisecond, common.TestLogLevel, t)
+	newNode := newNode(peer, key, peerSet, genesisPeerSet, 10000, 200, 5, false, "inmem", 30*time.Millisecond, t)
 	defer newNode.Shutdown()
 
 	newNode.RunAsync(true)
@@ -308,7 +306,8 @@ func TestJoiningAndLeavingExtra(t *testing.T) {
 
 	t.Log("Step 1")
 	// N.B. Info level logs to keep the log size manageable
-	nodes01234 := initNodes(keys[0:5], peers01234, genesisPeerSet, 10000, 400, 15, false, "inmem", 30*time.Millisecond, logrus.InfoLevel, t) //make cache high to draw graphs
+	// make cache high to draw graphs
+	nodes01234 := initNodes(keys[0:5], peers01234, genesisPeerSet, 10000, 400, 15, false, "inmem", 30*time.Millisecond, t)
 
 	// Step 1b - gossip and build history
 	gossipAndCheck(nodes01234, 20, 8, "Step 1b", false, t)
@@ -394,8 +393,17 @@ func launchNodeAndGossip(
 
 	t.Log(msg)
 
-	node = newNode(peer, k, peers, genesisPeers, cacheSize, syncLimit, joinTimeoutSeconds,
-		enableSyncLimit, storeType, heartbeatTimeout, logLevel, t)
+	node = newNode(peer,
+		k,
+		peers,
+		genesisPeers,
+		cacheSize,
+		syncLimit,
+		joinTimeoutSeconds,
+		enableSyncLimit,
+		storeType,
+		heartbeatTimeout,
+		t)
 
 	nodes = append(append([]*Node{}, nodeSet...), node)
 	node.RunAsync(true)

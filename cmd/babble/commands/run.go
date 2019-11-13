@@ -97,6 +97,7 @@ func AddRunFlags(cmd *cobra.Command) {
 	cmd.Flags().Duration("heartbeat", _config.Babble.HeartbeatTimeout, "Time between gossips")
 	cmd.Flags().Int("sync-limit", _config.Babble.SyncLimit, "Max number of events for sync")
 	cmd.Flags().Bool("fast-sync", _config.Babble.EnableFastSync, "Enable FastSync")
+	cmd.Flags().Int("suspend-limit", _config.Babble.SuspendLimit, "Limit of undetermined events before entering suspended state")
 }
 
 func loadConfig(cmd *cobra.Command, args []string) error {
@@ -127,6 +128,7 @@ func loadConfig(cmd *cobra.Command, args []string) error {
 		"babble.SyncLimit":        _config.Babble.SyncLimit,
 		"babble.EnableFastSync":   _config.Babble.EnableFastSync,
 		"babble.MaintenanceMode":  _config.Babble.MaintenanceMode,
+		"babble.SuspendLimit":     _config.Babble.SuspendLimit,
 		"ProxyAddr":               _config.ProxyAddr,
 		"ClientAddr":              _config.ClientAddr,
 		"Standalone":              _config.Standalone,

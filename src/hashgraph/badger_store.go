@@ -571,13 +571,13 @@ func (s *BadgerStore) dbParticipantEvent(participant string, index int) (string,
 	return string(data), nil
 }
 
-func (s *BadgerStore) dbTopologicalEvents() ([]*Event, error) {
+func (s *BadgerStore) dbTopologicalEvents(start int, count int) ([]*Event, error) {
 	res := []*Event{}
-	t := 0
+	t := start
 	err := s.db.View(func(txn *badger.Txn) error {
 		key := topologicalEventKey(t)
 		item, errr := txn.Get(key)
-		for errr == nil {
+		for errr == nil && (t < start+count) {
 			v, errrr := item.ValueCopy(nil)
 			if errrr != nil {
 				break
@@ -786,7 +786,7 @@ func (s *BadgerStore) dbSetFrame(frame *Frame) error {
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 func isDBKeyNotFound(err error) bool {
-	return err.Error() == badger.ErrKeyNotFound.Error()
+	return err != nil && err.Error() == badger.ErrKeyNotFound.Error()
 }
 
 func mapError(err error, name, key string) error {

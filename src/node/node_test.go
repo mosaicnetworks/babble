@@ -12,8 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/config"
 	bkeys "github.com/mosaicnetworks/babble/src/crypto/keys"
@@ -33,83 +31,55 @@ NO FAST-SYNC, NO DYNAMIC PARTICIPANTS.
 var ip = 9990
 
 func TestAddTransaction(t *testing.T) {
-	keys, p := initPeers(t, 2)
-	conf := config.NewTestConfig(t, common.TestLogLevel)
+	keys, peers := initPeers(t, 2)
+	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
 	//Start two nodes
-
-	peers := p.Peers
-
-	peer0Trans, err := net.NewTCPTransport(peers[0].NetAddr, "", 2, conf.TCPTimeout, conf.JoinTimeout, conf.Logger())
-	if err != nil {
-		t.Fatalf("Fatal err: %v", err)
-	}
-	go peer0Trans.Listen()
-	peer0Proxy := dummy.NewInmemDummyClient(common.NewTestEntry(t, common.TestLogLevel))
-	defer peer0Trans.Close()
-
-	genesisPeerSet := clonePeerSet(t, p.Peers)
-
-	node0 := NewNode(conf,
-		NewValidator(keys[0], peers[0].Moniker),
-		p,
+	nodes := initNodes(
+		keys,
+		peers,
 		genesisPeerSet,
-		hg.NewInmemStore(conf.CacheSize),
-		peer0Trans,
-		peer0Proxy)
-	node0.Init()
+		10000,
+		500,
+		1*time.Second,
+		false,
+		"inmem",
+		10*time.Millisecond,
+		t)
+	defer shutdownNodes(nodes)
 
-	node0.RunAsync(false)
+	nodes[0].RunAsync(false)
+	nodes[1].RunAsync(false)
 
-	peer1Trans, err := net.NewTCPTransport(peers[1].NetAddr, "", 2, conf.TCPTimeout, conf.JoinTimeout, conf.Logger())
-	if err != nil {
-		t.Fatalf("Fatal 2 err: %v", err)
-	}
-	go peer1Trans.Listen()
-	peer1Proxy := dummy.NewInmemDummyClient(common.NewTestEntry(t, common.TestLogLevel))
-	defer peer1Trans.Close()
-
-	node1 := NewNode(config.NewTestConfig(t, common.TestLogLevel),
-		NewValidator(keys[1], peers[1].Moniker),
-		p,
-		genesisPeerSet,
-		hg.NewInmemStore(conf.CacheSize),
-		peer1Trans,
-		peer1Proxy)
-	node1.Init()
-
-	node1.RunAsync(false)
 	//Submit a Tx to node0
-
 	message := "Hello World!"
-	peer0Proxy.SubmitTx([]byte(message))
+	node0AppProxy := nodes[0].proxy.(*dummy.InmemDummyClient)
+	node0AppProxy.SubmitTx([]byte(message))
 
 	//simulate a SyncRequest from node0 to node1
+	node0KnownEvents := nodes[0].core.KnownEvents()
 
-	node0KnownEvents := node0.core.KnownEvents()
-	args := net.SyncRequest{
-		FromID: node0.core.validator.ID(),
-		Known:  node0KnownEvents,
-	}
-
-	var out net.SyncResponse
-	if err := peer0Trans.Sync(peers[1].NetAddr, &args, &out); err != nil {
+	resp, err := nodes[0].requestSync(
+		peers.Peers[1].NetAddr,
+		node0KnownEvents,
+		500)
+	if err != nil {
 		t.Error("Fatal Error 2", err)
 		t.Fatal(err)
 	}
 
-	if err := node0.sync(peers[1].ID(), out.Events); err != nil {
+	if err := nodes[0].sync(peers.Peers[1].ID(), resp.Events); err != nil {
 		t.Error("Fatal Error 3", err)
 		t.Fatal(err)
 	}
 
 	//check the Tx was removed from the transactionPool and added to the new Head
 
-	if l := len(node0.core.transactionPool); l > 0 {
+	if l := len(nodes[0].core.transactionPool); l > 0 {
 		t.Fatalf("Fatal node0's transactionPool should have 0 elements, not %d\n", l)
 	}
 
-	node0Head, _ := node0.core.GetHead()
+	node0Head, _ := nodes[0].core.GetHead()
 	if l := len(node0Head.Transactions()); l != 1 {
 		t.Fatalf("Fatal node0's Head should have 1 element, not %d\n", l)
 	}
@@ -117,9 +87,6 @@ func TestAddTransaction(t *testing.T) {
 	if m := string(node0Head.Transactions()[0]); m != message {
 		t.Fatalf("Fatal Transaction message should be '%s' not, not %s\n", message, m)
 	}
-
-	node0.Shutdown()
-	node1.Shutdown()
 }
 
 func TestGossip(t *testing.T) {
@@ -127,7 +94,7 @@ func TestGossip(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 5, false, "inmem", 5*time.Millisecond, common.TestLogLevel, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
 	//defer drawGraphs(nodes, t)
 
 	target := 50
@@ -145,7 +112,7 @@ func TestMissingNodeGossip(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, common.TestLogLevel, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
 	//defer drawGraphs(nodes, t)
 
 	err := gossip(nodes[1:], 10, true, 6*time.Second)
@@ -162,7 +129,7 @@ func TestSyncLimit(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, common.TestLogLevel, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
 	defer shutdownNodes(nodes)
 
 	err := gossip(nodes, 10, false, 3*time.Second)
@@ -201,29 +168,27 @@ func TestShutdown(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, common.TestLogLevel, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
 	runNodes(nodes, false)
+	defer shutdownNodes(nodes)
 
 	nodes[0].Shutdown()
-
 	err := nodes[1].gossip(peers.Peers[0])
 	if err == nil {
 		t.Fatal("Fatal Expected Timeout Error")
 	}
-
-	nodes[1].Shutdown()
 }
 
 func TestBootstrapAllNodes(t *testing.T) {
 	os.RemoveAll("test_data")
 	os.Mkdir("test_data", os.ModeDir|0777)
 
-	//create a first network with BadgerStore and wait till it reaches 10 blocks
-	//before shutting it down
+	// create a first network with BadgerStore and wait till it reaches 10
+	// blocks before shutting it down
 	keys, peers := initPeers(t, 4)
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 10, false, "badger", 6*time.Millisecond, common.TestLogLevel, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 10, false, "badger", 10*time.Millisecond, t)
 
 	err := gossip(nodes, 10, true, 3*time.Second)
 	if err != nil {
@@ -232,8 +197,8 @@ func TestBootstrapAllNodes(t *testing.T) {
 	}
 	checkGossip(nodes, 0, t)
 
-	//Now try to recreate a network from the databases created in the first step
-	//and advance it to 20 blocks
+	// Now try to recreate a network from the databases created in the first
+	// step and advance it to 20 blocks
 	newNodes := recycleNodes(nodes, t)
 
 	err = gossip(newNodes, 20, true, 3*time.Second)
@@ -253,7 +218,7 @@ func BenchmarkGossip(b *testing.B) {
 
 		genesisPeerSet := clonePeerSet(b, peers.Peers)
 
-		nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, common.TestLogLevel, b)
+		nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, b)
 		gossip(nodes, 50, true, 3*time.Second)
 	}
 }
@@ -305,7 +270,7 @@ func newNode(peer *peers.Peer,
 	enableSyncLimit bool,
 	storeType string,
 	heartbeatTimeout time.Duration,
-	logLevel logrus.Level,
+
 	t testing.TB) *Node {
 
 	conf := config.NewTestConfig(t, common.TestLogLevel)
@@ -315,7 +280,6 @@ func newNode(peer *peers.Peer,
 	conf.CacheSize = cacheSize
 	conf.SyncLimit = syncLimit
 	conf.EnableFastSync = enableSyncLimit
-	//	conf.LogLevel = logLevel
 
 	t.Logf("Starting node on %s", peer.NetAddr)
 
@@ -365,7 +329,6 @@ func initNodes(keys []*ecdsa.PrivateKey,
 	enableSyncLimit bool,
 	storeType string,
 	heartbeatTimeout time.Duration,
-	logLevel logrus.Level,
 	t testing.TB) []*Node {
 
 	nodes := []*Node{}
@@ -388,7 +351,6 @@ func initNodes(keys []*ecdsa.PrivateKey,
 			enableSyncLimit,
 			storeType,
 			heartbeatTimeout,
-			logLevel,
 			t)
 
 		nodes = append(nodes, node)

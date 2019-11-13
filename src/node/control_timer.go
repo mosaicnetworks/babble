@@ -15,6 +15,7 @@ type ControlTimer struct {
 	stopCh       chan struct{}      //receives instruction to stop the heartbeatTimer
 	shutdownCh   chan struct{}      //receives instruction to exit Run loop
 	set          bool
+	shutdown     bool
 }
 
 //NewControlTimer is a ControlTimer factory method
@@ -70,5 +71,9 @@ func (c *ControlTimer) Run(init time.Duration) {
 
 //Shutdown shuts down the ControlTimer
 func (c *ControlTimer) Shutdown() {
-	close(c.shutdownCh)
+	if !c.shutdown {
+		close(c.shutdownCh)
+		c.shutdown = true
+	}
+	return
 }

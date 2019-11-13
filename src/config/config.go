@@ -87,6 +87,10 @@ type Config struct {
 	// suspended state. I.e. it does not start gossipping
 	MaintenanceMode bool `mapstructure:"maintenance-mode"`
 
+	// SuspendLimit is the number of Undetermined Events (Events which haven't
+	// reached consensus) that will cause the node to become suspended
+	SuspendLimit int `mapstructure:"suspend-limit"`
+
 	// Moniker defines the friendly name of this node
 	Moniker string `mapstructure:"moniker"`
 
@@ -122,6 +126,7 @@ func NewDefaultConfig() *Config {
 		MaintenanceMode:  false,
 		DatabaseDir:      DefaultDatabaseDir(),
 		LoadPeers:        true,
+		SuspendLimit:     300,
 	}
 
 	return config
@@ -133,7 +138,6 @@ func NewDefaultConfig() *Config {
 // about the calling function.
 func NewTestConfig(t testing.TB, level logrus.Level) *Config {
 	config := NewDefaultConfig()
-
 	config.logger = common.NewTestLogger(t, level)
 	return config
 }

@@ -6,6 +6,15 @@ SECURITY:
 
 FEATURES:
 
+- node: automatically suspend a node when the number of undetermined events 
+        exceeds the limit specified by the suspend-limit flag 300 by default).
+
+IMPROVEMENTS:
+
+BUG FIXES:
+
+## v0.5.10 (November 7, 2019)
+
 IMPROVEMENTS:
 
 - spike: Documented a potential solution to automatically evict faulty peers.

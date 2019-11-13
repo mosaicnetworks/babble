@@ -4,8 +4,6 @@ import (
 	"reflect"
 	"testing"
 	"time"
-
-	"github.com/mosaicnetworks/babble/src/common"
 )
 
 /*
@@ -19,7 +17,7 @@ func TestFastForward(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, common.TestLogLevel, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
 	defer shutdownNodes(nodes)
 
 	target := 20
@@ -60,29 +58,28 @@ func TestCatchUp(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	// We don't initialize the first node because, since it will stay passive
-	// during the first part of the test, too many requests would be queued in
-	// its TCP socket (even if it is not running). This is because the socket is
-	// setup to listen regardless of whether a node is running or not. We should
-	// probably change this at some point.
-
-	normalNodes := initNodes(keys[1:], peers, genesisPeerSet, 1000000, 100, 5, false, "inmem", 50*time.Millisecond, common.TestLogLevel, t)
-	defer shutdownNodes(normalNodes)
+	// Initialize 4 nodes. The last one has fast-sync enabled. We will run the
+	// first 3 nodes first, and try to get the 4th one to catch-up.
+	nodes := []*Node{
+		newNode(peers.Peers[0], keys[0], genesisPeerSet, peers, 10000, 1000, 10, false, "inmem", 10*time.Millisecond, t),
+		newNode(peers.Peers[1], keys[1], genesisPeerSet, peers, 10000, 1000, 10, false, "inmem", 10*time.Millisecond, t),
+		newNode(peers.Peers[2], keys[2], genesisPeerSet, peers, 10000, 1000, 10, false, "inmem", 10*time.Millisecond, t),
+		newNode(peers.Peers[3], keys[3], genesisPeerSet, peers, 10000, 1000, 10, true, "inmem", 10*time.Millisecond, t),
+	}
+	defer shutdownNodes(nodes)
 	//defer drawGraphs(normalNodes, t)
 
+	// create 10 blocks with 3/4 nodes
 	target := 10
-	err := gossip(normalNodes, target, false, 6*time.Second)
+	err := gossip(nodes[:3], target, false, 6*time.Second)
 	if err != nil {
 		t.Error("Fatal Error", err)
 		t.Fatal(err)
 	}
-	checkGossip(normalNodes, 0, t)
+	checkGossip(nodes[:3], 0, t)
 
-	//node0 has fast-sync enabled
-	node0 := newNode(peers.Peers[0], keys[0], peers, genesisPeerSet, 1000000, 100, 5, true, "inmem", 10*time.Millisecond, common.TestLogLevel, t)
-	defer node0.Shutdown()
-
-	//Run parallel routine to check node0 eventually reaches CatchingUp state.
+	// Run parallel routine to check nodes[3] reaches CatchingUp state within 6
+	// seconds.
 	timeout := time.After(6 * time.Second)
 	go func() {
 		for {
@@ -91,17 +88,15 @@ func TestCatchUp(t *testing.T) {
 				t.Fatalf("Fatal Timeout waiting for node0 to enter CatchingUp state")
 			default:
 			}
-			if node0.getState() == CatchingUp {
+			if nodes[3].getState() == CatchingUp {
 				break
 			}
 		}
 	}()
 
-	node0.RunAsync(true)
+	nodes[3].RunAsync(true)
 
-	nodes := append(normalNodes, node0)
-
-	//Gossip some more with all nodes
+	// Gossip some more with all nodes
 	newTarget := target + 20
 	err = bombardAndWait(nodes, newTarget, 10*time.Second)
 	if err != nil {
@@ -109,7 +104,8 @@ func TestCatchUp(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	start := node0.core.hg.FirstConsensusRound
+	// check blocks starting at where nodes[3] joined
+	start := nodes[3].core.hg.FirstConsensusRound
 	checkGossip(nodes, *start, t)
 }
 
@@ -118,8 +114,9 @@ func TestFastSync(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	//all nodes have fast-sync enabled
-	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 400, 5, true, "inmem", 10*time.Millisecond, common.TestLogLevel, t) //make cache high to draw graphs
+	// all nodes have fast-sync enabled
+	// make cache high to draw graphs
+	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 400, 5, true, "inmem", 10*time.Millisecond, t)
 	defer shutdownNodes(nodes)
 	//defer drawGraphs(nodes, t)
 
