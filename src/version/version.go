@@ -3,11 +3,11 @@ package version
 // Flag contains extra info about the version. It is helpul for tracking
 // versions while developing. It should always be empty on the master branch.
 // This is inforced in a continuous integration test.
-const Flag = "develop"
+const Flag = ""
 
 var (
 	// Version is The full version string
-	Version = "0.5.10"
+	Version = "0.5.11"
 
 	// GitCommit is set with --ldflags "-X main.gitCommit=$(git rev-parse HEAD)"
 	GitCommit string

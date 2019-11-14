@@ -1,15 +1,11 @@
 # Change Log
 
-## Unreleased
-
-SECURITY:
+## v0.5.11 (November 14, 2019)
 
 FEATURES:
 
 - node: Automatically suspend a node when the number of undetermined events 
         exceeds the limit specified by the suspend-limit flag 300 by default).
-
-IMPROVEMENTS:
 
 BUG FIXES:
 
