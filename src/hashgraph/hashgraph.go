@@ -1466,7 +1466,8 @@ them to the Hashgraph consensus methods in topological order. It is assumed that
 no events are skipped/lost when loading from the database - WE CAN ONLY
 BOOTSTRAP FROM 0. As Events are inserted and processed, Blocks will be created
 and committed to the App layer (via the commit callback), so it is also assumed
-that the application state was reset.
+that the application state was reset. During the bootstrap process, the badger
+store is put in maintenance-mode to avoid reinserting items in the database.
 */
 func (h *Hashgraph) Bootstrap() error {
 	if badgerStore, ok := h.Store.(*BadgerStore); ok {
@@ -1476,7 +1477,8 @@ func (h *Hashgraph) Bootstrap() error {
 		}
 
 		badgerStore.SetMaintenanceMode(true)
-		//Load Genesis PeerSet
+
+		// Load Genesis PeerSet
 		peerSet, err := badgerStore.dbGetPeerSet(0)
 		if err != nil {
 			return fmt.Errorf("No Genesis PeerSet: %v", err)

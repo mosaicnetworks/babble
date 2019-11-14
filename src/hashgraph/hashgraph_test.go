@@ -115,7 +115,7 @@ func createHashgraph(db bool, orderedEvents *[]*Event, peerSet *peers.PeerSet, t
 	var store Store
 	if db {
 		var err error
-		store, err = NewBadgerStore(cacheSize, badgerDir, nil, false)
+		store, err = NewBadgerStore(cacheSize, badgerDir, false, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1922,7 +1922,7 @@ func TestBootstrap(t *testing.T) {
 
 	//Now we want to create a new Hashgraph based on the database of the previous
 	//Hashgraph and see if we can boostrap it to the same state.
-	recycledStore, _ := NewBadgerStore(cacheSize, badgerDir, nil, false)
+	recycledStore, _ := NewBadgerStore(cacheSize, badgerDir, false, nil)
 
 	nh := NewHashgraph(recycledStore, DummyInternalCommitCallback, logrus.New().WithField("id", "bootstrapped"))
 
