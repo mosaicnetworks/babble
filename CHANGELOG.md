@@ -6,12 +6,15 @@ SECURITY:
 
 FEATURES:
 
-- node: automatically suspend a node when the number of undetermined events 
+- node: Automatically suspend a node when the number of undetermined events 
         exceeds the limit specified by the suspend-limit flag 300 by default).
 
 IMPROVEMENTS:
 
 BUG FIXES:
+
+- store: Disable database writes during bootstrap process. This bug was causing
+         the Badger DB to double in size each time the node was boostrapped.
 
 ## v0.5.10 (November 7, 2019)
 
