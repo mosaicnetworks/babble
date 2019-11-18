@@ -28,6 +28,7 @@ type Node struct {
 func New(privKey string,
 	nodeAddr string,
 	jsonPeers string,
+	jsonGenesisPeers string,
 	commitHandler CommitHandler,
 	exceptionHandler ExceptionHandler,
 	config *MobileConfig) *Node {
@@ -67,6 +68,16 @@ func New(privKey string,
 
 	peerSet := peers.NewPeerSet(ps)
 
+	// Decode the genesis peers
+	var gps []*peers.Peer
+	decoder := json.NewDecoder(strings.NewReader(jsonGenesisPeers))
+	if err := decoder.Decode(&gps); err != nil {
+		exceptionHandler.OnException(fmt.Sprintf("Failed to parse PeerSet: %s", err))
+		return nil
+	}
+
+	genesisPeerSet := peers.NewPeerSet(gps)
+
 	babbleConfig.LoadPeers = false
 
 	//mobileApp implements the ProxyHandler interface, and we use it to
@@ -77,7 +88,7 @@ func New(privKey string,
 	engine := babble.NewBabble(babbleConfig)
 
 	engine.Peers = peerSet
-	engine.GenesisPeers = peerSet
+	engine.GenesisPeers = genesisPeerSet
 
 	if err := engine.Init(); err != nil {
 		exceptionHandler.OnException(fmt.Sprintf("Cannot initialize engine: %s", err))
@@ -123,6 +134,23 @@ func (n *Node) SubmitTx(tx []byte) {
 // GetPeers ...
 func (n *Node) GetPeers() string {
 	peers := n.node.GetPeers()
+
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	if err := enc.Encode(peers); err != nil {
+		return ""
+	}
+
+	return buf.String()
+}
+
+// GetGenesisPeers ...
+func (n *Node) GetGenesisPeers() string {
+	peers, err := n.node.GetValidatorSet(0)
+
+	if err != nil {
+        return ""
+    }
 
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
