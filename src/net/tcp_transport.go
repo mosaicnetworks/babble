@@ -15,7 +15,7 @@ var (
 
 // TCPStreamLayer implements StreamLayer interface for plain TCP.
 type TCPStreamLayer struct {
-	advertise net.Addr
+	advertise string
 	listener  *net.TCPListener
 }
 
@@ -48,11 +48,16 @@ func (t *TCPStreamLayer) Close() (err error) {
 
 // Addr implements the net.Listener interface.
 func (t *TCPStreamLayer) Addr() net.Addr {
+	return t.listener.Addr()
+}
+
+// AdvertiseAddr implements the SteamLayer interface.
+func (t *TCPStreamLayer) AdvertiseAddr() string {
 	// Use an advertise addr if provided
-	if t.advertise != nil {
+	if t.advertise != "" {
 		return t.advertise
 	}
-	return t.listener.Addr()
+	return t.listener.Addr().String()
 }
 
 // NewTCPTransport returns a NetworkTransport that is built on top of
@@ -76,6 +81,7 @@ func newTCPTransport(bindAddr string,
 	timeout time.Duration,
 	joinTimeout time.Duration,
 	transportCreator func(stream StreamLayer) *NetworkTransport) (*NetworkTransport, error) {
+
 	// Try to bind
 	list, err := net.Listen("tcp", bindAddr)
 	if err != nil {
@@ -83,22 +89,20 @@ func newTCPTransport(bindAddr string,
 	}
 
 	// Try to resolve the advertise address
-	var advertise net.Addr
+	var resolvedAdvertise net.Addr
 	if advertiseAddr != "" {
-		advertise, err = net.ResolveTCPAddr("tcp", advertiseAddr)
+		resolvedAdvertise, err = net.ResolveTCPAddr("tcp", advertiseAddr)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// Create stream
-	stream := &TCPStreamLayer{
-		advertise: advertise,
-		listener:  list.(*net.TCPListener),
+	if resolvedAdvertise == nil {
+		resolvedAdvertise = list.Addr()
 	}
 
 	// Verify that we have a usable advertise address
-	addr, ok := stream.Addr().(*net.TCPAddr)
+	addr, ok := resolvedAdvertise.(*net.TCPAddr)
 	if !ok {
 		list.Close()
 		return nil, errNotTCP
@@ -106,6 +110,12 @@ func newTCPTransport(bindAddr string,
 	if addr.IP.IsUnspecified() {
 		list.Close()
 		return nil, errNotAdvertisable
+	}
+
+	// Create stream
+	stream := &TCPStreamLayer{
+		advertise: advertiseAddr,
+		listener:  list.(*net.TCPListener),
 	}
 
 	// Create the network transport

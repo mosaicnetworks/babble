@@ -58,7 +58,7 @@ func (n *Node) requestJoin(target string) (net.JoinResponse, error) {
 
 	joinTx := hashgraph.NewInternalTransactionJoin(*peers.NewPeer(
 		n.core.validator.PublicKeyHex(),
-		n.trans.LocalAddr(),
+		n.trans.AdvertiseAddr(),
 		n.core.validator.Moniker))
 
 	joinTx.Sign(n.core.validator.Key)

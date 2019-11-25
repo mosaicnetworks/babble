@@ -31,8 +31,12 @@ type Transport interface {
 	// consume and respond to RPC requests.
 	Consumer() <-chan RPC
 
-	// LocalAddr is used to return our local address to distinguish from our peers.
+	// LocalAddr is used to return our local address
 	LocalAddr() string
+
+	// AdvertiseAddr is used to return our advertise address where other peers
+	// can reach us
+	AdvertiseAddr() string
 
 	// Sync, EagerSync, FastForward, and Join send the appropriate RPC to the
 	//target node.

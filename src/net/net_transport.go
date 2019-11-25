@@ -69,6 +69,9 @@ type StreamLayer interface {
 
 	// Dial is used to create a new outgoing connection
 	Dial(address string, timeout time.Duration) (net.Conn, error)
+
+	// AdvertiseAddr returns the publicly-reachable address of the stream
+	AdvertiseAddr() string
 }
 
 type netConn struct {
@@ -137,6 +140,11 @@ func (n *NetworkTransport) Consumer() <-chan RPC {
 // LocalAddr implements the Transport interface.
 func (n *NetworkTransport) LocalAddr() string {
 	return n.stream.Addr().String()
+}
+
+// AdvertiseAddr implements the Transport interface.
+func (n *NetworkTransport) AdvertiseAddr() string {
+	return n.stream.AdvertiseAddr()
 }
 
 // IsShutdown is used to check if the transport is shutdown.
