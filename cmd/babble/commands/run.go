@@ -4,7 +4,6 @@ import (
 	"path/filepath"
 
 	"github.com/mosaicnetworks/babble/src/babble"
-	"github.com/mosaicnetworks/babble/src/proxy/dummy"
 	aproxy "github.com/mosaicnetworks/babble/src/proxy/socket/app"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -16,7 +15,7 @@ func NewRunCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "run",
 		Short:   "Run node",
-		PreRunE: loadConfig,
+		PreRunE: bindFlagsLoadViper,
 		RunE:    runBabble,
 	}
 	AddRunFlags(cmd)
@@ -28,25 +27,25 @@ func NewRunCmd() *cobra.Command {
 *******************************************************************************/
 
 func runBabble(cmd *cobra.Command, args []string) error {
-	if !_config.Standalone {
-		p, err := aproxy.NewSocketAppProxy(
-			_config.ClientAddr,
-			_config.ProxyAddr,
-			_config.Babble.HeartbeatTimeout,
-			_config.Babble.Logger(),
-		)
 
-		if err != nil {
-			_config.Babble.Logger().Error("Cannot initialize socket AppProxy:", err)
-			return err
-		}
+	_config.Babble.Logger().WithFields(logrus.Fields{
+		"ProxyAddr":  _config.ProxyAddr,
+		"ClientAddr": _config.ClientAddr,
+	}).Debug("Config Proxy")
 
-		_config.Babble.Proxy = p
-	} else {
-		p := dummy.NewInmemDummyClient(_config.Babble.Logger())
+	p, err := aproxy.NewSocketAppProxy(
+		_config.ClientAddr,
+		_config.ProxyAddr,
+		_config.Babble.HeartbeatTimeout,
+		_config.Babble.Logger(),
+	)
 
-		_config.Babble.Proxy = p
+	if err != nil {
+		_config.Babble.Logger().Error("Cannot initialize socket AppProxy:", err)
+		return err
 	}
+
+	_config.Babble.Proxy = p
 
 	engine := babble.NewBabble(&_config.Babble)
 
@@ -80,7 +79,6 @@ func AddRunFlags(cmd *cobra.Command) {
 	cmd.Flags().Int("max-pool", _config.Babble.MaxPool, "Connection pool size max")
 
 	// Proxy
-	cmd.Flags().Bool("standalone", _config.Standalone, "Do not create a proxy")
 	cmd.Flags().StringP("proxy-listen", "p", _config.ProxyAddr, "Listen IP:Port for babble proxy")
 	cmd.Flags().StringP("client-connect", "c", _config.ClientAddr, "IP:Port to connect to client")
 
@@ -100,27 +98,8 @@ func AddRunFlags(cmd *cobra.Command) {
 	cmd.Flags().Int("suspend-limit", _config.Babble.SuspendLimit, "Limit of undetermined events before entering suspended state")
 }
 
-// XXX
-func loadConfig(cmd *cobra.Command, args []string) error {
-
-	err := bindFlagsLoadViper(cmd)
-	if err != nil {
-		return err
-	}
-
-	logFields := logrus.Fields{
-		"ProxyAddr":  _config.ProxyAddr,
-		"ClientAddr": _config.ClientAddr,
-		"Standalone": _config.Standalone,
-	}
-
-	_config.Babble.Logger().WithFields(logFields).Debug("Config")
-
-	return nil
-}
-
 // Bind all flags and read the config into viper
-func bindFlagsLoadViper(cmd *cobra.Command) error {
+func bindFlagsLoadViper(cmd *cobra.Command, args []string) error {
 	// Register flags with viper. Include flags from this command and all other
 	// persistent flags from the parent
 	if err := viper.BindPFlags(cmd.Flags()); err != nil {
