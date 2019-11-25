@@ -3,8 +3,14 @@
 ## Unreleased
 
 SECURITY:
+
 FEATURES:
+
 IMPROVEMENTS:
+
+- net: Enable joining with hostname, not just numeric IP. 
+- cmd: Remove Standalone mode.
+
 BUG FIXES:
 
 ## v0.5.11 (November 14, 2019)
