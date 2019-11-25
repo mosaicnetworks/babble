@@ -100,6 +100,7 @@ func AddRunFlags(cmd *cobra.Command) {
 	cmd.Flags().Int("suspend-limit", _config.Babble.SuspendLimit, "Limit of undetermined events before entering suspended state")
 }
 
+// XXX
 func loadConfig(cmd *cobra.Command, args []string) error {
 
 	err := bindFlagsLoadViper(cmd)
@@ -107,41 +108,13 @@ func loadConfig(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// If --datadir was explicitely set, but not --db, this will update the
-	// default database dir to be inside the new datadir
-	_config.Babble.SetDataDir(_config.Babble.DataDir)
-
 	logFields := logrus.Fields{
-		"babble.DataDir":          _config.Babble.DataDir,
-		"babble.BindAddr":         _config.Babble.BindAddr,
-		"babble.AdvertiseAddr":    _config.Babble.AdvertiseAddr,
-		"babble.ServiceAddr":      _config.Babble.ServiceAddr,
-		"babble.MaxPool":          _config.Babble.MaxPool,
-		"babble.Store":            _config.Babble.Store,
-		"babble.LoadPeers":        _config.Babble.LoadPeers,
-		"babble.LogLevel":         _config.Babble.LogLevel,
-		"babble.Moniker":          _config.Babble.Moniker,
-		"babble.HeartbeatTimeout": _config.Babble.HeartbeatTimeout,
-		"babble.TCPTimeout":       _config.Babble.TCPTimeout,
-		"babble.JoinTimeout":      _config.Babble.JoinTimeout,
-		"babble.CacheSize":        _config.Babble.CacheSize,
-		"babble.SyncLimit":        _config.Babble.SyncLimit,
-		"babble.EnableFastSync":   _config.Babble.EnableFastSync,
-		"babble.MaintenanceMode":  _config.Babble.MaintenanceMode,
-		"babble.SuspendLimit":     _config.Babble.SuspendLimit,
-		"ProxyAddr":               _config.ProxyAddr,
-		"ClientAddr":              _config.ClientAddr,
-		"Standalone":              _config.Standalone,
+		"ProxyAddr":  _config.ProxyAddr,
+		"ClientAddr": _config.ClientAddr,
+		"Standalone": _config.Standalone,
 	}
 
-	if _config.Babble.Store {
-		logFields["babble.DatabaseDir"] = _config.Babble.DatabaseDir
-		logFields["babble.Bootstrap"] = _config.Babble.Bootstrap
-	}
-
-	_config.Babble.Logger().WithFields(logFields).Debug("RUN")
-
-	_config.Babble.Logger().WithField("MaintenanceMode", _config.Babble.MaintenanceMode).Info("RUN")
+	_config.Babble.Logger().WithFields(logFields).Debug("Config")
 
 	return nil
 }

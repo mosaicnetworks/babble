@@ -80,11 +80,14 @@ type Config struct {
 	CacheSize int `mapstructure:"cache-size"`
 
 	// Bootstrap determines whether or not to load Babble from an existing
-	// database file.
+	// database file. Forces Store, ie. bootstrap only works with a persistant
+	// database store.
 	Bootstrap bool `mapstructure:"bootstrap"`
 
 	// MaintenanceMode when set to true causes Babble to initialise in a
-	// suspended state. I.e. it does not start gossipping
+	// suspended state. I.e. it does not start gossipping. Forces Bootstrap,
+	// which itself forces Store. I.e. MaintenanceMode only works if the node is
+	// bootstrapped from an existing database.
 	MaintenanceMode bool `mapstructure:"maintenance-mode"`
 
 	// SuspendLimit is the number of Undetermined Events (Events which haven't
