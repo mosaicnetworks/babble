@@ -433,14 +433,13 @@ func (c *Core) Leave(leaveTimeout time.Duration) error {
 			"leaving_round": resp.AcceptedRound,
 			"peers":         len(resp.Peers),
 		}).Debug("leave request processed")
-		c.RemovedRound = resp.AcceptedRound
 	case <-timeout:
 		err := fmt.Errorf("Timeout waiting for leave request to go through consensus")
 		c.logger.WithError(err).Error()
 		return err
 	}
 
-	// Wait for node to reach accepted round
+	// Wait for node to reach RemovedRound
 	if c.peers.Len() >= 1 {
 		timeout = time.After(leaveTimeout)
 		for {
@@ -450,8 +449,8 @@ func (c *Core) Leave(leaveTimeout time.Duration) error {
 				c.logger.WithError(err).Error()
 				return err
 			default:
-				if c.hg.LastConsensusRound != nil && *c.hg.LastConsensusRound < c.TargetRound {
-					c.logger.Debugf("Waiting to reach TargetRound: %d/%d", *c.hg.LastConsensusRound, c.RemovedRound)
+				if c.hg.LastConsensusRound != nil && *c.hg.LastConsensusRound < c.RemovedRound {
+					c.logger.Debugf("Waiting to reach RemovedRound: %d/%d", *c.hg.LastConsensusRound, c.RemovedRound)
 					time.Sleep(100 * time.Millisecond)
 				} else {
 					return nil
@@ -541,7 +540,9 @@ func (c *Core) SignBlock(block *hg.Block) (hg.BlockSignature, error) {
 	return sig, nil
 }
 
-// ProcessAcceptedInternalTransactions processes the accepted internal transactions
+// ProcessAcceptedInternalTransactions processes a list of
+// InternalTransactionReceipts from a block, updates the PeerSet for the
+// corresponding round (round-received + 6), and responds to eventual promises.
 func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, receipts []hg.InternalTransactionReceipt) error {
 	currentPeers := c.peers
 	validators := c.validators
@@ -569,7 +570,15 @@ func (c *Core) ProcessAcceptedInternalTransactions(roundReceived int, receipts [
 			case hg.PEER_REMOVE:
 				validators = validators.WithRemovedPeer(&txBody.Peer)
 				currentPeers = currentPeers.WithRemovedPeer(&txBody.Peer)
+
+				// Update RemovedRound if removing self
+				if txBody.Peer.ID() == c.validator.ID() {
+					c.logger.Debugf("Update RemovedRound from %d to %d", c.RemovedRound, effectiveRound)
+					c.RemovedRound = effectiveRound
+				}
 			default:
+				c.logger.Errorf("Unknown InternalTransactionType %s", txBody.Type)
+				continue
 			}
 
 			changed = true

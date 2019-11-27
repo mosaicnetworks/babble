@@ -8,10 +8,14 @@ FEATURES:
 
 IMPROVEMENTS:
 
+- node: Suspend node when the validator is evicted.
 - net: Enable joining with hostname, not just numeric IP. 
 - cmd: Remove Standalone mode.
 
 BUG FIXES:
+
+- keys: Remove 600 permissions check on priv_key, which makes Babble work in
+        Windows.
 
 ## v0.5.11 (November 14, 2019)
 

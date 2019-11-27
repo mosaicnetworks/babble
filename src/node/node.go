@@ -87,10 +87,17 @@ func NewNode(conf *config.Config,
 	sigCh := make(chan os.Signal)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
+	core := NewCore(validator,
+		peers,
+		genesisPeers,
+		store,
+		proxy.CommitBlock,
+		conf.Logger())
+
 	node := Node{
 		conf:         conf,
 		logger:       conf.Logger(),
-		core:         NewCore(validator, peers, genesisPeers, store, proxy.CommitBlock, conf.Logger()),
+		core:         core,
 		trans:        trans,
 		netCh:        trans.Consumer(),
 		proxy:        proxy,
@@ -373,15 +380,21 @@ func (n *Node) resetTimer() {
 }
 
 // checkSuspend suspends the node if the number of undetermined events in the
-// hashgraph exceeds initialUndeterminedEvents by SuspendLimit.
+// hashgraph exceeds initialUndeterminedEvents by SuspendLimit, or the validator
+// has been evicted.
 func (n *Node) checkSuspend() {
 
-	undeterminedEvents := n.core.GetUndeterminedEvents()
+	// check too many undetermined events
+	newUndeterminedEvents := len(n.core.GetUndeterminedEvents()) - n.initialUndeterminedEvents
+	tooManyUndeterminedEvents := newUndeterminedEvents > n.conf.SuspendLimit
 
-	// suspend if too many undetermined events
-	if len(undeterminedEvents)-n.initialUndeterminedEvents >
-		n.conf.SuspendLimit {
+	// check evicted
+	evicted := n.core.hg.LastConsensusRound != nil &&
+		n.core.RemovedRound > 0 &&
+		*n.core.hg.LastConsensusRound >= n.core.RemovedRound
 
+	// suspend if too many undetermined events or evicted
+	if tooManyUndeterminedEvents || evicted {
 		n.Suspend()
 	}
 }
@@ -708,7 +721,12 @@ func (n *Node) join() error {
 	}).Debug("JoinResponse")
 
 	if resp.Accepted {
+		// Set AcceptedRound, which is the next round at which the node is
+		// allowed to create SelfEventss, and reset RemovedRound to
+		// "unsuspend" a node if had been evicted prior to rejoining.
 		n.core.AcceptedRound = resp.AcceptedRound
+		n.core.RemovedRound = -1
+
 		n.setBabblingOrCatchingUpState()
 	} else {
 		// Then JoinRequest was explicitly refused by the curren peer-set. This
