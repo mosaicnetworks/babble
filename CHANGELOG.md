@@ -1,5 +1,12 @@
 # Change Log
 
+## Unreleased
+
+SECURITY:
+FEATURES:
+IMPROVEMENTS:
+BUG FIXES:
+
 ## v0.5.12 (November 27, 2019)
 
 IMPROVEMENTS:
