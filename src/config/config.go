@@ -50,8 +50,13 @@ type Config struct {
 	// ServiceAddr is the address:port that serves the user-facing API.
 	ServiceAddr string `mapstructure:"service-listen"`
 
-	// HeartbeatTimeout is the frequency of the gossip timer.
+	// HeartbeatTimeout is the frequency of the gossip timer when the node has
+	// something to gossip about.
 	HeartbeatTimeout time.Duration `mapstructure:"heartbeat"`
+
+	// SlowHeartbeatTimeout is the frequency of the gossip timer when the node
+	// has nothing to gossip about.
+	SlowHeartbeatTimeout time.Duration `mapstructure:"slow-heartbeat"`
 
 	// MaxPool controls how many connections are pooled per target in the gossip
 	// routines.
@@ -115,21 +120,22 @@ type Config struct {
 func NewDefaultConfig() *Config {
 
 	config := &Config{
-		DataDir:          DefaultDataDir(),
-		LogLevel:         "debug",
-		BindAddr:         "127.0.0.1:1337",
-		ServiceAddr:      "127.0.0.1:8000",
-		HeartbeatTimeout: 10 * time.Millisecond,
-		TCPTimeout:       1000 * time.Millisecond,
-		JoinTimeout:      10000 * time.Millisecond,
-		CacheSize:        5000,
-		SyncLimit:        1000,
-		MaxPool:          2,
-		Store:            false,
-		MaintenanceMode:  false,
-		DatabaseDir:      DefaultDatabaseDir(),
-		LoadPeers:        true,
-		SuspendLimit:     300,
+		DataDir:              DefaultDataDir(),
+		LogLevel:             "debug",
+		BindAddr:             "127.0.0.1:1337",
+		ServiceAddr:          "127.0.0.1:8000",
+		HeartbeatTimeout:     10 * time.Millisecond,
+		SlowHeartbeatTimeout: 1000 * time.Millisecond,
+		TCPTimeout:           1000 * time.Millisecond,
+		JoinTimeout:          10000 * time.Millisecond,
+		CacheSize:            5000,
+		SyncLimit:            1000,
+		MaxPool:              2,
+		Store:                false,
+		MaintenanceMode:      false,
+		DatabaseDir:          DefaultDatabaseDir(),
+		LoadPeers:            true,
+		SuspendLimit:         300,
 	}
 
 	return config

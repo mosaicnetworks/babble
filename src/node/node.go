@@ -372,7 +372,7 @@ func (n *Node) resetTimer() {
 
 		//Slow gossip if nothing interesting to say
 		if !n.core.Busy() {
-			ts = time.Duration(time.Second)
+			ts = time.Duration(n.conf.SlowHeartbeatTimeout)
 		}
 
 		n.controlTimer.resetCh <- ts

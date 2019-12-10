@@ -92,7 +92,8 @@ func AddRunFlags(cmd *cobra.Command) {
 	cmd.Flags().Int("cache-size", _config.Babble.CacheSize, "Number of items in LRU caches")
 
 	// Node configuration
-	cmd.Flags().Duration("heartbeat", _config.Babble.HeartbeatTimeout, "Time between gossips")
+	cmd.Flags().Duration("heartbeat", _config.Babble.HeartbeatTimeout, "Timer frequency when there is something to gossip about")
+	cmd.Flags().Duration("slow-heartbeat", _config.Babble.SlowHeartbeatTimeout, "Timer frequency when there is nothing to gossip about")
 	cmd.Flags().Int("sync-limit", _config.Babble.SyncLimit, "Max number of events for sync")
 	cmd.Flags().Bool("fast-sync", _config.Babble.EnableFastSync, "Enable FastSync")
 	cmd.Flags().Int("suspend-limit", _config.Babble.SuspendLimit, "Limit of undetermined events before entering suspended state")
