@@ -80,8 +80,8 @@ func New(privKey string,
 
 	babbleConfig.LoadPeers = false
 
-	//mobileApp implements the ProxyHandler interface, and we use it to
-	//instantiate an InmemProxy
+	// mobileApp implements the ProxyHandler interface, and we use it to
+	// instantiate an InmemProxy
 	mobileApp := newMobileApp(commitHandler, exceptionHandler, babbleConfig.Logger())
 	babbleConfig.Proxy = inmem.NewInmemProxy(mobileApp, babbleConfig.Logger())
 
@@ -149,8 +149,8 @@ func (n *Node) GetGenesisPeers() string {
 	peers, err := n.node.GetValidatorSet(0)
 
 	if err != nil {
-        return ""
-    }
+		return ""
+	}
 
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)

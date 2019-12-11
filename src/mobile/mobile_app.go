@@ -10,7 +10,7 @@ import (
 This type is not exported
 */
 
-//mobileApp implements the ProxyHandler interface
+// mobileApp implements the AppProxy interface.
 type mobileApp struct {
 	commitHandler    CommitHandler
 	exceptionHandler ExceptionHandler
@@ -28,7 +28,8 @@ func newMobileApp(commitHandler CommitHandler,
 	return mobileApp
 }
 
-// CommitHandler ...
+// CommitHandler implements the AppProxy interface. It uses the JSON encoding
+// of Blocks to pass them to and from the mobile application.
 func (m *mobileApp) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, error) {
 	blockBytes, err := block.Marshal()
 	if err != nil {
@@ -36,28 +37,29 @@ func (m *mobileApp) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, 
 		return proxy.CommitResponse{}, err
 	}
 
-	stateHash := m.commitHandler.OnCommit(blockBytes)
+	processedBlockBytes := m.commitHandler.OnCommit(blockBytes)
 
-	receipts := []hashgraph.InternalTransactionReceipt{}
-	for _, it := range block.InternalTransactions() {
-		r := it.AsAccepted()
-		receipts = append(receipts, r)
+	processedBlock := new(hashgraph.Block)
+	err = processedBlock.Unmarshal(processedBlockBytes)
+	if err != nil {
+		m.logger.Debug("mobileAppProxy error unmarshalling processed Block")
+		return proxy.CommitResponse{}, err
 	}
 
 	response := proxy.CommitResponse{
-		StateHash:                   stateHash,
-		InternalTransactionReceipts: receipts,
+		StateHash:                   processedBlock.StateHash(),
+		InternalTransactionReceipts: processedBlock.InternalTransactionReceipts(),
 	}
 
 	return response, nil
 }
 
-// SnapshotHandler ...
+// SnapshotHandler implements the AppProxy interface.
 func (m *mobileApp) SnapshotHandler(blockIndex int) ([]byte, error) {
 	return []byte{}, nil
 }
 
-// RestoreHandler ...
+// RestoreHandler implements the AppProxy interface.
 func (m *mobileApp) RestoreHandler(snapshot []byte) ([]byte, error) {
 	return []byte{}, nil
 }

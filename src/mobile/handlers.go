@@ -9,7 +9,7 @@ application.
 
 // CommitHandler ...
 type CommitHandler interface {
-	OnCommit([]byte) (stateHash []byte)
+	OnCommit(block []byte) (processedBlock []byte)
 }
 
 // ExceptionHandler ...
