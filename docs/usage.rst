@@ -123,7 +123,7 @@ that are allowed to record new Events in the hashgraph, and who will gossip
 among each other.
 
 ``peers.json`` and ``gensesis.peers.json`` are not necessarily equal because
-the :ref:`dynamic membership protcol <dynamic_membership>` enables new nodes to
+the :ref:`dynamic membership protocol <dynamic_membership>` enables new nodes to
 join or leave a live Babble network dynamically. It is important for a joining
 node to know the initial validator-set in order to replay and verify the
 hashgraph up to the point where it joins.
@@ -133,8 +133,8 @@ predefined validator-set composed of multiple nodes.
 
 In the latter case, someone, or some process, needs to aggregate the public
 keys and network addresses of all participants into a single file
-(``peers.json``), and ensure that everyone has a copy of this file. It is left
-to the user to derive a scheme to produce the configuration files but the
+(``peers.genesisjson``), and ensure that everyone has a copy of this file. It is
+left to the user to derive a scheme to produce the configuration files but the
 docker demo scripts are a good place to start.
 
 Example
@@ -151,8 +151,8 @@ running ``babble keygen`` to create a key-pair:
 
 Next, I am going to copy the public key (key.pub) and communicate it to whoever
 is responsible for producing the peers.json file. At the same time, I will tell
-them that I am going to be listening on 172.77.5.2:1337. You may also
-optionally supply a moniker for each node, which is far more readable than a
+them that I am going to be listening on 172.77.5.2:1337. You may also optionally
+supply a moniker for each node, which is far more readable than a
 public key address.
 
 Suppose three other people do the same thing. The resulting peers.json file
@@ -195,39 +195,40 @@ Let us take a look at the help provided by the Babble CLI:
 
 .. code:: bash
 
-    $ babble run --help
-
-    Run node
-
-    Usage:
-        babble run [flags]
-
-    Flags:
-        -a, --advertise string        Advertise IP:Port for babble node
-            --bootstrap               Load from database
-            --cache-size int          Number of items in LRU caches (default 5000)
-        -c, --client-connect string   IP:Port to connect to client (default "127.0.0.1:1339")
-            --datadir string          Top-level directory for configuration and data (default "/home/[user]/.babble")
-            --fast-sync               Enable FastSync
-            --heartbeat duration      Time between gossips (default 10ms)
-        -h, --help                    Help for run
-        -j, --join-timeout duration   Join Timeout (default 10s)
-        -l, --listen string           Listen IP:Port for babble node (default "127.0.0.1:1337")
-            --log string              debug, info, warn, error, fatal, panic
-            --max-pool int            Connection pool size max (default 2)
-            --moniker string          Optional name
-        -p, --proxy-listen string     Listen IP:Port for babble proxy (default "127.0.0.1:1338")
-        -s, --service-listen string   Listen IP:Port for HTTP service
-            --standalone              Do not create a proxy
-            --store                   Use badgerDB instead of in-mem DB
-            --sync-limit int          Max number of events for sync (default 1000)
-        -t, --timeout duration        TCP Timeout (default 1s)
+  Run node
+  
+  Usage:
+    babble run [flags]
+  
+  Flags:
+    -a, --advertise string        Advertise IP:Port for babble node
+        --bootstrap               Load from database
+        --cache-size int          Number of items in LRU caches (default 5000)
+    -c, --client-connect string   IP:Port to connect to client (default "127.0.0.1:1339")
+        --datadir string          Top-level directory for configuration and data (default "/home/martin/.babble")
+        --db string               Dabatabase directory (default "/home/martin/.babble/badger_db")
+        --fast-sync               Enable FastSync
+        --heartbeat duration      Time between gossips (default 10ms)
+    -h, --help                    help for run
+    -j, --join-timeout duration   Join Timeout (default 10s)
+    -l, --listen string           Listen IP:Port for babble node (default "127.0.0.1:1337")
+        --log string              debug, info, warn, error, fatal, panic (default "debug")
+    -R, --maintenance-mode        Start Babble in a suspended (non-gossipping) state
+        --max-pool int            Connection pool size max (default 2)
+        --moniker string          Optional name
+    -p, --proxy-listen string     Listen IP:Port for babble proxy (default "127.0.0.1:1338")
+    -s, --service-listen string   Listen IP:Port for HTTP service (default "127.0.0.1:8000")
+        --standalone              Do not create a proxy
+        --store                   Use badgerDB instead of in-mem DB
+        --suspend-limit int       Limit of undetermined events before entering suspended state (default 300)
+        --sync-limit int          Max number of events for sync (default 1000)
+    -t, --timeout duration        TCP Timeout (default 1s)
+    
 
 The ``listen`` flag controls the local address:port where this node gossips with
-other nodes. This is an IP address that should be reachable by all other nodes,
-but if the node is running behind some kind of NAT, it is possilbe to advertise
-a different address with the ``advertise`` flag. If ``advertise`` is not 
-specified, the node defaults to using the ``listen`` address. By default 
+other nodes. If the node is running behind some kind of NAT, it is possilbe to
+advertise a different address with the ``advertise`` flag. If ``advertise`` is 
+not  specified, the node defaults to using the ``listen`` address. By default 
 ``listen`` is ``127.0.0.1:1337``, meaning that Babble will bind to the loopback
 addresse on the local machine.
 
@@ -247,14 +248,23 @@ The ``fast-sync`` parameter determines whether or not the node will attempt to
 fast-forward to the tip of the hashgraph, or download and replay the entire
 hashgraph from start. More on this in :ref:`fast-sync <fastsync>`
 
-Finally, we can choose to run Babble with a database backend or only with an
-in-memory cache. With the ``store`` flag set, Babble will look for a database
-file in ``datadir``/babdger_db. If the file exists, and the ``--boostrap`` flag
-is set, the node will load the database and bootstrap itself to a state
-consistent with the database and it will be able to proceed with the consensus
-algorithm from there. If the file does not exist yet, or the ``--bootstrap``
-flag is not set, a new one will be created and the node will start from a clean
-state.
+We can choose to run Babble with a database backend or only with an in-memory 
+cache. With the ``store`` flag set, Babble will look for a database file in
+``datadir``/babdger_db or in the path specified by ``db``. If the database 
+already exists, and the ``--boostrap`` flag is set, the node will load the 
+database and bootstrap itself to a state consistent with the database and it
+will be able to proceed with the consensus algorithm from there. If the database
+does not exist yet, or the ``--bootstrap`` flag is not set, a new one will be
+created and the node will start from a clean state.
+
+The node can also be started in ``maintenance-mode`` with the homonymous flag. 
+The node is started normally but goes straight into the ``Suspended`` state,
+where it still  responds to sync-requests, and service API requests, but does
+not produce or insert new Events in the underlying hashgraph. The ``Suspended``
+state is also triggered automatically when more than ``suspend-limit`` 
+undetermined-events were created since last starting the node. This is a 
+safeguard against runaway conditions when a network does not have a strong 
+majority and produces undetermined-events ad infinitum.   
 
 Here is how the Docker demo starts Babble nodes together wth the Dummy
 application:

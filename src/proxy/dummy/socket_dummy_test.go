@@ -17,7 +17,7 @@ func TestSocketProxyServer(t *testing.T) {
 	clientAddr := "127.0.0.1:5990"
 	proxyAddr := "127.0.0.1:5991"
 
-	proxy, err := aproxy.NewSocketAppProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestEntry(t))
+	proxy, err := aproxy.NewSocketAppProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestEntry(t, common.TestLogLevel))
 
 	if err != nil {
 		t.Fatalf("Cannot create SocketAppProxy: %s", err)
@@ -42,7 +42,7 @@ func TestSocketProxyServer(t *testing.T) {
 
 	// now client part connecting to RPC service
 	// and calling methods
-	dummyClient, err := NewDummySocketClient(clientAddr, proxyAddr, common.NewTestEntry(t))
+	dummyClient, err := NewDummySocketClient(clientAddr, proxyAddr, common.NewTestEntry(t, common.TestLogLevel))
 
 	if err != nil {
 		t.Fatal(err)
@@ -60,7 +60,7 @@ func TestSocketProxyClient(t *testing.T) {
 	proxyAddr := "127.0.0.1:5993"
 
 	//launch dummy application
-	dummyClient, err := NewDummySocketClient(clientAddr, proxyAddr, common.NewTestEntry(t))
+	dummyClient, err := NewDummySocketClient(clientAddr, proxyAddr, common.NewTestEntry(t, common.TestLogLevel))
 
 	if err != nil {
 		t.Fatal(err)
@@ -69,7 +69,7 @@ func TestSocketProxyClient(t *testing.T) {
 	initialStateHash := dummyClient.state.stateHash
 
 	//create client proxy
-	proxy, err := aproxy.NewSocketAppProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestEntry(t))
+	proxy, err := aproxy.NewSocketAppProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestEntry(t, common.TestLogLevel))
 
 	if err != nil {
 		t.Fatalf("Cannot create SocketAppProxy: %s", err)

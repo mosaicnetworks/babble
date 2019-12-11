@@ -4,8 +4,10 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
-	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 )
+
+// TestLogLevel is the level used by tests by default.
+var TestLogLevel = logrus.DebugLevel
 
 // This can be used as the destination for a logger and it'll
 // map them into calls to testing.T.Log, so that you only see
@@ -85,20 +87,15 @@ func (a *testLoggerAdapter) Write(d []byte) (int, error) {
 }
 
 // NewTestLogger return a logrus Logger for testing
-func NewTestLogger(t testing.TB) *logrus.Logger {
+func NewTestLogger(t testing.TB, level logrus.Level) *logrus.Logger {
 	logger := logrus.New()
 	logger.Out = &testLoggerAdapter{t: t}
-	logger.Level = logrus.DebugLevel
-	logger.Formatter = &prefixed.TextFormatter{
-		ForceColors:     true,
-		ForceFormatting: true,
-	}
-	logger.SetReportCaller(true)
+	logger.Level = level
 	return logger
 }
 
 // NewTestEntry returns a logrus Entry for testing
-func NewTestEntry(t testing.TB) *logrus.Entry {
-	logger := NewTestLogger(t)
+func NewTestEntry(t testing.TB, level logrus.Level) *logrus.Entry {
+	logger := NewTestLogger(t, level)
 	return logrus.NewEntry(logger)
 }

@@ -40,5 +40,7 @@ alltests:
 	glide novendor | xargs go test -count=1 
 
  
+lint:
+	glide novendor | xargs golint
 
 .PHONY: vendor install build dist test flagtest extratests alltests tests mobile-dist

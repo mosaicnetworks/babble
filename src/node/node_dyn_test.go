@@ -34,6 +34,7 @@ func TestMonologue(t *testing.T) {
 }
 
 func TestJoinRequest(t *testing.T) {
+
 	keys, peerSet := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
@@ -77,6 +78,7 @@ func TestJoinRequest(t *testing.T) {
 }
 
 func TestLeaveRequest(t *testing.T) {
+
 	keys, peerSet := initPeers(t, 4)
 
 	genesisPeerSet := clonePeerSet(t, peerSet.Peers)
@@ -101,7 +103,7 @@ func TestLeaveRequest(t *testing.T) {
 
 	//Gossip some more
 	secondTarget := target + 50
-	err = bombardAndWait(nodes[0:3], secondTarget, 6*time.Second)
+	err = bombardAndWait(nodes[:3], secondTarget, 6*time.Second)
 	if err != nil {
 		t.Fatalf("Fatal Error: %v", err)
 	}
@@ -130,7 +132,7 @@ func TestJoinFull(t *testing.T) {
 		key, _ := bkeys.GenerateECDSAKey()
 		peer := peers.NewPeer(
 			bkeys.PublicKeyHex(&key.PublicKey),
-			fmt.Sprint("127.0.0.1:4242"),
+			fmt.Sprint("127.0.0.1:4243"),
 			"monika",
 		)
 

@@ -58,7 +58,7 @@ func (n *Node) requestJoin(target string) (net.JoinResponse, error) {
 
 	joinTx := hashgraph.NewInternalTransactionJoin(*peers.NewPeer(
 		n.core.validator.PublicKeyHex(),
-		n.trans.LocalAddr(),
+		n.trans.AdvertiseAddr(),
 		n.core.validator.Moniker))
 
 	joinTx.Sign(n.core.validator.Key)
@@ -73,9 +73,15 @@ func (n *Node) requestJoin(target string) (net.JoinResponse, error) {
 }
 
 func (n *Node) processRPC(rpc net.RPC) {
+
 	// Notify others that we are not in Babbling state to prevent
-	// them from hitting timeouts.
-	if n.state.state != Babbling {
+	// them from hitting timeouts. We also allow SyncRequests while Suspended
+	// because it enables the other nodes to be notified of this suspension.
+	_, isSyncRequest := rpc.Command.(*net.SyncRequest)
+
+	if !(n.getState() == Babbling ||
+		(n.getState() == Suspended && isSyncRequest)) {
+
 		n.logger.WithField("state", n.state.state).Debug("Not in Babbling state")
 		rpc.Respond(nil, fmt.Errorf("Not in Babbling state"))
 		return
@@ -252,9 +258,9 @@ func (n *Node) processJoinRequest(rpc net.RPC, cmd *net.JoinRequest) {
 
 	if ok, _ := cmd.InternalTransaction.Verify(); !ok {
 
-		respErr = fmt.Errorf("Unable to verify signature on join request")
-
-		n.logger.Debug("Unable to verify signature on join request")
+		msg := "Unable to verify signature on join request"
+		n.logger.Debug(msg)
+		respErr = fmt.Errorf(msg)
 
 	} else if _, ok := n.core.peers.ByPubKey[cmd.InternalTransaction.Body.Peer.PubKeyString()]; ok {
 
@@ -271,8 +277,7 @@ func (n *Node) processJoinRequest(rpc net.RPC, cmd *net.JoinRequest) {
 		peers = n.core.peers.Peers
 
 	} else {
-		//XXX run this by the App first
-		//Dispatch the InternalTransaction
+		// Dispatch the InternalTransaction
 		n.coreLock.Lock()
 		promise := n.core.AddInternalTransaction(cmd.InternalTransaction)
 		n.coreLock.Unlock()

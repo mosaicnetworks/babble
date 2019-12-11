@@ -54,6 +54,9 @@ type Node struct {
 	// shutdownCh is where the node listens for commands to cleanly shutdown.
 	shutdownCh chan struct{}
 
+	// suspendCh is used to signal the node to enter the Suspended state.
+	suspendCh chan struct{}
+
 	// The node runs the controlTimer in the background to periodically receive
 	// signals to initiate gossip routines. It is paused, reset, etc., based on
 	// the node's current state
@@ -62,6 +65,12 @@ type Node struct {
 	start        time.Time
 	syncRequests int
 	syncErrors   int
+
+	// initialUndeterminedEvents keeps a record of how many undetermined events
+	// there were upon initalizing the node. This value is regularly compared
+	// to a current number of undetermined events and the SuspendLimit to
+	// suspend the node.
+	initialUndeterminedEvents int
 }
 
 // NewNode is a factory method that returns a Node instance
@@ -78,16 +87,24 @@ func NewNode(conf *config.Config,
 	sigCh := make(chan os.Signal)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
+	core := NewCore(validator,
+		peers,
+		genesisPeers,
+		store,
+		proxy.CommitBlock,
+		conf.Logger())
+
 	node := Node{
 		conf:         conf,
 		logger:       conf.Logger(),
-		core:         NewCore(validator, peers, genesisPeers, store, proxy.CommitBlock, conf.Logger()),
+		core:         core,
 		trans:        trans,
 		netCh:        trans.Consumer(),
 		proxy:        proxy,
 		submitCh:     proxy.SubmitCh(),
 		sigCh:        sigCh,
 		shutdownCh:   make(chan struct{}),
+		suspendCh:    make(chan struct{}),
 		controlTimer: NewRandomControlTimer(),
 	}
 
@@ -98,33 +115,42 @@ func NewNode(conf *config.Config,
 Public Methods
 *******************************************************************************/
 
-// Init initialises the node based on its configuration. It controls the
-// boostrap process which loads the hashgraph from an existing database (if
-// bootstrap option is set in config). It also decides what state the node will
-// start in (Babbling, CatchingUp, or Joining) based on the current
-// validator-set and the value of the fast-sync option.
+// Init controls the bootstrap process and sets the node's initial state based
+// on configuration (Babbling, CatchingUp, Joining, or Suspended).
 func (n *Node) Init() error {
+
+	// if the bootstrap option is set, load the hashgraph from an existing
+	// database (if bootstrap option is set in config).
 	if n.conf.Bootstrap {
 		n.logger.Debug("Bootstrap")
-
 		if err := n.core.Bootstrap(); err != nil {
 			return err
 		}
-
 		n.logger.Debug("Bootstrap completed")
 	}
 
-	n.logger.Debug("Start Listening")
-	go n.trans.Listen()
+	// if the maintenance-mode option is not enabled, open the network transport
+	// and decide wether to babble normally, fast-forward, or join. Otherwise
+	// enter the suspended state.
+	if !n.conf.MaintenanceMode {
+		n.logger.Debug("Start Listening")
+		go n.trans.Listen()
 
-	_, ok := n.core.peers.ByID[n.core.validator.ID()]
-	if ok {
-		n.logger.Debug("Node belongs to PeerSet")
-		n.setBabblingOrCatchingUpState()
+		_, ok := n.core.peers.ByID[n.core.validator.ID()]
+		if ok {
+			n.logger.Debug("Node belongs to PeerSet")
+			n.setBabblingOrCatchingUpState()
+		} else {
+			n.logger.Debug("Node does not belong to PeerSet => Joining")
+			n.setState(Joining)
+		}
 	} else {
-		n.logger.Debug("Node does not belong to PeerSet => Joining")
-		n.setState(Joining)
+		n.setState(Suspended)
 	}
+
+	// record the number of initial undetermined events so as to suspend the
+	// node when undetermined events exceed this value by SuspendLimit.
+	n.initialUndeterminedEvents = len(n.core.GetUndeterminedEvents())
 
 	return nil
 }
@@ -140,12 +166,10 @@ func (n *Node) Run(gossip bool) {
 	// Execute some background work regardless of the state of the node.
 	go n.doBackgroundWork()
 
-	//Execute Node State Machine
+	// Execute Node State Machine
 	for {
-		//Run different routines depending on node state
+		// Run different routines depending on node state
 		state := n.getState()
-
-		n.logger.WithField("state", state.String()).Debug("Run loop")
 
 		switch state {
 		case Babbling:
@@ -154,6 +178,8 @@ func (n *Node) Run(gossip bool) {
 			n.fastForward()
 		case Joining:
 			n.join()
+		case Suspended:
+			time.Sleep(2000 * time.Millisecond)
 		case Shutdown:
 			return
 		}
@@ -188,23 +214,33 @@ func (n *Node) Shutdown() {
 	if n.getState() != Shutdown {
 		n.logger.Info("SHUTDOWN")
 
-		//Exit any non-shutdown state immediately
+		// exit any non-shutdown state immediately
 		n.setState(Shutdown)
 
-		//Stop and wait for concurrent operations
+		// stop and wait for concurrent operations
 		close(n.shutdownCh)
-
 		n.waitRoutines()
 
-		//For some reason this needs to be called after closing the shutdownCh
-		//Not entirely sure why...
-		n.controlTimer.Shutdown()
-
-		//transport and store should only be closed once all concurrent operations
-		//are finished otherwise they will panic trying to use close objects
+		// close transport and store
 		n.trans.Close()
 
 		n.core.hg.Store.Close()
+	}
+}
+
+// Suspend puts the node in Suspended mode. It doesn't close the transport
+// because it needs to respond to incoming SyncRequests.
+func (n *Node) Suspend() {
+	if n.getState() != Suspended &&
+		n.getState() != Shutdown {
+
+		n.logger.Info("SUSPEND")
+
+		n.setState(Suspended)
+
+		// Stop and wait for concurrent operations
+		close(n.suspendCh)
+		n.waitRoutines()
 	}
 }
 
@@ -301,14 +337,13 @@ func (n *Node) GetAllValidatorSets() (map[int][]*peers.Peer, error) {
 Background
 *******************************************************************************/
 
-// doBackgroundWork coninuously listens to incoming RPC commands, incoming
-// transactions, and the sigint signal, regardless of the node's state.
+// doBackgroundWork coninuously listens to incoming transactions, and the sigint
+// signal, regardless of the node's state. It also listens to incoming gossip.
 func (n *Node) doBackgroundWork() {
 	for {
 		select {
 		case rpc := <-n.netCh:
 			n.goFunc(func() {
-				n.logger.Debug("Processing RPC")
 				n.processRPC(rpc)
 				n.resetTimer()
 			})
@@ -337,10 +372,30 @@ func (n *Node) resetTimer() {
 
 		//Slow gossip if nothing interesting to say
 		if !n.core.Busy() {
-			ts = time.Duration(time.Second)
+			ts = time.Duration(n.conf.SlowHeartbeatTimeout)
 		}
 
 		n.controlTimer.resetCh <- ts
+	}
+}
+
+// checkSuspend suspends the node if the number of undetermined events in the
+// hashgraph exceeds initialUndeterminedEvents by SuspendLimit, or the validator
+// has been evicted.
+func (n *Node) checkSuspend() {
+
+	// check too many undetermined events
+	newUndeterminedEvents := len(n.core.GetUndeterminedEvents()) - n.initialUndeterminedEvents
+	tooManyUndeterminedEvents := newUndeterminedEvents > n.conf.SuspendLimit
+
+	// check evicted
+	evicted := n.core.hg.LastConsensusRound != nil &&
+		n.core.RemovedRound > 0 &&
+		*n.core.hg.LastConsensusRound >= n.core.RemovedRound
+
+	// suspend if too many undetermined events or evicted
+	if tooManyUndeterminedEvents || evicted {
+		n.Suspend()
 	}
 }
 
@@ -359,12 +414,17 @@ func (n *Node) babble(gossip bool) {
 			if gossip {
 				peer := n.core.peerSelector.Next()
 				if peer != nil {
-					n.goFunc(func() { n.gossip(peer) })
+					n.goFunc(func() {
+						n.gossip(peer)
+					})
 				} else {
 					n.monologue()
 				}
 			}
 			n.resetTimer()
+			n.checkSuspend()
+		case <-n.suspendCh:
+			return
 		case <-n.shutdownCh:
 			return
 		}
@@ -399,7 +459,7 @@ func (n *Node) gossip(peer *peers.Peer) error {
 	var connected bool
 
 	defer func() {
-		//update peer selector
+		// update peer selector
 		n.core.selectorLock.Lock()
 		newConnection := n.core.peerSelector.UpdateLast(peer.ID(), connected)
 		n.core.selectorLock.Unlock()
@@ -411,17 +471,17 @@ func (n *Node) gossip(peer *peers.Peer) error {
 		}
 	}()
 
-	//pull
+	// pull
 	otherKnownEvents, err := n.pull(peer)
 	if err != nil {
-		n.logger.WithError(err).Error("gossip pull")
+		n.logger.WithError(err).Warn("gossip pull")
 		return err
 	}
 
-	//push
+	// push
 	err = n.push(peer, otherKnownEvents)
 	if err != nil {
-		n.logger.WithError(err).Error("gossip push")
+		n.logger.WithError(err).Warn("gossip push")
 		return err
 	}
 
@@ -446,7 +506,7 @@ func (n *Node) pull(peer *peers.Peer) (otherKnownEvents map[uint32]int, err erro
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestSync()")
 
 	if err != nil {
-		n.logger.WithField("error", err).Error("requestSync()")
+		n.logger.WithField("error", err).Warn("requestSync()")
 		return nil, err
 	}
 
@@ -506,7 +566,7 @@ func (n *Node) push(peer *peers.Peer, knownEvents map[uint32]int) error {
 		elapsed = time.Since(start)
 		n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("requestEagerSync()")
 		if err != nil {
-			n.logger.WithField("error", err).Error("requestEagerSync()")
+			n.logger.WithField("error", err).Warn("requestEagerSync()")
 			return err
 		}
 		n.logger.WithFields(logrus.Fields{
@@ -661,7 +721,12 @@ func (n *Node) join() error {
 	}).Debug("JoinResponse")
 
 	if resp.Accepted {
+		// Set AcceptedRound, which is the next round at which the node is
+		// allowed to create SelfEventss, and reset RemovedRound to
+		// "unsuspend" a node if had been evicted prior to rejoining.
 		n.core.AcceptedRound = resp.AcceptedRound
+		n.core.RemovedRound = -1
+
 		n.setBabblingOrCatchingUpState()
 	} else {
 		// Then JoinRequest was explicitly refused by the curren peer-set. This
