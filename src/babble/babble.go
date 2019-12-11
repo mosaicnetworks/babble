@@ -80,7 +80,7 @@ func (b *Babble) Init() error {
 
 // Run starts the Babble Node running
 func (b *Babble) Run() {
-	if b.Config.ServiceAddr != "" {
+	if b.Service != nil && b.Config.ServiceAddr != "" {
 		go b.Service.Serve()
 	}
 
@@ -93,23 +93,25 @@ func (b *Babble) validateConfig() error {
 	b.Config.SetDataDir(b.Config.DataDir)
 
 	logFields := logrus.Fields{
-		"babble.DataDir":          b.Config.DataDir,
-		"babble.BindAddr":         b.Config.BindAddr,
-		"babble.AdvertiseAddr":    b.Config.AdvertiseAddr,
-		"babble.ServiceAddr":      b.Config.ServiceAddr,
-		"babble.MaxPool":          b.Config.MaxPool,
-		"babble.Store":            b.Config.Store,
-		"babble.LoadPeers":        b.Config.LoadPeers,
-		"babble.LogLevel":         b.Config.LogLevel,
-		"babble.Moniker":          b.Config.Moniker,
-		"babble.HeartbeatTimeout": b.Config.HeartbeatTimeout,
-		"babble.TCPTimeout":       b.Config.TCPTimeout,
-		"babble.JoinTimeout":      b.Config.JoinTimeout,
-		"babble.CacheSize":        b.Config.CacheSize,
-		"babble.SyncLimit":        b.Config.SyncLimit,
-		"babble.EnableFastSync":   b.Config.EnableFastSync,
-		"babble.MaintenanceMode":  b.Config.MaintenanceMode,
-		"babble.SuspendLimit":     b.Config.SuspendLimit,
+		"babble.DataDir":              b.Config.DataDir,
+		"babble.BindAddr":             b.Config.BindAddr,
+		"babble.AdvertiseAddr":        b.Config.AdvertiseAddr,
+		"babble.ServiceAddr":          b.Config.ServiceAddr,
+		"babble.NoService":            b.Config.NoService,
+		"babble.MaxPool":              b.Config.MaxPool,
+		"babble.Store":                b.Config.Store,
+		"babble.LoadPeers":            b.Config.LoadPeers,
+		"babble.LogLevel":             b.Config.LogLevel,
+		"babble.Moniker":              b.Config.Moniker,
+		"babble.HeartbeatTimeout":     b.Config.HeartbeatTimeout,
+		"babble.SlowHeartbeatTimeout": b.Config.SlowHeartbeatTimeout,
+		"babble.TCPTimeout":           b.Config.TCPTimeout,
+		"babble.JoinTimeout":          b.Config.JoinTimeout,
+		"babble.CacheSize":            b.Config.CacheSize,
+		"babble.SyncLimit":            b.Config.SyncLimit,
+		"babble.EnableFastSync":       b.Config.EnableFastSync,
+		"babble.MaintenanceMode":      b.Config.MaintenanceMode,
+		"babble.SuspendLimit":         b.Config.SuspendLimit,
 	}
 
 	// Maintenance-mode only works with bootstrap
@@ -283,7 +285,9 @@ func (b *Babble) initNode() error {
 }
 
 func (b *Babble) initService() error {
-	b.Service = service.NewService(b.Config.ServiceAddr, b.Node, b.Config.Logger())
+	if !b.Config.NoService {
+		b.Service = service.NewService(b.Config.ServiceAddr, b.Node, b.Config.Logger())
+	}
 	return nil
 }
 

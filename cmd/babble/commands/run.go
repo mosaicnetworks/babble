@@ -83,6 +83,7 @@ func AddRunFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP("client-connect", "c", _config.ClientAddr, "IP:Port to connect to client")
 
 	// Service
+	cmd.Flags().Bool("no-service", _config.Babble.NoService, "Disable HTTP service")
 	cmd.Flags().StringP("service-listen", "s", _config.Babble.ServiceAddr, "Listen IP:Port for HTTP service")
 
 	// Store

@@ -47,7 +47,16 @@ type Config struct {
 	// nodes in the cluster
 	AdvertiseAddr string `mapstructure:"advertise"`
 
-	// ServiceAddr is the address:port that serves the user-facing API.
+	// NoService disables the HTTP API service.
+	NoService bool `mapstructure:"no-service"`
+
+	// ServiceAddr is the address:port that serves the user-facing API. If not
+	// specified, and "no-service" is not set, the API handlers are registered
+	// with the DefaultServerMux of the http package. It is possible that
+	// another server in the same process is simultaneously using the
+	// DefaultServerMux. In which case, the handlers will be accessible from
+	// both servers. This is usefull when Babble is used in-memory and expecpted
+	// to use the same endpoint (address:port) as the application's API.
 	ServiceAddr string `mapstructure:"service-listen"`
 
 	// HeartbeatTimeout is the frequency of the gossip timer when the node has

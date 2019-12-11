@@ -60,6 +60,8 @@ func DefaultMobileConfig() *MobileConfig {
 	}
 }
 
+// toBabbleConfig converts a MobileConfig to a BabbleConfig forcing the service-
+// related options to disable the API service.
 func (c *MobileConfig) toBabbleConfig() *config.Config {
 	babbleConfig := config.NewDefaultConfig()
 
@@ -74,6 +76,7 @@ func (c *MobileConfig) toBabbleConfig() *config.Config {
 	babbleConfig.SyncLimit = c.SyncLimit
 	babbleConfig.EnableFastSync = c.EnableFastSync
 	babbleConfig.ServiceAddr = ""
+	babbleConfig.NoService = true
 
 	return babbleConfig
 }
