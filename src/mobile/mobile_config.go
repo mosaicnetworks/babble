@@ -34,8 +34,9 @@ func NewMobileConfig(heartbeat int,
 
 	return &MobileConfig{
 		Heartbeat:      heartbeat,
-		TCPTimeout:     tcpTimeout,
+		SlowHeartbeat:  slowHeartbeat,
 		MaxPool:        maxPool,
+		TCPTimeout:     tcpTimeout,
 		CacheSize:      cacheSize,
 		SyncLimit:      syncLimit,
 		EnableFastSync: enableFastSync,
