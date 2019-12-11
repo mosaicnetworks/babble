@@ -93,25 +93,24 @@ func (b *Babble) validateConfig() error {
 	b.Config.SetDataDir(b.Config.DataDir)
 
 	logFields := logrus.Fields{
-		"babble.DataDir":              b.Config.DataDir,
-		"babble.BindAddr":             b.Config.BindAddr,
-		"babble.AdvertiseAddr":        b.Config.AdvertiseAddr,
-		"babble.ServiceAddr":          b.Config.ServiceAddr,
-		"babble.NoService":            b.Config.NoService,
-		"babble.MaxPool":              b.Config.MaxPool,
-		"babble.Store":                b.Config.Store,
-		"babble.LoadPeers":            b.Config.LoadPeers,
-		"babble.LogLevel":             b.Config.LogLevel,
-		"babble.Moniker":              b.Config.Moniker,
-		"babble.HeartbeatTimeout":     b.Config.HeartbeatTimeout,
-		"babble.SlowHeartbeatTimeout": b.Config.SlowHeartbeatTimeout,
-		"babble.TCPTimeout":           b.Config.TCPTimeout,
-		"babble.JoinTimeout":          b.Config.JoinTimeout,
-		"babble.CacheSize":            b.Config.CacheSize,
-		"babble.SyncLimit":            b.Config.SyncLimit,
-		"babble.EnableFastSync":       b.Config.EnableFastSync,
-		"babble.MaintenanceMode":      b.Config.MaintenanceMode,
-		"babble.SuspendLimit":         b.Config.SuspendLimit,
+		"babble.DataDir":          b.Config.DataDir,
+		"babble.BindAddr":         b.Config.BindAddr,
+		"babble.AdvertiseAddr":    b.Config.AdvertiseAddr,
+		"babble.ServiceAddr":      b.Config.ServiceAddr,
+		"babble.NoService":        b.Config.NoService,
+		"babble.MaxPool":          b.Config.MaxPool,
+		"babble.Store":            b.Config.Store,
+		"babble.LoadPeers":        b.Config.LoadPeers,
+		"babble.LogLevel":         b.Config.LogLevel,
+		"babble.Moniker":          b.Config.Moniker,
+		"babble.HeartbeatTimeout": b.Config.HeartbeatTimeout,
+		"babble.TCPTimeout":       b.Config.TCPTimeout,
+		"babble.JoinTimeout":      b.Config.JoinTimeout,
+		"babble.CacheSize":        b.Config.CacheSize,
+		"babble.SyncLimit":        b.Config.SyncLimit,
+		"babble.EnableFastSync":   b.Config.EnableFastSync,
+		"babble.MaintenanceMode":  b.Config.MaintenanceMode,
+		"babble.SuspendLimit":     b.Config.SuspendLimit,
 	}
 
 	// Maintenance-mode only works with bootstrap
@@ -130,6 +129,15 @@ func (b *Babble) validateConfig() error {
 		logFields["babble.DatabaseDir"] = b.Config.DatabaseDir
 		logFields["babble.Bootstrap"] = b.Config.Bootstrap
 	}
+
+	// SlowHeartbeat cannot be less than Heartbeat
+	if b.Config.SlowHeartbeatTimeout < b.Config.HeartbeatTimeout {
+		b.logger.Debugf("SlowHeartbeatTimeout (%v) cannot be less than Heartbeat (%v)",
+			b.Config.SlowHeartbeatTimeout,
+			b.Config.HeartbeatTimeout)
+		b.Config.SlowHeartbeatTimeout = b.Config.HeartbeatTimeout
+	}
+	logFields["babble.SlowHeartbeatTimeout"] = b.Config.SlowHeartbeatTimeout
 
 	b.logger.WithFields(logFields).Debug("Config")
 
