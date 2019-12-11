@@ -3,8 +3,15 @@
 ## Unreleased
 
 SECURITY:
+
 FEATURES:
+
 IMPROVEMENTS:
+
+- node: Configurable slow-heartbeat.
+- mobile: Disable API service.
+- mobile: Use low slow-heartbeat.
+
 BUG FIXES:
 
 ## v0.5.12 (November 27, 2019)
