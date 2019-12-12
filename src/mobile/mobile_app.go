@@ -28,8 +28,8 @@ func newMobileApp(commitHandler CommitHandler,
 	return mobileApp
 }
 
-// CommitHandler implements the AppProxy interface. It uses the JSON encoding
-// of Blocks to pass them to and from the mobile application.
+// CommitHandler implements the AppProxy interface. It encodes the Blocks with
+// JSON to pass them to and from the mobile application.
 func (m *mobileApp) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, error) {
 	blockBytes, err := block.Marshal()
 	if err != nil {

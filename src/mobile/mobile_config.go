@@ -49,8 +49,8 @@ func NewMobileConfig(heartbeat int,
 // DefaultMobileConfig ...
 func DefaultMobileConfig() *MobileConfig {
 	return &MobileConfig{
-		Heartbeat:      10,
-		SlowHeartbeat:  10,
+		Heartbeat:      20,
+		SlowHeartbeat:  200,
 		TCPTimeout:     200,
 		MaxPool:        2,
 		CacheSize:      500,
