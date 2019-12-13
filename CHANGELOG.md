@@ -1,5 +1,51 @@
 # Change Log
 
+## Unreleased
+
+SECURITY:
+FEATURES:
+IMPROVEMENTS:
+BUG FIXES:
+
+## v0.5.12 (November 27, 2019)
+
+IMPROVEMENTS:
+
+- node: Suspend node when the validator is evicted.
+- net: Enable joining with hostname, not just numeric IP. 
+- cmd: Remove Standalone mode.
+
+BUG FIXES:
+
+- keys: Remove 600 permissions check on priv_key, which makes Babble work in
+        Windows.
+
+## v0.5.11 (November 14, 2019)
+
+FEATURES:
+
+- node: Automatically suspend a node when the number of undetermined events 
+        exceeds the limit specified by the suspend-limit flag 300 by default).
+
+BUG FIXES:
+
+- store: Disable database writes during bootstrap process. This bug was causing
+         the Badger DB to double in size each time the node was boostrapped.
+
+## v0.5.10 (November 7, 2019)
+
+IMPROVEMENTS:
+
+- spike: Documented a potential solution to automatically evict faulty peers.
+- node: Add a suspended state which allows running a node without opening the 
+        network transport and starting the gossip routines.
+
+BUG FIXES:
+
+- core: Include Events from unknown participants in EventDiff
+- node: Fix issue #128 regarding Extra tests
+- store: Fix cache issues (issue #127) 
+
 ## v0.5.9 (October 25, 2019)
 
 BUG FIXES:

@@ -9,6 +9,7 @@ import (
 // MobileConfig ...
 type MobileConfig struct {
 	Heartbeat      int    //heartbeat timeout in milliseconds
+	SlowHeartbeat  int    //slow-heartbeat in milliseconds
 	TCPTimeout     int    //TCP timeout in milliseconds
 	MaxPool        int    //Max number of pooled connections
 	CacheSize      int    //Number of items in LRU cache
@@ -21,6 +22,7 @@ type MobileConfig struct {
 
 // NewMobileConfig ...
 func NewMobileConfig(heartbeat int,
+	slowHeartbeat int,
 	tcpTimeout int,
 	maxPool int,
 	cacheSize int,
@@ -32,8 +34,9 @@ func NewMobileConfig(heartbeat int,
 
 	return &MobileConfig{
 		Heartbeat:      heartbeat,
-		TCPTimeout:     tcpTimeout,
+		SlowHeartbeat:  slowHeartbeat,
 		MaxPool:        maxPool,
+		TCPTimeout:     tcpTimeout,
 		CacheSize:      cacheSize,
 		SyncLimit:      syncLimit,
 		EnableFastSync: enableFastSync,
@@ -47,6 +50,7 @@ func NewMobileConfig(heartbeat int,
 func DefaultMobileConfig() *MobileConfig {
 	return &MobileConfig{
 		Heartbeat:      10,
+		SlowHeartbeat:  10,
 		TCPTimeout:     200,
 		MaxPool:        2,
 		CacheSize:      500,
@@ -57,6 +61,8 @@ func DefaultMobileConfig() *MobileConfig {
 	}
 }
 
+// toBabbleConfig converts a MobileConfig to a BabbleConfig forcing the service-
+// related options to disable the API service.
 func (c *MobileConfig) toBabbleConfig() *config.Config {
 	babbleConfig := config.NewDefaultConfig()
 
@@ -65,11 +71,13 @@ func (c *MobileConfig) toBabbleConfig() *config.Config {
 	babbleConfig.LogLevel = c.LogLevel
 	babbleConfig.Moniker = c.Moniker
 	babbleConfig.HeartbeatTimeout = time.Duration(c.Heartbeat) * time.Millisecond
+	babbleConfig.SlowHeartbeatTimeout = time.Duration(c.SlowHeartbeat) * time.Millisecond
 	babbleConfig.TCPTimeout = time.Duration(c.TCPTimeout) * time.Millisecond
 	babbleConfig.CacheSize = c.CacheSize
 	babbleConfig.SyncLimit = c.SyncLimit
 	babbleConfig.EnableFastSync = c.EnableFastSync
 	babbleConfig.ServiceAddr = ""
+	babbleConfig.NoService = true
 
 	return babbleConfig
 }

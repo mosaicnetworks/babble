@@ -3,7 +3,6 @@ package keys
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -33,39 +32,12 @@ func NewSimpleKeyfile(keyfile string) *SimpleKeyfile {
 	return simpleKeyfile
 }
 
-// CheckFileInfo verifies that the file exists and has user permissions only.
-func (k *SimpleKeyfile) CheckFileInfo() error {
-	info, err := os.Stat(k.keyfile)
-	if err != nil {
-		return err
-	}
-
-	// get file permissions
-	perm := info.Mode().Perm()
-
-	// build 000111111 mask
-	var nonUserMask os.FileMode = (1 << 6) - 1
-
-	// get permissions for 'groups' and 'others'
-	nonUserPerm := perm & nonUserMask
-
-	if nonUserPerm != 0 {
-		return fmt.Errorf("priv_key file permissions should exclude 'groups' and 'others'. Got %o", perm)
-	}
-
-	return nil
-}
-
 // ReadKey implements KeyReaderWriter. It reads from the underlying file which
 // expected to contain a raw hex dump of the key's D value (big.Int), as
 // produced by WriteKey.
 func (k *SimpleKeyfile) ReadKey() (*ecdsa.PrivateKey, error) {
 	k.l.Lock()
 	defer k.l.Unlock()
-
-	if err := k.CheckFileInfo(); err != nil {
-		return nil, err
-	}
 
 	buf, err := ioutil.ReadFile(k.keyfile)
 	if err != nil {

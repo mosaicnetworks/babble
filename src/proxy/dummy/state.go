@@ -42,7 +42,11 @@ func NewState(logger *logrus.Entry) *State {
 
 // CommitHandler ...
 func (a *State) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, error) {
-	a.logger.WithField("block", block).Debug("CommitBlock")
+
+	if a.logger.Level > logrus.InfoLevel {
+		blockBytes, _ := block.Marshal()
+		a.logger.WithField("block", string(blockBytes)).Debug("CommitBlock")
+	}
 
 	err := a.commit(block)
 	if err != nil {

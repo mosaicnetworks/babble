@@ -64,6 +64,11 @@ func (i *InmemTransport) LocalAddr() string {
 	return i.localAddr
 }
 
+// AdvertiseAddr implements the Transport interface.
+func (i *InmemTransport) AdvertiseAddr() string {
+	return i.localAddr
+}
+
 // Sync implements the Transport interface.
 func (i *InmemTransport) Sync(target string, args *SyncRequest, resp *SyncResponse) error {
 	rpcResp, err := i.makeRPC(target, args, nil, i.timeout)

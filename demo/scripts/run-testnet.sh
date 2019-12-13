@@ -28,8 +28,9 @@ for i in $(seq 1 $N)
 do
     docker create --name=node$i --net=babblenet --ip=172.77.5.$i mosaicnetworks/babble:latest run \
     --heartbeat=100ms \
+    --slow-heartbeat=100ms \
     --moniker="node$i" \
-    --cache-size=50000 \
+    --cache-size=400 \
     --listen="172.77.5.$i:1337" \
     --proxy-listen="172.77.5.$i:1338" \
     --client-connect="172.77.10.$i:1339" \
@@ -38,6 +39,7 @@ do
     --fast-sync=$FASTSYNC \
     --store \
     --bootstrap \
+    --suspend-limit=100 \
     --log="debug"
     
     docker cp $MPWD/conf/node$i node$i:/.babble

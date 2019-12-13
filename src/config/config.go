@@ -47,11 +47,25 @@ type Config struct {
 	// nodes in the cluster
 	AdvertiseAddr string `mapstructure:"advertise"`
 
-	// ServiceAddr is the address:port that serves the user-facing API.
+	// NoService disables the HTTP API service.
+	NoService bool `mapstructure:"no-service"`
+
+	// ServiceAddr is the address:port that serves the user-facing API. If not
+	// specified, and "no-service" is not set, the API handlers are registered
+	// with the DefaultServerMux of the http package. It is possible that
+	// another server in the same process is simultaneously using the
+	// DefaultServerMux. In which case, the handlers will be accessible from
+	// both servers. This is usefull when Babble is used in-memory and expecpted
+	// to use the same endpoint (address:port) as the application's API.
 	ServiceAddr string `mapstructure:"service-listen"`
 
-	// HeartbeatTimeout is the frequency of the gossip timer.
+	// HeartbeatTimeout is the frequency of the gossip timer when the node has
+	// something to gossip about.
 	HeartbeatTimeout time.Duration `mapstructure:"heartbeat"`
+
+	// SlowHeartbeatTimeout is the frequency of the gossip timer when the node
+	// has nothing to gossip about.
+	SlowHeartbeatTimeout time.Duration `mapstructure:"slow-heartbeat"`
 
 	// MaxPool controls how many connections are pooled per target in the gossip
 	// routines.
@@ -80,8 +94,19 @@ type Config struct {
 	CacheSize int `mapstructure:"cache-size"`
 
 	// Bootstrap determines whether or not to load Babble from an existing
-	// database file.
+	// database file. Forces Store, ie. bootstrap only works with a persistant
+	// database store.
 	Bootstrap bool `mapstructure:"bootstrap"`
+
+	// MaintenanceMode when set to true causes Babble to initialise in a
+	// suspended state. I.e. it does not start gossipping. Forces Bootstrap,
+	// which itself forces Store. I.e. MaintenanceMode only works if the node is
+	// bootstrapped from an existing database.
+	MaintenanceMode bool `mapstructure:"maintenance-mode"`
+
+	// SuspendLimit is the number of Undetermined Events (Events which haven't
+	// reached consensus) that will cause the node to become suspended
+	SuspendLimit int `mapstructure:"suspend-limit"`
 
 	// Moniker defines the friendly name of this node
 	Moniker string `mapstructure:"moniker"`
@@ -100,23 +125,26 @@ type Config struct {
 	logger *logrus.Logger
 }
 
-// NewDefaultConfig retunrns the a config object with default values.
+// NewDefaultConfig returns the a config object with default values.
 func NewDefaultConfig() *Config {
 
 	config := &Config{
-		DataDir:          DefaultDataDir(),
-		LogLevel:         "debug",
-		BindAddr:         "127.0.0.1:1337",
-		ServiceAddr:      "127.0.0.1:8000",
-		HeartbeatTimeout: 10 * time.Millisecond,
-		TCPTimeout:       1000 * time.Millisecond,
-		JoinTimeout:      10000 * time.Millisecond,
-		CacheSize:        5000,
-		SyncLimit:        1000,
-		MaxPool:          2,
-		Store:            false,
-		DatabaseDir:      DefaultDatabaseDir(),
-		LoadPeers:        true,
+		DataDir:              DefaultDataDir(),
+		LogLevel:             "debug",
+		BindAddr:             "127.0.0.1:1337",
+		ServiceAddr:          "127.0.0.1:8000",
+		HeartbeatTimeout:     10 * time.Millisecond,
+		SlowHeartbeatTimeout: 1000 * time.Millisecond,
+		TCPTimeout:           1000 * time.Millisecond,
+		JoinTimeout:          10000 * time.Millisecond,
+		CacheSize:            5000,
+		SyncLimit:            1000,
+		MaxPool:              2,
+		Store:                false,
+		MaintenanceMode:      false,
+		DatabaseDir:          DefaultDatabaseDir(),
+		LoadPeers:            true,
+		SuspendLimit:         300,
 	}
 
 	return config
@@ -126,10 +154,9 @@ func NewDefaultConfig() *Config {
 // logger. the logger forces formatting and colors even when there is no tty
 // attached, which makes for more readable logs. The logger also provides info
 // about the calling function.
-func NewTestConfig(t testing.TB) *Config {
+func NewTestConfig(t testing.TB, level logrus.Level) *Config {
 	config := NewDefaultConfig()
-
-	config.logger = common.NewTestLogger(t)
+	config.logger = common.NewTestLogger(t, level)
 	return config
 }
 

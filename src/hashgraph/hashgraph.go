@@ -14,33 +14,33 @@ import (
 
 const (
 
-	//ROOT_DEPTH determines how many FrameEvents are included in the Root. It
-	//		is preferable not to make ROOT_DEPTH configurable because if peers use
-	//		diffent values, they will produce different Roots, different Frames, and
-	//		different Blocks. Perhaps this parameter should be tied to the number of
-	//		Peers rather than hard-coded.
+	// ROOT_DEPTH determines how many FrameEvents are included in the Root. It
+	// is preferable not to make ROOT_DEPTH configurable because if peers use
+	// diffent values, they will produce different Roots, different Frames, and
+	// different Blocks. Perhaps this parameter should be tied to the number of
+	// Peers rather than hard-coded.
 	ROOT_DEPTH = 10
 
-	// COIN_ROUND_FREQ ...
+	// COIN_ROUND_FREQ defines the frequency of coin rounds
 	COIN_ROUND_FREQ = float64(4)
 )
 
-//Hashgraph is a DAG of Events. It also contains methods to extract a consensus
-//order of Events and map them onto a blockchain.
+// Hashgraph is a DAG of Events. It also contains methods to extract a consensus
+// order of Events and map them onto a blockchain.
 type Hashgraph struct {
-	Store                   Store                  //store of Events, Rounds, and Blocks
-	UndeterminedEvents      []string               //[index] => hash . FIFO queue of Events whose consensus order is not yet determined
-	PendingRounds           *PendingRoundsCache    //FIFO queue of Rounds which have not attained consensus yet
-	PendingSignatures       *SigPool               //Pool of Block signatures that need to be processed (matched with Blocks)
-	LastConsensusRound      *int                   //index of last consensus round
-	FirstConsensusRound     *int                   //index of first consensus round (only used in tests)
-	AnchorBlock             *int                   //index of last block with enough signatures
-	roundLowerBound         *int                   //rounds and events below this lower bound have a special treatement (cf fastsync)
-	LastCommitedRoundEvents int                    //number of events in round before LastConsensusRound
-	ConsensusTransactions   int                    //number of consensus transactions
-	PendingLoadedEvents     int                    //number of loaded events that are not yet committed
-	commitCallback          InternalCommitCallback //commit block callback
-	topologicalIndex        int                    //counter used to order events in topological order (only local)
+	Store                   Store                  // store of Events, Rounds, and Blocks
+	UndeterminedEvents      []string               // [index] => hash . FIFO queue of Events whose consensus order is not yet determined
+	PendingRounds           *PendingRoundsCache    // FIFO queue of Rounds which have not attained consensus yet
+	PendingSignatures       *SigPool               // Pool of Block signatures that need to be processed (matched with Blocks)
+	LastConsensusRound      *int                   // index of last consensus round
+	FirstConsensusRound     *int                   // index of first consensus round (only used in tests)
+	AnchorBlock             *int                   // index of last block with enough signatures
+	roundLowerBound         *int                   // rounds and events below this lower bound have a special treatement (cf fastsync)
+	LastCommitedRoundEvents int                    // number of events in round before LastConsensusRound
+	ConsensusTransactions   int                    // number of consensus transactions
+	PendingLoadedEvents     int                    // number of loaded events that are not yet committed
+	commitCallback          InternalCommitCallback // commit block callback
+	topologicalIndex        int                    // counter used to order events in topological order (only local)
 
 	ancestorCache     *common.LRU
 	selfAncestorCache *common.LRU
@@ -52,8 +52,8 @@ type Hashgraph struct {
 	logger *logrus.Entry
 }
 
-//NewHashgraph instantiates a Hashgraph with an underlying data store and a
-//commit callback
+// NewHashgraph instantiates a Hashgraph with an underlying data store and a
+// commit callback
 func NewHashgraph(store Store, commitCallback InternalCommitCallback, logger *logrus.Entry) *Hashgraph {
 	if logger == nil {
 		log := logrus.New()
@@ -79,8 +79,8 @@ func NewHashgraph(store Store, commitCallback InternalCommitCallback, logger *lo
 	return &hashgraph
 }
 
-//Init sets the initial PeerSet, which also creates the corresponding Roots and
-//updates the Repertoire.
+// Init sets the initial PeerSet, which also creates the corresponding Roots and
+// updates the Repertoire.
 func (h *Hashgraph) Init(peerSet *peers.PeerSet) error {
 	if err := h.Store.SetPeerSet(0, peerSet); err != nil {
 		return fmt.Errorf("Error setting PeerSet: %v", err)
@@ -122,7 +122,7 @@ func (h *Hashgraph) _ancestor(x, y string) (bool, error) {
 
 	entry, ok := ex.lastAncestors[ey.Creator()]
 
-	res := ok && entry.index >= ey.Index()
+	res := ok && entry.Index >= ey.Index()
 
 	return res, nil
 }
@@ -197,7 +197,7 @@ func (h *Hashgraph) _stronglySee(x, y string, peers *peers.PeerSet) (bool, error
 	for p := range peers.ByPubKey {
 		xla, xlaok := ex.lastAncestors[p]
 		yfd, yfdok := ey.firstDescendants[p]
-		if xlaok && yfdok && xla.index >= yfd.index {
+		if xlaok && yfdok && xla.Index >= yfd.Index {
 			c++
 		}
 	}
@@ -397,8 +397,7 @@ func (h *Hashgraph) roundDiff(x, y string) (int, error) {
 	return xRound - yRound, nil
 }
 
-//Check the SelfParent is the Creator's last known Event
-//returns error, warning
+// Check the SelfParent is the Creator's last known Event
 func (h *Hashgraph) checkSelfParent(event *Event) error {
 	selfParent := event.SelfParent()
 	creator := event.Creator()
@@ -457,33 +456,42 @@ func (h *Hashgraph) initEventCoordinates(event *Event) error {
 		event.lastAncestors = selfParentLastAncestors.Copy()
 		for p, ola := range otherParentLastAncestors {
 			sla, ok := event.lastAncestors[p]
-			if !ok || sla.index < ola.index {
+			if !ok || sla.Index < ola.Index {
 				event.lastAncestors[p] = EventCoordinates{
-					index: ola.index,
-					hash:  ola.hash,
+					Index: ola.Index,
+					Hash:  ola.Hash,
 				}
 			}
 		}
 	}
 
 	event.firstDescendants[event.Creator()] = EventCoordinates{
-		index: event.Index(),
-		hash:  event.Hex(),
+		Index: event.Index(),
+		Hash:  event.Hex(),
 	}
 
 	event.lastAncestors[event.Creator()] = EventCoordinates{
-		index: event.Index(),
-		hash:  event.Hex(),
+		Index: event.Index(),
+		Hash:  event.Hex(),
 	}
 
 	return nil
 }
 
-//update first descendant of each last ancestor to point to event
+// update first descendant of each ancestor to point to event
 func (h *Hashgraph) updateAncestorFirstDescendant(event *Event) error {
 	for _, c := range event.lastAncestors {
-		ah := c.hash
+		ah := c.Hash
+		counter := 0
 		for {
+
+			// 2 * ROOT_DEPTH is arbitrary. It is a stopping condition to avoid
+			// looping all the way down to the first events when a new validator
+			// is added.
+			if counter >= 2*ROOT_DEPTH {
+				break
+			}
+
 			a, err := h.Store.GetEvent(ah)
 			if err != nil {
 				break
@@ -492,8 +500,8 @@ func (h *Hashgraph) updateAncestorFirstDescendant(event *Event) error {
 			_, ok := a.firstDescendants[event.Creator()]
 			if !ok {
 				a.firstDescendants[event.Creator()] = EventCoordinates{
-					index: event.Index(),
-					hash:  event.Hex(),
+					Index: event.Index(),
+					Hash:  event.Hex(),
 				}
 				if err := h.Store.SetEvent(a); err != nil {
 					return err
@@ -502,6 +510,8 @@ func (h *Hashgraph) updateAncestorFirstDescendant(event *Event) error {
 			} else {
 				break
 			}
+
+			counter++
 		}
 	}
 	return nil
@@ -525,7 +535,7 @@ func (h *Hashgraph) createFrameEvent(x string) (*FrameEvent, error) {
 
 	te, ok := roundInfo.CreatedEvents[x]
 	if !ok {
-		return nil, err
+		return nil, fmt.Errorf("round %d CreatedEvents[%s] not found", round, x)
 	}
 
 	witness := te.Witness
@@ -569,7 +579,6 @@ func (h *Hashgraph) createRoot(participant string, head string) (*Root, error) {
 					return nil, err
 				}
 				reverseRootEvents = append(reverseRootEvents, rev)
-
 			} else {
 				break
 			}
@@ -583,7 +592,7 @@ func (h *Hashgraph) createRoot(participant string, head string) (*Root, error) {
 	return root, nil
 }
 
-func (h *Hashgraph) setWireInfo(event *Event) error {
+func (h *Hashgraph) SetWireInfo(event *Event) error {
 	selfParentIndex := -1
 	otherParentCreatorID := uint32(0)
 	otherParentIndex := -1
@@ -708,7 +717,7 @@ func (h *Hashgraph) InsertEvent(event *Event, setWireInfo bool) error {
 	h.topologicalIndex++
 
 	if setWireInfo {
-		if err := h.setWireInfo(event); err != nil {
+		if err := h.SetWireInfo(event); err != nil {
 			return fmt.Errorf("SetWireInfo: %s", err)
 		}
 	}
@@ -1006,7 +1015,11 @@ func (h *Hashgraph) DecideRoundReceived() error {
 		for i := r + 1; i <= h.Store.LastRound(); i++ {
 			tr, err := h.Store.GetRound(i)
 			if err != nil {
-				return err
+				// When a node joins, it can have a first event with round 0 (if
+				// it doesn't have any other-parent). If the other nodes have
+				// already processed many rounds (more than the cache-limit),
+				// then they will enter this condition upon looking for round 1.
+				break
 			}
 
 			tPeers, err := h.Store.GetPeerSet(i)
@@ -1453,38 +1466,59 @@ them to the Hashgraph consensus methods in topological order. It is assumed that
 no events are skipped/lost when loading from the database - WE CAN ONLY
 BOOTSTRAP FROM 0. As Events are inserted and processed, Blocks will be created
 and committed to the App layer (via the commit callback), so it is also assumed
-that the application state was reset.
+that the application state was reset. During the bootstrap process, the badger
+store is put in maintenance-mode to avoid reinserting items in the database.
 */
 func (h *Hashgraph) Bootstrap() error {
 	if badgerStore, ok := h.Store.(*BadgerStore); ok {
-		//Load Genesis PeerSet
+
+		if !badgerStore.GetMaintenanceMode() {
+			defer badgerStore.SetMaintenanceMode(false)
+		}
+
+		badgerStore.SetMaintenanceMode(true)
+
+		// Load Genesis PeerSet
 		peerSet, err := badgerStore.dbGetPeerSet(0)
 		if err != nil {
 			return fmt.Errorf("No Genesis PeerSet: %v", err)
 		}
 
-		//Initialize the InmemStore with Genesis PeerSet. This has side-effects:
-		//It will create the corresponding Roots and populate the Repertoires.
+		// Initialize the InmemStore with Genesis PeerSet. This has
+		// side-effects: it will create the corresponding Roots and populate the
+		// Repertoires.
 		badgerStore.inmemStore.SetPeerSet(0, peerSet)
 
-		//Retreive the Events from the underlying DB. They come out in topological
-		//order
-		topologicalEvents, err := badgerStore.dbTopologicalEvents()
-		if err != nil {
-			return err
-		}
-
-		//Insert the Events in the Hashgraph
-		for _, e := range topologicalEvents {
-			if err := h.InsertEventAndRunConsensus(e, true); err != nil {
+		// Retrieve the Events from the underlying DB, in batches of 100, and
+		// insert them sequentially into the hashgraph.
+		index := 0
+		batchSize := 100
+		for {
+			topologicalEvents, err := badgerStore.dbTopologicalEvents(index*batchSize, batchSize)
+			if err != nil {
 				return err
 			}
+
+			// Insert the Events in the Hashgraph
+			for _, e := range topologicalEvents {
+				if err := h.InsertEventAndRunConsensus(e, true); err != nil {
+					return err
+				}
+			}
+
+			// ProcessSigPool
+			if err := h.ProcessSigPool(); err != nil {
+				return err
+			}
+
+			// Exit after the last batch
+			if len(topologicalEvents) < batchSize {
+				break
+			}
+
+			index++
 		}
 
-		//ProcessSigPool
-		if err := h.ProcessSigPool(); err != nil {
-			return err
-		}
 	}
 
 	return nil

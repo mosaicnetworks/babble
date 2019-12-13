@@ -19,16 +19,20 @@ const (
 	framePrefix      = "frame"
 )
 
-//BadgerStore struct contains the badger store and inmem store references
+// BadgerStore contains references to the Badger database and inmem store. If
+// maintenanceMode is activated, data is not written to the Badger database, but
+// only to the caches.
 type BadgerStore struct {
-	inmemStore *InmemStore
-	db         *badger.DB
-	path       string
+	inmemStore      *InmemStore
+	db              *badger.DB
+	path            string
+	maintenanceMode bool
 }
 
-//NewBadgerStore opens an existing database or creates a new one if nothing is
-//found in path.
-func NewBadgerStore(cacheSize int, path string, logger *logrus.Entry) (*BadgerStore, error) {
+// NewBadgerStore opens an existing database or creates a new one if nothing is
+// found in path. The maintenanceMode option deactivates writing to the
+// persistant database, but adding/updating the inmem-store is preserved.
+func NewBadgerStore(cacheSize int, path string, maintenanceMode bool, logger *logrus.Entry) (*BadgerStore, error) {
 
 	opts := badger.DefaultOptions(path).
 		WithSyncWrites(false).
@@ -45,9 +49,10 @@ func NewBadgerStore(cacheSize int, path string, logger *logrus.Entry) (*BadgerSt
 	}
 
 	store := &BadgerStore{
-		inmemStore: NewInmemStore(cacheSize),
-		db:         handle,
-		path:       path,
+		inmemStore:      NewInmemStore(cacheSize),
+		db:              handle,
+		path:            path,
+		maintenanceMode: maintenanceMode,
 	}
 	return store, nil
 }
@@ -108,27 +113,17 @@ the consensus methods.
 
 *******************************************************************************/
 
-//CacheSize sets the inmem cache size
+// CacheSize gets the inmem cache size
 func (s *BadgerStore) CacheSize() int {
 	return s.inmemStore.CacheSize()
 }
 
-//ParticipantEvents returns that participant's Events from InMem
-func (s *BadgerStore) ParticipantEvents(participant string, skip int) ([]string, error) {
-	return s.inmemStore.ParticipantEvents(participant, skip)
-}
-
-//ParticipantEvent returns a given event from the given participant from InMem
-func (s *BadgerStore) ParticipantEvent(participant string, index int) (string, error) {
-	return s.inmemStore.ParticipantEvent(participant, index)
-}
-
-//GetRound returns the round from InMem
+// GetRound returns the round with round-number r.
 func (s *BadgerStore) GetRound(r int) (*RoundInfo, error) {
 	return s.inmemStore.GetRound(r)
 }
 
-// RoundWitnesses ...
+// RoundWitnesses returns a round's witnesses.
 func (s *BadgerStore) RoundWitnesses(r int) []string {
 	round, err := s.GetRound(r)
 	if err != nil {
@@ -137,7 +132,7 @@ func (s *BadgerStore) RoundWitnesses(r int) []string {
 	return round.Witnesses()
 }
 
-// RoundEvents ...
+// RoundEvents returns the number of Events in round r.
 func (s *BadgerStore) RoundEvents(r int) int {
 	round, err := s.GetRound(r)
 	if err != nil {
@@ -146,72 +141,74 @@ func (s *BadgerStore) RoundEvents(r int) int {
 	return len(round.CreatedEvents)
 }
 
-// GetFrame ...
+// GetFrame return the Frame corresponding to round-received rr.
 func (s *BadgerStore) GetFrame(rr int) (*Frame, error) {
 	return s.inmemStore.GetFrame(rr)
 }
 
-// GetPeerSet ...
+// GetPeerSet returns the peer-set effective at a given round.
 func (s *BadgerStore) GetPeerSet(round int) (peerSet *peers.PeerSet, err error) {
 	return s.inmemStore.GetPeerSet(round)
 }
 
-// GetAllPeerSets ...
+// GetAllPeerSets returns the entire history of peer-sets.
 func (s *BadgerStore) GetAllPeerSets() (map[int][]*peers.Peer, error) {
 	return s.inmemStore.GetAllPeerSets()
 }
 
-// FirstRound ...
+// FirstRound returns the first round in which a given participant (identified
+// by id) was a member of the corresponding peer-set.
 func (s *BadgerStore) FirstRound(id uint32) (int, bool) {
 	return s.inmemStore.FirstRound(id)
 }
 
-// RepertoireByPubKey ...
+// RepertoireByPubKey returns map of peers by public-key.
 func (s *BadgerStore) RepertoireByPubKey() map[string]*peers.Peer {
 	return s.inmemStore.RepertoireByPubKey()
 }
 
-// RepertoireByID ...
+// RepertoireByID returns a map of peers by id.
 func (s *BadgerStore) RepertoireByID() map[uint32]*peers.Peer {
 	return s.inmemStore.RepertoireByID()
 }
 
-// LastEventFrom ...
+// LastEventFrom returns the hash of the last Event from a given participant.
 func (s *BadgerStore) LastEventFrom(participant string) (last string, err error) {
 	return s.inmemStore.LastEventFrom(participant)
 }
 
-// LastConsensusEventFrom ...
+// LastConsensusEventFrom returns the hash of the last consensus-event from a
+// given participant.
 func (s *BadgerStore) LastConsensusEventFrom(participant string) (last string, err error) {
 	return s.inmemStore.LastConsensusEventFrom(participant)
 }
 
-// KnownEvents ...
+// KnownEvents returns a map of participant-ID to index of last known Event.
 func (s *BadgerStore) KnownEvents() map[uint32]int {
 	return s.inmemStore.KnownEvents()
 }
 
-// ConsensusEvents ...
+// ConsensusEvents returns the entire list of hashes of consensus-events.
 func (s *BadgerStore) ConsensusEvents() []string {
 	return s.inmemStore.ConsensusEvents()
 }
 
-// ConsensusEventsCount ...
+// ConsensusEventsCount returns number of consensus events.
 func (s *BadgerStore) ConsensusEventsCount() int {
 	return s.inmemStore.ConsensusEventsCount()
 }
 
-// AddConsensusEvent ...
+// AddConsensusEvent adds a consensus event.
 func (s *BadgerStore) AddConsensusEvent(event *Event) error {
 	return s.inmemStore.AddConsensusEvent(event)
 }
 
-// LastRound ...
+// LastRound returns the number of the last known round.
 func (s *BadgerStore) LastRound() int {
 	return s.inmemStore.LastRound()
 }
 
-// LastBlockIndex ...
+// LastBlockIndex returns the index of the last known block.
 func (s *BadgerStore) LastBlockIndex() int {
 	return s.inmemStore.LastBlockIndex()
 }
@@ -226,19 +223,21 @@ and to the DB.
 
 *******************************************************************************/
 
-// SetPeerSet ...
+// SetPeerSet saves a peer-set effective at a given round.
 func (s *BadgerStore) SetPeerSet(round int, peerSet *peers.PeerSet) error {
-	//Update the cache
+	// Update the cache
 	if err := s.inmemStore.SetPeerSet(round, peerSet); err != nil {
 		return err
 	}
 
-	//update the db
-	if err := s.dbSetPeerSet(round, peerSet); err != nil {
-		return err
+	// Update the db
+	if !s.maintenanceMode {
+		if err := s.dbSetPeerSet(round, peerSet); err != nil {
+			return err
+		}
 	}
 
-	//Extend Repertoire and Roots
+	// Extend Repertoire and Roots
 	for _, p := range peerSet.Peers {
 		err := s.addParticipant(p)
 		if err != nil {
@@ -249,7 +248,12 @@ func (s *BadgerStore) SetPeerSet(round int, peerSet *peers.PeerSet) error {
 	return nil
 }
 
+// addParticipant adds a participant and a corresponding Root to the database.
 func (s *BadgerStore) addParticipant(p *peers.Peer) error {
+	if s.maintenanceMode {
+		return nil
+	}
+
 	if err := s.dbSetRepertoire(p); err != nil {
 		return err
 	}
@@ -265,25 +269,52 @@ func (s *BadgerStore) addParticipant(p *peers.Peer) error {
 	return nil
 }
 
-// SetEvent ...
+// SetEvent creates or updates an Event in the store
 func (s *BadgerStore) SetEvent(event *Event) error {
-	//try to add it to the cache
+	// try to add it to the cache
 	if err := s.inmemStore.SetEvent(event); err != nil {
 		return err
 	}
-	//try to add it to the db
+
+	// try to add it to the db
+	if s.maintenanceMode {
+		return nil
+	}
 	return s.dbSetEvents([]*Event{event})
 }
 
-// SetRound ...
+// ParticipantEvents returns a participant's Event hashes, ordered by index,
+// starting at index "skip".
+func (s *BadgerStore) ParticipantEvents(participant string, skip int) ([]string, error) {
+	res, err := s.inmemStore.ParticipantEvents(participant, skip)
+	if err != nil {
+		res, err = s.dbParticipantEvents(participant, skip)
+	}
+	return res, err
+}
+
+// ParticipantEvent returns a participant's Event for a given index.
+func (s *BadgerStore) ParticipantEvent(participant string, index int) (string, error) {
+	res, err := s.inmemStore.ParticipantEvent(participant, index)
+	if err != nil {
+		res, err = s.dbParticipantEvent(participant, index)
+	}
+	return res, err
+}
+
+// SetRound creates or updates a round in the store.
 func (s *BadgerStore) SetRound(r int, round *RoundInfo) error {
 	if err := s.inmemStore.SetRound(r, round); err != nil {
 		return err
 	}
+
+	if s.maintenanceMode {
+		return nil
+	}
 	return s.dbSetRound(r, round)
 }
 
-// GetRoot ...
+// GetRoot returns the Root for a given participant.
 func (s *BadgerStore) GetRoot(participant string) (*Root, error) {
 	root, err := s.inmemStore.GetRoot(participant)
 	if err != nil {
@@ -292,7 +323,7 @@ func (s *BadgerStore) GetRoot(participant string) (*Root, error) {
 	return root, mapError(err, "Root", string(participantRootKey(participant)))
 }
 
-// GetEvent returns the event for the given key
+// GetEvent returns the event identified by its hash.
 func (s *BadgerStore) GetEvent(key string) (*Event, error) {
 	ev, err := s.inmemStore.GetEvent(key)
 	if err != nil {
@@ -301,7 +332,7 @@ func (s *BadgerStore) GetEvent(key string) (*Event, error) {
 	return ev, mapError(err, "Event", key)
 }
 
-// GetBlock ...
+// GetBlock returns a Block by index.
 func (s *BadgerStore) GetBlock(rr int) (*Block, error) {
 	res, err := s.inmemStore.GetBlock(rr)
 	if err != nil {
@@ -310,30 +341,42 @@ func (s *BadgerStore) GetBlock(rr int) (*Block, error) {
 	return res, mapError(err, "Block", string(blockKey(rr)))
 }
 
-// SetBlock ...
+// SetBlock creates or updates a Block in the Store.
 func (s *BadgerStore) SetBlock(block *Block) error {
 	if err := s.inmemStore.SetBlock(block); err != nil {
 		return err
 	}
+
+	if s.maintenanceMode {
+		return nil
+	}
 	return s.dbSetBlock(block)
 }
 
-// SetFrame ...
+// SetFrame creates or updates a Frame in the Store.
 func (s *BadgerStore) SetFrame(frame *Frame) error {
 	if err := s.inmemStore.SetFrame(frame); err != nil {
 		return err
 	}
+
+	if s.maintenanceMode {
+		return nil
+	}
 	return s.dbSetFrame(frame)
 }
 
-// Reset ...
+// Reset resets the Store from a given Frame.
 func (s *BadgerStore) Reset(frame *Frame) error {
-	//Reset InmemStore
+	// Reset InmemStore
 	if err := s.inmemStore.Reset(frame); err != nil {
 		return err
 	}
 
-	//Set Frame, Roots, and PeerSet
+	if s.maintenanceMode {
+		return nil
+	}
+
+	// Set Frame, Roots, and PeerSet
 	if err := s.dbSetFrame(frame); err != nil {
 		return err
 	}
@@ -352,7 +395,7 @@ func (s *BadgerStore) Reset(frame *Frame) error {
 	return nil
 }
 
-// Close ...
+// Close closes the InmemStore and the underlying Badger database.
 func (s *BadgerStore) Close() error {
 	if err := s.inmemStore.Close(); err != nil {
 		return err
@@ -360,7 +403,7 @@ func (s *BadgerStore) Close() error {
 	return s.db.Close()
 }
 
-// StorePath ...
+// StorePath returns the full path of the underlying Badger database directory.
 func (s *BadgerStore) StorePath() string {
 	return s.path
 }
@@ -475,7 +518,7 @@ func (s *BadgerStore) dbGetEvent(key string) (*Event, error) {
 	}
 
 	event := new(Event)
-	if err := event.Unmarshal(eventBytes); err != nil {
+	if err := event.UnmarshalDB(eventBytes); err != nil {
 		return nil, err
 	}
 
@@ -488,7 +531,7 @@ func (s *BadgerStore) dbSetEvents(events []*Event) error {
 
 	for _, event := range events {
 		eventHex := event.Hex()
-		val, err := event.Marshal()
+		val, err := event.MarshalDB()
 		if err != nil {
 			return err
 		}
@@ -563,13 +606,13 @@ func (s *BadgerStore) dbParticipantEvent(participant string, index int) (string,
 	return string(data), nil
 }
 
-func (s *BadgerStore) dbTopologicalEvents() ([]*Event, error) {
+func (s *BadgerStore) dbTopologicalEvents(start int, count int) ([]*Event, error) {
 	res := []*Event{}
-	t := 0
+	t := start
 	err := s.db.View(func(txn *badger.Txn) error {
 		key := topologicalEventKey(t)
 		item, errr := txn.Get(key)
-		for errr == nil {
+		for errr == nil && (t < start+count) {
 			v, errrr := item.ValueCopy(nil)
 			if errrr != nil {
 				break
@@ -586,7 +629,7 @@ func (s *BadgerStore) dbTopologicalEvents() ([]*Event, error) {
 			}
 
 			event := new(Event)
-			if err := event.Unmarshal(eventBytes); err != nil {
+			if err := event.UnmarshalDB(eventBytes); err != nil {
 				return err
 			}
 			res = append(res, event)
@@ -778,7 +821,7 @@ func (s *BadgerStore) dbSetFrame(frame *Frame) error {
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 func isDBKeyNotFound(err error) bool {
-	return err.Error() == badger.ErrKeyNotFound.Error()
+	return err != nil && err.Error() == badger.ErrKeyNotFound.Error()
 }
 
 func mapError(err error, name, key string) error {
@@ -788,4 +831,14 @@ func mapError(err error, name, key string) error {
 		}
 	}
 	return err
+}
+
+//GetMaintenanceMode is a getter
+func (s *BadgerStore) GetMaintenanceMode() bool {
+	return s.maintenanceMode
+}
+
+//SetMaintenanceMode is a setter
+func (s *BadgerStore) SetMaintenanceMode(val bool) {
+	s.maintenanceMode = val
 }

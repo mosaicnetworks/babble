@@ -73,7 +73,7 @@ type play struct {
 }
 
 func testLogger(t testing.TB) *logrus.Entry {
-	return common.NewTestEntry(t)
+	return common.NewTestEntry(t, common.TestLogLevel)
 }
 
 /* Initialisation functions */
@@ -115,7 +115,7 @@ func createHashgraph(db bool, orderedEvents *[]*Event, peerSet *peers.PeerSet, t
 	var store Store
 	if db {
 		var err error
-		store, err = NewBadgerStore(cacheSize, badgerDir, nil)
+		store, err = NewBadgerStore(cacheSize, badgerDir, false, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1874,9 +1874,9 @@ func TestResetFromFrame(t *testing.T) {
 		sort.Sort(ByTopologicalOrder(events))
 
 		for _, ev := range events {
-			marshalledEv, _ := ev.Marshal()
+			marshalledEv, _ := ev.MarshalDB()
 			unmarshalledEv := new(Event)
-			unmarshalledEv.Unmarshal(marshalledEv)
+			unmarshalledEv.UnmarshalDB(marshalledEv)
 
 			err = h2.InsertEventAndRunConsensus(unmarshalledEv, true)
 			if err != nil {
@@ -1922,7 +1922,7 @@ func TestBootstrap(t *testing.T) {
 
 	//Now we want to create a new Hashgraph based on the database of the previous
 	//Hashgraph and see if we can boostrap it to the same state.
-	recycledStore, _ := NewBadgerStore(cacheSize, badgerDir, nil)
+	recycledStore, _ := NewBadgerStore(cacheSize, badgerDir, false, nil)
 
 	nh := NewHashgraph(recycledStore, DummyInternalCommitCallback, logrus.New().WithField("id", "bootstrapped"))
 

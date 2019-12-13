@@ -41,6 +41,10 @@ func NewBabble(c *config.Config) *Babble {
 // Init initialises the babble engine
 func (b *Babble) Init() error {
 
+	if err := b.validateConfig(); err != nil {
+		b.logger.WithError(err).Error("babble.go:Init() validateConfig")
+	}
+
 	if err := b.initPeers(); err != nil {
 		b.logger.WithError(err).Error("babble.go:Init() initPeers")
 		return err
@@ -76,11 +80,60 @@ func (b *Babble) Init() error {
 
 // Run starts the Babble Node running
 func (b *Babble) Run() {
-	if b.Config.ServiceAddr != "" {
+	if b.Service != nil && b.Config.ServiceAddr != "" {
 		go b.Service.Serve()
 	}
 
 	b.Node.Run(true)
+}
+
+func (b *Babble) validateConfig() error {
+	// If --datadir was explicitely set, but not --db, the following line will
+	// update the default database dir to be inside the new datadir
+	b.Config.SetDataDir(b.Config.DataDir)
+
+	logFields := logrus.Fields{
+		"babble.DataDir":              b.Config.DataDir,
+		"babble.BindAddr":             b.Config.BindAddr,
+		"babble.AdvertiseAddr":        b.Config.AdvertiseAddr,
+		"babble.ServiceAddr":          b.Config.ServiceAddr,
+		"babble.NoService":            b.Config.NoService,
+		"babble.MaxPool":              b.Config.MaxPool,
+		"babble.Store":                b.Config.Store,
+		"babble.LoadPeers":            b.Config.LoadPeers,
+		"babble.LogLevel":             b.Config.LogLevel,
+		"babble.Moniker":              b.Config.Moniker,
+		"babble.HeartbeatTimeout":     b.Config.HeartbeatTimeout,
+		"babble.SlowHeartbeatTimeout": b.Config.SlowHeartbeatTimeout,
+		"babble.TCPTimeout":           b.Config.TCPTimeout,
+		"babble.JoinTimeout":          b.Config.JoinTimeout,
+		"babble.CacheSize":            b.Config.CacheSize,
+		"babble.SyncLimit":            b.Config.SyncLimit,
+		"babble.EnableFastSync":       b.Config.EnableFastSync,
+		"babble.MaintenanceMode":      b.Config.MaintenanceMode,
+		"babble.SuspendLimit":         b.Config.SuspendLimit,
+	}
+
+	// Maintenance-mode only works with bootstrap
+	if b.Config.MaintenanceMode {
+		b.logger.Debug("Config --maintenance-mode => --bootstrap")
+		b.Config.Bootstrap = true
+	}
+
+	// Bootstrap only works with store
+	if b.Config.Bootstrap {
+		b.logger.Debug("Config --boostrap => --store")
+		b.Config.Store = true
+	}
+
+	if b.Config.Store {
+		logFields["babble.DatabaseDir"] = b.Config.DatabaseDir
+		logFields["babble.Bootstrap"] = b.Config.Bootstrap
+	}
+
+	b.logger.WithFields(logFields).Debug("Config")
+
+	return nil
 }
 
 func (b *Babble) initTransport() error {
@@ -167,7 +220,11 @@ func (b *Babble) initStore() error {
 
 		b.logger.WithField("path", dbPath).Debug("Opening BadgerStore")
 
-		dbStore, err := h.NewBadgerStore(b.Config.CacheSize, dbPath, b.logger)
+		dbStore, err := h.NewBadgerStore(
+			b.Config.CacheSize,
+			dbPath,
+			b.Config.MaintenanceMode,
+			b.logger)
 		if err != nil {
 			return err
 		}
@@ -224,15 +281,13 @@ func (b *Babble) initNode() error {
 		b.Config.Proxy,
 	)
 
-	if err := b.Node.Init(); err != nil {
-		return fmt.Errorf("failed to initialize node: %s", err)
-	}
-
-	return nil
+	return b.Node.Init()
 }
 
 func (b *Babble) initService() error {
-	//b.Service = service.NewService(b.Config.ServiceAddr, b.Node, b.Config.Logger())
+	if !b.Config.NoService {
+		b.Service = service.NewService(b.Config.ServiceAddr, b.Node, b.Config.Logger())
+	}
 	return nil
 }
 

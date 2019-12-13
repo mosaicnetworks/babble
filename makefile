@@ -24,7 +24,6 @@ dist:
 mobile-dist:
 	@BUILD_TAGS='$(BUILD_TAGS)' sh -c "'$(CURDIR)/scripts/dist_mobile.sh'"
 
-
 tests:  test
 
 test:
@@ -38,7 +37,8 @@ extratests:
 
 alltests:
 	glide novendor | xargs go test -count=1 
-
  
+lint:
+	glide novendor | xargs golint
 
 .PHONY: vendor install build dist test flagtest extratests alltests tests mobile-dist
