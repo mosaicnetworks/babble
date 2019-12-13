@@ -18,6 +18,7 @@ type MobileConfig struct {
 	Store          bool   //Use badger store
 	LogLevel       string //debug, info, warn, error, fatal, panic
 	Moniker        string //optional name
+	SuspendLimit   int    //number of undetermined-events before suspension
 }
 
 // NewMobileConfig ...
@@ -30,7 +31,8 @@ func NewMobileConfig(heartbeat int,
 	enableFastSync bool,
 	store bool,
 	logLevel string,
-	moniker string) *MobileConfig {
+	moniker string,
+	suspendLimit int) *MobileConfig {
 
 	return &MobileConfig{
 		Heartbeat:      heartbeat,
@@ -43,6 +45,7 @@ func NewMobileConfig(heartbeat int,
 		Store:          store,
 		LogLevel:       logLevel,
 		Moniker:        moniker,
+		SuspendLimit:   suspendLimit,
 	}
 }
 
@@ -58,6 +61,7 @@ func DefaultMobileConfig() *MobileConfig {
 		EnableFastSync: true,
 		Store:          false,
 		LogLevel:       "debug",
+		SuspendLimit:   1000,
 	}
 }
 
@@ -76,6 +80,7 @@ func (c *MobileConfig) toBabbleConfig() *config.Config {
 	babbleConfig.CacheSize = c.CacheSize
 	babbleConfig.SyncLimit = c.SyncLimit
 	babbleConfig.EnableFastSync = c.EnableFastSync
+	babbleConfig.SuspendLimit = c.SuspendLimit
 	babbleConfig.ServiceAddr = ""
 	babbleConfig.NoService = true
 
