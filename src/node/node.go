@@ -449,6 +449,9 @@ func (n *Node) monologue() error {
 			n.logger.WithError(err).Error("monologue, ProcessSigPool()")
 			return err
 		}
+
+		//XXX
+		n.logStats()
 	}
 
 	return nil
