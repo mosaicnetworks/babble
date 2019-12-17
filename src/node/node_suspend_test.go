@@ -87,6 +87,96 @@ func TestAutoSuspend(t *testing.T) {
 	}
 }
 
+// This verifies that a node with inmem store does not suspend itself when it
+// attemps to rejoin a network it previously exited.
+func TestInmemRejoin(t *testing.T) {
+	keys, peers := initPeers(t, 2)
+	genesisPeerSet := clonePeerSet(t, peers.Peers)
+
+	nodes := initNodes(keys, peers, genesisPeerSet, 50000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
+	defer drawGraphs(nodes, t)
+	defer shutdownNodes(nodes)
+
+	// Start 2 nodes and let them create 50 blocks
+	target := 50
+	err := gossip(nodes, target, false, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes, 0, t)
+
+	// Stop node2
+	leavingNode := nodes[1]
+	err = leavingNode.Leave()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Let node1 create 50 more blocks alone
+	err = bombardAndWait(nodes[:1], 100, 6*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes[:1], 0, t)
+
+	// Restart node2
+	nodes[1] = recycleNode(leavingNode, t)
+	nodes[1].RunAsync(true)
+
+	// Let both nodes create 50 more blocks
+	err = bombardAndWait(nodes, 150, 10*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	checkGossip(nodes, 0, t)
+}
+
+func TestBadgerRejoin(t *testing.T) {
+	os.RemoveAll("test_data")
+	os.Mkdir("test_data", os.ModeDir|0777)
+
+	keys, peers := initPeers(t, 2)
+	genesisPeerSet := clonePeerSet(t, peers.Peers)
+
+	nodes := initNodes(keys, peers, genesisPeerSet, 50000, 1000, 5, false, "badger", 5*time.Millisecond, t)
+	defer shutdownNodes(nodes)
+
+	// Start 2 nodes and let them create 50 blocks
+	target := 50
+	err := gossip(nodes, target, false, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes, 0, t)
+
+	// Stop node2
+	leavingNode := nodes[1]
+	err = leavingNode.Leave()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Let node1 create 50 more blocks alone
+	err = bombardAndWait(nodes[:1], 100, 6*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes[:1], 0, t)
+
+	// Restart node2
+	nodes[1] = recycleNode(leavingNode, t)
+	nodes[1].RunAsync(true)
+
+	// Let both nodes create 50 more blocks
+	err = bombardAndWait(nodes, 150, 10*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	checkGossip(nodes, 0, t)
+}
+
 func waitSuspend(nodes []*Node, timeout time.Duration, t *testing.T) {
 	stopper := time.After(timeout)
 	for {

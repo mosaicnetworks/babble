@@ -96,7 +96,7 @@ func NewNode(conf *config.Config,
 
 	node := Node{
 		conf:         conf,
-		logger:       conf.Logger(),
+		logger:       conf.Logger().WithField("id", validator.ID()),
 		core:         core,
 		trans:        trans,
 		netCh:        trans.Consumer(),
@@ -389,12 +389,21 @@ func (n *Node) checkSuspend() {
 	tooManyUndeterminedEvents := newUndeterminedEvents > n.conf.SuspendLimit
 
 	// check evicted
-	evicted := n.core.hg.LastConsensusRound != nil &&
-		n.core.RemovedRound > 0 &&
-		*n.core.hg.LastConsensusRound >= n.core.RemovedRound
+	// XXX this causes a bug captured by TestInmemRejoin
+	// evicted := n.core.hg.LastConsensusRound != nil &&
+	// 	n.core.RemovedRound > 0 &&
+	// 	*n.core.hg.LastConsensusRound >= n.core.RemovedRound
+
+	evicted := false
 
 	// suspend if too many undetermined events or evicted
 	if tooManyUndeterminedEvents || evicted {
+		n.logger.WithFields(logrus.Fields{
+			"evicted":                   evicted,
+			"tooManyUndeterminedEvents": tooManyUndeterminedEvents,
+			"id": n.GetID(),
+		}).Debugf("SUSPEND")
+
 		n.Suspend()
 	}
 }
