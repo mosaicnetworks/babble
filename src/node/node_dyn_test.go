@@ -212,6 +212,8 @@ func TestRejoin(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		shutdownNodes(nodes)
+
 		checkGossip(nodes, 0, t)
 	}
 
