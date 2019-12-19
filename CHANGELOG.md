@@ -14,6 +14,9 @@ IMPROVEMENTS:
 
 BUG FIXES:
 
+- hashgraph: Change stopping-condition in updateAncestorsFirstDescendants.
+- node: Change eviction-condition in checkSuspend.
+
 ## v0.5.12 (November 27, 2019)
 
 IMPROVEMENTS:

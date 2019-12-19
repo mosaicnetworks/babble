@@ -247,8 +247,10 @@ func (h *Hashgraph) _round(x string) (int, error) {
 		return 0, nil
 	}
 
-	//Retrieve the ParentRound's PeerSet and count strongly-seen witnesses based
-	//on this PeerSet.
+	round := parentRound
+
+	// Retrieve the ParentRound's PeerSet and count strongly-seen witnesses
+	// based on that PeerSet.
 	parentRoundObj, err := h.Store.GetRound(parentRound)
 	if err != nil {
 		return math.MinInt32, err
@@ -270,11 +272,13 @@ func (h *Hashgraph) _round(x string) (int, error) {
 		}
 	}
 
+	// If there is a super-majority of strongly-seen witnesses, increment the
+	// round
 	if c >= parentRoundPeerSet.SuperMajority() {
-		parentRound++
+		round++
 	}
 
-	return parentRound, nil
+	return round, nil
 }
 
 func (h *Hashgraph) witness(x string) (bool, error) {
@@ -482,15 +486,7 @@ func (h *Hashgraph) initEventCoordinates(event *Event) error {
 func (h *Hashgraph) updateAncestorFirstDescendant(event *Event) error {
 	for _, c := range event.lastAncestors {
 		ah := c.Hash
-		counter := 0
 		for {
-
-			// 2 * ROOT_DEPTH is arbitrary. It is a stopping condition to avoid
-			// looping all the way down to the first events when a new validator
-			// is added.
-			if counter >= 2*ROOT_DEPTH {
-				break
-			}
 
 			a, err := h.Store.GetEvent(ah)
 			if err != nil {
@@ -511,7 +507,12 @@ func (h *Hashgraph) updateAncestorFirstDescendant(event *Event) error {
 				break
 			}
 
-			counter++
+			// Stopping condition. When the event is from a new participant, we
+			// don't want to go all the way down to the bottom of the hashgraph.
+			// So we stop at the ancestors that are witnesses.
+			if w, err := h.witness(ah); err != nil && w {
+				break
+			}
 		}
 	}
 	return nil
@@ -803,6 +804,7 @@ func (h *Hashgraph) InsertFrameEvent(frameEvent *FrameEvent) error {
 //DivideRounds assigns a Round and LamportTimestamp to Events, and flags them as
 //witnesses if necessary. Pushes Rounds in the PendingRounds queue if necessary.
 func (h *Hashgraph) DivideRounds() error {
+
 	for _, hash := range h.UndeterminedEvents {
 		ev, err := h.Store.GetEvent(hash)
 		if err != nil {

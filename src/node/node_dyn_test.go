@@ -2,6 +2,7 @@ package node
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -161,6 +162,62 @@ func TestJoinFull(t *testing.T) {
 	t.Run("FastSync enabled", func(t *testing.T) { f(true) })
 
 	t.Run("FastSync disabled", func(t *testing.T) { f(false) })
+}
+
+// This verifies that a node does not suspend itself when it attempts to rejoin
+// a network, with both types of stores. It also tests the stopping condition
+// in hashgraph.updateAncestorFirstDescendants.
+func TestRejoin(t *testing.T) {
+	keys, peers := initPeers(t, 2)
+
+	f := func(store string) {
+		os.RemoveAll("test_data")
+		os.Mkdir("test_data", os.ModeDir|0777)
+
+		genesisPeerSet := clonePeerSet(t, peers.Peers)
+
+		nodes := initNodes(keys, peers, genesisPeerSet, 50000, 50, 5, false, store, 5*time.Millisecond, t)
+		//defer drawGraphs(nodes, t)
+		defer shutdownNodes(nodes)
+
+		// Start 2 nodes and let them create some blocks
+		target := 50
+		err := gossip(nodes, target, false, 3*time.Second)
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkGossip(nodes, 0, t)
+
+		// Stop node2
+		leavingNode := nodes[1]
+		err = leavingNode.Leave()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Let node1 create more blocks alone
+		err = bombardAndWait(nodes[:1], 2*target, 6*time.Second)
+		if err != nil {
+			t.Fatal(err)
+		}
+		checkGossip(nodes[:1], 0, t)
+
+		// Restart node2
+		nodes[1] = recycleNode(leavingNode, t)
+		nodes[1].RunAsync(true)
+
+		// Let both nodes create more blocks
+		err = bombardAndWait(nodes, 3*target, 10*time.Second)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		checkGossip(nodes, 0, t)
+	}
+
+	t.Run("InmemStore", func(t *testing.T) { f("inmem") })
+
+	t.Run("BadgerStore", func(t *testing.T) { f("badger") })
 }
 
 func checkPeerSets(nodes []*Node, t *testing.T) {

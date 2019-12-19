@@ -87,47 +87,6 @@ func TestAutoSuspend(t *testing.T) {
 	}
 }
 
-// The checkSuspend method attemps to suspend a node when it gets evicted. But
-// the way it is currenlty implemented, a node that left and joined again
-// (without being evicted), will suspend itself when reprocessing the leave-
-// request. This only occurs when bootstrap is off.
-func TestRejoin(t *testing.T) {
-	keys, peers := initPeers(t, 2)
-
-	genesisPeerSet := clonePeerSet(t, peers.Peers)
-
-	nodes := initNodes(keys, peers, genesisPeerSet, 50000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
-	defer shutdownNodes(nodes)
-	//defer drawGraphs(nodes, t)
-
-	target := 50
-	err := gossip(nodes, target, false, 3*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	checkGossip(nodes, 0, t)
-
-	leavingNode := nodes[1]
-
-	err = leavingNode.Leave()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	nodes[1] = recycleNode(leavingNode, t)
-
-	nodes[1].RunAsync(true)
-
-	err = bombardAndWait(nodes, 100, 3*time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	checkGossip(nodes, 0, t)
-
-}
-
 func waitSuspend(nodes []*Node, timeout time.Duration, t *testing.T) {
 	stopper := time.After(timeout)
 	for {

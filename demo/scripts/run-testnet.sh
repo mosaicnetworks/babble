@@ -27,8 +27,7 @@ done
 for i in $(seq 1 $N)
 do
     docker create --name=node$i --net=babblenet --ip=172.77.5.$i mosaicnetworks/babble:latest run \
-    --heartbeat=20ms \
-    --slow-heartbeat=20ms \
+    --heartbeat=100ms \
     --moniker="node$i" \
     --cache-size=50000 \
     --listen="172.77.5.$i:1337" \

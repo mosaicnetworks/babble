@@ -31,6 +31,7 @@ docker run -d --name=client$N --net=babblenet --ip=172.77.10.$N -it mosaicnetwor
     --log="debug" 
 
 docker create --name=node$N --net=babblenet --ip=172.77.5.$N mosaicnetworks/babble:latest run \
+    --heartbeat=100ms \
     --moniker="node$N" \
     --cache-size=50000 \
     --listen="172.77.5.$N:1337" \
@@ -40,8 +41,6 @@ docker create --name=node$N --net=babblenet --ip=172.77.5.$N mosaicnetworks/babb
     --fast-sync=$FASTSYNC \
     --log="debug" \
     --sync-limit=1000 \
-    --heartbeat=20ms \
-    --slow-heartbeat=20ms
 
  # --store \
 
