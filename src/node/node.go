@@ -389,12 +389,10 @@ func (n *Node) checkSuspend() {
 	tooManyUndeterminedEvents := newUndeterminedEvents > n.conf.SuspendLimit
 
 	// check evicted
-	// XXX this causes a bug captured by TestInmemRejoin
-	// evicted := n.core.hg.LastConsensusRound != nil &&
-	// 	n.core.RemovedRound > 0 &&
-	// 	*n.core.hg.LastConsensusRound >= n.core.RemovedRound
-
-	evicted := false
+	evicted := n.core.hg.LastConsensusRound != nil &&
+		n.core.RemovedRound > 0 &&
+		n.core.RemovedRound > n.core.AcceptedRound &&
+		*n.core.hg.LastConsensusRound >= n.core.RemovedRound
 
 	// suspend if too many undetermined events or evicted
 	if tooManyUndeterminedEvents || evicted {
