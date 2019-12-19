@@ -96,7 +96,7 @@ func NewNode(conf *config.Config,
 
 	node := Node{
 		conf:         conf,
-		logger:       conf.Logger().WithField("id", validator.ID()),
+		logger:       conf.Logger(),
 		core:         core,
 		trans:        trans,
 		netCh:        trans.Consumer(),

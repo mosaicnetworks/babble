@@ -280,7 +280,6 @@ func newNode(peer *peers.Peer,
 	conf.CacheSize = cacheSize
 	conf.SyncLimit = syncLimit
 	conf.EnableFastSync = enableSyncLimit
-	conf.SuspendLimit = 300
 
 	t.Logf("Starting node on %s", peer.NetAddr)
 

@@ -14,6 +14,8 @@ IMPROVEMENTS:
 
 BUG FIXES:
 
+- hashgraph: stopping-condition in updateAncestorsFirstDescendants.
+
 ## v0.5.12 (November 27, 2019)
 
 IMPROVEMENTS:
