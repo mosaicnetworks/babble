@@ -176,7 +176,7 @@ func TestRejoin(t *testing.T) {
 
 		genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-		nodes := initNodes(keys, peers, genesisPeerSet, 50000, 50, 5, false, store, 5*time.Millisecond, t)
+		nodes := initNodes(keys, peers, genesisPeerSet, 50000, 50, 5, false, store, 10*time.Millisecond, t)
 		//defer drawGraphs(nodes, t)
 		defer shutdownNodes(nodes)
 
@@ -207,9 +207,9 @@ func TestRejoin(t *testing.T) {
 		nodes[1].RunAsync(true)
 
 		// Let both nodes create more blocks
-		err = bombardAndWait(nodes, 3*target, 10*time.Second)
+		err = bombardAndWait(nodes, 3*target, 20*time.Second)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("ERR: %s", err)
 		}
 
 		shutdownNodes(nodes)
