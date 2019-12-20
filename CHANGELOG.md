@@ -1,16 +1,13 @@
 # Change Log
 
-## Unreleased
-
-SECURITY:
-
-FEATURES:
+## v0.6.0 (December 20, 2019)
 
 IMPROVEMENTS:
 
-- node: Configurable slow-heartbeat.
+- mobile: BREAKING CHANGE - OnCommit handler uses blocks.
 - mobile: Disable API service.
-- mobile: Use low slow-heartbeat.
+- mobile: Use low slow-heartbeat. 
+- node: Configurable slow-heartbeat.
 
 BUG FIXES:
 
