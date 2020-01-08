@@ -6,7 +6,9 @@ import (
 	"github.com/mosaicnetworks/babble/src/config"
 )
 
-// MobileConfig ...
+// MobileConfig is shortly to be deprecated. It was used to pass mobile
+// configuration parameters from android (/ other OS) to babble.
+// It will be replaced by the load config options included above
 type MobileConfig struct {
 	Heartbeat      int    //heartbeat timeout in milliseconds
 	SlowHeartbeat  int    //slow-heartbeat in milliseconds
@@ -17,6 +19,8 @@ type MobileConfig struct {
 	EnableFastSync bool   //Enable fast sync
 	Store          bool   //Use badger store
 	LogLevel       string //debug, info, warn, error, fatal, panic
+	DatabaseDir    string //path to BadgerDB
+	Bootstrap      bool   // Bootstrap node
 	Moniker        string //optional name
 	SuspendLimit   int    //number of undetermined-events before suspension
 }
@@ -31,6 +35,8 @@ func NewMobileConfig(heartbeat int,
 	enableFastSync bool,
 	store bool,
 	logLevel string,
+	databaseDir string,
+	bootstrap bool,
 	moniker string,
 	suspendLimit int) *MobileConfig {
 
@@ -60,6 +66,8 @@ func DefaultMobileConfig() *MobileConfig {
 		SyncLimit:      1000,
 		EnableFastSync: true,
 		Store:          false,
+		DatabaseDir:    "",
+		Bootstrap:      false,
 		LogLevel:       "debug",
 		SuspendLimit:   1000,
 	}
@@ -82,6 +90,8 @@ func (c *MobileConfig) toBabbleConfig() *config.Config {
 	babbleConfig.EnableFastSync = c.EnableFastSync
 	babbleConfig.SuspendLimit = c.SuspendLimit
 	babbleConfig.ServiceAddr = ""
+	babbleConfig.DatabaseDir = c.DatabaseDir
+	babbleConfig.Bootstrap = c.Bootstrap
 	babbleConfig.NoService = true
 
 	return babbleConfig

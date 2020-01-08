@@ -2,18 +2,17 @@ package mobile
 
 import (
 	"bytes"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"strings"
+	"path/filepath"
 
 	"github.com/mosaicnetworks/babble/src/babble"
-	"github.com/mosaicnetworks/babble/src/crypto/keys"
+	"github.com/mosaicnetworks/babble/src/config"
 	"github.com/mosaicnetworks/babble/src/node"
-	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/mosaicnetworks/babble/src/proxy/inmem"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 // Node ...
@@ -25,7 +24,67 @@ type Node struct {
 }
 
 // New initializes Node struct
-func New(privKey string,
+func New(
+	//	privKey string,   // Loaded in InitKey
+	//	nodeAddr string,
+	//	jsonPeers string,
+	//	jsonGenesisPeers string,
+	commitHandler CommitHandler,
+	exceptionHandler ExceptionHandler,
+	configDir string,
+	//config *MobileConfig
+) *Node {
+
+	babbleConfig := config.NewDefaultConfig()
+
+	babbleConfig.Logger().WithFields(logrus.Fields{
+		"config": fmt.Sprintf("%v", babbleConfig),
+	}).Debug("New Mobile Node")
+
+	viper.SetConfigName("babble")  // name of config file (without extension)
+	viper.AddConfigPath(configDir) // search root directory
+
+	// If a config file is found, read it in.
+	if err := viper.ReadInConfig(); err == nil {
+		babbleConfig.Logger().Debugf("Using config file: %s", viper.ConfigFileUsed())
+	} else if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+		babbleConfig.Logger().Debugf("No config file found in: %s", filepath.Join(configDir, "babble.toml"))
+	} else {
+		babbleConfig.Logger().Errorf("Error loading config file: %v", err)
+		return nil
+	}
+
+	if err := viper.Unmarshal(babbleConfig); err != nil {
+		babbleConfig.Logger().Errorf("Error marshalling config file: %v", err)
+		return nil
+	}
+
+	//mobileApp implements the ProxyHandler interface, and we use it to
+	//instantiate an InmemProxy
+	mobileApp := newMobileApp(commitHandler, exceptionHandler, babbleConfig.Logger())
+	babbleConfig.Proxy = inmem.NewInmemProxy(mobileApp, babbleConfig.Logger())
+
+	engine := babble.NewBabble(babbleConfig)
+
+	//	engine.Peers = peerSet
+	//	engine.GenesisPeers = genesisPeerSet
+
+	if err := engine.Init(); err != nil {
+		exceptionHandler.OnException(fmt.Sprintf("Cannot initialize engine: %s", err))
+		return nil
+	}
+
+	return &Node{
+		node:   engine.Node,
+		proxy:  babbleConfig.Proxy,
+		nodeID: engine.Node.GetID(),
+		logger: babbleConfig.Logger(),
+	}
+}
+
+/*
+// OldNew initializes Node struct
+func OldNew(privKey string,
 	nodeAddr string,
 	jsonPeers string,
 	jsonGenesisPeers string,
@@ -102,6 +161,8 @@ func New(privKey string,
 		logger: babbleConfig.Logger(),
 	}
 }
+
+*/
 
 // Run ...
 func (n *Node) Run(async bool) {

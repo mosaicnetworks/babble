@@ -113,7 +113,7 @@ type Config struct {
 
 	// LoadPeers determines whether or not to attempt loading the peer-set from
 	// a local json file.
-	LoadPeers bool
+	LoadPeers bool `mapstructure:"loadpeers"`
 
 	// Proxy is the application proxy that enables Babble to communicate with
 	// application.
