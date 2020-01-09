@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Node ...
+// Node is the object that mobile consumers interact with.
 type Node struct {
 	nodeID uint32
 	node   *node.Node
@@ -25,21 +25,12 @@ type Node struct {
 
 // New initializes Node struct
 func New(
-	//	privKey string,   // Loaded in InitKey
-	//	nodeAddr string,
-	//	jsonPeers string,
-	//	jsonGenesisPeers string,
 	commitHandler CommitHandler,
 	exceptionHandler ExceptionHandler,
 	configDir string,
-	//config *MobileConfig
 ) *Node {
 
 	babbleConfig := config.NewDefaultConfig()
-
-	babbleConfig.Logger().WithFields(logrus.Fields{
-		"config": fmt.Sprintf("%v", babbleConfig),
-	}).Debug("New Mobile Node")
 
 	viper.SetConfigName("babble")  // name of config file (without extension)
 	viper.AddConfigPath(configDir) // search root directory
@@ -59,85 +50,9 @@ func New(
 		return nil
 	}
 
-	//mobileApp implements the ProxyHandler interface, and we use it to
-	//instantiate an InmemProxy
-	mobileApp := newMobileApp(commitHandler, exceptionHandler, babbleConfig.Logger())
-	babbleConfig.Proxy = inmem.NewInmemProxy(mobileApp, babbleConfig.Logger())
-
-	engine := babble.NewBabble(babbleConfig)
-
-	//	engine.Peers = peerSet
-	//	engine.GenesisPeers = genesisPeerSet
-
-	if err := engine.Init(); err != nil {
-		exceptionHandler.OnException(fmt.Sprintf("Cannot initialize engine: %s", err))
-		return nil
-	}
-
-	return &Node{
-		node:   engine.Node,
-		proxy:  babbleConfig.Proxy,
-		nodeID: engine.Node.GetID(),
-		logger: babbleConfig.Logger(),
-	}
-}
-
-/*
-// OldNew initializes Node struct
-func OldNew(privKey string,
-	nodeAddr string,
-	jsonPeers string,
-	jsonGenesisPeers string,
-	commitHandler CommitHandler,
-	exceptionHandler ExceptionHandler,
-	config *MobileConfig) *Node {
-
-	babbleConfig := config.toBabbleConfig()
-
 	babbleConfig.Logger().WithFields(logrus.Fields{
-		"nodeAddr": nodeAddr,
-		"peers":    jsonPeers,
-		"config":   fmt.Sprintf("%v", config),
+		"config": fmt.Sprintf("%v", babbleConfig),
 	}).Debug("New Mobile Node")
-
-	babbleConfig.BindAddr = nodeAddr
-
-	//Check private key
-	keyBytes, err := hex.DecodeString(privKey)
-	if err != nil {
-		exceptionHandler.OnException(fmt.Sprintf("Failed to decode private key bytes: %s", err))
-		return nil
-	}
-
-	key, err := keys.ParsePrivateKey(keyBytes)
-	if err != nil {
-		exceptionHandler.OnException(fmt.Sprintf("Failed to parse private key: %s", err))
-		return nil
-	}
-
-	babbleConfig.Key = key
-
-	// Decode the peers
-	var ps []*peers.Peer
-	dec := json.NewDecoder(strings.NewReader(jsonPeers))
-	if err := dec.Decode(&ps); err != nil {
-		exceptionHandler.OnException(fmt.Sprintf("Failed to parse PeerSet: %s", err))
-		return nil
-	}
-
-	peerSet := peers.NewPeerSet(ps)
-
-	// Decode the genesis peers
-	var gps []*peers.Peer
-	decoder := json.NewDecoder(strings.NewReader(jsonGenesisPeers))
-	if err := decoder.Decode(&gps); err != nil {
-		exceptionHandler.OnException(fmt.Sprintf("Failed to parse PeerSet: %s", err))
-		return nil
-	}
-
-	genesisPeerSet := peers.NewPeerSet(gps)
-
-	babbleConfig.LoadPeers = false
 
 	// mobileApp implements the ProxyHandler interface, and we use it to
 	// instantiate an InmemProxy
@@ -146,9 +61,6 @@ func OldNew(privKey string,
 
 	engine := babble.NewBabble(babbleConfig)
 
-	engine.Peers = peerSet
-	engine.GenesisPeers = genesisPeerSet
-
 	if err := engine.Init(); err != nil {
 		exceptionHandler.OnException(fmt.Sprintf("Cannot initialize engine: %s", err))
 		return nil
@@ -162,9 +74,7 @@ func OldNew(privKey string,
 	}
 }
 
-*/
-
-// Run ...
+// Run runs the Babble node
 func (n *Node) Run(async bool) {
 	if async {
 		n.node.RunAsync(true)
@@ -173,26 +83,28 @@ func (n *Node) Run(async bool) {
 	}
 }
 
-// Leave ...
+// Leave instructs the node to leave politely (get removed from validator-set)
+// before shutting down.
 func (n *Node) Leave() {
 	n.node.Leave()
 }
 
-// Shutdown ...
+// Shutdown shutsdown the node without requesting to be removed from the
+// validator-set
 func (n *Node) Shutdown() {
 	n.node.Shutdown()
 }
 
-// SubmitTx ...
+// SubmitTx submits a transaction to Babble for consensus ordering.
 func (n *Node) SubmitTx(tx []byte) {
-	//have to make a copy or the tx will be garbage collected and weird stuff
-	//happens in transaction pool
+	// have to make a copy or the tx will be garbage collected and weird stuff
+	// happens in transaction pool
 	t := make([]byte, len(tx), len(tx))
 	copy(t, tx)
 	n.proxy.SubmitCh() <- t
 }
 
-// GetPeers ...
+// GetPeers returns the current list of peers.
 func (n *Node) GetPeers() string {
 	peers := n.node.GetPeers()
 
@@ -205,7 +117,7 @@ func (n *Node) GetPeers() string {
 	return buf.String()
 }
 
-// GetGenesisPeers ...
+// GetGenesisPeers returns the genesis peers.
 func (n *Node) GetGenesisPeers() string {
 	peers, err := n.node.GetValidatorSet(0)
 
@@ -222,7 +134,7 @@ func (n *Node) GetGenesisPeers() string {
 	return buf.String()
 }
 
-// GetStats ...
+// GetStats returns consensus stats.
 func (n *Node) GetStats() string {
 	stats := n.node.GetStats()
 
