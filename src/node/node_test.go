@@ -464,6 +464,7 @@ func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
 				}
 			}
 		}
+
 		if done {
 			break
 		}

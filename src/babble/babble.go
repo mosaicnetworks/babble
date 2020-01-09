@@ -41,35 +41,42 @@ func NewBabble(c *config.Config) *Babble {
 // Init initialises the babble engine
 func (b *Babble) Init() error {
 
+	b.logger.Debug("validateConfig")
 	if err := b.validateConfig(); err != nil {
 		b.logger.WithError(err).Error("babble.go:Init() validateConfig")
 	}
 
+	b.logger.Debug("initPeers")
 	if err := b.initPeers(); err != nil {
 		b.logger.WithError(err).Error("babble.go:Init() initPeers")
 		return err
 	}
 
+	b.logger.Debug("initStore")
 	if err := b.initStore(); err != nil {
 		b.logger.WithError(err).Error("babble.go:Init() initStore")
 		return err
 	}
 
+	b.logger.Debug("initTransport")
 	if err := b.initTransport(); err != nil {
 		b.logger.WithError(err).Error("babble.go:Init() initTransport")
 		return err
 	}
 
+	b.logger.Debug("initKey")
 	if err := b.initKey(); err != nil {
 		b.logger.WithError(err).Error("babble.go:Init() initKey")
 		return err
 	}
 
+	b.logger.Debug("initNode")
 	if err := b.initNode(); err != nil {
 		b.logger.WithError(err).Error("babble.go:Init() initNode")
 		return err
 	}
 
+	b.logger.Debug("initService")
 	if err := b.initService(); err != nil {
 		b.logger.WithError(err).Error("babble.go:Init() initService")
 		return err
@@ -173,10 +180,10 @@ func (b *Babble) initPeers() error {
 			return fmt.Errorf("LoadPeers false, but babble.GenesisPeers is nil")
 		}
 
+		b.logger.Debug("LoadPeers is false. Skipped loading peers.")
 		return nil
 	}
 
-	// peers.json
 	peerStore := peers.NewJSONPeerSet(b.Config.DataDir, true)
 
 	participants, err := peerStore.PeerSet()
@@ -185,6 +192,9 @@ func (b *Babble) initPeers() error {
 	}
 
 	b.Peers = participants
+
+	b.logger.Debug("Loaded Peers")
+	//	b.logger.WithField("*participants", *participants).Info("Created Peers")
 
 	// Set Genesis Peer Set from peers.genesis.json
 	genesisPeerStore := peers.NewJSONPeerSet(b.Config.DataDir, false)
