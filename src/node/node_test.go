@@ -436,39 +436,52 @@ func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
 	makeRandomTransactions(nodes, quit)
 
 	//wait until all nodes reach at least block 'target'
-	stopper := time.After(timeout * 2)
+
+OUTERFOR:
 	for {
-		select {
-		case <-stopper:
-			return fmt.Errorf("TIMEOUT in bombardAndWait waiting for block %d, currently %d",
-				target, nodes[0].core.GetLastBlockIndex())
-		default:
-		}
-		time.Sleep(10 * time.Millisecond)
-		done := true
-		for _, n := range nodes {
-			ce := n.core.GetLastBlockIndex()
-			if ce < target {
-				done = false
-				break
-			} else {
-				//wait until the target block has retrieved a state hash from
-				//the app
-				targetBlock, err := n.core.hg.Store.GetBlock(target)
-				if err != nil {
-					return fmt.Errorf("Error: Couldn't find target block: %v, ce: %d", err, ce)
+
+		stopper := time.After(3 * time.Second)
+		lastBlock := nodes[0].core.GetLastBlockIndex()
+
+	INNERFOR:
+		for {
+			select {
+			case <-stopper:
+				ce := nodes[0].core.GetLastBlockIndex()
+				if ce <= lastBlock {
+					return fmt.Errorf("TIMEOUT in bombardAndWait waiting for block %d, stalled at %d",
+						target, ce)
 				}
-				if len(targetBlock.StateHash()) == 0 {
+				break INNERFOR
+			default:
+			}
+			time.Sleep(10 * time.Millisecond)
+			done := true
+			for _, n := range nodes {
+				ce := n.core.GetLastBlockIndex()
+				if ce < target {
 					done = false
 					break
+				} else {
+					//wait until the target block has retrieved a state hash from
+					//the app
+					targetBlock, err := n.core.hg.Store.GetBlock(target)
+					if err != nil {
+						return fmt.Errorf("Error: Couldn't find target block: %v, ce: %d", err, ce)
+					}
+					if len(targetBlock.StateHash()) == 0 {
+						done = false
+						break
+					}
 				}
 			}
-		}
 
-		if done {
-			break
+			if done {
+				break OUTERFOR
+			}
 		}
 	}
+
 	close(quit)
 	return nil
 }
