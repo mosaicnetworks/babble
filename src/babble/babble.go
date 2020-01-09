@@ -184,8 +184,6 @@ func (b *Babble) initPeers() error {
 		return nil
 	}
 
-	// peers.json
-
 	peerStore := peers.NewJSONPeerSet(b.Config.DataDir, true)
 
 	participants, err := peerStore.PeerSet()
