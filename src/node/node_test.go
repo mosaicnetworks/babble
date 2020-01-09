@@ -436,7 +436,7 @@ func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
 	makeRandomTransactions(nodes, quit)
 
 	//wait until all nodes reach at least block 'target'
-	stopper := time.After(timeout * 2)
+	stopper := time.After(timeout)
 	for {
 		select {
 		case <-stopper:
