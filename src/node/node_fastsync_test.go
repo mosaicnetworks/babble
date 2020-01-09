@@ -21,7 +21,7 @@ func TestFastForward(t *testing.T) {
 	defer shutdownNodes(nodes)
 
 	target := 20
-	err := gossip(nodes[1:], target, false, 6*time.Second)
+	err := gossip(nodes[1:], target, false)
 	if err != nil {
 		t.Error("Fatal Error", err)
 		t.Fatal(err)
@@ -71,7 +71,7 @@ func TestCatchUp(t *testing.T) {
 
 	// create 10 blocks with 3/4 nodes
 	target := 10
-	err := gossip(nodes[:3], target, false, 6*time.Second)
+	err := gossip(nodes[:3], target, false)
 	if err != nil {
 		t.Error("Fatal Error", err)
 		t.Fatal(err)
@@ -98,7 +98,7 @@ func TestCatchUp(t *testing.T) {
 
 	// Gossip some more with all nodes
 	newTarget := target + 20
-	err = bombardAndWait(nodes, newTarget, 10*time.Second)
+	err = bombardAndWait(nodes, newTarget)
 	if err != nil {
 		t.Error("Fatal Error 2", err)
 		t.Fatal(err)
@@ -121,7 +121,7 @@ func TestFastSync(t *testing.T) {
 	//defer drawGraphs(nodes, t)
 
 	target := 30
-	err := gossip(nodes, target, false, 10*time.Second)
+	err := gossip(nodes, target, false)
 	if err != nil {
 		t.Error("Fatal Error", err)
 		t.Fatal(err)
@@ -132,7 +132,7 @@ func TestFastSync(t *testing.T) {
 	node0.Shutdown()
 
 	secondTarget := target + 30
-	err = bombardAndWait(nodes[1:], secondTarget, 10*time.Second)
+	err = bombardAndWait(nodes[1:], secondTarget)
 	if err != nil {
 		t.Error("Fatal Error 2", err)
 		t.Fatal(err)
@@ -162,7 +162,7 @@ func TestFastSync(t *testing.T) {
 
 	//Gossip some more
 	thirdTarget := secondTarget + 50
-	err = bombardAndWait(nodes, thirdTarget, 10*time.Second)
+	err = bombardAndWait(nodes, thirdTarget)
 	if err != nil {
 		t.Error("Fatal Error 3", err)
 		t.Fatal(err)

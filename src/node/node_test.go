@@ -98,7 +98,7 @@ func TestGossip(t *testing.T) {
 	//defer drawGraphs(nodes, t)
 
 	target := 50
-	err := gossip(nodes, target, true, 3*time.Second)
+	err := gossip(nodes, target, true)
 	if err != nil {
 		t.Error("Fatal Error", err)
 		t.Fatal(err)
@@ -115,7 +115,7 @@ func TestMissingNodeGossip(t *testing.T) {
 	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
 	//defer drawGraphs(nodes, t)
 
-	err := gossip(nodes[1:], 10, true, 6*time.Second)
+	err := gossip(nodes[1:], 10, true)
 	if err != nil {
 		t.Error("Fatal Error", err)
 		t.Fatal(err)
@@ -132,7 +132,7 @@ func TestSyncLimit(t *testing.T) {
 	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
 	defer shutdownNodes(nodes)
 
-	err := gossip(nodes, 10, false, 3*time.Second)
+	err := gossip(nodes, 10, false)
 	if err != nil {
 		t.Error("Fatal Error", err)
 		t.Fatal(err)
@@ -190,7 +190,7 @@ func TestBootstrapAllNodes(t *testing.T) {
 
 	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 10, false, "badger", 10*time.Millisecond, t)
 
-	err := gossip(nodes, 10, true, 3*time.Second)
+	err := gossip(nodes, 10, true)
 	if err != nil {
 		t.Error("Fatal Error", err)
 		t.Fatal(err)
@@ -201,7 +201,7 @@ func TestBootstrapAllNodes(t *testing.T) {
 	// step and advance it to 20 blocks
 	newNodes := recycleNodes(nodes, t)
 
-	err = gossip(newNodes, 20, true, 3*time.Second)
+	err = gossip(newNodes, 20, true)
 	if err != nil {
 		t.Error("Fatal Error 2", err)
 		t.Fatal(err)
@@ -219,7 +219,7 @@ func BenchmarkGossip(b *testing.B) {
 		genesisPeerSet := clonePeerSet(b, peers.Peers)
 
 		nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, b)
-		gossip(nodes, 50, true, 3*time.Second)
+		gossip(nodes, 50, true)
 	}
 }
 
@@ -418,9 +418,9 @@ func runNodes(nodes []*Node, gossip bool) {
 	}
 }
 
-func gossip(nodes []*Node, target int, shutdown bool, timeout time.Duration) error {
+func gossip(nodes []*Node, target int, shutdown bool) error {
 	runNodes(nodes, true)
-	err := bombardAndWait(nodes, target, timeout)
+	err := bombardAndWait(nodes, target)
 	if err != nil {
 		return err
 	}
@@ -430,28 +430,50 @@ func gossip(nodes []*Node, target int, shutdown bool, timeout time.Duration) err
 	return nil
 }
 
-func bombardAndWait(nodes []*Node, target int, timeout time.Duration) error {
+func bombardAndWait(nodes []*Node, target int) error {
 	//send a lot of random transactions to the nodes
 	quit := make(chan struct{})
 	makeRandomTransactions(nodes, quit)
 
 	//wait until all nodes reach at least block 'target'
 
+	// This function has been refactored. The original version specified a
+	// timeout for reaching block number target. This meant that if a node
+	// stalled, you would need to wait for the entire timeout period before
+	// the error is flagged. Additionally, the timeout needed to be geared for
+	// the slowest configuration of machine likely to run the test - which
+	// lead to inflation of the timeout times.
+	//
+	// The revised version instead specifies a timeout for an individual node
+	// to increment its block number. The outer loops ticks every 3 seconds
+	// and if the block numbers for each node (nodeBlockNums) do not
+	// progress then it is a failure.
+
+	nodelength := len(nodes)
+	nodeBlockNums := make([]int, nodelength)
+	for i, n := range nodes {
+		nodeBlockNums[i] = n.core.GetLastBlockIndex()
+	}
+
 OUTERFOR:
 	for {
 
 		stopper := time.After(3 * time.Second)
-		lastBlock := nodes[0].core.GetLastBlockIndex()
 
 	INNERFOR:
 		for {
 			select {
 			case <-stopper:
-				ce := nodes[0].core.GetLastBlockIndex()
-				if ce <= lastBlock {
-					return fmt.Errorf("TIMEOUT in bombardAndWait waiting for block %d, stalled at %d",
-						target, ce)
+
+				for i, n := range nodes {
+					ce := n.core.GetLastBlockIndex()
+					if ce <= nodeBlockNums[i] {
+						return fmt.Errorf("TIMEOUT in bombardAndWait node %d waiting for block %d, stalled at %d",
+							i, target, ce)
+					}
+					nodeBlockNums[i] = ce
 				}
+
 				break INNERFOR
 			default:
 			}
