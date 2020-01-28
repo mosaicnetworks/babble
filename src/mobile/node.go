@@ -31,13 +31,14 @@ func New(
 ) *Node {
 
 	babbleConfig := config.NewDefaultConfig()
+	v := viper.New()
 
-	viper.SetConfigName("babble")  // name of config file (without extension)
-	viper.AddConfigPath(configDir) // search root directory
+	v.SetConfigName("babble")  // name of config file (without extension)
+	v.AddConfigPath(configDir) // search root directory
 
 	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		babbleConfig.Logger().Debugf("Using config file: %s", viper.ConfigFileUsed())
+	if err := v.ReadInConfig(); err == nil {
+		babbleConfig.Logger().Debugf("Using config file: %s", v.ConfigFileUsed())
 	} else if _, ok := err.(viper.ConfigFileNotFoundError); ok {
 		babbleConfig.Logger().Debugf("No config file found in: %s", filepath.Join(configDir, "babble.toml"))
 	} else {
@@ -45,7 +46,7 @@ func New(
 		return nil
 	}
 
-	if err := viper.Unmarshal(babbleConfig); err != nil {
+	if err := v.Unmarshal(babbleConfig); err != nil {
 		babbleConfig.Logger().Errorf("Error marshalling config file: %v", err)
 		return nil
 	}

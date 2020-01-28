@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/dgraph-io/badger"
+	badger_options "github.com/dgraph-io/badger/options"
 	cm "github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/sirupsen/logrus"
@@ -36,7 +37,9 @@ func NewBadgerStore(cacheSize int, path string, maintenanceMode bool, logger *lo
 
 	opts := badger.DefaultOptions(path).
 		WithSyncWrites(false).
-		WithTruncate(true)
+		WithTruncate(true).
+		WithTableLoadingMode(badger_options.FileIO).
+		WithValueLogLoadingMode(badger_options.FileIO)
 
 	if logger != nil {
 		sub := logger.WithFields(logrus.Fields{"ns": "badger"})
