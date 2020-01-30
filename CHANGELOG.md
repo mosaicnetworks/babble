@@ -1,16 +1,10 @@
 # Change Log
 
-## Unreleased
-
-SECURITY:
-
-FEATURES:
+## v0.6.1 (January 30, 2020)
 
 IMPROVEMENTS:
 
 - mobile: BREAKING CHANGE - Use file-based configuration
-
-BUG FIXES:
 
 ## v0.6.0 (December 20, 2019)
 
