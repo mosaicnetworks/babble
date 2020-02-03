@@ -8,6 +8,9 @@ ENV SDK_URL="https://dl.google.com/android/repository/sdk-tools-linux-4333796.zi
     ANDROID_VERSION=29 \
     ANDROID_BUILD_TOOLS_VERSION=29.0.3
 
+## Creating an empty file suppresses a warning in the following command
+RUN mkdir -p /root/.android/ && touch /root/.android/repositories.cfg
+
 ## Download Android SDK
 RUN mkdir "$ANDROID_HOME" .android \
     && cd "$ANDROID_HOME" \
