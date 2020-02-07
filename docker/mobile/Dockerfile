@@ -1,4 +1,4 @@
-# Android section of this Dockerfile from https://medium.com/@elye.project/intro-to-docker-building-android-app-cb7fb1b97602
+# Android section of this Dockerfile from https:/s/medium.com/@elye.project/intro-to-docker-building-android-app-cb7fb1b97602
 
 FROM openjdk:8
 
@@ -92,8 +92,6 @@ RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" "$GOPATH/pkg" && chmod -R 777 "$GOPATH"
 
 # Install Glide (Go dependency manager)
 RUN curl https://glide.sh/get | sh
-# Install Gox (Go cross-compiler)
-RUN go get -u -v github.com/mitchellh/gox
 
 # install gomobile
 RUN go get golang.org/x/mobile/cmd/gomobile

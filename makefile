@@ -1,4 +1,5 @@
 BUILD_TAGS?=babble
+VERSION=""
 
 # vendor uses Glide to install all the Go dependencies in vendor/
 vendor:
@@ -18,11 +19,11 @@ build:
 
 # dist builds binaries for all platforms and packages them for distribution
 dist:
-	@BUILD_TAGS='$(BUILD_TAGS)' sh -c "'$(CURDIR)/scripts/dist.sh'"
+	@BUILD_TAGS='$(BUILD_TAGS)' $(CURDIR)/scripts/dist.sh
 
 # dist builds aar for mobile android
 mobile-dist:
-	@BUILD_TAGS='$(BUILD_TAGS)' sh -c "'$(CURDIR)/scripts/dist_mobile.sh'"
+	@BUILD_TAGS='$(BUILD_TAGS)' $(CURDIR)/scripts/dist_mobile.sh $(VERSION)
 
 tests:  test
 
