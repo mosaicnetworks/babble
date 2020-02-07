@@ -1,15 +1,16 @@
 #!/bin/bash
 set -e
 
-# Get the version from the environment, or try to figure it out.
-if [ -z $VERSION ]; then
-	VERSION=$(awk -F\" '/Version =/ { print $2; exit }' < src/version/version.go)
-fi
+# VERSION is used to name the build files. If a string is passed as a parameter
+# to this script, it will be used as the VERSION. Otherwise, we use a descriptor
+# of the git commit - "<branch>_<commit-hash>"
+VERSION=${1:-}
+
 if [ -z "$VERSION" ]; then
-    echo "Please specify a version."
-    exit 1
+  VERSION="$(git rev-parse --abbrev-ref HEAD)_$(git rev-parse HEAD)"
 fi
-echo "==> Building version $VERSION..."
+
+echo "==> Building version: $VERSION..."
 
 # Get the parent directory of where this script is.
 SOURCE="${BASH_SOURCE[0]}"
