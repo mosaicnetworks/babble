@@ -2,10 +2,9 @@
 
 ## Unreleased
 
-SECURITY:
-FEATURES:
 IMPROVEMENTS:
-BUG FIXES:
+
+- mobile: Update build scripts and Dockerimage
 
 ## v0.6.1 (January 30, 2020)
 
