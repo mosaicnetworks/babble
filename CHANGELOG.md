@@ -1,5 +1,12 @@
 # Change Log
 
+## Unreleased
+
+SECURITY:
+FEATURES:
+IMPROVEMENTS:
+BUG FIXES:
+
 ## v0.6.2 (February 7, 2020)
 
 IMPROVEMENTS:
