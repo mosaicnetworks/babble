@@ -1,6 +1,6 @@
 # Change Log
 
-## Unreleased
+## v0.6.2 (February 7, 2020)
 
 IMPROVEMENTS:
 
