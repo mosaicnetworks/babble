@@ -3,8 +3,14 @@
 ## Unreleased
 
 SECURITY:
+
 FEATURES:
+
 IMPROVEMENTS:
+
+- babble: Dynamic SuspendLimit. SuspendLimit is now multiplied to the number of
+          validators.
+
 BUG FIXES:
 
 ## v0.6.2 (February 7, 2020)
