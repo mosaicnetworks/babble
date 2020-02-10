@@ -1167,6 +1167,8 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 					h.logger.Warningf("Failed to commit block %d", block.Index())
 				}
 			}
+
+			h.LastCommitedRoundEvents = len(frame.Events)
 		} else {
 			h.logger.Debugf("No Events to commit for ConsensusRound %d", r.Index)
 		}

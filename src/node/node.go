@@ -380,14 +380,13 @@ func (n *Node) resetTimer() {
 }
 
 // checkSuspend suspends the node if the number of undetermined events in the
-// hashgraph exceeds initialUndeterminedEvents by SuspendLimit, or the validator
-// has been evicted.
+// hashgraph exceeds initialUndeterminedEvents by n*SuspendLimit (where n is the
+// the size of the current validator set), or if the validator has been evicted.
 func (n *Node) checkSuspend() {
 
 	// check too many undetermined events
 	newUndeterminedEvents := len(n.core.GetUndeterminedEvents()) - n.initialUndeterminedEvents
-	tooManyUndeterminedEvents := newUndeterminedEvents > n.conf.SuspendLimit
-
+	tooManyUndeterminedEvents := newUndeterminedEvents > n.conf.SuspendLimit*n.core.validators.Len()
 
 	// check evicted
 	evicted := n.core.hg.LastConsensusRound != nil &&
@@ -400,8 +399,8 @@ func (n *Node) checkSuspend() {
 		n.logger.WithFields(logrus.Fields{
 			"evicted":                   evicted,
 			"tooManyUndeterminedEvents": tooManyUndeterminedEvents,
-			"id": n.GetID(),
-			"removedRound": n.core.RemovedRound,
+			"id":            n.GetID(),
+			"removedRound":  n.core.RemovedRound,
 			"acceptedRound": n.core.AcceptedRound,
 		}).Debugf("SUSPEND")
 

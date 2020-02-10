@@ -97,7 +97,7 @@ func AddRunFlags(cmd *cobra.Command) {
 	cmd.Flags().Duration("slow-heartbeat", _config.Babble.SlowHeartbeatTimeout, "Timer frequency when there is nothing to gossip about")
 	cmd.Flags().Int("sync-limit", _config.Babble.SyncLimit, "Max number of events for sync")
 	cmd.Flags().Bool("fast-sync", _config.Babble.EnableFastSync, "Enable FastSync")
-	cmd.Flags().Int("suspend-limit", _config.Babble.SuspendLimit, "Limit of undetermined events before entering suspended state")
+	cmd.Flags().Int("suspend-limit", _config.Babble.SuspendLimit, "Limit of undetermined events (per node) before entering suspended state")
 }
 
 // Bind all flags and read the config into viper
