@@ -417,6 +417,13 @@ func (c *Core) Leave(leaveTimeout time.Duration) error {
 		return nil
 	}
 
+	// Check for maintenance mode, if set no need for a leave request
+	if badgerStore, ok := c.hg.Store.(*hg.BadgerStore); ok {
+		if badgerStore.GetMaintenanceMode() {
+			return nil
+		}
+	}
+
 	// Otherwise, submit an InternalTransaction
 	c.logger.Debugf("Leave: submit InternalTransaction")
 
