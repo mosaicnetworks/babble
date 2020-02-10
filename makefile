@@ -1,5 +1,4 @@
 BUILD_TAGS?=babble
-VERSION=0.6.2dev
 
 # vendor uses Glide to install all the Go dependencies in vendor/
 vendor:
