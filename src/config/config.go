@@ -55,7 +55,7 @@ type Config struct {
 	// with the DefaultServerMux of the http package. It is possible that
 	// another server in the same process is simultaneously using the
 	// DefaultServerMux. In which case, the handlers will be accessible from
-	// both servers. This is usefull when Babble is used in-memory and expecpted
+	// both servers. This is usefull when Babble is used in-memory and expected
 	// to use the same endpoint (address:port) as the application's API.
 	ServiceAddr string `mapstructure:"service-listen"`
 
@@ -120,7 +120,7 @@ type Config struct {
 	LoadPeers bool `mapstructure:"loadpeers"`
 
 	// Proxy is the application proxy that enables Babble to communicate with
-	// application.
+	// the application.
 	Proxy proxy.AppProxy
 
 	// Key is the private key of the validator.

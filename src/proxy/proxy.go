@@ -4,7 +4,8 @@ import (
 	"github.com/mosaicnetworks/babble/src/hashgraph"
 )
 
-// AppProxy ...
+// AppProxy defines the interface which is used by Babble to communicate with
+// the App
 type AppProxy interface {
 	SubmitCh() chan []byte
 	CommitBlock(block hashgraph.Block) (CommitResponse, error)
