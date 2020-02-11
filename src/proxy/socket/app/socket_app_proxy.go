@@ -4,11 +4,13 @@ import (
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/node/state"
 	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/sirupsen/logrus"
 )
 
-// SocketAppProxy ...
+// SocketAppProxy is the Babble side of the AppProxy interface implemented over
+// a TCP/RPC connection
 type SocketAppProxy struct {
 	clientAddress string
 	bindAddress   string
@@ -19,7 +21,7 @@ type SocketAppProxy struct {
 	logger *logrus.Entry
 }
 
-// NewSocketAppProxy ...
+// NewSocketAppProxy creates a new SocketAppProxy
 func NewSocketAppProxy(clientAddr string, bindAddr string, timeout time.Duration, logger *logrus.Entry) (*SocketAppProxy, error) {
 	if logger == nil {
 		log := logrus.New()
@@ -51,22 +53,27 @@ func NewSocketAppProxy(clientAddr string, bindAddr string, timeout time.Duration
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //Implement AppProxy Interface
 
-// SubmitCh ...
+// SubmitCh implements the AppProxy interface
 func (p *SocketAppProxy) SubmitCh() chan []byte {
 	return p.server.submitCh
 }
 
-// CommitBlock ...
+// CommitBlock implements the AppProxy interface
 func (p *SocketAppProxy) CommitBlock(block hashgraph.Block) (proxy.CommitResponse, error) {
 	return p.client.CommitBlock(block)
 }
 
-// GetSnapshot ...
+// GetSnapshot implements the AppProxy interface
 func (p *SocketAppProxy) GetSnapshot(blockIndex int) ([]byte, error) {
 	return p.client.GetSnapshot(blockIndex)
 }
 
-// Restore ...
+// Restore implements the AppProxy interface
 func (p *SocketAppProxy) Restore(snapshot []byte) error {
 	return p.client.Restore(snapshot)
+}
+
+// OnStateChanged implements the AppProxy interface
+func (p *SocketAppProxy) OnStateChanged(state state.State) error {
+	return p.client.OnStateChanged(state)
 }

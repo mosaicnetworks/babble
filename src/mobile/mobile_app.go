@@ -2,6 +2,7 @@ package mobile
 
 import (
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/node/state"
 	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/sirupsen/logrus"
 )
@@ -28,8 +29,8 @@ func newMobileApp(commitHandler CommitHandler,
 	return mobileApp
 }
 
-// CommitHandler implements the AppProxy interface. It encodes the Blocks with
-// JSON to pass them to and from the mobile application.
+// CommitHandler implements the ProxyHandler interface. It encodes the Blocks
+// with JSON to pass them to and from the mobile application.
 func (m *mobileApp) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, error) {
 	blockBytes, err := block.Marshal()
 	if err != nil {
@@ -54,12 +55,18 @@ func (m *mobileApp) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, 
 	return response, nil
 }
 
-// SnapshotHandler implements the AppProxy interface.
+// SnapshotHandler implements the ProxyHandler interface.
 func (m *mobileApp) SnapshotHandler(blockIndex int) ([]byte, error) {
 	return []byte{}, nil
 }
 
-// RestoreHandler implements the AppProxy interface.
+// RestoreHandler implements the ProxyHandler interface.
 func (m *mobileApp) RestoreHandler(snapshot []byte) ([]byte, error) {
 	return []byte{}, nil
+}
+
+// StateChangeHandler implements the ProxyHandler interface
+func (m *mobileApp) StateChangeHandler(state state.State) error {
+	// XXX use a proper handler
+	return nil
 }

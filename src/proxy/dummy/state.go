@@ -5,6 +5,7 @@ import (
 
 	"github.com/mosaicnetworks/babble/src/crypto"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/node/state"
 	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/sirupsen/logrus"
 )
@@ -14,19 +15,20 @@ import (
 * applications. Here, we define the dummy's state which doesn't really do
 * anything useful. It saves and logs block transactions. The state hash is
 * computed by cumulatively hashing transactions together as they come in.
-* Snapshots correspond to the state hash resulting from executing a the block's
+* Snapshots correspond to the state hash resulting from executing a block's
 * transactions.
  */
 
-// State ...
+// State represents the state of our dummy application
 type State struct {
 	committedTxs [][]byte
 	stateHash    []byte
 	snapshots    map[int][]byte
+	babbleState  state.State
 	logger       *logrus.Entry
 }
 
-// NewState ...
+// NewState creates a new state
 func NewState(logger *logrus.Entry) *State {
 	state := &State{
 		committedTxs: [][]byte{},
@@ -40,7 +42,7 @@ func NewState(logger *logrus.Entry) *State {
 	return state
 }
 
-// CommitHandler ...
+// CommitHandler implements the ProxyHandler interface
 func (a *State) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, error) {
 
 	if a.logger.Level > logrus.InfoLevel {
@@ -67,7 +69,7 @@ func (a *State) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, erro
 	return response, nil
 }
 
-// SnapshotHandler ...
+// SnapshotHandler implements the ProxyHandler interface
 func (a *State) SnapshotHandler(blockIndex int) ([]byte, error) {
 	a.logger.WithField("block", blockIndex).Debug("GetSnapshot")
 
@@ -80,14 +82,20 @@ func (a *State) SnapshotHandler(blockIndex int) ([]byte, error) {
 	return snapshot, nil
 }
 
-// RestoreHandler ...
+// RestoreHandler implements the ProxyHandler interface
 func (a *State) RestoreHandler(snapshot []byte) ([]byte, error) {
 	a.stateHash = snapshot
 
 	return a.stateHash, nil
 }
 
-// GetCommittedTransactions ...
+// StateChangeHandler implements the ProxyHandler interface
+func (a *State) StateChangeHandler(state state.State) error {
+	a.babbleState = state
+	return nil
+}
+
+// GetCommittedTransactions returns the list of committed transactions
 func (a *State) GetCommittedTransactions() [][]byte {
 	return a.committedTxs
 }

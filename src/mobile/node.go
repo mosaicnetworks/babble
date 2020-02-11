@@ -57,7 +57,10 @@ func New(
 
 	// mobileApp implements the ProxyHandler interface, and we use it to
 	// instantiate an InmemProxy
-	mobileApp := newMobileApp(commitHandler, exceptionHandler, babbleConfig.Logger())
+	mobileApp := newMobileApp(
+		commitHandler,
+		exceptionHandler,
+		babbleConfig.Logger())
 	babbleConfig.Proxy = inmem.NewInmemProxy(mobileApp, babbleConfig.Logger())
 
 	engine := babble.NewBabble(babbleConfig)
