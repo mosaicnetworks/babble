@@ -148,7 +148,7 @@ func NewDefaultConfig() *Config {
 		MaintenanceMode:      false,
 		DatabaseDir:          DefaultDatabaseDir(),
 		LoadPeers:            true,
-		SuspendLimit:         300,
+		SuspendLimit:         100,
 	}
 
 	return config
