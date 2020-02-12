@@ -20,7 +20,7 @@ import (
 
 // Node defines a babble node
 type Node struct {
-	// Node operations are implemented as a state-machine. The embedded state
+	// The node is implemented as a state-machine. The embedded state Manager
 	// object is used to manage the node's state.
 	_state.Manager
 
@@ -143,10 +143,10 @@ func (n *Node) Init() error {
 			n.setBabblingOrCatchingUpState()
 		} else {
 			n.logger.Debug("Node does not belong to PeerSet => Joining")
-			n.SetState(_state.Joining)
+			n.transition(_state.Joining)
 		}
 	} else {
-		n.SetState(_state.Suspended)
+		n.transition(_state.Suspended)
 	}
 
 	// record the number of initial undetermined events so as to suspend the
@@ -216,7 +216,7 @@ func (n *Node) Shutdown() {
 		n.logger.Info("SHUTDOWN")
 
 		// exit any non-shutdown state immediately
-		n.SetState(_state.Shutdown)
+		n.transition(_state.Shutdown)
 
 		// stop and wait for concurrent operations
 		close(n.shutdownCh)
@@ -237,7 +237,7 @@ func (n *Node) Suspend() {
 
 		n.logger.Info("SUSPEND")
 
-		n.SetState(_state.Suspended)
+		n.transition(_state.Suspended)
 
 		// Stop and wait for concurrent operations
 		close(n.suspendCh)
@@ -635,7 +635,7 @@ func (n *Node) fastForward() error {
 	resp := n.getBestFastForwardResponse()
 	if resp == nil {
 		n.logger.Error("getBestFastForwardResponse returned nil => Babbling")
-		n.SetState(_state.Babbling)
+		n.transition(_state.Babbling)
 		return fmt.Errorf("getBestFastForwardResponse returned nil")
 	}
 
@@ -662,7 +662,7 @@ func (n *Node) fastForward() error {
 
 	n.logger.Debug("FastForward OK")
 
-	n.SetState(_state.Babbling)
+	n.transition(_state.Babbling)
 
 	return nil
 }
@@ -732,8 +732,8 @@ func (n *Node) join() error {
 
 	if resp.Accepted {
 		// Set AcceptedRound, which is the next round at which the node is
-		// allowed to create SelfEventss, and reset RemovedRound to
-		// "unsuspend" a node if had been evicted prior to rejoining.
+		// allowed to create SelfEvents, and reset RemovedRound to "unsuspend" a
+		// node if had been evicted prior to rejoining.
 		n.core.AcceptedRound = resp.AcceptedRound
 		n.core.RemovedRound = -1
 
@@ -752,18 +752,28 @@ func (n *Node) join() error {
 Utils
 *******************************************************************************/
 
+// transition changes the node state and notifies the app via the proxy's
+// OnStateChanged callback
+func (n *Node) transition(state _state.State) {
+	n.SetState(state)
+
+	if err := n.proxy.OnStateChanged(state); err != nil {
+		n.logger.Error(err)
+	}
+}
+
 // setBabblingOrCatchingUpState sets the node's state to CatchingUp if fast-sync
 // is enabled, or to Babbling if fast-sync is not enabled.
 func (n *Node) setBabblingOrCatchingUpState() {
 	if n.conf.EnableFastSync {
 		n.logger.Debug("FastSync enabled => CatchingUp")
-		n.SetState(_state.CatchingUp)
+		n.transition(_state.CatchingUp)
 	} else {
 		n.logger.Debug("FastSync not enabled => Babbling")
 		if err := n.core.SetHeadAndSeq(); err != nil {
 			n.core.SetHeadAndSeq()
 		}
-		n.SetState(_state.Babbling)
+		n.transition(_state.Babbling)
 	}
 }
 

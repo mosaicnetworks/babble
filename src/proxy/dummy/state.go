@@ -92,6 +92,9 @@ func (a *State) RestoreHandler(snapshot []byte) ([]byte, error) {
 // StateChangeHandler implements the ProxyHandler interface
 func (a *State) StateChangeHandler(state state.State) error {
 	a.babbleState = state
+
+	a.logger.WithField("state", state).Debugf("StateChangeHandler")
+
 	return nil
 }
 
