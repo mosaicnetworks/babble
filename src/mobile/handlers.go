@@ -17,7 +17,7 @@ type ExceptionHandler interface {
 	OnException(string)
 }
 
-// StateChangeHandler wrap an OnStateChanged callback
+// StateChangeHandler wraps an OnStateChanged callback
 type StateChangeHandler interface {
-	OnStateChanged(state uint64)
+	OnStateChanged(state int32)
 }

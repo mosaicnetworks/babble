@@ -13,18 +13,23 @@ This type is not exported
 
 // mobileApp implements the AppProxy interface.
 type mobileApp struct {
-	commitHandler    CommitHandler
-	exceptionHandler ExceptionHandler
-	logger           *logrus.Entry
+	commitHandler      CommitHandler
+	stateChangeHandler StateChangeHandler
+	exceptionHandler   ExceptionHandler
+	logger             *logrus.Entry
 }
 
-func newMobileApp(commitHandler CommitHandler,
+func newMobileApp(
+	commitHandler CommitHandler,
+	stateChangeHandler StateChangeHandler,
 	exceptionHandler ExceptionHandler,
 	logger *logrus.Entry) *mobileApp {
+
 	mobileApp := &mobileApp{
-		commitHandler:    commitHandler,
-		exceptionHandler: exceptionHandler,
-		logger:           logger,
+		commitHandler:      commitHandler,
+		stateChangeHandler: stateChangeHandler,
+		exceptionHandler:   exceptionHandler,
+		logger:             logger,
 	}
 	return mobileApp
 }
@@ -67,6 +72,6 @@ func (m *mobileApp) RestoreHandler(snapshot []byte) ([]byte, error) {
 
 // StateChangeHandler implements the ProxyHandler interface
 func (m *mobileApp) StateChangeHandler(state state.State) error {
-	// XXX use a proper handler
+	m.stateChangeHandler.OnStateChanged(int32(state))
 	return nil
 }
