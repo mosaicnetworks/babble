@@ -1,36 +1,37 @@
 package net
 
 import (
-	"io"
 	"net"
-	"sync/atomic"
 	"time"
+
+	"github.com/pion/datachannel"
 )
 
-// WebRTCConn implement net.Conn
+// WebRTCConn implements net.Conn around a webrtc datachannel
 type WebRTCConn struct {
-	bytesReceived uint64
-	bytesSent     uint64
-	reader        io.Reader
-	writer        io.Writer
+	dataChannel datachannel.ReadWriteCloser
+}
+
+// NewWebRTCConn instantiates a WebRTCConn from a datachannel
+func NewWebRTCConn(dataChannel datachannel.ReadWriteCloser) *WebRTCConn {
+	return &WebRTCConn{
+		dataChannel: dataChannel,
+	}
 }
 
 // Read implements the Conn Read method.
 func (c *WebRTCConn) Read(p []byte) (int, error) {
-	n, err := c.reader.Read(p)
-	atomic.AddUint64(&c.bytesReceived, uint64(n))
-	return n, err
+	return c.dataChannel.Read(p)
 }
 
 // Write implements the Conn Write method.
 func (c *WebRTCConn) Write(p []byte) (int, error) {
-	atomic.AddUint64(&c.bytesSent, uint64(len(p)))
-	return c.writer.Write(p)
+	return c.dataChannel.Write(p)
 }
 
-// Close implements the Conn Close method. It is used to close the connection.
+// Close implements the Conn Close method.
 func (c *WebRTCConn) Close() error {
-	return nil
+	return c.dataChannel.Close()
 }
 
 // LocalAddr is a stub

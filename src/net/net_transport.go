@@ -62,8 +62,8 @@ type NetworkTransport struct {
 	joinTimeout time.Duration
 }
 
-// StreamLayer is used with the NetworkTransport to provide
-// the low level stream abstraction.
+// StreamLayer is used with the NetworkTransport to provide the low level stream
+// abstraction.
 type StreamLayer interface {
 	net.Listener
 
@@ -83,7 +83,7 @@ type netConn struct {
 	enc    *json.Encoder
 }
 
-// Release ...
+// Release closes the underlying connection
 func (n *netConn) Release() error {
 	return n.conn.Close()
 }
