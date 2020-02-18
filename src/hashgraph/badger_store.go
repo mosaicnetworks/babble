@@ -1,4 +1,4 @@
-// +build !android
+// +build !mobile
 
 package hashgraph
 

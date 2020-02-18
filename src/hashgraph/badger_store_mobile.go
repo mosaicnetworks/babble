@@ -1,11 +1,11 @@
-// +build android
+// +build mobile
 
 /*
 	For Android builds, we require a customised version of BadgerDB because of
 	this issue: https://github.com/mosaicnetworks/babble-android/issues/20
 
 	So we are using a build tag to change the import statement to point to our
-	customised version when building for Android
+	customised version when building for mobile
 */
 
 package hashgraph

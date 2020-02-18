@@ -13,7 +13,6 @@ install:
 # build compiles and places the binary in /build
 build:
 	CGO_ENABLED=0 go build \
-	    -tags android \
 		--ldflags "-X github.com/mosaicnetworks/babble/src/version.GitCommit=`git rev-parse HEAD`" \
 		-o build/babble ./cmd/babble/
 
