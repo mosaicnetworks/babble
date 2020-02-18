@@ -1,16 +1,9 @@
 // +build mobile
 
-/*
-	For Android builds, we require a customised version of BadgerDB because of
-	this issue: https://github.com/mosaicnetworks/babble-android/issues/20
-
-	So we are using a build tag to change the import statement to point to our
-	customised version when building for mobile
-*/
-
 package hashgraph
 
 /*
+
 This file is a duplicate of badger_store.go but imports a fork of badger db.
 This fork does not attempt to acquire a directory lock as this is likely to
 fail in Android 6 and below due to a bug in SELinux.
