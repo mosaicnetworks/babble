@@ -11,7 +11,7 @@ import (
 
 // WebRTCStreamLayer implements the StreamLayer interface for WebRTC
 type WebRTCStreamLayer struct {
-	peerConnection         *webrtc.PeerConnection
+	peerConnections        map[string]*webrtc.PeerConnection
 	signal                 Signal
 	incomingConnAggregator chan net.Conn
 }
@@ -20,7 +20,7 @@ type WebRTCStreamLayer struct {
 // background connection aggregator (signaling process)
 func NewWebRTCStreamLayer(signal Signal) *WebRTCStreamLayer {
 	stream := &WebRTCStreamLayer{
-		peerConnection:         nil,
+		peerConnections:        make(map[string]*webrtc.PeerConnection),
 		signal:                 signal,
 		incomingConnAggregator: make(chan net.Conn),
 	}
@@ -30,22 +30,18 @@ func NewWebRTCStreamLayer(signal Signal) *WebRTCStreamLayer {
 	return stream
 }
 
+// Receive SDP offers from Signal, create corresponding PeerConnections and
+// respond. The PeerConnection's DataChannel is piped into the connection
+// aggregator.
 func (w *WebRTCStreamLayer) listen() error {
-	// Listen for new PeerConnections
-	// Listen for new DataChannels
-	// Push to ConnAggregator
+	// Start the Signal listener
+	go w.signal.Listen()
+
+	// Process incoming offers
 	for {
-		if w.peerConnection != nil {
-			return nil
-		}
+		select {
+		case offer := <-w.signal.Consumer():
 
-		offer, err := w.signal.ReadOffer()
-		if err != nil {
-			return err
-		}
-
-		if offer != nil {
-			// Create new PeerConnection
 			peerConnection, err := newPeerConnection()
 			if err != nil {
 				return err
@@ -57,7 +53,7 @@ func (w *WebRTCStreamLayer) listen() error {
 			}
 
 			// Set the remote SessionDescription
-			err = peerConnection.SetRemoteDescription(*offer)
+			err = peerConnection.SetRemoteDescription(offer.Command.(webrtc.SessionDescription))
 			if err != nil {
 				return err
 			}
@@ -74,20 +70,15 @@ func (w *WebRTCStreamLayer) listen() error {
 				return err
 			}
 
-			err = w.signal.WriteAnswer(answer)
-			if err != nil {
-				return err
-			}
+			offer.Respond(answer, nil)
 
-			w.peerConnection = peerConnection
-		} else {
-			time.Sleep(1 * time.Second)
+			// XXX use an indentifier
+			w.peerConnections["temp"] = peerConnection
 		}
 	}
 }
 
-// newPeerConnection creates a PeerConnection and pipes it's OnDataChannel
-// callback into the connection aggregator
+// newPeerConnection creates a PeerConnection
 func newPeerConnection() (*webrtc.PeerConnection, error) {
 	// Create a SettingEngine and enable Detach
 	s := webrtc.SettingEngine{}
@@ -151,8 +142,7 @@ func (w *WebRTCStreamLayer) pipePeerConnection(pc *webrtc.PeerConnection) error 
 // - Return a net.Conn wrapping the detached datachannel
 func (w *WebRTCStreamLayer) Dial(address string, timeout time.Duration) (net.Conn, error) {
 
-	// XXX keep Conns?
-	if w.peerConnection != nil {
+	if _, ok := w.peerConnections[address]; ok {
 		return nil, fmt.Errorf("Already dialed")
 	}
 
@@ -194,17 +184,7 @@ func (w *WebRTCStreamLayer) Dial(address string, timeout time.Duration) (net.Con
 		return nil, err
 	}
 
-	err = w.signal.WriteOffer(offer)
-	if err != nil {
-		return nil, err
-	}
-
-	// Wait 5 seconds for the other side to write the answer
-	// XXX use timeouts
-	time.Sleep(5 * time.Second)
-
-	// Read the answer
-	answer, err := w.signal.ReadAnswer()
+	answer, err := w.signal.Offer("target", offer)
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +199,8 @@ func (w *WebRTCStreamLayer) Dial(address string, timeout time.Duration) (net.Con
 		return nil, err
 	}
 
-	w.peerConnection = pc
+	// XXX use an identifier
+	w.peerConnections["target"] = pc
 
 	// Wait for DataChannel opening
 	// XXX also use timeout

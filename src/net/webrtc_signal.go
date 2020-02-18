@@ -1,118 +1,150 @@
 package net
 
 import (
-	"bufio"
-	"bytes"
-	"compress/gzip"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
-	"strings"
+	"reflect"
+	"time"
 
 	"github.com/pion/webrtc"
 )
 
+// Signal defines an interface for systems to exchange SDP offers and answers
+// to establish WebRTC PeerConnections
 type Signal interface {
-	ReadOffer() (*webrtc.SessionDescription, error)
-	WriteOffer(webrtc.SessionDescription) error
-	ReadAnswer() (*webrtc.SessionDescription, error)
-	WriteAnswer(webrtc.SessionDescription) error
+
+	// Listen is called to listen for incoming SDP offers, and forward them to
+	// to the Consumer channel
+	Listen()
+
+	// Consumer is the chennel through which SDP offers are received. SDP offers
+	// are wrapped around an RPC object which offers a response mechanism.
+	Consumer() <-chan RPC
+
+	// Offer sends an SDP offer and waits for an answer
+	Offer(target string, offer webrtc.SessionDescription) (*webrtc.SessionDescription, error)
 }
 
-// Allows compressing offer/answer to bypass terminal input limits.
-const compress = false
+// TestSignal implements the Signal interface by reading and writing files on
+// disk. It is only used for testing.
+type TestSignal struct {
+	offerFile  string
+	answerFile string
+	consumer   chan RPC
+	lastOffer  *webrtc.SessionDescription
+	lastAnswer *webrtc.SessionDescription
+}
 
-// MustReadStdin blocks until input is received from stdin
-func MustReadStdin() string {
-	r := bufio.NewReader(os.Stdin)
+// NewTestSignal instantiates a TestSignal from two file paths.
+func NewTestSignal(offerFile, answerFile string) TestSignal {
+	return TestSignal{
+		offerFile:  offerFile,
+		answerFile: answerFile,
+		consumer:   make(chan RPC),
+	}
+}
 
-	var in string
+// Listen implements the Signal interface. It tracks the offer file and submits
+// new offers to the consumer
+func (ts *TestSignal) Listen() error {
 	for {
-		var err error
-		in, err = r.ReadString('\n')
-		if err != io.EOF {
-			if err != nil {
-				panic(err)
+		offer, err := readSDP(ts.offerFile)
+		if err != nil {
+			return err
+		}
+
+		if offer != nil {
+
+			if ts.lastOffer != nil && reflect.DeepEqual(ts.lastOffer, offer) {
+				continue
 			}
+
+			rpc := RPC{
+				Command:  offer,
+				RespChan: make(chan<- RPCResponse, 1),
+			}
+
+			ts.consumer <- rpc
+
+			ts.lastOffer = offer
 		}
-		in = strings.TrimSpace(in)
-		if len(in) > 0 {
-			break
+
+		time.Sleep(1 * time.Second)
+	}
+}
+
+// Consumer implements the Signal interface
+func (ts *TestSignal) Consumer() <-chan RPC {
+	return ts.consumer
+}
+
+// Offer implements the Signal interface
+func (ts *TestSignal) Offer(target string, offer webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
+	err := writeSDP(offer, ts.offerFile)
+	if err != nil {
+		return nil, err
+	}
+
+	timeout := time.After(5 * time.Second)
+	for {
+		select {
+		case <-timeout:
+			err := fmt.Errorf("Timeout waiting for SDP answer")
+			return nil, err
+		default:
+			answer, err := readSDP(ts.answerFile)
+			if err != nil {
+				return nil, err
+			}
+
+			if answer != nil {
+
+				if ts.lastAnswer != nil && reflect.DeepEqual(ts.lastAnswer, answer) {
+					continue
+				}
+
+				ts.lastAnswer = answer
+
+				return answer, nil
+			}
+
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
-
-	fmt.Println("")
-
-	return in
 }
 
-// Encode encodes the input in base64
-// It can optionally zip the input before encoding
-func Encode(obj interface{}) string {
-	b, err := json.Marshal(obj)
+func readSDP(file string) (*webrtc.SessionDescription, error) {
+	if _, err := os.Stat(file); os.IsNotExist(err) {
+		return nil, nil
+	}
+
+	fileContent, err := ioutil.ReadFile(file)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	if compress {
-		b = zip(b)
+	res := webrtc.SessionDescription{}
+
+	err = json.Unmarshal(fileContent, &res)
+	if err != nil {
+		return nil, err
 	}
 
-	return base64.StdEncoding.EncodeToString(b)
+	return &res, nil
 }
 
-// Decode decodes the input from base64
-// It can optionally unzip the input after decoding
-func Decode(in string, obj interface{}) {
-	b, err := base64.StdEncoding.DecodeString(in)
+func writeSDP(sdp webrtc.SessionDescription, file string) error {
+	raw, err := json.Marshal(sdp)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	if compress {
-		b = unzip(b)
+	err = ioutil.WriteFile(file, raw, 0644)
+	if err != nil {
+		return err
 	}
 
-	err = json.Unmarshal(b, obj)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func zip(in []byte) []byte {
-	var b bytes.Buffer
-	gz := gzip.NewWriter(&b)
-	_, err := gz.Write(in)
-	if err != nil {
-		panic(err)
-	}
-	err = gz.Flush()
-	if err != nil {
-		panic(err)
-	}
-	err = gz.Close()
-	if err != nil {
-		panic(err)
-	}
-	return b.Bytes()
-}
-
-func unzip(in []byte) []byte {
-	var b bytes.Buffer
-	_, err := b.Write(in)
-	if err != nil {
-		panic(err)
-	}
-	r, err := gzip.NewReader(&b)
-	if err != nil {
-		panic(err)
-	}
-	res, err := ioutil.ReadAll(r)
-	if err != nil {
-		panic(err)
-	}
-	return res
+	return nil
 }
