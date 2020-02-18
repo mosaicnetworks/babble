@@ -1,5 +1,13 @@
 // +build android
 
+/*
+	For Android builds, we require a customised version of BadgerDB because of
+	this issue: https://github.com/mosaicnetworks/babble-android/issues/20
+
+	So we are using a build tag to change the import statement to point to our
+	customised version when building for Android
+*/
+
 package hashgraph
 
 import (
@@ -42,8 +50,6 @@ func NewBadgerStore(cacheSize int, path string, maintenanceMode bool, logger *lo
 		WithTruncate(true).
 		WithTableLoadingMode(badger_options.FileIO).
 		WithValueLogLoadingMode(badger_options.FileIO)
-
-		//		WithBypassLockGuard(true) // Not needed as this is the default now
 
 	if logger != nil {
 		sub := logger.WithFields(logrus.Fields{"ns": "badger"})
