@@ -20,6 +20,6 @@ rm -rf glide_cache
 # Build!
 echo "==> Building..."
 
-$(which gomobile) bind -v -target=android -tags=mobile -o /workspace/go/src/github.com/mosaicnetworks/babble/build/pkgmobile/mobile.aar github.com/mosaicnetworks/babble/src/mobile 
+$(which gomobile) bind -v -target=android -tags="mobile android" -o /workspace/go/src/github.com/mosaicnetworks/babble/build/pkgmobile/mobile.aar github.com/mosaicnetworks/babble/src/mobile 
 
 exit 0
