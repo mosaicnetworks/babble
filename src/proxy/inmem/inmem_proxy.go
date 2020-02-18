@@ -2,11 +2,12 @@ package inmem
 
 import (
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/node/state"
 	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/sirupsen/logrus"
 )
 
-//InmemProxy implements the AppProxy interface natively
+// InmemProxy implements the AppProxy interface natively
 type InmemProxy struct {
 	handler  proxy.ProxyHandler
 	submitCh chan []byte
@@ -35,7 +36,7 @@ func NewInmemProxy(handler proxy.ProxyHandler,
 * SubmitTx                                                                     *
 *******************************************************************************/
 
-//SubmitTx is called by the App to submit a transaction to Babble
+// SubmitTx is called by the App to submit a transaction to Babble
 func (p *InmemProxy) SubmitTx(tx []byte) {
 	//have to make a copy, or the tx will be garbage collected and weird stuff
 	//happens in transaction pool
@@ -50,12 +51,12 @@ func (p *InmemProxy) SubmitTx(tx []byte) {
 * Implement AppProxy Interface                                                 *
 *******************************************************************************/
 
-//SubmitCh returns the channel of raw transactions
+// SubmitCh returns the channel of raw transactions
 func (p *InmemProxy) SubmitCh() chan []byte {
 	return p.submitCh
 }
 
-//CommitBlock calls the commitHandler
+// CommitBlock calls the commitHandler
 func (p *InmemProxy) CommitBlock(block hg.Block) (proxy.CommitResponse, error) {
 	commitResponse, err := p.handler.CommitHandler(block)
 
@@ -69,10 +70,11 @@ func (p *InmemProxy) CommitBlock(block hg.Block) (proxy.CommitResponse, error) {
 		}).Debug("InmemProxy.CommitBlock")
 
 	}
+
 	return commitResponse, err
 }
 
-//GetSnapshot calls the snapshotHandler
+// GetSnapshot calls the snapshotHandler
 func (p *InmemProxy) GetSnapshot(blockIndex int) ([]byte, error) {
 	snapshot, err := p.handler.SnapshotHandler(blockIndex)
 
@@ -85,7 +87,7 @@ func (p *InmemProxy) GetSnapshot(blockIndex int) ([]byte, error) {
 	return snapshot, err
 }
 
-//Restore calls the restoreHandler
+// Restore calls the restoreHandler
 func (p *InmemProxy) Restore(snapshot []byte) error {
 	stateHash, err := p.handler.RestoreHandler(snapshot)
 
@@ -95,4 +97,9 @@ func (p *InmemProxy) Restore(snapshot []byte) error {
 	}).Debug("InmemProxy.Restore")
 
 	return err
+}
+
+// OnStateChanged calls the stateChangeHandler
+func (p *InmemProxy) OnStateChanged(state state.State) error {
+	return p.handler.StateChangeHandler(state)
 }

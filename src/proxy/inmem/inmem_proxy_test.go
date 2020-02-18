@@ -7,6 +7,7 @@ import (
 
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/node/state"
 	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/sirupsen/logrus"
@@ -15,6 +16,7 @@ import (
 type TestProxy struct {
 	*InmemProxy
 	transactions [][]byte
+	state        state.State
 	logger       *logrus.Entry
 }
 
@@ -46,6 +48,12 @@ func (p *TestProxy) RestoreHandler(snapshot []byte) ([]byte, error) {
 	p.logger.Debug("RestoreSnapshot")
 
 	return []byte("statehash"), nil
+}
+
+func (p *TestProxy) StateChangeHandler(state state.State) error {
+	p.logger.WithField("state", state).Debug("StateChange")
+	p.state = state
+	return nil
 }
 
 func NewTestProxy(t *testing.T) *TestProxy {
@@ -134,4 +142,17 @@ func TestInmemProxyBabbleSide(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error restoring snapshot: %v", err)
 	}
+
+	/***************************************************************************
+	State
+	***************************************************************************/
+	err = proxy.OnStateChanged(state.Babbling)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if proxy.state != state.Babbling {
+		t.Fatalf("Proxy state should be Babbling, not %v", proxy.state.String())
+	}
+
 }
