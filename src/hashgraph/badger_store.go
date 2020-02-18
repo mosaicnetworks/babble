@@ -3,8 +3,8 @@ package hashgraph
 import (
 	"fmt"
 
-	"github.com/dgraph-io/badger"
-	badger_options "github.com/dgraph-io/badger/options"
+	"github.com/jonknight73/badger"
+	badger_options "github.com/jonknight73/badger/options"
 	cm "github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/sirupsen/logrus"
