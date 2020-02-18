@@ -93,6 +93,7 @@ func NewNode(conf *config.Config,
 		genesisPeers,
 		store,
 		proxy.CommitBlock,
+		conf.MaintenanceMode,
 		conf.Logger())
 
 	node := Node{
