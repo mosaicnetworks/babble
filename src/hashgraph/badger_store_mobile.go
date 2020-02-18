@@ -2,6 +2,15 @@
 
 package hashgraph
 
+/*
+This file is a duplicate of badger_store.go but imports a fork of badger db.
+This fork does not attempt to acquire a directory lock as this is likely to
+fail in Android 6 and below due to a bug in SELinux.
+
+See https://github.com/mosaicnetworks/babble-android/issues/20
+
+*/
+
 import (
 	"fmt"
 
