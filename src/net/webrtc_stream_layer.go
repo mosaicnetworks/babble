@@ -24,9 +24,6 @@ func NewWebRTCStreamLayer(signal Signal) *WebRTCStreamLayer {
 		signal:                 signal,
 		incomingConnAggregator: make(chan net.Conn),
 	}
-
-	go stream.listen()
-
 	return stream
 }
 
@@ -41,6 +38,8 @@ func (w *WebRTCStreamLayer) listen() error {
 	for {
 		select {
 		case offer := <-w.signal.Consumer():
+
+			fmt.Println("WebRTCStreamLayer Processing Offer")
 
 			peerConnection, err := newPeerConnection()
 			if err != nil {
@@ -74,6 +73,8 @@ func (w *WebRTCStreamLayer) listen() error {
 
 			// XXX use an indentifier
 			w.peerConnections["temp"] = peerConnection
+
+			fmt.Println("WebRTCStreamLayer Responded")
 		}
 	}
 }

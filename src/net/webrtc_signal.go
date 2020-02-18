@@ -17,7 +17,7 @@ type Signal interface {
 
 	// Listen is called to listen for incoming SDP offers, and forward them to
 	// to the Consumer channel
-	Listen()
+	Listen() error
 
 	// Consumer is the chennel through which SDP offers are received. SDP offers
 	// are wrapped around an RPC object which offers a response mechanism.
@@ -38,8 +38,8 @@ type TestSignal struct {
 }
 
 // NewTestSignal instantiates a TestSignal from two file paths.
-func NewTestSignal(offerFile, answerFile string) TestSignal {
-	return TestSignal{
+func NewTestSignal(offerFile, answerFile string) *TestSignal {
+	return &TestSignal{
 		offerFile:  offerFile,
 		answerFile: answerFile,
 		consumer:   make(chan RPC),
@@ -57,18 +57,22 @@ func (ts *TestSignal) Listen() error {
 
 		if offer != nil {
 
+			fmt.Println("offer file found")
+
 			if ts.lastOffer != nil && reflect.DeepEqual(ts.lastOffer, offer) {
-				continue
+				fmt.Println("offer file hasn't changed")
+			} else {
+				rpc := RPC{
+					Command:  *offer,
+					RespChan: make(chan<- RPCResponse, 1),
+				}
+
+				ts.consumer <- rpc
+
+				ts.lastOffer = offer
+
+				fmt.Println("forwarded offer")
 			}
-
-			rpc := RPC{
-				Command:  offer,
-				RespChan: make(chan<- RPCResponse, 1),
-			}
-
-			ts.consumer <- rpc
-
-			ts.lastOffer = offer
 		}
 
 		time.Sleep(1 * time.Second)
