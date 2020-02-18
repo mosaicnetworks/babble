@@ -15,6 +15,9 @@ IMPROVEMENTS:
 
 BUG FIXES:
 
+- mobile: Use fork of badgerdb in mobile. Fixes the directory lock issue with
+          Android 6.
+
 ## v0.6.2 (February 7, 2020)
 
 IMPROVEMENTS:
