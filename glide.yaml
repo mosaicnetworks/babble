@@ -2,6 +2,8 @@ package: github.com/mosaicnetworks/babble
 import:
 - package: github.com/jonknight73/badger
   version: release/v1.6
+- package: github.com/dgraph-io/badger
+  version: v1.6.0
 - package: github.com/rifflock/lfshook
 - package: github.com/sirupsen/logrus
   version: v1.2.0
