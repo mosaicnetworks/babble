@@ -43,6 +43,7 @@ func initCores(n int, t *testing.T) ([]*Core, map[uint32]*ecdsa.PrivateKey, map[
 			genesisPeerSet,
 			hg.NewInmemStore(cacheSize),
 			proxy.DummyCommitCallback,
+			false,
 			common.NewTestEntry(t, common.TestLogLevel))
 
 		//Create and save the first Event
@@ -800,6 +801,7 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 		genesisPeerSet,
 		hg.NewInmemStore(1000),
 		proxy.DummyCommitCallback,
+		false,
 		common.NewTestEntry(t, common.TestLogLevel))
 
 	bobCore.SetHeadAndSeq()

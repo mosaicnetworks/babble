@@ -85,6 +85,11 @@ type Core struct {
 	// proxyCommitCallback is called by the hashgraph when a block is committed
 	proxyCommitCallback proxy.CommitCallback
 
+	// maintenanceMode is passed through the constructor to indicate whether the
+	// user of core is in maintenance mode. This is used here to disable leave
+	// requests when a node is in maintenance mode
+	maintenanceMode bool
+
 	// promises keeps track of pending JoinRequests while the corresponding
 	// InternalTransactions go through consensus asynchronously.
 	promises map[string]*JoinPromise
@@ -99,6 +104,7 @@ func NewCore(
 	genesisPeers *peers.PeerSet,
 	store hg.Store,
 	proxyCommitCallback proxy.CommitCallback,
+	maintenanceMode bool,
 	logger *logrus.Entry) *Core {
 
 	peerSelector := NewRandomPeerSelector(peers, validator.ID())
@@ -122,6 +128,7 @@ func NewCore(
 		RemovedRound:            -1,
 		TargetRound:             -1,
 		LastPeerChangeRound:     -1,
+		maintenanceMode:         maintenanceMode,
 	}
 
 	core.hg = hg.NewHashgraph(store, core.Commit, logger)
@@ -414,6 +421,12 @@ func (c *Core) Leave(leaveTimeout time.Duration) error {
 	// Do nothing if we are the only validator.
 	if len(c.validators.Peers) <= 1 {
 		c.logger.Debugf("Leave: alone, do nothing")
+		return nil
+	}
+
+	// Check for maintenance mode, if set no need for a leave request
+	if c.maintenanceMode {
+		c.logger.Debugf("Leave: maintenance mode, do nothing")
 		return nil
 	}
 

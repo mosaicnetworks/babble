@@ -6,6 +6,8 @@ SECURITY:
 
 FEATURES:
 
+- proxy: BREAKING API CHANGE - New OnStateChanged method in AppProxy
+
 IMPROVEMENTS:
 
 - babble: Dynamic SuspendLimit. SuspendLimit is now multiplied to the number of

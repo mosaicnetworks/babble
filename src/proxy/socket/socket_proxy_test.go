@@ -7,6 +7,7 @@ import (
 
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/node/state"
 	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/mosaicnetworks/babble/src/proxy"
 	aproxy "github.com/mosaicnetworks/babble/src/proxy/socket/app"
@@ -18,6 +19,7 @@ type TestHandler struct {
 	blocks     []hashgraph.Block
 	blockIndex int
 	snapshot   []byte
+	state      state.State
 	logger     *logrus.Entry
 }
 
@@ -53,6 +55,14 @@ func (p *TestHandler) RestoreHandler(snapshot []byte) ([]byte, error) {
 	p.snapshot = snapshot
 
 	return []byte("statehash"), nil
+}
+
+func (p *TestHandler) StateChangeHandler(state state.State) error {
+	p.logger.Debug("StateChanged")
+
+	p.state = state
+
+	return nil
 }
 
 func NewTestHandler(t *testing.T) *TestHandler {
@@ -178,5 +188,14 @@ func TestSocketProxyClient(t *testing.T) {
 
 	if !reflect.DeepEqual(expectedSnapshot, handler.snapshot) {
 		t.Fatalf("snapshot should be %v, not %v", expectedSnapshot, handler.snapshot)
+	}
+
+	err = appProxy.OnStateChanged(state.Babbling)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(state.Babbling, handler.state) {
+		t.Fatalf("State should be Babbling, not %v", handler.state.String())
 	}
 }

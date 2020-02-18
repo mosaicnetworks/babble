@@ -7,14 +7,15 @@ import (
 	"time"
 )
 
-// SocketBabbleProxyClient ...
+// SocketBabbleProxyClient is the client component of the BabbleProxy that sends
+// RPC requests to Babble
 type SocketBabbleProxyClient struct {
 	nodeAddr string
 	timeout  time.Duration
 	rpc      *rpc.Client
 }
 
-// NewSocketBabbleProxyClient ...
+// NewSocketBabbleProxyClient implements a new SocketBabbleProxyClient
 func NewSocketBabbleProxyClient(nodeAddr string, timeout time.Duration) *SocketBabbleProxyClient {
 	return &SocketBabbleProxyClient{
 		nodeAddr: nodeAddr,
@@ -36,7 +37,7 @@ func (p *SocketBabbleProxyClient) getConnection() error {
 	return nil
 }
 
-// SubmitTx ...
+// SubmitTx submits a transaction to Babble
 func (p *SocketBabbleProxyClient) SubmitTx(tx []byte) (*bool, error) {
 	if err := p.getConnection(); err != nil {
 		return nil, err
