@@ -19,8 +19,9 @@ type Signal interface {
 	// to the Consumer channel
 	Listen() error
 
-	// Consumer is the chennel through which SDP offers are received. SDP offers
-	// are wrapped around an RPC object which offers a response mechanism.
+	// Consumer is the channel through which incoming SDP offers are passed to
+	// the WebRTCStreamLayer. SDP offers are wrapped around an RPC object which
+	// offers a response mechanism.
 	Consumer() <-chan RPC
 
 	// Offer sends an SDP offer and waits for an answer
@@ -62,12 +63,22 @@ func (ts *TestSignal) Listen() error {
 			if ts.lastOffer != nil && reflect.DeepEqual(ts.lastOffer, offer) {
 				fmt.Println("offer file hasn't changed")
 			} else {
+				respCh := make(chan RPCResponse, 1)
+
 				rpc := RPC{
 					Command:  *offer,
-					RespChan: make(chan<- RPCResponse, 1),
+					RespChan: respCh,
 				}
 
 				ts.consumer <- rpc
+
+				// Wait for response
+				select {
+				case resp := <-respCh:
+					fmt.Println("RPC responde. Writing answer file")
+					writeSDP(resp.Response.(webrtc.SessionDescription), ts.answerFile)
+					break
+				}
 
 				ts.lastOffer = offer
 
@@ -100,6 +111,7 @@ func (ts *TestSignal) Offer(target string, offer webrtc.SessionDescription) (*we
 		default:
 			answer, err := readSDP(ts.answerFile)
 			if err != nil {
+				fmt.Printf("Error reading answer file: %v\n", err)
 				return nil, err
 			}
 
@@ -113,6 +125,8 @@ func (ts *TestSignal) Offer(target string, offer webrtc.SessionDescription) (*we
 
 				return answer, nil
 			}
+
+			fmt.Println("Answer is empty")
 
 			time.Sleep(100 * time.Millisecond)
 		}
