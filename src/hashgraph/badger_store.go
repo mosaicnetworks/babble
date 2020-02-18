@@ -39,7 +39,8 @@ func NewBadgerStore(cacheSize int, path string, maintenanceMode bool, logger *lo
 		WithSyncWrites(false).
 		WithTruncate(true).
 		WithTableLoadingMode(badger_options.FileIO).
-		WithValueLogLoadingMode(badger_options.FileIO)
+		WithValueLogLoadingMode(badger_options.FileIO).
+		WithBypassLockGuard(true)
 
 	if logger != nil {
 		sub := logger.WithFields(logrus.Fields{"ns": "badger"})
