@@ -8,7 +8,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// SocketBabbleProxy ...
+// SocketBabbleProxy is the App side of the AppProxy interface implemented over
+// a TCP/RPC connection.
 type SocketBabbleProxy struct {
 	nodeAddress string
 	bindAddress string
@@ -19,7 +20,7 @@ type SocketBabbleProxy struct {
 	server *SocketBabbleProxyServer
 }
 
-// NewSocketBabbleProxy ...
+// NewSocketBabbleProxy creates a new SocketBabbleProxy
 func NewSocketBabbleProxy(
 	nodeAddr string,
 	bindAddr string,
@@ -55,7 +56,7 @@ func NewSocketBabbleProxy(
 	return proxy, nil
 }
 
-// SubmitTx ...
+// SubmitTx submits a transaction to Babble
 func (p *SocketBabbleProxy) SubmitTx(tx []byte) error {
 	ack, err := p.client.SubmitTx(tx)
 

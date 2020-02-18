@@ -55,7 +55,7 @@ type Config struct {
 	// with the DefaultServerMux of the http package. It is possible that
 	// another server in the same process is simultaneously using the
 	// DefaultServerMux. In which case, the handlers will be accessible from
-	// both servers. This is usefull when Babble is used in-memory and expecpted
+	// both servers. This is usefull when Babble is used in-memory and expected
 	// to use the same endpoint (address:port) as the application's API.
 	ServiceAddr string `mapstructure:"service-listen"`
 
@@ -104,8 +104,12 @@ type Config struct {
 	// bootstrapped from an existing database.
 	MaintenanceMode bool `mapstructure:"maintenance-mode"`
 
-	// SuspendLimit is the number of Undetermined Events (Events which haven't
-	// reached consensus) that will cause the node to become suspended
+	// SuspendLimit is the multiplyer that is dynamically applied to the number
+	// of validators to determine the limit of undertermined events (events
+	// which haven't reached consensus) that will cause the node to become
+	// suspended. For example, if there are 4 validators and SuspendLimit=100,
+	// then the node will suspend itself after registering 400 undetermined
+	// events.
 	SuspendLimit int `mapstructure:"suspend-limit"`
 
 	// Moniker defines the friendly name of this node
@@ -116,7 +120,7 @@ type Config struct {
 	LoadPeers bool `mapstructure:"loadpeers"`
 
 	// Proxy is the application proxy that enables Babble to communicate with
-	// application.
+	// the application.
 	Proxy proxy.AppProxy
 
 	// Key is the private key of the validator.
@@ -144,7 +148,7 @@ func NewDefaultConfig() *Config {
 		MaintenanceMode:      false,
 		DatabaseDir:          DefaultDatabaseDir(),
 		LoadPeers:            true,
-		SuspendLimit:         300,
+		SuspendLimit:         100,
 	}
 
 	return config

@@ -9,6 +9,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/common"
 	bcrypto "github.com/mosaicnetworks/babble/src/crypto"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/node/state"
 	"github.com/mosaicnetworks/babble/src/peers"
 	aproxy "github.com/mosaicnetworks/babble/src/proxy/socket/app"
 )
@@ -134,6 +135,16 @@ func TestSocketProxyClient(t *testing.T) {
 
 	if err != nil {
 		t.Fatalf("Error restoring snapshot: %v", err)
+	}
+
+	err = proxy.OnStateChanged(state.Babbling)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(dummyClient.state.babbleState, state.Babbling) {
+		t.Fatalf("State should be Babbling, not %v", dummyClient.state.babbleState.String())
 	}
 
 }

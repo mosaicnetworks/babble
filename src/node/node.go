@@ -12,6 +12,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/config"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
+	_state "github.com/mosaicnetworks/babble/src/node/state"
 	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/sirupsen/logrus"
@@ -19,9 +20,9 @@ import (
 
 // Node defines a babble node
 type Node struct {
-	// Node operations are implemented as a state-machine. The embedded state
+	// The node is implemented as a state-machine. The embedded state Manager
 	// object is used to manage the node's state.
-	state
+	_state.Manager
 
 	conf *config.Config
 
@@ -40,7 +41,7 @@ type Node struct {
 
 	// proxy is the link between the node and the application. It is used to
 	// commit blocks from Babble to the application, and relay submitted
-	// transactions from the applications to Babble.
+	// transactions from the application to Babble.
 	proxy proxy.AppProxy
 
 	// submitCh is where the node listens for incoming transactions to be
@@ -142,10 +143,10 @@ func (n *Node) Init() error {
 			n.setBabblingOrCatchingUpState()
 		} else {
 			n.logger.Debug("Node does not belong to PeerSet => Joining")
-			n.setState(Joining)
+			n.transition(_state.Joining)
 		}
 	} else {
-		n.setState(Suspended)
+		n.transition(_state.Suspended)
 	}
 
 	// record the number of initial undetermined events so as to suspend the
@@ -169,18 +170,18 @@ func (n *Node) Run(gossip bool) {
 	// Execute Node State Machine
 	for {
 		// Run different routines depending on node state
-		state := n.getState()
+		state := n.GetState()
 
 		switch state {
-		case Babbling:
+		case _state.Babbling:
 			n.babble(gossip)
-		case CatchingUp:
+		case _state.CatchingUp:
 			n.fastForward()
-		case Joining:
+		case _state.Joining:
 			n.join()
-		case Suspended:
+		case _state.Suspended:
 			time.Sleep(2000 * time.Millisecond)
-		case Shutdown:
+		case _state.Shutdown:
 			return
 		}
 	}
@@ -211,15 +212,15 @@ func (n *Node) Leave() error {
 // Shutdown attempts to cleanly shutdown the node by waiting for pending work to
 // be finished, stopping the control-timer, and closing the transport.
 func (n *Node) Shutdown() {
-	if n.getState() != Shutdown {
+	if n.GetState() != _state.Shutdown {
 		n.logger.Info("SHUTDOWN")
 
 		// exit any non-shutdown state immediately
-		n.setState(Shutdown)
+		n.transition(_state.Shutdown)
 
 		// stop and wait for concurrent operations
 		close(n.shutdownCh)
-		n.waitRoutines()
+		n.WaitRoutines()
 
 		// close transport and store
 		n.trans.Close()
@@ -231,16 +232,16 @@ func (n *Node) Shutdown() {
 // Suspend puts the node in Suspended mode. It doesn't close the transport
 // because it needs to respond to incoming SyncRequests.
 func (n *Node) Suspend() {
-	if n.getState() != Suspended &&
-		n.getState() != Shutdown {
+	if n.GetState() != _state.Suspended &&
+		n.GetState() != _state.Shutdown {
 
 		n.logger.Info("SUSPEND")
 
-		n.setState(Suspended)
+		n.transition(_state.Suspended)
 
 		// Stop and wait for concurrent operations
 		close(n.suspendCh)
-		n.waitRoutines()
+		n.WaitRoutines()
 	}
 }
 
@@ -287,7 +288,7 @@ func (n *Node) GetStats() map[string]string {
 		"rounds_per_second":      strconv.FormatFloat(consensusRoundsPerSecond, 'f', 2, 64),
 		"round_events":           strconv.Itoa(n.core.GetLastCommitedRoundEventsCount()),
 		"id":                     fmt.Sprint(n.core.validator.ID()),
-		"state":                  n.getState().String(),
+		"state":                  n.GetState().String(),
 		"moniker":                n.core.validator.Moniker,
 		"time":                   strconv.FormatInt(time.Now().UnixNano(), 10),
 	}
@@ -343,7 +344,7 @@ func (n *Node) doBackgroundWork() {
 	for {
 		select {
 		case rpc := <-n.netCh:
-			n.goFunc(func() {
+			n.GoFunc(func() {
 				n.processRPC(rpc)
 				n.resetTimer()
 			})
@@ -380,14 +381,13 @@ func (n *Node) resetTimer() {
 }
 
 // checkSuspend suspends the node if the number of undetermined events in the
-// hashgraph exceeds initialUndeterminedEvents by SuspendLimit, or the validator
-// has been evicted.
+// hashgraph exceeds initialUndeterminedEvents by n*SuspendLimit (where n is the
+// the size of the current validator set), or if the validator has been evicted.
 func (n *Node) checkSuspend() {
 
 	// check too many undetermined events
 	newUndeterminedEvents := len(n.core.GetUndeterminedEvents()) - n.initialUndeterminedEvents
-	tooManyUndeterminedEvents := newUndeterminedEvents > n.conf.SuspendLimit
-
+	tooManyUndeterminedEvents := newUndeterminedEvents > n.conf.SuspendLimit*n.core.validators.Len()
 
 	// check evicted
 	evicted := n.core.hg.LastConsensusRound != nil &&
@@ -400,8 +400,8 @@ func (n *Node) checkSuspend() {
 		n.logger.WithFields(logrus.Fields{
 			"evicted":                   evicted,
 			"tooManyUndeterminedEvents": tooManyUndeterminedEvents,
-			"id": n.GetID(),
-			"removedRound": n.core.RemovedRound,
+			"id":            n.GetID(),
+			"removedRound":  n.core.RemovedRound,
 			"acceptedRound": n.core.AcceptedRound,
 		}).Debugf("SUSPEND")
 
@@ -424,7 +424,7 @@ func (n *Node) babble(gossip bool) {
 			if gossip {
 				peer := n.core.peerSelector.Next()
 				if peer != nil {
-					n.goFunc(func() {
+					n.GoFunc(func() {
 						n.gossip(peer)
 					})
 				} else {
@@ -625,7 +625,7 @@ func (n *Node) fastForward() error {
 	n.logger.Info("CATCHING-UP")
 
 	//wait until sync routines finish
-	n.waitRoutines()
+	n.WaitRoutines()
 
 	var err error
 
@@ -635,7 +635,7 @@ func (n *Node) fastForward() error {
 	resp := n.getBestFastForwardResponse()
 	if resp == nil {
 		n.logger.Error("getBestFastForwardResponse returned nil => Babbling")
-		n.setState(Babbling)
+		n.transition(_state.Babbling)
 		return fmt.Errorf("getBestFastForwardResponse returned nil")
 	}
 
@@ -662,7 +662,7 @@ func (n *Node) fastForward() error {
 
 	n.logger.Debug("FastForward OK")
 
-	n.setState(Babbling)
+	n.transition(_state.Babbling)
 
 	return nil
 }
@@ -732,8 +732,8 @@ func (n *Node) join() error {
 
 	if resp.Accepted {
 		// Set AcceptedRound, which is the next round at which the node is
-		// allowed to create SelfEventss, and reset RemovedRound to
-		// "unsuspend" a node if had been evicted prior to rejoining.
+		// allowed to create SelfEvents, and reset RemovedRound to "unsuspend" a
+		// node if had been evicted prior to rejoining.
 		n.core.AcceptedRound = resp.AcceptedRound
 		n.core.RemovedRound = -1
 
@@ -752,18 +752,28 @@ func (n *Node) join() error {
 Utils
 *******************************************************************************/
 
+// transition changes the node state and notifies the app via the proxy's
+// OnStateChanged callback
+func (n *Node) transition(state _state.State) {
+	n.SetState(state)
+
+	if err := n.proxy.OnStateChanged(state); err != nil {
+		n.logger.Error(err)
+	}
+}
+
 // setBabblingOrCatchingUpState sets the node's state to CatchingUp if fast-sync
 // is enabled, or to Babbling if fast-sync is not enabled.
 func (n *Node) setBabblingOrCatchingUpState() {
 	if n.conf.EnableFastSync {
 		n.logger.Debug("FastSync enabled => CatchingUp")
-		n.setState(CatchingUp)
+		n.transition(_state.CatchingUp)
 	} else {
 		n.logger.Debug("FastSync not enabled => Babbling")
 		if err := n.core.SetHeadAndSeq(); err != nil {
 			n.core.SetHeadAndSeq()
 		}
-		n.setState(Babbling)
+		n.transition(_state.Babbling)
 	}
 }
 

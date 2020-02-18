@@ -1,4 +1,4 @@
-package node
+package state
 
 import (
 	"sync"
@@ -24,7 +24,7 @@ const (
 	Suspended
 )
 
-// String ...
+// String returns the string representation of a State
 func (s State) String() string {
 	switch s {
 	case Babbling:
@@ -48,24 +48,30 @@ func (s State) String() string {
 // state.goFunc
 const WGLIMIT = 20
 
-type state struct {
+// Manager wraps a State with get and set methods. It is also used to limit the
+// number of goroutines launched by the node, and to wait for all of them to
+// complete.
+type Manager struct {
 	state   State
 	wg      sync.WaitGroup
 	wgCount int32
 }
 
-func (b *state) getState() State {
+// GetState returns the current state
+func (b *Manager) GetState() State {
 	stateAddr := (*uint32)(&b.state)
 	return State(atomic.LoadUint32(stateAddr))
 }
 
-func (b *state) setState(s State) {
+// SetState sets the state
+func (b *Manager) SetState(s State) {
 	stateAddr := (*uint32)(&b.state)
 	atomic.StoreUint32(stateAddr, uint32(s))
 }
 
-// Start a goroutine and add it to waitgroup
-func (b *state) goFunc(f func()) {
+// GoFunc launches a goroutine for a given function, if there are currently
+// less than WGLIMIT running. It increments the waitgroup.
+func (b *Manager) GoFunc(f func()) {
 	tempWgCount := atomic.LoadInt32(&b.wgCount)
 	if tempWgCount < WGLIMIT {
 		b.wg.Add(1)
@@ -78,6 +84,7 @@ func (b *state) goFunc(f func()) {
 	}
 }
 
-func (b *state) waitRoutines() {
+// WaitRoutines waits for all the goroutines in the waitgroup.
+func (b *Manager) WaitRoutines() {
 	b.wg.Wait()
 }

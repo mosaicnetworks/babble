@@ -7,11 +7,13 @@ import (
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/node/state"
 	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/sirupsen/logrus"
 )
 
-// SocketAppProxyClient ...
+// SocketAppProxyClient is the component of the AppProxy that sends RPC requests
+// to the App
 type SocketAppProxyClient struct {
 	clientAddr string
 	timeout    time.Duration
@@ -19,7 +21,7 @@ type SocketAppProxyClient struct {
 	rpc        *rpc.Client
 }
 
-// NewSocketAppProxyClient ...
+// NewSocketAppProxyClient creates a new SocketAppProxyClient
 func NewSocketAppProxyClient(clientAddr string, timeout time.Duration, logger *logrus.Entry) *SocketAppProxyClient {
 	return &SocketAppProxyClient{
 		clientAddr: clientAddr,
@@ -42,7 +44,7 @@ func (p *SocketAppProxyClient) getConnection() error {
 	return nil
 }
 
-// CommitBlock ...
+// CommitBlock implements the AppProxy interface
 func (p *SocketAppProxyClient) CommitBlock(block hashgraph.Block) (proxy.CommitResponse, error) {
 	if err := p.getConnection(); err != nil {
 		return proxy.CommitResponse{}, err
@@ -64,7 +66,7 @@ func (p *SocketAppProxyClient) CommitBlock(block hashgraph.Block) (proxy.CommitR
 	return commitResponse, nil
 }
 
-// GetSnapshot ...
+// GetSnapshot implementes the AppProxy interface
 func (p *SocketAppProxyClient) GetSnapshot(blockIndex int) ([]byte, error) {
 	if err := p.getConnection(); err != nil {
 		return []byte{}, err
@@ -86,7 +88,7 @@ func (p *SocketAppProxyClient) GetSnapshot(blockIndex int) ([]byte, error) {
 	return snapshot, nil
 }
 
-// Restore ...
+// Restore implements the AppProxy interface
 func (p *SocketAppProxyClient) Restore(snapshot []byte) error {
 	if err := p.getConnection(); err != nil {
 		return err
@@ -103,6 +105,25 @@ func (p *SocketAppProxyClient) Restore(snapshot []byte) error {
 	p.logger.WithFields(logrus.Fields{
 		"state_hash": stateHash,
 	}).Debug("AppProxyClient.Restore")
+
+	return nil
+}
+
+// OnStateChanged implements the AppProxy interface
+func (p *SocketAppProxyClient) OnStateChanged(state state.State) error {
+	if err := p.getConnection(); err != nil {
+		return err
+	}
+
+	if err := p.rpc.Call("State.OnStateChanged", state, nil); err != nil {
+		p.rpc = nil
+
+		return err
+	}
+
+	p.logger.WithFields(logrus.Fields{
+		"state": state.String,
+	}).Debug("AppProxyClient.OnStateChanged")
 
 	return nil
 }

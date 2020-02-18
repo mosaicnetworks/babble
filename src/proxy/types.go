@@ -11,7 +11,7 @@ type CommitResponse struct {
 // CommitCallback ...
 type CommitCallback func(block hashgraph.Block) (CommitResponse, error)
 
-//DummyCommitCallback is used for testing
+// DummyCommitCallback is used for testing
 func DummyCommitCallback(block hashgraph.Block) (CommitResponse, error) {
 	receipts := []hashgraph.InternalTransactionReceipt{}
 	for _, it := range block.InternalTransactions() {

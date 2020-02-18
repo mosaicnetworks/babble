@@ -7,6 +7,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/hashgraph"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
+	_state "github.com/mosaicnetworks/babble/src/node/state"
 	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/sirupsen/logrus"
 )
@@ -79,10 +80,10 @@ func (n *Node) processRPC(rpc net.RPC) {
 	// because it enables the other nodes to be notified of this suspension.
 	_, isSyncRequest := rpc.Command.(*net.SyncRequest)
 
-	if !(n.getState() == Babbling ||
-		(n.getState() == Suspended && isSyncRequest)) {
+	if state := n.GetState(); !(state == _state.Babbling ||
+		(state == _state.Suspended && isSyncRequest)) {
 
-		n.logger.WithField("state", n.state.state).Debug("Not in Babbling state")
+		n.logger.WithField("state", state).Debug("Not in Babbling state")
 		rpc.Respond(nil, fmt.Errorf("Not in Babbling state"))
 		return
 	}

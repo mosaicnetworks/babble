@@ -26,6 +26,7 @@ type Node struct {
 // New initializes Node struct
 func New(
 	commitHandler CommitHandler,
+	stateChangeHandler StateChangeHandler,
 	exceptionHandler ExceptionHandler,
 	configDir string,
 ) *Node {
@@ -57,7 +58,11 @@ func New(
 
 	// mobileApp implements the ProxyHandler interface, and we use it to
 	// instantiate an InmemProxy
-	mobileApp := newMobileApp(commitHandler, exceptionHandler, babbleConfig.Logger())
+	mobileApp := newMobileApp(
+		commitHandler,
+		stateChangeHandler,
+		exceptionHandler,
+		babbleConfig.Logger())
 	babbleConfig.Proxy = inmem.NewInmemProxy(mobileApp, babbleConfig.Logger())
 
 	engine := babble.NewBabble(babbleConfig)
