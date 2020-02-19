@@ -139,7 +139,13 @@ func (n *NetworkTransport) Consumer() <-chan RPC {
 
 // LocalAddr implements the Transport interface.
 func (n *NetworkTransport) LocalAddr() string {
-	return n.stream.Addr().String()
+	addr := n.stream.Addr()
+
+	if addr != nil {
+		return addr.String()
+	}
+
+	return ""
 }
 
 // AdvertiseAddr implements the Transport interface.

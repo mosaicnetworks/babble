@@ -141,9 +141,9 @@ func (w *WebRTCStreamLayer) pipePeerConnection(pc *webrtc.PeerConnection) error 
 // - Create a DataChannel and detatch it in it's OnOpen handler
 // - ICE negotiation
 // - Return a net.Conn wrapping the detached datachannel
-func (w *WebRTCStreamLayer) Dial(address string, timeout time.Duration) (net.Conn, error) {
+func (w *WebRTCStreamLayer) Dial(target string, timeout time.Duration) (net.Conn, error) {
 
-	if _, ok := w.peerConnections[address]; ok {
+	if _, ok := w.peerConnections[target]; ok {
 		return nil, fmt.Errorf("Already dialed")
 	}
 
@@ -185,7 +185,7 @@ func (w *WebRTCStreamLayer) Dial(address string, timeout time.Duration) (net.Con
 		return nil, err
 	}
 
-	answer, err := w.signal.Offer("target", offer)
+	answer, err := w.signal.Offer(target, offer)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +201,7 @@ func (w *WebRTCStreamLayer) Dial(address string, timeout time.Duration) (net.Con
 	}
 
 	// XXX use an identifier
-	w.peerConnections["target"] = pc
+	w.peerConnections[target] = pc
 
 	// Wait for DataChannel opening
 	// XXX also use timeout
@@ -230,6 +230,6 @@ func (w *WebRTCStreamLayer) Addr() net.Addr {
 }
 
 // AdvertiseAddr implements the net.Listener interface
-func (w *WebRTCStreamLayer) AdvertiseAddr() net.Addr {
-	return nil
+func (w *WebRTCStreamLayer) AdvertiseAddr() string {
+	return ""
 }

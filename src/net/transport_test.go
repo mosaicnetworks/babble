@@ -1,6 +1,7 @@
 package net
 
 import (
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 const (
 	INMEM = iota
 	TCP
+	WEBRTC
 	numTestTransports // NOTE: must be last
 )
 
@@ -28,6 +30,13 @@ func NewTestTransport(ttype int, addr string, t *testing.T) Transport {
 		}
 		go tt.Listen()
 		return tt
+	case WEBRTC:
+		wt, err := NewWebRTCTransport(addr, 1, time.Second, 2*time.Second, common.NewTestEntry(t, common.TestLogLevel))
+		if err != nil {
+			t.Fatal(err)
+		}
+		go wt.Listen()
+		return wt
 	default:
 		panic("Unknown transport type")
 	}
@@ -43,6 +52,10 @@ func TestTransport_StartStop(t *testing.T) {
 }
 
 func TestTransport_Sync(t *testing.T) {
+	// XXX needed for webrt test signal
+	os.RemoveAll("test_data")
+	os.Mkdir("test_data", os.ModeDir|0777)
+
 	addr1 := "127.0.0.1:1234"
 	addr2 := "127.0.0.1:1235"
 	for ttype := 0; ttype < numTestTransports; ttype++ {

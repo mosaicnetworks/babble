@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"reflect"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/pion/webrtc"
@@ -31,38 +32,64 @@ type Signal interface {
 // TestSignal implements the Signal interface by reading and writing files on
 // disk. It is only used for testing.
 type TestSignal struct {
-	offerFile  string
-	answerFile string
-	consumer   chan RPC
-	lastOffer  *webrtc.SessionDescription
-	lastAnswer *webrtc.SessionDescription
+	addr     string
+	consumer chan RPC
 }
 
-// NewTestSignal instantiates a TestSignal from two file paths.
-func NewTestSignal(offerFile, answerFile string) *TestSignal {
+// NewTestSignal instantiates a TestSignal
+func NewTestSignal(addr string) *TestSignal {
 	return &TestSignal{
-		offerFile:  offerFile,
-		answerFile: answerFile,
-		consumer:   make(chan RPC),
+		addr:     addr,
+		consumer: make(chan RPC),
 	}
 }
 
-// Listen implements the Signal interface. It tracks the offer file and submits
-// new offers to the consumer
+// Listen implements the Signal interface. It scans the test directory for
+// offers and submits new offers to the consumer channel. Filenames are of the
+// for <offerer>_<answerer>_offer.sdp or <offerer>_<answerer>_answer.sdp. So for
+// example if alice makes an offer to bob, she will write the offer in a file
+// called alice_bob_offer.sdp and bob will answer in alice_bob_answer.sdp
 func (ts *TestSignal) Listen() error {
+
+	// processedOffers keeps track of the offers that have already been
+	// processed
+	processedOffers := make(map[string]bool)
+
 	for {
-		offer, err := readSDP(ts.offerFile)
+
+		// open the directory where sdp files are dumped
+		sdpDir, err := os.Open("test_data")
 		if err != nil {
 			return err
 		}
 
-		if offer != nil {
+		//scan directory
+		fileNames, err := sdpDir.Readdirnames(0)
+		if err != nil {
+			return err
+		}
 
-			fmt.Println("offer file found")
+		for _, fileName := range fileNames {
+			s := strings.Split(fileName, "_")
 
-			if ts.lastOffer != nil && reflect.DeepEqual(ts.lastOffer, offer) {
-				fmt.Println("offer file hasn't changed")
-			} else {
+			if len(s) != 3 ||
+				s[1] != ts.addr ||
+				s[2] != "offer.sdp" {
+				continue
+			}
+
+			if _, ok := processedOffers[s[0]]; ok {
+				continue
+			}
+
+			offer, err := readSDP(filepath.Join("test_data", fileName))
+			if err != nil {
+				return err
+			}
+
+			if offer != nil {
+				fmt.Printf("offer from %s", s[0])
+
 				respCh := make(chan RPCResponse, 1)
 
 				rpc := RPC{
@@ -75,18 +102,17 @@ func (ts *TestSignal) Listen() error {
 				// Wait for response
 				select {
 				case resp := <-respCh:
-					fmt.Println("RPC responde. Writing answer file")
-					writeSDP(resp.Response.(webrtc.SessionDescription), ts.answerFile)
+					fmt.Println("RPC respond. Writing answer file")
+					answerFilename := fmt.Sprintf("%s_%s_answer.sdp", s[0], s[1])
+					writeSDP(resp.Response.(webrtc.SessionDescription), filepath.Join("test_data", answerFilename))
 					break
 				}
-
-				ts.lastOffer = offer
 
 				fmt.Println("forwarded offer")
 			}
 		}
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
@@ -97,10 +123,15 @@ func (ts *TestSignal) Consumer() <-chan RPC {
 
 // Offer implements the Signal interface
 func (ts *TestSignal) Offer(target string, offer webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
-	err := writeSDP(offer, ts.offerFile)
+
+	offerFilename := fmt.Sprintf("%s_%s_offer.sdp", ts.addr, target)
+	err := writeSDP(offer, filepath.Join("test_data", offerFilename))
 	if err != nil {
 		return nil, err
 	}
+
+	answerFilename := fmt.Sprintf("%s_%s_answer.sdp", ts.addr, target)
+	answerFile := filepath.Join("test_data", answerFilename)
 
 	timeout := time.After(5 * time.Second)
 	for {
@@ -109,24 +140,15 @@ func (ts *TestSignal) Offer(target string, offer webrtc.SessionDescription) (*we
 			err := fmt.Errorf("Timeout waiting for SDP answer")
 			return nil, err
 		default:
-			answer, err := readSDP(ts.answerFile)
+			answer, err := readSDP(answerFile)
 			if err != nil {
 				fmt.Printf("Error reading answer file: %v\n", err)
 				return nil, err
 			}
 
 			if answer != nil {
-
-				if ts.lastAnswer != nil && reflect.DeepEqual(ts.lastAnswer, answer) {
-					continue
-				}
-
-				ts.lastAnswer = answer
-
 				return answer, nil
 			}
-
-			fmt.Println("Answer is empty")
 
 			time.Sleep(100 * time.Millisecond)
 		}
