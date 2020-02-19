@@ -15,6 +15,8 @@ import (
 // Signal defines an interface for systems to exchange SDP offers and answers
 // to establish WebRTC PeerConnections
 type Signal interface {
+	// Addr returns the local address used to identify this end of a connection
+	Addr() string
 
 	// Listen is called to listen for incoming SDP offers, and forward them to
 	// to the Consumer channel
@@ -42,6 +44,11 @@ func NewTestSignal(addr string) *TestSignal {
 		addr:     addr,
 		consumer: make(chan RPC),
 	}
+}
+
+// Addr implements the Signal interface
+func (ts *TestSignal) Addr() string {
+	return ts.addr
 }
 
 // Listen implements the Signal interface. It scans the test directory for
@@ -88,8 +95,6 @@ func (ts *TestSignal) Listen() error {
 			}
 
 			if offer != nil {
-				fmt.Printf("offer from %s", s[0])
-
 				respCh := make(chan RPCResponse, 1)
 
 				rpc := RPC{
@@ -102,13 +107,11 @@ func (ts *TestSignal) Listen() error {
 				// Wait for response
 				select {
 				case resp := <-respCh:
-					fmt.Println("RPC respond. Writing answer file")
+					fmt.Println("Signal writing answer file")
 					answerFilename := fmt.Sprintf("%s_%s_answer.sdp", s[0], s[1])
 					writeSDP(resp.Response.(webrtc.SessionDescription), filepath.Join("test_data", answerFilename))
 					break
 				}
-
-				fmt.Println("forwarded offer")
 			}
 		}
 

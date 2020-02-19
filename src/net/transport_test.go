@@ -52,7 +52,6 @@ func TestTransport_StartStop(t *testing.T) {
 }
 
 func TestTransport_Sync(t *testing.T) {
-	// XXX needed for webrt test signal
 	os.RemoveAll("test_data")
 	os.Mkdir("test_data", os.ModeDir|0777)
 
@@ -123,7 +122,7 @@ func TestTransport_Sync(t *testing.T) {
 		}
 
 		var out SyncResponse
-		if err := trans2.Sync(trans1.LocalAddr(), &args, &out); err != nil {
+		if err := trans2.Sync(trans1.AdvertiseAddr(), &args, &out); err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
@@ -135,6 +134,9 @@ func TestTransport_Sync(t *testing.T) {
 }
 
 func TestTransport_EagerSync(t *testing.T) {
+	os.RemoveAll("test_data")
+	os.Mkdir("test_data", os.ModeDir|0777)
+
 	addr1 := "127.0.0.1:1236"
 	addr2 := "127.0.0.1:1237"
 	for ttype := 0; ttype < numTestTransports; ttype++ {
@@ -192,7 +194,7 @@ func TestTransport_EagerSync(t *testing.T) {
 		}
 
 		var out EagerSyncResponse
-		if err := trans2.EagerSync(trans1.LocalAddr(), &args, &out); err != nil {
+		if err := trans2.EagerSync(trans1.AdvertiseAddr(), &args, &out); err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
@@ -204,6 +206,9 @@ func TestTransport_EagerSync(t *testing.T) {
 }
 
 func TestTransport_FastForward(t *testing.T) {
+	os.RemoveAll("test_data")
+	os.Mkdir("test_data", os.ModeDir|0777)
+
 	addr1 := "127.0.0.1:1238"
 	addr2 := "127.0.0.1:1239"
 	for ttype := 0; ttype < numTestTransports; ttype++ {
@@ -325,7 +330,7 @@ func TestTransport_FastForward(t *testing.T) {
 		}
 
 		var out FastForwardResponse
-		if err := trans2.FastForward(trans1.LocalAddr(), &args, &out); err != nil {
+		if err := trans2.FastForward(trans1.AdvertiseAddr(), &args, &out); err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
@@ -337,6 +342,9 @@ func TestTransport_FastForward(t *testing.T) {
 }
 
 func TestTransport_Join(t *testing.T) {
+	os.RemoveAll("test_data")
+	os.Mkdir("test_data", os.ModeDir|0777)
+
 	addr1 := "127.0.0.1:2345"
 	addr2 := "127.0.0.1:2346"
 	for ttype := 0; ttype < numTestTransports; ttype++ {
@@ -409,7 +417,7 @@ func TestTransport_Join(t *testing.T) {
 		}
 
 		var out JoinResponse
-		if err := trans2.Join(trans1.LocalAddr(), &args, &out); err != nil {
+		if err := trans2.Join(trans1.AdvertiseAddr(), &args, &out); err != nil {
 			t.Fatalf("err: %v", err)
 		}
 

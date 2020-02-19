@@ -71,10 +71,10 @@ func (w *WebRTCStreamLayer) listen() error {
 
 			offer.Respond(answer, nil)
 
-			// XXX use an indentifier
+			// XXX identifie a peerConnection. Possibly use a different object
+			// than RPC in the consumer channel
 			w.peerConnections["temp"] = peerConnection
 
-			fmt.Println("WebRTCStreamLayer Responded")
 		}
 	}
 }
@@ -117,8 +117,6 @@ func newPeerConnection() (*webrtc.PeerConnection, error) {
 func (w *WebRTCStreamLayer) pipePeerConnection(pc *webrtc.PeerConnection) error {
 	// Register data channel creation handling
 	pc.OnDataChannel(func(d *webrtc.DataChannel) {
-		fmt.Printf("New DataChannel %s %d\n", d.Label(), d.ID())
-
 		// Register channel opening handling
 		d.OnOpen(func() {
 			fmt.Printf("Data channel '%s'-'%d' open.\n", d.Label(), d.ID())
@@ -231,5 +229,5 @@ func (w *WebRTCStreamLayer) Addr() net.Addr {
 
 // AdvertiseAddr implements the net.Listener interface
 func (w *WebRTCStreamLayer) AdvertiseAddr() string {
-	return ""
+	return w.signal.Addr()
 }
