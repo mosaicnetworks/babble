@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pion/webrtc"
+	webrtc "github.com/pion/webrtc/v2"
 )
 
 // Signal defines an interface for systems to exchange SDP offers and answers

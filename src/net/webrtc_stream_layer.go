@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/pion/datachannel"
-	"github.com/pion/webrtc"
+	webrtc "github.com/pion/webrtc/v2"
 )
 
 // WebRTCStreamLayer implements the StreamLayer interface for WebRTC
