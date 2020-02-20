@@ -1,8 +1,6 @@
 # Change Log
 
-## Unreleased
-
-SECURITY:
+## v0.7.0 (February 20, 2020)
 
 FEATURES:
 
