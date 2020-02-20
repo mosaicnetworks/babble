@@ -90,9 +90,6 @@ ENV GOPATH /workspace/go
 ENV PATH $GOPATH/bin:$PATH
 RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" "$GOPATH/pkg" && chmod -R 777 "$GOPATH"
 
-# Install Glide (Go dependency manager)
-RUN curl https://glide.sh/get | sh
-
 # install gomobile
 RUN go get golang.org/x/mobile/cmd/gomobile
 RUN go get golang.org/x/tools/go/packages

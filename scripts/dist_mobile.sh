@@ -31,7 +31,7 @@ docker run --rm  \
     -e "BUILD_TAGS=$BUILD_TAGS" \
     -v "$(pwd)":/workspace/go/src/github.com/mosaicnetworks/babble \
     -w /workspace/go/src/github.com/mosaicnetworks/babble \
-    mosaicnetworks/mobile:0.0.1 ./scripts/dist_mobile_build.sh
+    mosaicnetworks/mobile:0.0.2 ./scripts/dist_mobile_build.sh
 
 # Add "babble" and $VERSION prefix to package name.
 rm -rf ./build/distmobile

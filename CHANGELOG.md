@@ -13,6 +13,9 @@ IMPROVEMENTS:
 - babble: Dynamic SuspendLimit. SuspendLimit is now multiplied to the number of
           validators.
 
+- dependencies: Switch to using go mod for dependency management, instead of 
+                glide. 
+
 BUG FIXES:
 
 - mobile: Use fork of badgerdb in mobile. Fixes the directory lock issue with

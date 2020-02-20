@@ -11,12 +11,6 @@ cd "$DIR"
 
 export XDG_CACHE_HOME=/tmp/.cache.$$
 
-# Get Go deps
-echo "USER: `id -u $USER`"
-mkdir -p glide_cache
-glide --home "glide_cache" install
-rm -rf glide_cache
-
 # Build!
 echo "==> Building..."
 

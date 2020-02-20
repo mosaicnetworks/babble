@@ -189,11 +189,10 @@ $ cd $GOPATH/src/github.com/mosaicnetworks
 [...]/mosaicnetworks$ git clone https://github.com/mosaicnetworks/babble.git
 ```
 
-Babble uses [Glide](http://github.com/Masterminds/glide) to manage dependencies.
+Babble uses `go mod` to manage dependencies.
 
 ```bash
-[...]/babble$ curl https://glide.sh/get | sh
-[...]/babble$ glide install
+[...]/babble$ make vendor
 ```
 
 This will download all dependencies and put them in the **vendor** folder.

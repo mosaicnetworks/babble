@@ -1,6 +1,6 @@
 BUILD_TAGS?=babble
 
-# vendor uses Glide to install all the Go dependencies in vendor/
+# vendor installs all the Go dependencies in vendor/
 vendor:
 	(rm go.sum || rm -rf vendor ) && GO111MODULE=on go mod vendor
 
