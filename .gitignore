@@ -11,7 +11,7 @@ build
 
 # Dependencies
 vendor
-glide.lock
+go.sum
 
 # gomobile compilation output
 *.aar
