@@ -19,4 +19,5 @@ import:
   - btcec
 - package: github.com/x-cray/logrus-prefixed-formatter
   version: v0.5.2
-- package: github.com/pion/ice
+# - package: github.com/pion/webrtc
+#   version: v2.2.0

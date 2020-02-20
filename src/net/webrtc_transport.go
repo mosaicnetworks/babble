@@ -11,24 +11,26 @@ import (
 // Logger
 func NewWebRTCTransport(
 	addr string,
+	dir string,
 	maxPool int,
 	timeout time.Duration,
 	joinTimeout time.Duration,
 	logger *logrus.Entry,
 ) (*NetworkTransport, error) {
-	return newWebRTCTransport(addr, maxPool, timeout, joinTimeout, func(stream StreamLayer) *NetworkTransport {
+	return newWebRTCTransport(addr, dir, maxPool, timeout, joinTimeout, func(stream StreamLayer) *NetworkTransport {
 		return NewNetworkTransport(stream, maxPool, timeout, joinTimeout, logger)
 	})
 }
 
 func newWebRTCTransport(
 	addr string,
+	dir string,
 	maxPool int,
 	timeout time.Duration,
 	joinTimeout time.Duration,
 	transportCreator func(stream StreamLayer) *NetworkTransport) (*NetworkTransport, error) {
 
-	signal := NewTestSignal(addr)
+	signal := NewTestSignal(addr, dir)
 
 	// Create stream
 	stream := NewWebRTCStreamLayer(signal)

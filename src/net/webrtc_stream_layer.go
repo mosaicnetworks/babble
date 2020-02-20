@@ -117,9 +117,12 @@ func newPeerConnection() (*webrtc.PeerConnection, error) {
 func (w *WebRTCStreamLayer) pipePeerConnection(pc *webrtc.PeerConnection) error {
 	// Register data channel creation handling
 	pc.OnDataChannel(func(d *webrtc.DataChannel) {
+
 		// Register channel opening handling
 		d.OnOpen(func() {
 			fmt.Printf("Data channel '%s'-'%d' open.\n", d.Label(), d.ID())
+
+			fmt.Printf("%v\n", d)
 
 			// Detach the data channel
 			raw, dErr := d.Detach()

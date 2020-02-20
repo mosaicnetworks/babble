@@ -36,13 +36,15 @@ type Signal interface {
 type TestSignal struct {
 	addr     string
 	consumer chan RPC
+	dir      string
 }
 
 // NewTestSignal instantiates a TestSignal
-func NewTestSignal(addr string) *TestSignal {
+func NewTestSignal(addr string, dir string) *TestSignal {
 	return &TestSignal{
 		addr:     addr,
 		consumer: make(chan RPC),
+		dir:      dir,
 	}
 }
 
@@ -65,7 +67,7 @@ func (ts *TestSignal) Listen() error {
 	for {
 
 		// open the directory where sdp files are dumped
-		sdpDir, err := os.Open("test_data")
+		sdpDir, err := os.Open(ts.dir)
 		if err != nil {
 			return err
 		}
@@ -89,7 +91,7 @@ func (ts *TestSignal) Listen() error {
 				continue
 			}
 
-			offer, err := readSDP(filepath.Join("test_data", fileName))
+			offer, err := readSDP(filepath.Join(ts.dir, fileName))
 			if err != nil {
 				return err
 			}
@@ -109,9 +111,11 @@ func (ts *TestSignal) Listen() error {
 				case resp := <-respCh:
 					fmt.Println("Signal writing answer file")
 					answerFilename := fmt.Sprintf("%s_%s_answer.sdp", s[0], s[1])
-					writeSDP(resp.Response.(webrtc.SessionDescription), filepath.Join("test_data", answerFilename))
+					writeSDP(resp.Response.(webrtc.SessionDescription), filepath.Join(ts.dir, answerFilename))
 					break
 				}
+
+				processedOffers[s[0]] = true
 			}
 		}
 
@@ -128,13 +132,13 @@ func (ts *TestSignal) Consumer() <-chan RPC {
 func (ts *TestSignal) Offer(target string, offer webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
 
 	offerFilename := fmt.Sprintf("%s_%s_offer.sdp", ts.addr, target)
-	err := writeSDP(offer, filepath.Join("test_data", offerFilename))
+	err := writeSDP(offer, filepath.Join(ts.dir, offerFilename))
 	if err != nil {
 		return nil, err
 	}
 
 	answerFilename := fmt.Sprintf("%s_%s_answer.sdp", ts.addr, target)
-	answerFile := filepath.Join("test_data", answerFilename)
+	answerFile := filepath.Join(ts.dir, answerFilename)
 
 	timeout := time.After(5 * time.Second)
 	for {

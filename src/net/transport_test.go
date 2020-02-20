@@ -18,7 +18,12 @@ const (
 	numTestTransports // NOTE: must be last
 )
 
-func NewTestTransport(ttype int, addr string, t *testing.T) Transport {
+func prepareDir(dir string) {
+	os.RemoveAll(dir)
+	os.Mkdir(dir, os.ModeDir|0777)
+}
+
+func NewTestTransport(ttype int, addr string, dir string, t *testing.T) Transport {
 	switch ttype {
 	case INMEM:
 		_, it := NewInmemTransport(addr)
@@ -31,7 +36,7 @@ func NewTestTransport(ttype int, addr string, t *testing.T) Transport {
 		go tt.Listen()
 		return tt
 	case WEBRTC:
-		wt, err := NewWebRTCTransport(addr, 1, time.Second, 2*time.Second, common.NewTestEntry(t, common.TestLogLevel))
+		wt, err := NewWebRTCTransport(addr, dir, 1, time.Second, 2*time.Second, common.NewTestEntry(t, common.TestLogLevel))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -44,7 +49,7 @@ func NewTestTransport(ttype int, addr string, t *testing.T) Transport {
 
 func TestTransport_StartStop(t *testing.T) {
 	for ttype := 0; ttype < numTestTransports; ttype++ {
-		trans := NewTestTransport(ttype, "127.0.0.1:0", t)
+		trans := NewTestTransport(ttype, "127.0.0.1:0", "", t)
 		if err := trans.Close(); err != nil {
 			t.Fatalf("err: %v", err)
 		}
@@ -52,13 +57,14 @@ func TestTransport_StartStop(t *testing.T) {
 }
 
 func TestTransport_Sync(t *testing.T) {
-	os.RemoveAll("test_data")
-	os.Mkdir("test_data", os.ModeDir|0777)
+
+	dir := "test_data/sync"
+	prepareDir(dir)
 
 	addr1 := "127.0.0.1:1234"
 	addr2 := "127.0.0.1:1235"
 	for ttype := 0; ttype < numTestTransports; ttype++ {
-		trans1 := NewTestTransport(ttype, addr1, t)
+		trans1 := NewTestTransport(ttype, addr1, dir, t)
 		defer trans1.Close()
 		rpcCh := trans1.Consumer()
 
@@ -102,14 +108,13 @@ func TestTransport_Sync(t *testing.T) {
 					t.Fatalf("command mismatch: %#v %#v", *req, args)
 				}
 				rpc.Respond(&resp, nil)
-
 			case <-time.After(200 * time.Millisecond):
 				t.Fatalf("timeout")
 			}
 		}()
 
 		// Transport 2 makes outbound request
-		trans2 := NewTestTransport(ttype, addr2, t)
+		trans2 := NewTestTransport(ttype, addr2, dir, t)
 		defer trans2.Close()
 
 		if ttype == INMEM {
@@ -134,13 +139,13 @@ func TestTransport_Sync(t *testing.T) {
 }
 
 func TestTransport_EagerSync(t *testing.T) {
-	os.RemoveAll("test_data")
-	os.Mkdir("test_data", os.ModeDir|0777)
+	dir := "test_data/eagersync"
+	prepareDir(dir)
 
 	addr1 := "127.0.0.1:1236"
 	addr2 := "127.0.0.1:1237"
 	for ttype := 0; ttype < numTestTransports; ttype++ {
-		trans1 := NewTestTransport(ttype, addr1, t)
+		trans1 := NewTestTransport(ttype, addr1, dir, t)
 		defer trans1.Close()
 		rpcCh := trans1.Consumer()
 
@@ -181,7 +186,7 @@ func TestTransport_EagerSync(t *testing.T) {
 		}()
 
 		// Transport 2 makes outbound request
-		trans2 := NewTestTransport(ttype, addr2, t)
+		trans2 := NewTestTransport(ttype, addr2, dir, t)
 		defer trans2.Close()
 
 		if ttype == INMEM {
@@ -206,13 +211,13 @@ func TestTransport_EagerSync(t *testing.T) {
 }
 
 func TestTransport_FastForward(t *testing.T) {
-	os.RemoveAll("test_data")
-	os.Mkdir("test_data", os.ModeDir|0777)
+	dir := "test_data/fastforward"
+	prepareDir(dir)
 
 	addr1 := "127.0.0.1:1238"
 	addr2 := "127.0.0.1:1239"
 	for ttype := 0; ttype < numTestTransports; ttype++ {
-		trans1 := NewTestTransport(ttype, addr1, t)
+		trans1 := NewTestTransport(ttype, addr1, dir, t)
 		defer trans1.Close()
 		rpcCh := trans1.Consumer()
 
@@ -301,6 +306,8 @@ func TestTransport_FastForward(t *testing.T) {
 		}
 
 		// Listen for a request
+		stopCh := make(chan struct{})
+		defer close(stopCh)
 		go func() {
 			select {
 			case rpc := <-rpcCh:
@@ -310,14 +317,15 @@ func TestTransport_FastForward(t *testing.T) {
 					t.Fatalf("command mismatch: %#v %#v", *req, args)
 				}
 				rpc.Respond(&resp, nil)
-
+			case <-stopCh:
+				return
 			case <-time.After(200 * time.Millisecond):
 				t.Fatalf("timeout")
 			}
 		}()
 
 		// Transport 2 makes outbound request
-		trans2 := NewTestTransport(ttype, addr2, t)
+		trans2 := NewTestTransport(ttype, addr2, dir, t)
 		defer trans2.Close()
 
 		if ttype == INMEM {
@@ -342,13 +350,13 @@ func TestTransport_FastForward(t *testing.T) {
 }
 
 func TestTransport_Join(t *testing.T) {
-	os.RemoveAll("test_data")
-	os.Mkdir("test_data", os.ModeDir|0777)
+	dir := "test_data/join"
+	prepareDir(dir)
 
 	addr1 := "127.0.0.1:2345"
 	addr2 := "127.0.0.1:2346"
 	for ttype := 0; ttype < numTestTransports; ttype++ {
-		trans1 := NewTestTransport(ttype, addr1, t)
+		trans1 := NewTestTransport(ttype, addr1, dir, t)
 		defer trans1.Close()
 		rpcCh := trans1.Consumer()
 
@@ -404,7 +412,7 @@ func TestTransport_Join(t *testing.T) {
 		}()
 
 		// Transport 2 makes outbound request
-		trans2 := NewTestTransport(ttype, addr2, t)
+		trans2 := NewTestTransport(ttype, addr2, dir, t)
 		defer trans2.Close()
 
 		if ttype == INMEM {

@@ -7,11 +7,14 @@ import (
 )
 
 func TestWebRTCStreamLayer(t *testing.T) {
-	os.RemoveAll("test_data")
-	os.Mkdir("test_data", os.ModeDir|0777)
 
-	testSignal1 := NewTestSignal("alice")
-	testSignal2 := NewTestSignal("bob")
+	dir := "test_data/stream"
+
+	os.RemoveAll(dir)
+	os.Mkdir(dir, os.ModeDir|0777)
+
+	testSignal1 := NewTestSignal("alice", dir)
+	testSignal2 := NewTestSignal("bob", dir)
 
 	stream1 := NewWebRTCStreamLayer(testSignal1)
 	go func() {
