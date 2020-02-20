@@ -72,13 +72,11 @@ where all your go code will reside.
 Dependencies
 ^^^^^^^^^^^^
 
-Babble uses `Glide <http://github.com/Masterminds/glide>`__ to manage
-dependencies. For Ubuntu users:
+Babble uses ```go mod``` to manage dependencies.
 
 ::
 
-    [...]/babble$ curl https://glide.sh/get | sh
-    [...]/babble$ glide install
+    [...]/babble$ make vendor
 
 This will download all dependencies and put them in the **vendor** folder.
 

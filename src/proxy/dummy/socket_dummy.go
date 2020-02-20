@@ -7,9 +7,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-//DummySocketClient is a socket implementation of the dummy app. Babble and the
-//app run in separate processes and communicate through TCP sockets using
-//a SocketBabbleProxy and a SocketAppProxy.
+// DummySocketClient is a socket implementation of the dummy app. Babble and the
+// app run in separate processes and communicate through TCP sockets using
+// a SocketBabbleProxy and a SocketAppProxy.
 type DummySocketClient struct {
 	state       *State
 	babbleProxy *socket.SocketBabbleProxy

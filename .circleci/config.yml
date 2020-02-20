@@ -3,18 +3,18 @@ jobs:
   build:
     working_directory: /go/src/github.com/mosaicnetworks/babble
     docker:
-      - image: mosaicnetworks/glider:0.0.4
+      - image: mosaicnetworks/glider:0.0.5
     steps:
       - checkout
       - restore_cache:
-          key: v0-glide-cache-{{ checksum "glide.yaml" }}
+          key: v0-gomod-cache-{{ checksum "go.mod" }}
       - run:
           name: Install Go dependencies
-          command: glide install
+          command: go mod vendor
       - save_cache:
-          key: v0-glide-cache-{{ checksum "glide.yaml" }}
+          key: v0-gomod-cache-{{ checksum "go.mod" }}
           paths:
-            - /home/circleci/.glide
+            - /home/circleci/.gomod
       - run:
           name: Check version flag
           command: |

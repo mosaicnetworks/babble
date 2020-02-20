@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	_state "github.com/mosaicnetworks/babble/src/node/state"
 )
 
 /*
@@ -88,7 +90,7 @@ func TestCatchUp(t *testing.T) {
 				t.Fatalf("Fatal Timeout waiting for node0 to enter CatchingUp state")
 			default:
 			}
-			if nodes[3].getState() == CatchingUp {
+			if nodes[3].GetState() == _state.CatchingUp {
 				break
 			}
 		}
@@ -152,7 +154,7 @@ func TestFastSync(t *testing.T) {
 				t.Fatalf("Fatal Timeout waiting for node0 to enter CatchingUp state")
 			default:
 			}
-			if node0.getState() == CatchingUp {
+			if node0.GetState() == _state.CatchingUp {
 				break
 			}
 		}

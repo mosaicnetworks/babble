@@ -9,6 +9,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/common"
 	bcrypto "github.com/mosaicnetworks/babble/src/crypto"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/node/state"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
@@ -103,6 +104,16 @@ func TestInmemDummyServerSide(t *testing.T) {
 
 	if !reflect.DeepEqual(dummy.state.stateHash, expectedStateHash) {
 		t.Fatalf("Restore StateHash should be %v, not %v", expectedStateHash, dummy.state.stateHash)
+	}
+
+	err = dummy.OnStateChanged(state.Babbling)
+
+	if err != nil {
+		t.Fatalf("Error in OnStateChanged: %v", err)
+	}
+
+	if !reflect.DeepEqual(dummy.state.babbleState, state.Babbling) {
+		t.Fatalf("Babble State should be Babbling, not %v", dummy.state.babbleState.String())
 	}
 
 }

@@ -1,5 +1,5 @@
-FROM circleci/golang:1.9.2-stretch
-# Install Glide (Go dependency manager)
-RUN curl https://glide.sh/get | sh
+FROM circleci/golang:1.13.0
+# It is necessary to overwrite the XDG_CACHE_HOME
+ENV  XDG_CACHE_HOME=/tmp/.cache
 # Install Gox (Go cross-compiler)
 RUN go get -u -v github.com/mitchellh/gox

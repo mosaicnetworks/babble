@@ -6,12 +6,20 @@ SECURITY:
 
 FEATURES:
 
+- proxy: BREAKING API CHANGE - New OnStateChanged method in AppProxy
+
 IMPROVEMENTS:
 
 - babble: Dynamic SuspendLimit. SuspendLimit is now multiplied to the number of
           validators.
 
+- dependencies: Switch to using go mod for dependency management, instead of 
+                glide. 
+
 BUG FIXES:
+
+- mobile: Use fork of badgerdb in mobile. Fixes the directory lock issue with
+          Android 6 (Issue #20 in babble-android).
 
 ## v0.6.2 (February 7, 2020)
 

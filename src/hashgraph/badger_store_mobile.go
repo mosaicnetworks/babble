@@ -1,12 +1,22 @@
-// +build !mobile
+// +build mobile
 
 package hashgraph
+
+/*
+
+This file is a duplicate of badger_store.go but imports a fork of badger db.
+This fork does not attempt to acquire a directory lock as this is likely to
+fail in Android 6 and below due to a bug in SELinux.
+
+See https://github.com/mosaicnetworks/babble-android/issues/20
+
+*/
 
 import (
 	"fmt"
 
-	"github.com/dgraph-io/badger"
-	badger_options "github.com/dgraph-io/badger/options"
+	"github.com/jonknight73/badger"
+	badger_options "github.com/jonknight73/badger/options"
 	cm "github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/sirupsen/logrus"

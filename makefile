@@ -1,8 +1,8 @@
 BUILD_TAGS?=babble
 
-# vendor uses Glide to install all the Go dependencies in vendor/
+# vendor installs all the Go dependencies in vendor/
 vendor:
-	(rm glide.lock || rm -rf vendor ) && glide install
+	(rm go.sum || rm -rf vendor ) && GO111MODULE=on go mod vendor
 
 # install compiles and places the binary in GOPATH/bin
 install:
@@ -27,18 +27,18 @@ mobile-dist:
 tests:  test
 
 test:
-	glide novendor | xargs go test -count=1 -tags=unit
+	go test -count=1 -tags=unit ./...
 
 flagtest:
-	glide novendor | xargs go test -count=1 -run TestFlagEmpty
+	go test -count=1 -run TestFlagEmpty ./...
 
 extratests:
-	glide novendor | xargs go test -count=1 -run Extra
+	 go test -count=1 -run Extra ./...
 
 alltests:
-	glide novendor | xargs go test -count=1 
+	go test -count=1 ./...
  
 lint:
-	glide novendor | xargs golint
+	golint ./...
 
 .PHONY: vendor install build dist test flagtest extratests alltests tests mobile-dist
