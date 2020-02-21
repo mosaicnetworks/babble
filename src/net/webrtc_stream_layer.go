@@ -120,10 +120,6 @@ func (w *WebRTCStreamLayer) pipePeerConnection(pc *webrtc.PeerConnection) error 
 
 		// Register channel opening handling
 		d.OnOpen(func() {
-			fmt.Printf("Data channel '%s'-'%d' open.\n", d.Label(), d.ID())
-
-			fmt.Printf("%v\n", d)
-
 			// Detach the data channel
 			raw, dErr := d.Detach()
 			if dErr != nil {
@@ -163,8 +159,6 @@ func (w *WebRTCStreamLayer) Dial(target string, timeout time.Duration) (net.Conn
 	resCh := make(chan datachannel.ReadWriteCloser)
 	// Register channel opening handling
 	dataChannel.OnOpen(func() {
-		fmt.Printf("Data channel '%s'-'%d' open.\n", dataChannel.Label(), dataChannel.ID())
-
 		// Detach the data channel
 		raw, dErr := dataChannel.Detach()
 		if dErr != nil {
@@ -201,14 +195,16 @@ func (w *WebRTCStreamLayer) Dial(target string, timeout time.Duration) (net.Conn
 		return nil, err
 	}
 
-	// XXX use an identifier
 	w.peerConnections[target] = pc
 
 	// Wait for DataChannel opening
-	// XXX also use timeout
-	raw := <-resCh
-
-	return NewWebRTCConn(raw), nil
+	timer := time.After(timeout)
+	select {
+	case <-timer:
+		return nil, fmt.Errorf("Dial timeout")
+	case raw := <-resCh:
+		return NewWebRTCConn(raw), nil
+	}
 }
 
 // Accept aggregate all the DataChannels from all the PeerConnections
@@ -222,6 +218,9 @@ func (w *WebRTCStreamLayer) Accept() (c net.Conn, err error) {
 
 // Close implements the net.Listener interface
 func (w *WebRTCStreamLayer) Close() (err error) {
+	for _, pc := range w.peerConnections {
+		pc.Close()
+	}
 	return nil
 }
 

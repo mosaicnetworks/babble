@@ -17,6 +17,8 @@ func TestWebRTCStreamLayer(t *testing.T) {
 	testSignal2 := NewTestSignal("bob", dir)
 
 	stream1 := NewWebRTCStreamLayer(testSignal1)
+	defer stream1.Close()
+
 	go func() {
 		err := stream1.listen()
 		if err != nil {
@@ -25,6 +27,7 @@ func TestWebRTCStreamLayer(t *testing.T) {
 	}()
 
 	stream2 := NewWebRTCStreamLayer(testSignal2)
+	defer stream2.Close()
 
 	_, err := stream2.Dial("alice", 5*time.Second)
 	if err != nil {

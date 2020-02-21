@@ -14,7 +14,7 @@ import (
 const (
 	INMEM = iota
 	TCP
-	WEBRTC
+	WEBRTC            = iota
 	numTestTransports // NOTE: must be last
 )
 
@@ -99,6 +99,8 @@ func TestTransport_Sync(t *testing.T) {
 		}
 
 		// Listen for a request
+		stopCh := make(chan struct{})
+		defer close(stopCh)
 		go func() {
 			select {
 			case rpc := <-rpcCh:
@@ -108,8 +110,10 @@ func TestTransport_Sync(t *testing.T) {
 					t.Fatalf("command mismatch: %#v %#v", *req, args)
 				}
 				rpc.Respond(&resp, nil)
-			case <-time.After(200 * time.Millisecond):
-				t.Fatalf("timeout")
+			case <-stopCh:
+				return
+			case <-time.After(1000 * time.Millisecond):
+				t.Fatalf("conumer timeout")
 			}
 		}()
 
@@ -170,6 +174,8 @@ func TestTransport_EagerSync(t *testing.T) {
 		}
 
 		// Listen for a request
+		stopCh := make(chan struct{})
+		defer close(stopCh)
 		go func() {
 			select {
 			case rpc := <-rpcCh:
@@ -179,9 +185,10 @@ func TestTransport_EagerSync(t *testing.T) {
 					t.Fatalf("command mismatch: %#v %#v", *req, args)
 				}
 				rpc.Respond(&resp, nil)
-
-			case <-time.After(200 * time.Millisecond):
-				t.Fatalf("timeout")
+			case <-stopCh:
+				return
+			case <-time.After(1000 * time.Millisecond):
+				t.Fatalf("consumer timeout")
 			}
 		}()
 
@@ -319,8 +326,8 @@ func TestTransport_FastForward(t *testing.T) {
 				rpc.Respond(&resp, nil)
 			case <-stopCh:
 				return
-			case <-time.After(200 * time.Millisecond):
-				t.Fatalf("timeout")
+			case <-time.After(1000 * time.Millisecond):
+				t.Fatalf("consumer timeout")
 			}
 		}()
 
@@ -396,6 +403,8 @@ func TestTransport_Join(t *testing.T) {
 		}
 
 		// Listen for a request
+		stopCh := make(chan struct{})
+		defer close(stopCh)
 		go func() {
 			select {
 			case rpc := <-rpcCh:
@@ -405,9 +414,10 @@ func TestTransport_Join(t *testing.T) {
 					t.Fatalf("command mismatch: %#v %#v", *req, args)
 				}
 				rpc.Respond(&resp, nil)
-
-			case <-time.After(200 * time.Millisecond):
-				t.Fatalf("timeout")
+			case <-stopCh:
+				return
+			case <-time.After(1000 * time.Millisecond):
+				t.Fatalf("consumer timeout")
 			}
 		}()
 

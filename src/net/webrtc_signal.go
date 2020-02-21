@@ -48,7 +48,8 @@ func NewTestSignal(addr string, dir string) *TestSignal {
 	}
 }
 
-// Addr implements the Signal interface
+// Addr implements the Signal interface. It returns the local address used to
+// identify this end of the connection.
 func (ts *TestSignal) Addr() string {
 	return ts.addr
 }

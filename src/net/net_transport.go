@@ -433,5 +433,6 @@ func (n *NetworkTransport) handleCommand(r *bufio.Reader, dec *json.Decoder, enc
 	case <-n.shutdownCh:
 		return ErrTransportShutdown
 	}
+
 	return nil
 }
