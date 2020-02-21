@@ -3,14 +3,14 @@ module github.com/mosaicnetworks/babble
 go 1.12
 
 require (
-	github.com/btcsuite/btcd v0.0.0-20151121013317-cea5d3c1cc16
+	github.com/btcsuite/btcd v0.0.0-20190523000118-16327141da8c
 	github.com/btcsuite/fastsha256 v0.0.0-20160815193821-637e65642941 // indirect
 	github.com/dgraph-io/badger v1.6.0
 	github.com/jonknight73/badger v0.0.0-20200218142835-fa9c019859f6
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
+	github.com/libp2p/go-tcp-transport v0.1.1
 	github.com/magiconair/properties v1.8.1 // indirect
 	github.com/mattn/go-colorable v0.1.2 // indirect
-	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b // indirect
 	github.com/onsi/ginkgo v1.12.0 // indirect
 	github.com/onsi/gomega v1.9.0 // indirect
 	github.com/pion/datachannel v1.4.14
