@@ -3,6 +3,11 @@
 ## Unreleased
 
 SECURITY:
+FEATURES:
+IMPROVEMENTS:
+BUG FIXES:
+
+## v0.7.0 (February 20, 2020)
 
 FEATURES:
 
