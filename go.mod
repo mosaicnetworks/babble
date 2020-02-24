@@ -6,6 +6,8 @@ require (
 	github.com/btcsuite/btcd v0.0.0-20190523000118-16327141da8c
 	github.com/btcsuite/fastsha256 v0.0.0-20160815193821-637e65642941 // indirect
 	github.com/dgraph-io/badger v1.6.0
+	github.com/gammazero/nexus/v3 v3.0.0
+	github.com/gorilla/websocket v1.4.1
 	github.com/jonknight73/badger v0.0.0-20200218142835-fa9c019859f6
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/libp2p/go-tcp-transport v0.1.1
@@ -21,8 +23,7 @@ require (
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/viper v1.3.2
-	github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8
+	github.com/ugorji/go/codec v1.1.7
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2
 	golang.org/x/mobile v0.0.0-20200212152714-2b26a4705d24 // indirect
-	golang.org/x/text v0.3.2 // indirect
 )
