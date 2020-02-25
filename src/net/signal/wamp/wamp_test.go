@@ -2,6 +2,8 @@ package wamp
 
 import (
 	"testing"
+
+	"github.com/pion/webrtc/v2"
 )
 
 func TestWamp(t *testing.T) {
@@ -13,12 +15,14 @@ func TestWamp(t *testing.T) {
 	}
 
 	go server.Run()
+	defer server.Shutdown()
 
 	callee, err := NewClient(url, "office", "callee")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer callee.Close()
+	callee.Listen()
 
 	caller, err := NewClient(url, "office", "caller")
 	if err != nil {
@@ -26,7 +30,5 @@ func TestWamp(t *testing.T) {
 	}
 	defer caller.Close()
 
-	caller.Call("callee", "am", "stram", "gram")
-
-	server.Shutdown()
+	caller.Offer("callee", webrtc.SessionDescription{})
 }

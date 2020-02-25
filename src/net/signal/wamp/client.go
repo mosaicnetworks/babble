@@ -8,19 +8,20 @@ import (
 
 	"github.com/gammazero/nexus/v3/client"
 	"github.com/gammazero/nexus/v3/wamp"
-	bnet "github.com/mosaicnetworks/babble/src/net"
+	"github.com/mosaicnetworks/babble/src/net/signal"
 	"github.com/pion/webrtc/v2"
 )
 
-// Client implements the Signal interface. It sends ands receives SDP offers
+// Client implements the Signal interface. It sends and receives SDP offers
 // through a WAMP server using WebSockets.
 type Client struct {
 	pubKey   string
 	client   *client.Client
-	consumer chan bnet.RPC
+	consumer chan signal.OfferPromise
 }
 
-// NewClient instantiates a new Client
+// NewClient instantiates a new Client, and opens a connection to the WAMP
+// signaling server.
 func NewClient(server string, realm string, pubKey string) (*Client, error) {
 	cfg := client.Config{
 		Realm: realm,
@@ -34,7 +35,7 @@ func NewClient(server string, realm string, pubKey string) (*Client, error) {
 	res := &Client{
 		pubKey:   pubKey,
 		client:   cli,
-		consumer: make(chan bnet.RPC),
+		consumer: make(chan signal.OfferPromise),
 	}
 
 	return res, nil
@@ -69,6 +70,7 @@ func (c *Client) Offer(target string, offer webrtc.SessionDescription) (*webrtc.
 	}
 
 	callArgs := wamp.List{
+		string(c.pubKey),
 		string(raw),
 	}
 
@@ -98,7 +100,7 @@ func (c *Client) Offer(target string, offer webrtc.SessionDescription) (*webrtc.
 }
 
 // Consumer implements the Signal interface
-func (c *Client) Consumer() <-chan bnet.RPC {
+func (c *Client) Consumer() <-chan signal.OfferPromise {
 	return c.consumer
 }
 
@@ -113,22 +115,21 @@ func (c *Client) foo(ctx context.Context, inv *wamp.Invocation) client.InvokeRes
 
 	if len(inv.Arguments) != 2 {
 		return client.InvokeResult{
-			Err: "Error parsing invocation",
+			Err: wamp.URI(fmt.Sprintf("Invocation should contain 2 arguments, not %d", len(inv.Arguments))),
 		}
 	}
 
-	// XXX should track who the sender is
-	_, ok := wamp.AsString(inv.Arguments[0])
+	from, ok := wamp.AsString(inv.Arguments[0])
 	if !ok {
 		return client.InvokeResult{
-			Err: "Error parsing invocation",
+			Err: "Error reading invocation first argument",
 		}
 	}
 
 	sdp, ok := wamp.AsString(inv.Arguments[1])
 	if !ok {
 		return client.InvokeResult{
-			Err: "Error parsing invocation",
+			Err: "Error reading invocation second argument",
 		}
 	}
 
@@ -136,29 +137,37 @@ func (c *Client) foo(ctx context.Context, inv *wamp.Invocation) client.InvokeRes
 	err := json.Unmarshal([]byte(sdp), &offer)
 	if err != nil {
 		return client.InvokeResult{
-			Err: "Error parsing invocation",
+			Err: wamp.URI(fmt.Sprintf("Error parsing invocation SDP: %v", err)),
 		}
 	}
 
-	respCh := make(chan bnet.RPCResponse, 1)
+	respCh := make(chan signal.OfferPromiseResponse, 1)
 
-	rpc := bnet.RPC{
-		Command:  offer,
+	promise := signal.OfferPromise{
+		From:     from,
+		Offer:    offer,
 		RespChan: respCh,
 	}
 
-	c.consumer <- rpc
+	c.consumer <- promise
 
 	// Wait for response
 	select {
 	case resp := <-respCh:
+		if resp.Error != nil {
+			return client.InvokeResult{
+				Err: "Error parsing answer",
+			}
+		}
+
 		fmt.Println("Signal responding answer")
-		raw, err := json.Marshal(resp.Response.(webrtc.SessionDescription))
+		raw, err := json.Marshal(resp.Answer)
 		if err != nil {
 			return client.InvokeResult{
 				Err: "Error parsing answer",
 			}
 		}
+
 		return client.InvokeResult{
 			Args: wamp.List{string(raw)},
 		}
