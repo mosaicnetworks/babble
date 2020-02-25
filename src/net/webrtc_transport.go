@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+
+	filesignal "github.com/mosaicnetworks/babble/src/net/signal/file"
 )
 
 // NewWebRTCTransport returns a NetworkTransport that is built on top of
@@ -30,7 +32,7 @@ func newWebRTCTransport(
 	joinTimeout time.Duration,
 	transportCreator func(stream StreamLayer) *NetworkTransport) (*NetworkTransport, error) {
 
-	signal := NewTestSignal(addr, dir)
+	signal := filesignal.NewTestSignal(addr, dir)
 
 	// Create stream
 	stream := NewWebRTCStreamLayer(signal)

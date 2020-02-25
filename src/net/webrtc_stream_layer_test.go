@@ -4,6 +4,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/mosaicnetworks/babble/src/net/signal/file"
 )
 
 func TestWebRTCStreamLayer(t *testing.T) {
@@ -13,8 +15,8 @@ func TestWebRTCStreamLayer(t *testing.T) {
 	os.RemoveAll(dir)
 	os.Mkdir(dir, os.ModeDir|0777)
 
-	testSignal1 := NewTestSignal("alice", dir)
-	testSignal2 := NewTestSignal("bob", dir)
+	testSignal1 := file.NewTestSignal("alice", dir)
+	testSignal2 := file.NewTestSignal("bob", dir)
 
 	stream1 := NewWebRTCStreamLayer(testSignal1)
 	defer stream1.Close()

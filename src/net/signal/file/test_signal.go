@@ -1,4 +1,4 @@
-package net
+package file
 
 import (
 	"encoding/json"
@@ -9,33 +9,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mosaicnetworks/babble/src/net/signal"
 	webrtc "github.com/pion/webrtc/v2"
 )
-
-// Signal defines an interface for systems to exchange SDP offers and answers
-// to establish WebRTC PeerConnections
-type Signal interface {
-	// Addr returns the local address used to identify this end of a connection
-	Addr() string
-
-	// Listen is called to listen for incoming SDP offers, and forward them to
-	// to the Consumer channel
-	Listen() error
-
-	// Consumer is the channel through which incoming SDP offers are passed to
-	// the WebRTCStreamLayer. SDP offers are wrapped around an RPC object which
-	// offers a response mechanism.
-	Consumer() <-chan RPC
-
-	// Offer sends an SDP offer and waits for an answer
-	Offer(target string, offer webrtc.SessionDescription) (*webrtc.SessionDescription, error)
-}
 
 // TestSignal implements the Signal interface by reading and writing files on
 // disk. It is only used for testing.
 type TestSignal struct {
 	addr     string
-	consumer chan RPC
+	consumer chan signal.OfferPromise
 	dir      string
 }
 
@@ -43,7 +25,7 @@ type TestSignal struct {
 func NewTestSignal(addr string, dir string) *TestSignal {
 	return &TestSignal{
 		addr:     addr,
-		consumer: make(chan RPC),
+		consumer: make(chan signal.OfferPromise),
 		dir:      dir,
 	}
 }
@@ -98,21 +80,24 @@ func (ts *TestSignal) Listen() error {
 			}
 
 			if offer != nil {
-				respCh := make(chan RPCResponse, 1)
+				respCh := make(chan signal.OfferPromiseResponse, 1)
 
-				rpc := RPC{
-					Command:  *offer,
+				promise := signal.OfferPromise{
+					Offer:    *offer,
 					RespChan: respCh,
 				}
 
-				ts.consumer <- rpc
+				ts.consumer <- promise
 
 				// Wait for response
 				select {
 				case resp := <-respCh:
+					if resp.Error != nil {
+						fmt.Println(resp.Error)
+					}
 					fmt.Println("Signal writing answer file")
 					answerFilename := fmt.Sprintf("%s_%s_answer.sdp", s[0], s[1])
-					writeSDP(resp.Response.(webrtc.SessionDescription), filepath.Join(ts.dir, answerFilename))
+					writeSDP(*resp.Answer, filepath.Join(ts.dir, answerFilename))
 					break
 				}
 
@@ -125,7 +110,7 @@ func (ts *TestSignal) Listen() error {
 }
 
 // Consumer implements the Signal interface
-func (ts *TestSignal) Consumer() <-chan RPC {
+func (ts *TestSignal) Consumer() <-chan signal.OfferPromise {
 	return ts.consumer
 }
 

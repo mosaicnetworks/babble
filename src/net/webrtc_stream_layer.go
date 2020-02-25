@@ -5,6 +5,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/mosaicnetworks/babble/src/net/signal"
 	"github.com/pion/datachannel"
 	webrtc "github.com/pion/webrtc/v2"
 )
@@ -12,13 +13,13 @@ import (
 // WebRTCStreamLayer implements the StreamLayer interface for WebRTC
 type WebRTCStreamLayer struct {
 	peerConnections        map[string]*webrtc.PeerConnection
-	signal                 Signal
+	signal                 signal.Signal
 	incomingConnAggregator chan net.Conn
 }
 
 // NewWebRTCStreamLayer instantiates a new WebRTCStreamLayer and fires up the
 // background connection aggregator (signaling process)
-func NewWebRTCStreamLayer(signal Signal) *WebRTCStreamLayer {
+func NewWebRTCStreamLayer(signal signal.Signal) *WebRTCStreamLayer {
 	stream := &WebRTCStreamLayer{
 		peerConnections:        make(map[string]*webrtc.PeerConnection),
 		signal:                 signal,
@@ -37,7 +38,7 @@ func (w *WebRTCStreamLayer) listen() error {
 	// Process incoming offers
 	for {
 		select {
-		case offer := <-w.signal.Consumer():
+		case offerPromise := <-w.signal.Consumer():
 
 			fmt.Println("WebRTCStreamLayer Processing Offer")
 
@@ -52,7 +53,7 @@ func (w *WebRTCStreamLayer) listen() error {
 			}
 
 			// Set the remote SessionDescription
-			err = peerConnection.SetRemoteDescription(offer.Command.(webrtc.SessionDescription))
+			err = peerConnection.SetRemoteDescription(offerPromise.Offer)
 			if err != nil {
 				return err
 			}
@@ -69,12 +70,9 @@ func (w *WebRTCStreamLayer) listen() error {
 				return err
 			}
 
-			offer.Respond(answer, nil)
+			offerPromise.Respond(&answer, nil)
 
-			// XXX identifie a peerConnection. Possibly use a different object
-			// than RPC in the consumer channel
-			w.peerConnections["temp"] = peerConnection
-
+			w.peerConnections[offerPromise.From] = peerConnection
 		}
 	}
 }
