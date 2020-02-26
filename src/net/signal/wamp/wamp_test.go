@@ -1,6 +1,7 @@
 package wamp
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/pion/webrtc/v2"
@@ -22,7 +23,10 @@ func TestWamp(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer callee.Close()
-	callee.Listen()
+
+	if err := callee.Listen(); err != nil {
+		t.Fatal(err)
+	}
 
 	caller, err := NewClient(url, "office", "caller")
 	if err != nil {
@@ -30,5 +34,13 @@ func TestWamp(t *testing.T) {
 	}
 	defer caller.Close()
 
-	caller.Offer("callee", webrtc.SessionDescription{})
+	// We expect the call to reach the callee and to generate an
+	// ErrProcessingOffer error because the SDP is empty. We are only trying to
+	// test that the RPC call is relayed and that the handler on the receiving
+	// end is called
+	_, err = caller.Offer("callee", webrtc.SessionDescription{})
+	if err == nil || !strings.Contains(err.Error(), ErrProcessingOffer) {
+		t.Fatal("Should have receveived an ErrProcessingOffer")
+
+	}
 }

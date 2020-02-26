@@ -7,10 +7,9 @@ require (
 	github.com/btcsuite/fastsha256 v0.0.0-20160815193821-637e65642941 // indirect
 	github.com/dgraph-io/badger v1.6.0
 	github.com/gammazero/nexus/v3 v3.0.0
-	github.com/gorilla/websocket v1.4.1
 	github.com/jonknight73/badger v0.0.0-20200218142835-fa9c019859f6
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
-	github.com/libp2p/go-tcp-transport v0.1.1
+	github.com/libp2p/go-tcp-transport v0.1.1 // indirect
 	github.com/magiconair/properties v1.8.1 // indirect
 	github.com/mattn/go-colorable v0.1.2 // indirect
 	github.com/onsi/ginkgo v1.12.0 // indirect

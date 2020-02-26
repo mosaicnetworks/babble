@@ -12,6 +12,8 @@ import (
 	"github.com/pion/webrtc/v2"
 )
 
+// TODO logging
+
 // Client implements the Signal interface. It sends and receives SDP offers
 // through a WAMP server using WebSockets.
 type Client struct {
@@ -41,49 +43,47 @@ func NewClient(server string, realm string, pubKey string) (*Client, error) {
 	return res, nil
 }
 
-// Addr implements the Signal interface. It returns the pubKey indentifying this
+// ID implements the Signal interface. It returns the pubKey indentifying this
 // client
-func (c *Client) Addr() string {
+func (c *Client) ID() string {
 	return c.pubKey
 }
 
 // Listen implements the Signal interface. It registers a callback within the
-// WAMP router. The callback forwards offers to the consumer channel
+// WAMP router. The callback forwards offers to the consumer channel. The
+// callback is identified by the client's public key.
 func (c *Client) Listen() error {
-	proc := fmt.Sprintf("foo_%s", c.pubKey)
-
-	if err := c.client.Register(proc, c.foo, nil); err != nil {
-		log.Fatal("Failed to register procedure:", err)
+	if err := c.client.Register(c.ID(), c.callHandler, nil); err != nil {
+		log.Println("Failed to register procedure:", err)
 		return err
 	}
-
 	log.Println("Registered procedure foo with router")
 	return nil
 }
 
-// Offer implemnts the Signal interface. It sends an offer and waits for an
-// answer
+// Offer implements the Signal interface. It sends an offer and waits for an
+// answer.
 func (c *Client) Offer(target string, offer webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
 	raw, err := json.Marshal(offer)
 	if err != nil {
 		return nil, err
 	}
 
+	// TODO formalise RPC args
 	callArgs := wamp.List{
 		string(c.pubKey),
 		string(raw),
 	}
 
-	proc := fmt.Sprintf("foo_%s", target)
+	log.Println("Call remote procedure", target)
 
-	log.Println("Call remote procedure", proc)
-
-	result, err := c.client.Call(context.Background(), proc, nil, callArgs, nil, nil)
+	result, err := c.client.Call(context.Background(), target, nil, callArgs, nil, nil)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return nil, err
 	}
 
+	// TODO formalise RPC args
 	sdp, ok := wamp.AsString(result.Arguments[0])
 	if !ok {
 		return nil, err
@@ -99,46 +99,43 @@ func (c *Client) Offer(target string, offer webrtc.SessionDescription) (*webrtc.
 
 }
 
-// Consumer implements the Signal interface
+// Consumer implements the Signal interface. It returns the channel through
+// which incoming WebRTC offers are received. The offers are wrapped insided
+// promises which provide an asynchronous response mechanism.
 func (c *Client) Consumer() <-chan signal.OfferPromise {
 	return c.consumer
 }
 
-// Close closes the connection to the WAMP
-// server
+// Close closes the connection to the WAMP server
 func (c *Client) Close() error {
+	c.client.Unregister(c.ID())
 	return c.client.Close()
 }
 
-func (c *Client) foo(ctx context.Context, inv *wamp.Invocation) client.InvokeResult {
-	log.Println("In foo")
+// TODO formalise RPC arguments and errors
+func (c *Client) callHandler(ctx context.Context, inv *wamp.Invocation) client.InvokeResult {
+	log.Println("In callHandler")
 
 	if len(inv.Arguments) != 2 {
-		return client.InvokeResult{
-			Err: wamp.URI(fmt.Sprintf("Invocation should contain 2 arguments, not %d", len(inv.Arguments))),
-		}
+		return errResult(
+			fmt.Sprintf("Invocation should contain 2 arguments, not %d", len(inv.Arguments)))
+
 	}
 
 	from, ok := wamp.AsString(inv.Arguments[0])
 	if !ok {
-		return client.InvokeResult{
-			Err: "Error reading invocation first argument",
-		}
+		return errResult("Error reading invocation first argument")
 	}
 
 	sdp, ok := wamp.AsString(inv.Arguments[1])
 	if !ok {
-		return client.InvokeResult{
-			Err: "Error reading invocation second argument",
-		}
+		return errResult("Error reading invocation second argument")
 	}
 
 	offer := webrtc.SessionDescription{}
 	err := json.Unmarshal([]byte(sdp), &offer)
 	if err != nil {
-		return client.InvokeResult{
-			Err: wamp.URI(fmt.Sprintf("Error parsing invocation SDP: %v", err)),
-		}
+		return errResult(fmt.Sprintf("Error parsing invocation SDP: %v", err))
 	}
 
 	respCh := make(chan signal.OfferPromiseResponse, 1)
@@ -152,28 +149,27 @@ func (c *Client) foo(ctx context.Context, inv *wamp.Invocation) client.InvokeRes
 	c.consumer <- promise
 
 	// Wait for response
+	// TODO Timeout?
 	select {
 	case resp := <-respCh:
 		if resp.Error != nil {
-			return client.InvokeResult{
-				Err: "Error parsing answer",
-			}
+			return errResult(resp.Error.Error())
 		}
 
-		fmt.Println("Signal responding answer")
 		raw, err := json.Marshal(resp.Answer)
 		if err != nil {
-			return client.InvokeResult{
-				Err: "Error parsing answer",
-			}
+			return errResult(fmt.Sprintf("Error parsing answer: %v", err))
 		}
 
 		return client.InvokeResult{
 			Args: wamp.List{string(raw)},
 		}
 	}
+}
 
+func errResult(msg string) client.InvokeResult {
 	return client.InvokeResult{
-		Err: "Error processing offer",
+		Err:  ErrProcessingOffer,
+		Args: wamp.List{msg},
 	}
 }

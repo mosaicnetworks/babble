@@ -1,18 +1,24 @@
 package wamp
 
 import (
+	"context"
 	"log"
+	"net/http"
 
 	"github.com/gammazero/nexus/v3/router"
 	"github.com/gammazero/nexus/v3/wamp"
 )
 
+// Server implements a WAMP server through which connected clients can make RPC
+// requests to one-another. It is the server side of our WAMP signaling system
+// for WebRTC connections.
 type Server struct {
 	address    string
 	router     router.Router
-	shutdownCh chan struct{}
+	httpServer *http.Server
 }
 
+// NewServer instantiates a new Server which can be run at a specified address.
 func NewServer(address string, realm string) (*Server, error) {
 	// Create router instance.
 	routerConfig := &router.Config{
@@ -30,32 +36,37 @@ func NewServer(address string, realm string) (*Server, error) {
 		return nil, err
 	}
 
+	wss := router.NewWebsocketServer(nxr)
+
+	httpServer := &http.Server{
+		Handler: wss,
+		Addr:    address,
+	}
+
 	res := &Server{
 		address:    address,
 		router:     nxr,
-		shutdownCh: make(chan struct{}),
+		httpServer: httpServer,
 	}
 
 	return res, nil
 }
 
+// Run starts the WAMP websocket server
 func (s *Server) Run() error {
-	defer s.router.Close()
-
-	// Create and run server.
-	closer, err := router.NewWebsocketServer(s.router).ListenAndServe(s.address)
-	if err != nil {
-		log.Fatal(err)
-		return err
-	}
-	log.Printf("Websocket server listening on ws://%s/", s.address)
-
-	// Wait for shutdown
-	<-s.shutdownCh
-
-	return closer.Close()
+	return s.httpServer.ListenAndServe()
 }
 
+// Shutdown stops the websocket server, and the wamp router
 func (s *Server) Shutdown() {
-	close(s.shutdownCh)
+	defer s.router.Close()
+
+	if err := s.httpServer.Shutdown(context.Background()); err != nil {
+		log.Println(err)
+	}
+}
+
+// Addr returns the address of the server
+func (s *Server) Addr() string {
+	return s.address
 }

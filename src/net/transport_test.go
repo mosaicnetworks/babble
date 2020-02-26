@@ -1,14 +1,13 @@
 package net
 
 import (
-	"os"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
-	filesignal "github.com/mosaicnetworks/babble/src/net/signal/file"
 	"github.com/mosaicnetworks/babble/src/net/signal/wamp"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
@@ -16,21 +15,16 @@ import (
 const (
 	INMEM = iota
 	TCP
-	WEBRTCFILE
-	WEBRTCWAMP
+	WEBRTC
 	numTestTransports // NOTE: must be last
 )
 
-const (
-	realm = "office"
+var (
+	realm    = "office"
+	wampPort = 8000
 )
 
-func prepareDir(dir string) {
-	os.RemoveAll(dir)
-	os.Mkdir(dir, os.ModeDir|0777)
-}
-
-func NewTestTransport(ttype int, addr string, dir string, wampserver string, t *testing.T) Transport {
+func NewTestTransport(ttype int, addr string, wampserver string, t *testing.T) Transport {
 	switch ttype {
 	case INMEM:
 		_, it := NewInmemTransport(addr)
@@ -42,15 +36,7 @@ func NewTestTransport(ttype int, addr string, dir string, wampserver string, t *
 		}
 		go tt.Listen()
 		return tt
-	case WEBRTCFILE:
-		signal := filesignal.NewTestSignal(addr, dir)
-		wt, err := NewWebRTCTransport(signal, 1, time.Second, 2*time.Second, common.NewTestEntry(t, common.TestLogLevel))
-		if err != nil {
-			t.Fatal(err)
-		}
-		go wt.Listen()
-		return wt
-	case WEBRTCWAMP:
+	case WEBRTC:
 		signal, err := wamp.NewClient(wampserver, realm, addr)
 		if err != nil {
 			t.Fatal(err)
@@ -66,22 +52,42 @@ func NewTestTransport(ttype int, addr string, dir string, wampserver string, t *
 	}
 }
 
+func checkStartWampServer(ttype int, address string, t *testing.T) *wamp.Server {
+	if ttype == WEBRTC {
+		//XXX The signal server seems to keep running sometimes after a test
+		// executes, which leads to 'connection refused' errors on the next
+		// tests when multiple tests are run concurrently (ex go test ./...).
+		// In the TCP transport, we found a way to forcefully close all the
+		// sockets properly, but with the wamp library (nexus) we don't have
+		// much control. This sleep statement is a temporary work-around...
+		time.Sleep(time.Second)
+
+		server, err := wamp.NewServer(address, realm)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return server
+	}
+	return nil
+}
+
+func nextWampAddress() string {
+	res := fmt.Sprintf("localhost:%d", wampPort)
+	wampPort++
+	return res
+}
+
 func TestTransport_StartStop(t *testing.T) {
-	wampserver := "localhost:8000"
+	wampserver := nextWampAddress()
 
 	for ttype := 0; ttype < numTestTransports; ttype++ {
-		// XXX
-		if ttype == WEBRTCWAMP {
-			server, err := wamp.NewServer(wampserver, realm)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			go server.Run()
-			defer server.Shutdown()
+		s := checkStartWampServer(ttype, wampserver, t)
+		if s != nil {
+			go s.Run()
+			defer s.Shutdown()
 		}
 
-		trans := NewTestTransport(ttype, "127.0.0.1:0", "", wampserver, t)
+		trans := NewTestTransport(ttype, "127.0.0.1:0", wampserver, t)
 		if err := trans.Close(); err != nil {
 			t.Fatalf("err: %v", err)
 		}
@@ -89,27 +95,18 @@ func TestTransport_StartStop(t *testing.T) {
 }
 
 func TestTransport_Sync(t *testing.T) {
-	dir := "test_data/sync"
-	prepareDir(dir)
-
-	wampserver := "localhost:8001"
-
+	wampserver := nextWampAddress()
 	addr1 := "127.0.0.1:1234"
 	addr2 := "127.0.0.1:1235"
+
 	for ttype := 0; ttype < numTestTransports; ttype++ {
-
-		// XXX
-		if ttype == WEBRTCWAMP {
-			server, err := wamp.NewServer(wampserver, realm)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			go server.Run()
-			defer server.Shutdown()
+		s := checkStartWampServer(ttype, wampserver, t)
+		if s != nil {
+			go s.Run()
+			defer s.Shutdown()
 		}
 
-		trans1 := NewTestTransport(ttype, addr1, dir, wampserver, t)
+		trans1 := NewTestTransport(ttype, addr1, wampserver, t)
 		defer trans1.Close()
 		rpcCh := trans1.Consumer()
 
@@ -163,7 +160,7 @@ func TestTransport_Sync(t *testing.T) {
 		}()
 
 		// Transport 2 makes outbound request
-		trans2 := NewTestTransport(ttype, addr2, dir, wampserver, t)
+		trans2 := NewTestTransport(ttype, addr2, wampserver, t)
 		defer trans2.Close()
 
 		if ttype == INMEM {
@@ -188,26 +185,18 @@ func TestTransport_Sync(t *testing.T) {
 }
 
 func TestTransport_EagerSync(t *testing.T) {
-	dir := "test_data/eagersync"
-	prepareDir(dir)
-
-	wampserver := "localhost:8002"
-
+	wampserver := nextWampAddress()
 	addr1 := "127.0.0.1:1236"
 	addr2 := "127.0.0.1:1237"
-	for ttype := 0; ttype < numTestTransports; ttype++ {
-		// XXX
-		if ttype == WEBRTCWAMP {
-			server, err := wamp.NewServer(wampserver, realm)
-			if err != nil {
-				t.Fatal(err)
-			}
 
-			go server.Run()
-			defer server.Shutdown()
+	for ttype := 0; ttype < numTestTransports; ttype++ {
+		s := checkStartWampServer(ttype, wampserver, t)
+		if s != nil {
+			go s.Run()
+			defer s.Shutdown()
 		}
 
-		trans1 := NewTestTransport(ttype, addr1, dir, wampserver, t)
+		trans1 := NewTestTransport(ttype, addr1, wampserver, t)
 		defer trans1.Close()
 		rpcCh := trans1.Consumer()
 
@@ -251,7 +240,7 @@ func TestTransport_EagerSync(t *testing.T) {
 		}()
 
 		// Transport 2 makes outbound request
-		trans2 := NewTestTransport(ttype, addr2, dir, wampserver, t)
+		trans2 := NewTestTransport(ttype, addr2, wampserver, t)
 		defer trans2.Close()
 
 		if ttype == INMEM {
@@ -276,26 +265,18 @@ func TestTransport_EagerSync(t *testing.T) {
 }
 
 func TestTransport_FastForward(t *testing.T) {
-	dir := "test_data/fastforward"
-	prepareDir(dir)
-
-	wampserver := "localhost:8003"
-
+	wampserver := nextWampAddress()
 	addr1 := "127.0.0.1:1238"
 	addr2 := "127.0.0.1:1239"
-	for ttype := 0; ttype < numTestTransports; ttype++ {
-		// XXX
-		if ttype == WEBRTCWAMP {
-			server, err := wamp.NewServer(wampserver, realm)
-			if err != nil {
-				t.Fatal(err)
-			}
 
-			go server.Run()
-			defer server.Shutdown()
+	for ttype := 0; ttype < numTestTransports; ttype++ {
+		s := checkStartWampServer(ttype, wampserver, t)
+		if s != nil {
+			go s.Run()
+			defer s.Shutdown()
 		}
 
-		trans1 := NewTestTransport(ttype, addr1, dir, wampserver, t)
+		trans1 := NewTestTransport(ttype, addr1, wampserver, t)
 		defer trans1.Close()
 		rpcCh := trans1.Consumer()
 
@@ -403,7 +384,7 @@ func TestTransport_FastForward(t *testing.T) {
 		}()
 
 		// Transport 2 makes outbound request
-		trans2 := NewTestTransport(ttype, addr2, dir, wampserver, t)
+		trans2 := NewTestTransport(ttype, addr2, wampserver, t)
 		defer trans2.Close()
 
 		if ttype == INMEM {
@@ -428,26 +409,18 @@ func TestTransport_FastForward(t *testing.T) {
 }
 
 func TestTransport_Join(t *testing.T) {
-	dir := "test_data/join"
-	prepareDir(dir)
-
-	wampserver := "localhost:8004"
-
+	wampserver := nextWampAddress()
 	addr1 := "127.0.0.1:2345"
 	addr2 := "127.0.0.1:2346"
-	for ttype := 0; ttype < numTestTransports; ttype++ {
-		// XXX
-		if ttype == WEBRTCWAMP {
-			server, err := wamp.NewServer(wampserver, realm)
-			if err != nil {
-				t.Fatal(err)
-			}
 
-			go server.Run()
-			defer server.Shutdown()
+	for ttype := 0; ttype < numTestTransports; ttype++ {
+		s := checkStartWampServer(ttype, wampserver, t)
+		if s != nil {
+			go s.Run()
+			defer s.Shutdown()
 		}
 
-		trans1 := NewTestTransport(ttype, addr1, dir, wampserver, t)
+		trans1 := NewTestTransport(ttype, addr1, wampserver, t)
 		defer trans1.Close()
 		rpcCh := trans1.Consumer()
 
@@ -506,7 +479,7 @@ func TestTransport_Join(t *testing.T) {
 		}()
 
 		// Transport 2 makes outbound request
-		trans2 := NewTestTransport(ttype, addr2, dir, wampserver, t)
+		trans2 := NewTestTransport(ttype, addr2, wampserver, t)
 		defer trans2.Close()
 
 		if ttype == INMEM {

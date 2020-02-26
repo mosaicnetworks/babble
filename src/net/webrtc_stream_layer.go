@@ -35,10 +35,12 @@ func (w *WebRTCStreamLayer) listen() error {
 	// Start the Signal listener
 	go w.signal.Listen()
 
+	consumer := w.signal.Consumer()
+
 	// Process incoming offers
 	for {
 		select {
-		case offerPromise := <-w.signal.Consumer():
+		case offerPromise := <-consumer:
 
 			fmt.Println("WebRTCStreamLayer Processing Offer")
 
@@ -216,6 +218,10 @@ func (w *WebRTCStreamLayer) Accept() (c net.Conn, err error) {
 
 // Close implements the net.Listener interface
 func (w *WebRTCStreamLayer) Close() (err error) {
+	// Close the connection to the signal server
+	w.signal.Close()
+
+	// Close all peer connections
 	for _, pc := range w.peerConnections {
 		pc.Close()
 	}
@@ -229,5 +235,5 @@ func (w *WebRTCStreamLayer) Addr() net.Addr {
 
 // AdvertiseAddr implements the net.Listener interface
 func (w *WebRTCStreamLayer) AdvertiseAddr() string {
-	return w.signal.Addr()
+	return w.signal.ID()
 }
