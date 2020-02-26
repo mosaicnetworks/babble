@@ -207,16 +207,16 @@ func (w *WebRTCStreamLayer) Dial(target string, timeout time.Duration) (net.Conn
 	}
 }
 
-// Accept aggregate all the DataChannels from all the PeerConnections
-// Be notified when a peer wants to create a peer connection (offer, answer)
-// Handle the OnDataChannel, detatch the channel when it's opened and return
-// the corresponding Conn
+// Accept consumes the incoming connection aggregator fed by the 'listen'
+// routine. It aggregates the connections from all DataChannels formed with
+// PeerConnections.
 func (w *WebRTCStreamLayer) Accept() (c net.Conn, err error) {
 	nextConn := <-w.incomingConnAggregator
 	return nextConn, nil
 }
 
-// Close implements the net.Listener interface
+// Close implements the net.Listener interface. It closes the Signal and all the
+// PeerConnections
 func (w *WebRTCStreamLayer) Close() (err error) {
 	// Close the connection to the signal server
 	w.signal.Close()

@@ -4,15 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 
 	"github.com/gammazero/nexus/v3/client"
 	"github.com/gammazero/nexus/v3/wamp"
 	"github.com/mosaicnetworks/babble/src/net/signal"
 	"github.com/pion/webrtc/v2"
+	"github.com/sirupsen/logrus"
 )
-
-// TODO logging
 
 // Client implements the Signal interface. It sends and receives SDP offers
 // through a WAMP server using WebSockets.
@@ -20,13 +18,17 @@ type Client struct {
 	pubKey   string
 	client   *client.Client
 	consumer chan signal.OfferPromise
+	logger   *logrus.Entry
 }
 
 // NewClient instantiates a new Client, and opens a connection to the WAMP
 // signaling server.
 func NewClient(server string, realm string, pubKey string) (*Client, error) {
+	logger := logrus.New().WithField("component", "signal_client")
+
 	cfg := client.Config{
-		Realm: realm,
+		Realm:  realm,
+		Logger: logger,
 	}
 
 	cli, err := client.ConnectNet(context.Background(), fmt.Sprintf("ws://%s", server), cfg)
@@ -38,6 +40,7 @@ func NewClient(server string, realm string, pubKey string) (*Client, error) {
 		pubKey:   pubKey,
 		client:   cli,
 		consumer: make(chan signal.OfferPromise),
+		logger:   logger,
 	}
 
 	return res, nil
@@ -54,10 +57,10 @@ func (c *Client) ID() string {
 // callback is identified by the client's public key.
 func (c *Client) Listen() error {
 	if err := c.client.Register(c.ID(), c.callHandler, nil); err != nil {
-		log.Println("Failed to register procedure:", err)
+		c.logger.WithError(err).Error("Failed to register procedure")
 		return err
 	}
-	log.Println("Registered procedure foo with router")
+	c.logger.Debug("Registered procedure with router")
 	return nil
 }
 
@@ -75,11 +78,9 @@ func (c *Client) Offer(target string, offer webrtc.SessionDescription) (*webrtc.
 		string(raw),
 	}
 
-	log.Println("Call remote procedure", target)
-
 	result, err := c.client.Call(context.Background(), target, nil, callArgs, nil, nil)
 	if err != nil {
-		log.Println(err)
+		c.logger.Error(err)
 		return nil, err
 	}
 
@@ -114,12 +115,9 @@ func (c *Client) Close() error {
 
 // TODO formalise RPC arguments and errors
 func (c *Client) callHandler(ctx context.Context, inv *wamp.Invocation) client.InvokeResult {
-	log.Println("In callHandler")
-
 	if len(inv.Arguments) != 2 {
 		return errResult(
 			fmt.Sprintf("Invocation should contain 2 arguments, not %d", len(inv.Arguments)))
-
 	}
 
 	from, ok := wamp.AsString(inv.Arguments[0])

@@ -7,6 +7,7 @@ import (
 
 	"github.com/gammazero/nexus/v3/router"
 	"github.com/gammazero/nexus/v3/wamp"
+	"github.com/sirupsen/logrus"
 )
 
 // Server implements a WAMP server through which connected clients can make RPC
@@ -16,10 +17,13 @@ type Server struct {
 	address    string
 	router     router.Router
 	httpServer *http.Server
+	logger     *logrus.Entry
 }
 
 // NewServer instantiates a new Server which can be run at a specified address.
 func NewServer(address string, realm string) (*Server, error) {
+	logger := logrus.New().WithField("component", "signal_server")
+
 	// Create router instance.
 	routerConfig := &router.Config{
 		RealmConfigs: []*router.RealmConfig{
@@ -30,7 +34,7 @@ func NewServer(address string, realm string) (*Server, error) {
 		},
 	}
 
-	nxr, err := router.NewRouter(routerConfig, nil)
+	nxr, err := router.NewRouter(routerConfig, logger)
 	if err != nil {
 		log.Fatal(err)
 		return nil, err
@@ -47,6 +51,7 @@ func NewServer(address string, realm string) (*Server, error) {
 		address:    address,
 		router:     nxr,
 		httpServer: httpServer,
+		logger:     logger,
 	}
 
 	return res, nil
@@ -62,7 +67,7 @@ func (s *Server) Shutdown() {
 	defer s.router.Close()
 
 	if err := s.httpServer.Shutdown(context.Background()); err != nil {
-		log.Println(err)
+		s.logger.WithError(err).Error("Shutting down http server")
 	}
 }
 
