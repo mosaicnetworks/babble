@@ -23,7 +23,7 @@ address the problem of connecting peers regardless of how many routers are
 between them. 
 
 WebRTC requires a signaling mechanism for peers to exchange connection 
-information. Usually, this would be implemented in centralized server. So when
+information. Usually, this would be implemented in a centralized server. So when
 the WebRTC transport is used, Babble is not fully p2p anymore. That being said,
 all the  computation and data at the application layer remains p2p; the 
 signaling server is only used as a sort of peer-discovery mechanism.

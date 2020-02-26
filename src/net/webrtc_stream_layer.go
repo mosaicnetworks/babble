@@ -8,6 +8,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/net/signal"
 	"github.com/pion/datachannel"
 	webrtc "github.com/pion/webrtc/v2"
+	"github.com/sirupsen/logrus"
 )
 
 // WebRTCStreamLayer implements the StreamLayer interface for WebRTC
@@ -15,15 +16,17 @@ type WebRTCStreamLayer struct {
 	peerConnections        map[string]*webrtc.PeerConnection
 	signal                 signal.Signal
 	incomingConnAggregator chan net.Conn
+	logger                 *logrus.Entry
 }
 
 // NewWebRTCStreamLayer instantiates a new WebRTCStreamLayer and fires up the
 // background connection aggregator (signaling process)
-func NewWebRTCStreamLayer(signal signal.Signal) *WebRTCStreamLayer {
+func NewWebRTCStreamLayer(signal signal.Signal, logger *logrus.Entry) *WebRTCStreamLayer {
 	stream := &WebRTCStreamLayer{
 		peerConnections:        make(map[string]*webrtc.PeerConnection),
 		signal:                 signal,
 		incomingConnAggregator: make(chan net.Conn),
+		logger:                 logger,
 	}
 	return stream
 }
@@ -42,9 +45,9 @@ func (w *WebRTCStreamLayer) listen() error {
 		select {
 		case offerPromise := <-consumer:
 
-			fmt.Println("WebRTCStreamLayer Processing Offer")
+			w.logger.Debug("WebRTCStreamLayer Processing Offer")
 
-			peerConnection, err := newPeerConnection()
+			peerConnection, err := w.newPeerConnection()
 			if err != nil {
 				return err
 			}
@@ -80,7 +83,7 @@ func (w *WebRTCStreamLayer) listen() error {
 }
 
 // newPeerConnection creates a PeerConnection
-func newPeerConnection() (*webrtc.PeerConnection, error) {
+func (w *WebRTCStreamLayer) newPeerConnection() (*webrtc.PeerConnection, error) {
 	// Create a SettingEngine and enable Detach
 	s := webrtc.SettingEngine{}
 	s.DetachDataChannels()
@@ -106,7 +109,7 @@ func newPeerConnection() (*webrtc.PeerConnection, error) {
 	// Set the handler for ICE connection state
 	// This will notify you when the peer has connected/disconnected
 	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-		fmt.Printf("ICE Connection State has changed: %s\n", connectionState.String())
+		w.logger.WithField("state", connectionState.String()).Debug("ICE Connection State has changed")
 	})
 
 	return peerConnection, nil
@@ -145,7 +148,7 @@ func (w *WebRTCStreamLayer) Dial(target string, timeout time.Duration) (net.Conn
 	}
 
 	// Create or get PeerConnection
-	pc, err := newPeerConnection()
+	pc, err := w.newPeerConnection()
 	if err != nil {
 		return nil, err
 	}
