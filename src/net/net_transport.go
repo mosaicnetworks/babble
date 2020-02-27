@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"sync"
 	"time"
@@ -328,8 +329,9 @@ func (n *NetworkTransport) Listen() {
 // handleConn is used to handle an inbound connection for its lifespan.
 func (n *NetworkTransport) handleConn(conn net.Conn) {
 	defer conn.Close()
-	r := bufio.NewReader(conn)
-	w := bufio.NewWriter(conn)
+	// XXX
+	r := bufio.NewReaderSize(conn, math.MaxUint16) // same as pion datachannel dataChannelBufferSize
+	w := bufio.NewWriterSize(conn, math.MaxUint16)
 	dec := json.NewDecoder(r)
 	enc := json.NewEncoder(w)
 
