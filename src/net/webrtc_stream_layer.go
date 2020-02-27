@@ -76,7 +76,12 @@ func (w *WebRTCStreamLayer) listen() error {
 	}
 }
 
-// newPeerConnection creates a PeerConnection
+// newPeerConnection creates a PeerConnection and pipes corresponding
+// DataChannel connections into the provided channel. The createDataChannel
+// paratemer determines whether a new DataChannel is created for the
+// PeerConnection or if we just bind to its OnDataChannel handler. Basically,
+// set it to true when actively creating a PeerConnection (you are making the
+// offer) and vice-versa.
 func (w *WebRTCStreamLayer) newPeerConnection(connCh chan net.Conn, createDataChannel bool) (*webrtc.PeerConnection, error) {
 	// Create a SettingEngine and enable Detach
 	s := webrtc.SettingEngine{}
@@ -112,31 +117,33 @@ func (w *WebRTCStreamLayer) newPeerConnection(connCh chan net.Conn, createDataCh
 		if err != nil {
 			return nil, err
 		}
-		pipeDataChannel(dataChannel, connCh)
+		w.pipeDataChannel(dataChannel, connCh)
 	} else {
 		// Register data channel creation handling
 		peerConnection.OnDataChannel(func(d *webrtc.DataChannel) {
-			pipeDataChannel(d, connCh)
+			w.pipeDataChannel(d, connCh)
 		})
 	}
 
 	return peerConnection, nil
 }
 
-func pipeDataChannel(dataChannel *webrtc.DataChannel, connCh chan net.Conn) error {
+func (w *WebRTCStreamLayer) pipeDataChannel(dataChannel *webrtc.DataChannel, connCh chan net.Conn) error {
 	// Register channel opening handling
 	dataChannel.OnOpen(func() {
 		// Detach the data channel
-		raw, dErr := dataChannel.Detach()
-		if dErr != nil {
-			panic(dErr)
+		raw, err := dataChannel.Detach()
+		if err != nil {
+			w.logger.WithError(err).Error("Error detaching DataChannel")
 		}
 
 		connCh <- NewWebRTCConn(raw)
 	})
 
+	// XXX do something clever here with regards to keeping track of
+	// peerconnections
 	dataChannel.OnClose(func() {
-		fmt.Println("XXX Datachannel close")
+		w.logger.Debug("DataChannel OnClose")
 	})
 
 	return nil
