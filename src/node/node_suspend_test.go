@@ -18,8 +18,8 @@ func TestAutoSuspend(t *testing.T) {
 
 	// initialize only 2 nodes
 	nodes := []*Node{
-		newNode(peers.Peers[0], keys[0], genesisPeerSet, peers, 1000, 1000, 10, false, "badger", 10*time.Millisecond, t),
-		newNode(peers.Peers[1], keys[1], genesisPeerSet, peers, 1000, 1000, 10, false, "badger", 10*time.Millisecond, t),
+		newNode(peers.Peers[0], keys[0], genesisPeerSet, peers, 1000, 1000, 10, false, "badger", 10*time.Millisecond, false, "", t),
+		newNode(peers.Peers[1], keys[1], genesisPeerSet, peers, 1000, 1000, 10, false, "badger", 10*time.Millisecond, false, "", t),
 	}
 	defer shutdownNodes(nodes)
 
