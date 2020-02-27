@@ -2,7 +2,8 @@
 
 N=${1:-5}
 FASTSYNC=${2:-false}
-DEST=${3:-"$PWD/conf"}
+WEBRTC=${3:-false}
+DEST=${4:-"$PWD/conf"}
 
 dest=$DEST/node$N
 
@@ -41,6 +42,8 @@ docker create --name=node$N --net=babblenet --ip=172.77.5.$N mosaicnetworks/babb
     --fast-sync=$FASTSYNC \
     --log="debug" \
     --sync-limit=1000 \
+    --webrtc=$WEBRTC \
+    --signal-addr="172.77.15.1:8000"
 
  # --store \
 

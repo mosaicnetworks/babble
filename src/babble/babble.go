@@ -158,7 +158,7 @@ func (b *Babble) initTransport() error {
 		signal, err := wamp.NewClient(
 			b.Config.SignalAddr,
 			"office",
-			b.Config.BindAddr) //XXX this should be pubkey
+			b.Config.BindAddr) //XXX this should be pubkey but then node needs to use that when calling net RPC requests
 
 		if err != nil {
 			return err

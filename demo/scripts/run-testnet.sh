@@ -4,8 +4,8 @@ set -eux
 
 N=${1:-4}
 FASTSYNC=${2:-false}
+WEBRTC=${3:-false}
 MPWD=$(pwd)
-
 
 docker network create \
   --driver=bridge \
@@ -14,7 +14,7 @@ docker network create \
   --gateway=172.77.5.254 \
   babblenet
 
- docker run -d --name=signal --net=babblenet --ip=172.77.15.1 -it mosaicnetworks/signal:latest
+docker run -d --name=signal --net=babblenet --ip=172.77.15.1 -it mosaicnetworks/signal:latest
 
 for i in $(seq 1 $N)
 do
@@ -39,8 +39,8 @@ do
     --sync-limit=1000 \
     --fast-sync=$FASTSYNC \
     --log="debug" \
-    --webrtc \ # XXX make optional
-    --signal-addr="172.77.15.1:8000" # XXX make optional
+    --webrtc=$WEBRTC \
+    --signal-addr="172.77.15.1:8000"
 
     # --store \
     # --bootstrap \
