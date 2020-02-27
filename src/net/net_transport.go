@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"net"
 	"sync"
 	"time"
@@ -252,10 +251,14 @@ func (n *NetworkTransport) genericRPC(target string, rpcType uint8, timeout time
 	}
 
 	// Decode the response
+	fmt.Println("XXX decoding response")
 	canReturn, err := decodeResponse(conn, resp)
 	if canReturn {
+		fmt.Println("XXX returning conn")
 		n.returnConn(conn)
 	}
+	fmt.Println("XXX Sync Success")
+
 	return err
 }
 
@@ -286,11 +289,13 @@ func sendRPC(conn *netConn, rpcType uint8, args interface{}) error {
 func decodeResponse(conn *netConn, resp interface{}) (bool, error) {
 	// Decode the error if any
 	var rpcError string
+	fmt.Println("XXX dec decode rpcerror")
 	if err := conn.dec.Decode(&rpcError); err != nil {
 		conn.Release()
 		return false, err
 	}
 
+	fmt.Println("XXX dec decode resp")
 	// Decode the response
 	if err := conn.dec.Decode(resp); err != nil {
 		conn.Release()
@@ -330,8 +335,11 @@ func (n *NetworkTransport) Listen() {
 func (n *NetworkTransport) handleConn(conn net.Conn) {
 	defer conn.Close()
 	// XXX
-	r := bufio.NewReaderSize(conn, math.MaxUint16) // same as pion datachannel dataChannelBufferSize
-	w := bufio.NewWriterSize(conn, math.MaxUint16)
+	// r := bufio.NewReaderSize(conn, math.MaxUint16) // same as pion datachannel dataChannelBufferSize
+	// w := bufio.NewWriterSize(conn, math.MaxUint16)
+	r := bufio.NewReader(conn)
+	w := bufio.NewWriter(conn)
+
 	dec := json.NewDecoder(r)
 	enc := json.NewEncoder(w)
 
@@ -344,6 +352,7 @@ func (n *NetworkTransport) handleConn(conn net.Conn) {
 				if err != io.EOF {
 					n.logger.WithField("error", err).Error("Failed to decode incoming command")
 				}
+				fmt.Println("XXX EOF")
 			}
 			return
 		}
@@ -356,11 +365,13 @@ func (n *NetworkTransport) handleConn(conn net.Conn) {
 
 // handleCommand is used to decode and dispatch a single command.
 func (n *NetworkTransport) handleCommand(r *bufio.Reader, dec *json.Decoder, enc *json.Encoder) error {
+	fmt.Println("XXX ReadByte")
 	// Get the rpc type
 	rpcType, err := r.ReadByte()
 	if err != nil {
 		return err
 	}
+	fmt.Println("XXX Done ReadByte")
 
 	// Create the RPC object
 	respCh := make(chan RPCResponse, 1)

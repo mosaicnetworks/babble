@@ -155,7 +155,7 @@ func TestTransport_Sync(t *testing.T) {
 			case <-stopCh:
 				return
 			case <-time.After(1000 * time.Millisecond):
-				t.Fatalf("conumer timeout")
+				t.Fatalf("consumer timeout")
 			}
 		}()
 
@@ -172,10 +172,12 @@ func TestTransport_Sync(t *testing.T) {
 			trans2 = itrans2
 		}
 
+		fmt.Println("XXX Calling Sync")
 		var out SyncResponse
 		if err := trans2.Sync(trans1.AdvertiseAddr(), &args, &out); err != nil {
 			t.Fatalf("err: %v", err)
 		}
+		fmt.Println("XXX Called Sync")
 
 		// Verify the response
 		if !reflect.DeepEqual(resp, out) {

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/net/signal"
-	"github.com/pion/datachannel"
 	webrtc "github.com/pion/webrtc/v2"
 	"github.com/sirupsen/logrus"
 )
@@ -47,13 +46,8 @@ func (w *WebRTCStreamLayer) listen() error {
 
 			w.logger.Debug("WebRTCStreamLayer Processing Offer")
 
-			peerConnection, err := w.newPeerConnection()
+			peerConnection, err := w.newPeerConnection(w.incomingConnAggregator, false)
 			if err != nil {
-				return err
-			}
-
-			// Forward it's DataChannel to the connection aggregator
-			if err := w.pipePeerConnection(peerConnection); err != nil {
 				return err
 			}
 
@@ -83,7 +77,7 @@ func (w *WebRTCStreamLayer) listen() error {
 }
 
 // newPeerConnection creates a PeerConnection
-func (w *WebRTCStreamLayer) newPeerConnection() (*webrtc.PeerConnection, error) {
+func (w *WebRTCStreamLayer) newPeerConnection(connCh chan net.Conn, createDataChannel bool) (*webrtc.PeerConnection, error) {
 	// Create a SettingEngine and enable Detach
 	s := webrtc.SettingEngine{}
 	s.DetachDataChannels()
@@ -112,25 +106,37 @@ func (w *WebRTCStreamLayer) newPeerConnection() (*webrtc.PeerConnection, error) 
 		w.logger.WithField("state", connectionState.String()).Debug("ICE Connection State has changed")
 	})
 
+	if createDataChannel {
+		// Create a datachannel with label 'data'
+		dataChannel, err := peerConnection.CreateDataChannel("data", nil)
+		if err != nil {
+			return nil, err
+		}
+		pipeDataChannel(dataChannel, connCh)
+	} else {
+		// Register data channel creation handling
+		peerConnection.OnDataChannel(func(d *webrtc.DataChannel) {
+			pipeDataChannel(d, connCh)
+		})
+	}
+
 	return peerConnection, nil
 }
 
-// pipePeerConnection forwards a PeerConnection's opened DataChannels into the
-// incoming connection aggregator
-func (w *WebRTCStreamLayer) pipePeerConnection(pc *webrtc.PeerConnection) error {
-	// Register data channel creation handling
-	pc.OnDataChannel(func(d *webrtc.DataChannel) {
+func pipeDataChannel(dataChannel *webrtc.DataChannel, connCh chan net.Conn) error {
+	// Register channel opening handling
+	dataChannel.OnOpen(func() {
+		// Detach the data channel
+		raw, dErr := dataChannel.Detach()
+		if dErr != nil {
+			panic(dErr)
+		}
 
-		// Register channel opening handling
-		d.OnOpen(func() {
-			// Detach the data channel
-			raw, dErr := d.Detach()
-			if dErr != nil {
-				panic(dErr)
-			}
+		connCh <- NewWebRTCConn(raw)
+	})
 
-			w.incomingConnAggregator <- NewWebRTCConn(raw)
-		})
+	dataChannel.OnClose(func() {
+		fmt.Println("XXX Datachannel close")
 	})
 
 	return nil
@@ -147,29 +153,15 @@ func (w *WebRTCStreamLayer) Dial(target string, timeout time.Duration) (net.Conn
 		return nil, fmt.Errorf("Already dialed")
 	}
 
-	// Create or get PeerConnection
-	pc, err := w.newPeerConnection()
+	// connCh is a channel for receiving net.Conn objects asynchronously when
+	// the DataChannel's OnOpen callback is fired.
+	connCh := make(chan net.Conn)
+
+	// Create or get PeerConnection and pipe DataChannel connections to connCh
+	pc, err := w.newPeerConnection(connCh, true)
 	if err != nil {
 		return nil, err
 	}
-
-	// Create a datachannel with label 'data'
-	dataChannel, err := pc.CreateDataChannel("data", nil)
-	if err != nil {
-		panic(err)
-	}
-
-	resCh := make(chan datachannel.ReadWriteCloser)
-	// Register channel opening handling
-	dataChannel.OnOpen(func() {
-		// Detach the data channel
-		raw, dErr := dataChannel.Detach()
-		if dErr != nil {
-			panic(dErr)
-		}
-
-		resCh <- raw
-	})
 
 	// Create an offer to send to the signaling system
 	offer, err := pc.CreateOffer(nil)
@@ -183,6 +175,8 @@ func (w *WebRTCStreamLayer) Dial(target string, timeout time.Duration) (net.Conn
 		return nil, err
 	}
 
+	// synchronous offer/answer RPC request through signal to exchange SDP
+	// information.
 	answer, err := w.signal.Offer(target, offer)
 	if err != nil {
 		return nil, err
@@ -205,8 +199,8 @@ func (w *WebRTCStreamLayer) Dial(target string, timeout time.Duration) (net.Conn
 	select {
 	case <-timer:
 		return nil, fmt.Errorf("Dial timeout")
-	case raw := <-resCh:
-		return NewWebRTCConn(raw), nil
+	case conn := <-connCh:
+		return conn, nil
 	}
 }
 
@@ -215,6 +209,7 @@ func (w *WebRTCStreamLayer) Dial(target string, timeout time.Duration) (net.Conn
 // PeerConnections.
 func (w *WebRTCStreamLayer) Accept() (c net.Conn, err error) {
 	nextConn := <-w.incomingConnAggregator
+	fmt.Println("XXX received conn")
 	return nextConn, nil
 }
 
