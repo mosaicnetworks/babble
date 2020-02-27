@@ -9,6 +9,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/crypto/keys"
 	h "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
+	"github.com/mosaicnetworks/babble/src/net/signal/wamp"
 	"github.com/mosaicnetworks/babble/src/node"
 	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/mosaicnetworks/babble/src/service"
@@ -46,6 +47,12 @@ func (b *Babble) Init() error {
 		b.logger.WithError(err).Error("babble.go:Init() validateConfig")
 	}
 
+	b.logger.Debug("initKey")
+	if err := b.initKey(); err != nil {
+		b.logger.WithError(err).Error("babble.go:Init() initKey")
+		return err
+	}
+
 	b.logger.Debug("initPeers")
 	if err := b.initPeers(); err != nil {
 		b.logger.WithError(err).Error("babble.go:Init() initPeers")
@@ -61,12 +68,6 @@ func (b *Babble) Init() error {
 	b.logger.Debug("initTransport")
 	if err := b.initTransport(); err != nil {
 		b.logger.WithError(err).Error("babble.go:Init() initTransport")
-		return err
-	}
-
-	b.logger.Debug("initKey")
-	if err := b.initKey(); err != nil {
-		b.logger.WithError(err).Error("babble.go:Init() initKey")
 		return err
 	}
 
@@ -152,20 +153,45 @@ func (b *Babble) validateConfig() error {
 }
 
 func (b *Babble) initTransport() error {
-	transport, err := net.NewTCPTransport(
-		b.Config.BindAddr,
-		b.Config.AdvertiseAddr,
-		b.Config.MaxPool,
-		b.Config.TCPTimeout,
-		b.Config.JoinTimeout,
-		b.Config.Logger(),
-	)
+	// XXX
+	if b.Config.WebRTC {
+		signal, err := wamp.NewClient(
+			b.Config.SignalAddr,
+			"office",
+			b.Config.BindAddr) //XXX this should be pubkey
 
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
+
+		webRTCTransport, err := net.NewWebRTCTransport(
+			signal,
+			1,
+			time.Second,
+			2*time.Second,
+			b.logger.WithField("component", "signal_client"))
+
+		if err != nil {
+			return err
+		}
+
+		b.Transport = webRTCTransport
+	} else {
+		tcpTransport, err := net.NewTCPTransport(
+			b.Config.BindAddr,
+			b.Config.AdvertiseAddr,
+			b.Config.MaxPool,
+			b.Config.TCPTimeout,
+			b.Config.JoinTimeout,
+			b.Config.Logger(),
+		)
+
+		if err != nil {
+			return err
+		}
+
+		b.Transport = tcpTransport
 	}
-
-	b.Transport = transport
 
 	return nil
 }

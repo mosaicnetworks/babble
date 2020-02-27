@@ -14,6 +14,8 @@ docker network create \
   --gateway=172.77.5.254 \
   babblenet
 
+ docker run -d --name=signal --net=babblenet --ip=172.77.15.1 -it mosaicnetworks/signal:latest
+
 for i in $(seq 1 $N)
 do
     docker run -d --name=client$i --net=babblenet --ip=172.77.10.$i -it mosaicnetworks/dummy:latest \
@@ -36,7 +38,9 @@ do
     --service-listen="172.77.5.$i:80" \
     --sync-limit=1000 \
     --fast-sync=$FASTSYNC \
-    --log="debug"
+    --log="debug" \
+    --webrtc \ # XXX make optional
+    --signal-addr="172.77.15.1:8000" # XXX make optional
 
     # --store \
     # --bootstrap \

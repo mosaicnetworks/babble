@@ -119,6 +119,12 @@ type Config struct {
 	// a local json file.
 	LoadPeers bool `mapstructure:"loadpeers"`
 
+	// XXX
+	WebRTC bool `mapstructure:"webrtc"`
+
+	// XXX
+	SignalAddr string `mapstructure:"signal-addr"`
+
 	// Proxy is the application proxy that enables Babble to communicate with
 	// the application.
 	Proxy proxy.AppProxy

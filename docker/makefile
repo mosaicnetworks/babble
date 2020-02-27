@@ -1,5 +1,6 @@
 BABBLE_VERSION=0.7.0dev
 DUMMY_VERSION=0.6.0dev
+SIGNAL_VERSION=0.0.1dev
 WATCHER_VERSION=0.0.2
 GLIDER_VERSION=0.0.5
 MOBILE_VERSION=0.0.2
@@ -19,6 +20,11 @@ dummy-image:
 		-o dummy/dummy ../cmd/dummy/
 	docker build --no-cache=true -t mosaicnetworks/dummy:$(DUMMY_VERSION) -t mosaicnetworks/dummy:latest dummy/
 
+signal-image:
+	CGO_ENABLED=0 go build \
+		-o signal/signal ../cmd/signal/
+	docker build --no-cache=true -t mosaicnetworks/signal:$(SIGNAL_VERSION) -t mosaicnetworks/signal:latest signal/
+
 watcher-image:
 	docker build --no-cache=true -t mosaicnetworks/watcher:$(WATCHER_VERSION) -t mosaicnetworks/watcher:latest watcher/
 
@@ -30,4 +36,4 @@ mobile-image:
 
 
 
-.PHONY: all demo babble-image dummy-image watcher-image glider-image mobile-image
+.PHONY: all demo babble-image dummy-image signal-image watcher-image glider-image mobile-image

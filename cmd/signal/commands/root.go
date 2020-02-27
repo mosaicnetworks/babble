@@ -8,10 +8,16 @@ import (
 
 	"github.com/mosaicnetworks/babble/src/net/signal/wamp"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
-var url = "localhost:8000"
+var url = ":8000"
 var realm = "office"
+
+func init() {
+	RootCmd.Flags().StringVar(&url, "url", url, "Listen IP:Port")
+	viper.BindPFlags(RootCmd.Flags())
+}
 
 //RootCmd is the root command for the signaling server
 var RootCmd = &cobra.Command{
