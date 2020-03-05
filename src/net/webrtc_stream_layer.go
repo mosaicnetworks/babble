@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/net/signal"
+	"github.com/pion/datachannel"
 	webrtc "github.com/pion/webrtc/v2"
 	"github.com/sirupsen/logrus"
 )
@@ -13,6 +14,7 @@ import (
 // WebRTCStreamLayer implements the StreamLayer interface for WebRTC
 type WebRTCStreamLayer struct {
 	peerConnections        map[string]*webrtc.PeerConnection
+	dataChannels           map[uint16]datachannel.ReadWriteCloser
 	signal                 signal.Signal
 	incomingConnAggregator chan net.Conn
 	logger                 *logrus.Entry
@@ -23,6 +25,7 @@ type WebRTCStreamLayer struct {
 func NewWebRTCStreamLayer(signal signal.Signal, logger *logrus.Entry) *WebRTCStreamLayer {
 	stream := &WebRTCStreamLayer{
 		peerConnections:        make(map[string]*webrtc.PeerConnection),
+		dataChannels:           make(map[uint16]datachannel.ReadWriteCloser),
 		signal:                 signal,
 		incomingConnAggregator: make(chan net.Conn),
 		logger:                 logger,
@@ -117,6 +120,7 @@ func (w *WebRTCStreamLayer) newPeerConnection(connCh chan net.Conn, createDataCh
 		if err != nil {
 			return nil, err
 		}
+
 		w.pipeDataChannel(dataChannel, connCh)
 	} else {
 		// Register data channel creation handling
@@ -131,19 +135,25 @@ func (w *WebRTCStreamLayer) newPeerConnection(connCh chan net.Conn, createDataCh
 func (w *WebRTCStreamLayer) pipeDataChannel(dataChannel *webrtc.DataChannel, connCh chan net.Conn) error {
 	// Register channel opening handling
 	dataChannel.OnOpen(func() {
+		// XXX why are these not firing?
+		dataChannel.OnClose(func() {
+			w.logger.Debug("XXX DataChannel OnClose")
+		})
+
+		dataChannel.OnError(func(err error) {
+			w.logger.Debugf("XXX DataChannel OnError: %v", err)
+		})
+
 		// Detach the data channel
 		raw, err := dataChannel.Detach()
 		if err != nil {
 			w.logger.WithError(err).Error("Error detaching DataChannel")
 		}
 
-		connCh <- NewWebRTCConn(raw)
-	})
+		// XXX
+		w.dataChannels[*dataChannel.ID()] = raw
 
-	// XXX do something clever here with regards to keeping track of
-	// peerconnections
-	dataChannel.OnClose(func() {
-		w.logger.Debug("DataChannel OnClose")
+		connCh <- NewWebRTCConn(raw)
 	})
 
 	return nil
@@ -155,11 +165,6 @@ func (w *WebRTCStreamLayer) pipeDataChannel(dataChannel *webrtc.DataChannel, con
 // - ICE negotiation
 // - Return a net.Conn wrapping the detached datachannel
 func (w *WebRTCStreamLayer) Dial(target string, timeout time.Duration) (net.Conn, error) {
-
-	if _, ok := w.peerConnections[target]; ok {
-		return nil, fmt.Errorf("Already dialed")
-	}
-
 	// connCh is a channel for receiving net.Conn objects asynchronously when
 	// the DataChannel's OnOpen callback is fired.
 	connCh := make(chan net.Conn)
@@ -216,7 +221,6 @@ func (w *WebRTCStreamLayer) Dial(target string, timeout time.Duration) (net.Conn
 // PeerConnections.
 func (w *WebRTCStreamLayer) Accept() (c net.Conn, err error) {
 	nextConn := <-w.incomingConnAggregator
-	fmt.Println("XXX received conn")
 	return nextConn, nil
 }
 
@@ -229,6 +233,11 @@ func (w *WebRTCStreamLayer) Close() (err error) {
 	// Close all peer connections
 	for _, pc := range w.peerConnections {
 		pc.Close()
+	}
+
+	// Close all data channels
+	for _, dc := range w.dataChannels {
+		dc.Close()
 	}
 	return nil
 }

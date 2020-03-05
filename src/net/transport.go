@@ -19,7 +19,7 @@ type Transport interface {
 	AdvertiseAddr() string
 
 	// Sync, EagerSync, FastForward, and Join send the appropriate RPC to the
-	//target node.
+	// target node.
 
 	Sync(target string, args *SyncRequest, resp *SyncResponse) error
 
