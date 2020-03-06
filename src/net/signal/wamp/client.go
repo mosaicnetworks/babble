@@ -33,6 +33,7 @@ func NewClient(server string, realm string, pubKey string) (*Client, error) {
 
 	cli, err := client.ConnectNet(context.Background(), fmt.Sprintf("ws://%s", server), cfg)
 	if err != nil {
+		fmt.Println("XXX err ConnectNet")
 		return nil, err
 	}
 

@@ -155,12 +155,14 @@ func (b *Babble) validateConfig() error {
 func (b *Babble) initTransport() error {
 	// XXX
 	if b.Config.WebRTC {
+		fmt.Println("XXX init webrtc, with signal addr ", b.Config.SignalAddr)
 		signal, err := wamp.NewClient(
 			b.Config.SignalAddr,
-			"office",
-			b.Config.BindAddr) //XXX this should be pubkey but then node needs to use that when calling net RPC requests
+			"office", // XXX
+			keys.PublicKeyHex(&b.Config.Key.PublicKey)) //XXX
 
 		if err != nil {
+			fmt.Println("XXX wtf")
 			return err
 		}
 
