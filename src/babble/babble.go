@@ -166,11 +166,12 @@ func (b *Babble) initTransport() error {
 			return err
 		}
 
+		// XXX
 		webRTCTransport, err := net.NewWebRTCTransport(
 			signal,
-			1,
-			time.Second,
-			2*time.Second,
+			10,
+			20*time.Second,
+			20*time.Second,
 			b.logger.WithField("component", "signal_client"))
 
 		if err != nil {
