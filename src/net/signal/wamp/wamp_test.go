@@ -3,14 +3,28 @@ package wamp
 import (
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/pion/webrtc/v2"
+	"github.com/sirupsen/logrus"
 )
+
+const certFile = "test_data/cert.pem"
+const keyFile = "test_data/key.pem"
 
 func TestWamp(t *testing.T) {
 	url := "localhost:8000"
+	realm := "office"
+	certFile := "test_data/cert.pem"
+	keyFile := "test_data/key.pem"
 
-	server, err := NewServer(url, "office")
+	server, err := NewServer(url,
+		realm,
+		certFile,
+		keyFile,
+		common.NewTestLogger(t, logrus.DebugLevel).WithField("component", "signal-server"))
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -18,7 +32,17 @@ func TestWamp(t *testing.T) {
 	go server.Run()
 	defer server.Shutdown()
 
-	callee, err := NewClient(url, "office", "callee")
+	// Allow the server some time to run otherwise we get some connection
+	// refused errors
+	time.Sleep(1000 * time.Millisecond)
+
+	callee, err := NewClient(url,
+		realm,
+		"callee",
+		false,
+		certFile,
+		common.NewTestLogger(t, logrus.DebugLevel).WithField("component", "signal-client callee"))
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +52,14 @@ func TestWamp(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	caller, err := NewClient(url, "office", "caller")
+	caller, err := NewClient(
+		url,
+		realm,
+		"caller",
+		false,
+		certFile,
+		common.NewTestLogger(t, logrus.DebugLevel).WithField("component", "signal-client caller"))
+
 	if err != nil {
 		t.Fatal(err)
 	}

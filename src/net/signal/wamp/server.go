@@ -2,6 +2,8 @@ package wamp
 
 import (
 	"context"
+	"crypto/tls"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -21,9 +23,7 @@ type Server struct {
 }
 
 // NewServer instantiates a new Server which can be run at a specified address.
-func NewServer(address string, realm string) (*Server, error) {
-	logger := logrus.New().WithField("component", "signal_server")
-
+func NewServer(address string, realm string, certFile string, keyFile string, logger *logrus.Entry) (*Server, error) {
 	// Create router instance.
 	routerConfig := &router.Config{
 		RealmConfigs: []*router.RealmConfig{
@@ -42,9 +42,18 @@ func NewServer(address string, realm string) (*Server, error) {
 
 	wss := router.NewWebsocketServer(nxr)
 
+	// prepare tls config with certFile and keyFile
+	tlscfg := &tls.Config{}
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, fmt.Errorf("error loading X509 key pair: %s", err)
+	}
+	tlscfg.Certificates = append(tlscfg.Certificates, cert)
+
 	httpServer := &http.Server{
-		Handler: wss,
-		Addr:    address,
+		Handler:   wss,
+		Addr:      address,
+		TLSConfig: tlscfg,
 	}
 
 	res := &Server{
@@ -59,7 +68,14 @@ func NewServer(address string, realm string) (*Server, error) {
 
 // Run starts the WAMP websocket server
 func (s *Server) Run() error {
-	return s.httpServer.ListenAndServe()
+	// The call to ListenAndServeTLS has empty arguments because the
+	// certificates have already been loaded in the TLSConfig of the server in
+	// the constructor
+	err := s.httpServer.ListenAndServeTLS("", "")
+	if err != nil && err != http.ErrServerClosed {
+		s.logger.WithError(err).Error("Run")
+	}
+	return err
 }
 
 // Shutdown stops the websocket server, and the wamp router

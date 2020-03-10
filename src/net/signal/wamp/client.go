@@ -2,8 +2,13 @@ package wamp
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
+	"errors"
 	"fmt"
+	"io/ioutil"
 
 	"github.com/gammazero/nexus/v3/client"
 	"github.com/gammazero/nexus/v3/wamp"
@@ -23,16 +28,56 @@ type Client struct {
 
 // NewClient instantiates a new Client, and opens a connection to the WAMP
 // signaling server.
-func NewClient(server string, realm string, pubKey string) (*Client, error) {
-	// XXX pass logger?
-	logger := logrus.New().WithField("component", "signal-client")
-
+func NewClient(server string, realm string, pubKey string, skipVerify bool, caFile string, logger *logrus.Entry) (*Client, error) {
 	cfg := client.Config{
 		Realm:  realm,
 		Logger: logger,
 	}
 
-	cli, err := client.ConnectNet(context.Background(), fmt.Sprintf("ws://%s", server), cfg)
+	tlscfg := &tls.Config{
+		InsecureSkipVerify: skipVerify,
+	}
+
+	// If not skipping verification and told to trust a certificate.
+	if !skipVerify && caFile != "" {
+		// Load PEM-encoded certificate to trust.
+		certPEM, err := ioutil.ReadFile(caFile)
+		if err != nil {
+			return nil, err
+		}
+
+		// Create CertPool containing the certificate to trust.
+		roots := x509.NewCertPool()
+		if !roots.AppendCertsFromPEM(certPEM) {
+			return nil, errors.New("failed to import certificate to trust")
+		}
+
+		// Trust the certificate by putting it into the pool of root CAs.
+		tlscfg.RootCAs = roots
+
+		// Decode and parse the server cert to extract the subject info.
+		block, _ := pem.Decode(certPEM)
+		if block == nil {
+
+			return nil, errors.New("failed to decode certificate to trust")
+		}
+
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, err
+		}
+
+		logger.Debug("Trusting certificate", caFile, "with CN:",
+			cert.Subject.CommonName)
+
+		// Set ServerName in TLS config to CN from trusted cert so that
+		// certificate will validate if CN does not match DNS name.
+		tlscfg.ServerName = cert.Subject.CommonName
+	}
+
+	cfg.TlsCfg = tlscfg
+
+	cli, err := client.ConnectNet(context.Background(), fmt.Sprintf("wss://%s", server), cfg)
 	if err != nil {
 		return nil, err
 	}
