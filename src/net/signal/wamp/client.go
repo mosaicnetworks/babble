@@ -24,7 +24,8 @@ type Client struct {
 // NewClient instantiates a new Client, and opens a connection to the WAMP
 // signaling server.
 func NewClient(server string, realm string, pubKey string) (*Client, error) {
-	logger := logrus.New().WithField("component", "signal_client")
+	// XXX pass logger?
+	logger := logrus.New().WithField("component", "signal-client")
 
 	cfg := client.Config{
 		Realm:  realm,
@@ -33,7 +34,6 @@ func NewClient(server string, realm string, pubKey string) (*Client, error) {
 
 	cli, err := client.ConnectNet(context.Background(), fmt.Sprintf("ws://%s", server), cfg)
 	if err != nil {
-		fmt.Println("XXX err ConnectNet")
 		return nil, err
 	}
 

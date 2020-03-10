@@ -119,11 +119,21 @@ type Config struct {
 	// a local json file.
 	LoadPeers bool `mapstructure:"loadpeers"`
 
-	// XXX
+	// WebRTC determines whether to use a WebRTC transport. WebRTC uses a very
+	// different protocol stack than TCP/IP and enables peers to connect
+	// directly even with multiple layers of NAT between them, such as in
+	// cellular networks. WebRTC relies on a signalling server who's address is
+	// specified by SignalAddr. When WebRTC is enabled, BindAddr and
+	// AdvertiseAddr are ignored.
 	WebRTC bool `mapstructure:"webrtc"`
 
-	// XXX
+	// SignalAddr is the IP:PORT of the WebRTC signaling server. It is ignored
+	// when WebRTC is not enabled.
 	SignalAddr string `mapstructure:"signal-addr"`
+
+	// SignalRealm is an administrative domain within the WebRTC signaling
+	// server. WebRTC signaling messages are only routed within a Realm.
+	SignalRealm string `mapstructure:"signal-realm"`
 
 	// Proxy is the application proxy that enables Babble to communicate with
 	// the application.

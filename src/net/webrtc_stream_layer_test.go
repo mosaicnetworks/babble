@@ -9,7 +9,7 @@ import (
 )
 
 func TestWebRTCStreamLayerWithWampSignal(t *testing.T) {
-	// XXX Problem with closing WebSocket servers
+	// Problem with closing WebSocket servers
 	time.Sleep(time.Second)
 
 	url := nextWampAddress()

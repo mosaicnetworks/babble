@@ -102,8 +102,6 @@ func (b *Babble) validateConfig() error {
 
 	logFields := logrus.Fields{
 		"babble.DataDir":          b.Config.DataDir,
-		"babble.BindAddr":         b.Config.BindAddr,
-		"babble.AdvertiseAddr":    b.Config.AdvertiseAddr,
 		"babble.ServiceAddr":      b.Config.ServiceAddr,
 		"babble.NoService":        b.Config.NoService,
 		"babble.MaxPool":          b.Config.MaxPool,
@@ -119,6 +117,16 @@ func (b *Babble) validateConfig() error {
 		"babble.EnableFastSync":   b.Config.EnableFastSync,
 		"babble.MaintenanceMode":  b.Config.MaintenanceMode,
 		"babble.SuspendLimit":     b.Config.SuspendLimit,
+	}
+
+	// WebRTC requires a signaling server
+	if b.Config.WebRTC {
+		logFields["babble.WebRTC"] = b.Config.WebRTC
+		logFields["babble.SignalAddr"] = b.Config.SignalAddr
+		logFields["babble.SignalRealm"] = b.Config.SignalRealm
+	} else {
+		logFields["babble.BindAddr"] = b.Config.BindAddr
+		logFields["babble.AdvertiseAddr"] = b.Config.AdvertiseAddr
 	}
 
 	// Maintenance-mode only works with bootstrap
@@ -153,26 +161,22 @@ func (b *Babble) validateConfig() error {
 }
 
 func (b *Babble) initTransport() error {
-	// XXX
 	if b.Config.WebRTC {
-		fmt.Println("XXX init webrtc, with signal addr ", b.Config.SignalAddr)
 		signal, err := wamp.NewClient(
 			b.Config.SignalAddr,
-			"office", // XXX
-			keys.PublicKeyHex(&b.Config.Key.PublicKey)) //XXX
+			b.Config.SignalRealm,
+			keys.PublicKeyHex(&b.Config.Key.PublicKey))
 
 		if err != nil {
-			fmt.Println("XXX wtf")
 			return err
 		}
 
-		// XXX
 		webRTCTransport, err := net.NewWebRTCTransport(
 			signal,
-			10,
-			20*time.Second,
-			20*time.Second,
-			b.logger.WithField("component", "signal_client"))
+			b.Config.MaxPool,
+			b.Config.TCPTimeout,
+			b.Config.JoinTimeout,
+			b.Config.Logger().WithField("component", "webrtc-transport"))
 
 		if err != nil {
 			return err

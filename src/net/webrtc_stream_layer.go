@@ -135,22 +135,13 @@ func (w *WebRTCStreamLayer) newPeerConnection(connCh chan net.Conn, createDataCh
 func (w *WebRTCStreamLayer) pipeDataChannel(dataChannel *webrtc.DataChannel, connCh chan net.Conn) error {
 	// Register channel opening handling
 	dataChannel.OnOpen(func() {
-		// XXX why are these not firing?
-		dataChannel.OnClose(func() {
-			w.logger.Debug("XXX DataChannel OnClose")
-		})
-
-		dataChannel.OnError(func(err error) {
-			w.logger.Debugf("XXX DataChannel OnError: %v", err)
-		})
-
 		// Detach the data channel
 		raw, err := dataChannel.Detach()
 		if err != nil {
 			w.logger.WithError(err).Error("Error detaching DataChannel")
 		}
 
-		// XXX
+		// keep track of channel so we can close it later
 		w.dataChannels[*dataChannel.ID()] = raw
 
 		connCh <- NewWebRTCConn(raw)

@@ -54,7 +54,7 @@ func NewTestTransport(ttype int, addr string, wampserver string, t *testing.T) T
 
 func checkStartWampServer(ttype int, address string, t *testing.T) *wamp.Server {
 	if ttype == WEBRTC {
-		//XXX The signal server seems to keep running sometimes after a test
+		// The signal server seems to keep running sometimes after a test
 		// executes, which leads to 'connection refused' errors on the next
 		// tests when multiple tests are run concurrently (ex go test ./...).
 		// In the TCP transport, we found a way to forcefully close all the
