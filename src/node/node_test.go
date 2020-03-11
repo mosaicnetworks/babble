@@ -30,6 +30,8 @@ NO FAST-SYNC, NO DYNAMIC PARTICIPANTS.
 
 */
 var ip = 9990
+var certFile = "../net/signal/wamp/test_data/cert.pem"
+var keyFile = "../net/signal/wamp/test_data/key.pem"
 
 func TestAddTransaction(t *testing.T) {
 	keys, peers := initPeers(t, 2)
@@ -115,14 +117,16 @@ func TestWebRTCGossip(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	server, err := wamp.NewServer("localhost:8000", "office")
+	server, err := wamp.NewServer("localhost:2443", "office", certFile, keyFile, common.NewTestEntry(t, common.TestLogLevel))
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	go server.Run()
 	defer server.Shutdown()
+	time.Sleep(time.Second)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 5, false, "inmem", 5*time.Millisecond, true, "localhost:8000", t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 5, false, "inmem", 5*time.Millisecond, true, "localhost:2443", t)
 	//defer drawGraphs(nodes, t)
 
 	target := 50
@@ -317,16 +321,20 @@ func newNode(peer *peers.Peer,
 
 	if !webrtc {
 		trans, err = net.NewTCPTransport(peer.NetAddr,
-			"", 2, conf.TCPTimeout, conf.JoinTimeout, conf.Logger())
+			"", 5, conf.TCPTimeout, conf.JoinTimeout, conf.Logger())
 		if err != nil {
 			t.Fatalf("Fatal failed to create transport for peer %d: %s", peer.ID(), err)
 		}
 	} else {
-		signal, err := wamp.NewClient(signalServer, "office", peer.NetAddr)
+		signal, err := wamp.NewClient(signalServer,
+			"office",
+			peer.NetAddr,
+			certFile,
+			common.NewTestEntry(t, common.TestLogLevel))
 		if err != nil {
 			t.Fatal(err)
 		}
-		trans, err = net.NewWebRTCTransport(signal, 1, time.Second, 2*time.Second, conf.Logger())
+		trans, err = net.NewWebRTCTransport(signal, 5, time.Second, 2*time.Second, conf.Logger())
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -9,25 +9,23 @@ import (
 )
 
 func TestWebRTCStreamLayerWithWampSignal(t *testing.T) {
-	// Problem with closing WebSocket servers
-	time.Sleep(time.Second)
-
 	url := nextWampAddress()
 
-	server, err := wamp.NewServer(url, "office")
+	server, err := wamp.NewServer(url, realm, certFile, keyFile, common.NewTestEntry(t, common.TestLogLevel))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	go server.Run()
 	defer server.Shutdown()
+	time.Sleep(time.Second)
 
-	wampSignal1, err := wamp.NewClient(url, "office", "alice")
+	wampSignal1, err := wamp.NewClient(url, realm, "alice", certFile, common.NewTestEntry(t, common.TestLogLevel))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	wampSignal2, err := wamp.NewClient(url, "office", "bob")
+	wampSignal2, err := wamp.NewClient(url, realm, "bob", certFile, common.NewTestEntry(t, common.TestLogLevel))
 	if err != nil {
 		t.Fatal(err)
 	}

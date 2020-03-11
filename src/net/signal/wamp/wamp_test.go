@@ -14,7 +14,7 @@ const certFile = "test_data/cert.pem"
 const keyFile = "test_data/key.pem"
 
 func TestWamp(t *testing.T) {
-	url := "localhost:8000"
+	url := "localhost:1443"
 	realm := "office"
 	certFile := "test_data/cert.pem"
 	keyFile := "test_data/key.pem"
@@ -31,15 +31,13 @@ func TestWamp(t *testing.T) {
 
 	go server.Run()
 	defer server.Shutdown()
-
 	// Allow the server some time to run otherwise we get some connection
 	// refused errors
-	time.Sleep(1000 * time.Millisecond)
+	time.Sleep(time.Second)
 
 	callee, err := NewClient(url,
 		realm,
 		"callee",
-		false,
 		certFile,
 		common.NewTestLogger(t, logrus.DebugLevel).WithField("component", "signal-client callee"))
 
@@ -56,7 +54,6 @@ func TestWamp(t *testing.T) {
 		url,
 		realm,
 		"caller",
-		false,
 		certFile,
 		common.NewTestLogger(t, logrus.DebugLevel).WithField("component", "signal-client caller"))
 

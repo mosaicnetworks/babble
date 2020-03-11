@@ -40,7 +40,7 @@ do
     --fast-sync=$FASTSYNC \
     --log="debug" \
     --webrtc=$WEBRTC \
-    --signal-addr="172.77.15.1:8000"
+    --signal-addr="172.77.15.1:443"
 
     # --store \
     # --bootstrap \

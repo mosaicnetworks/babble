@@ -21,7 +21,9 @@ const (
 
 var (
 	realm    = "office"
-	wampPort = 8000
+	wampPort = 8443
+	certFile = "signal/wamp/test_data/cert.pem"
+	keyFile  = "signal/wamp/test_data/key.pem"
 )
 
 func NewTestTransport(ttype int, addr string, wampserver string, t *testing.T) Transport {
@@ -37,7 +39,7 @@ func NewTestTransport(ttype int, addr string, wampserver string, t *testing.T) T
 		go tt.Listen()
 		return tt
 	case WEBRTC:
-		signal, err := wamp.NewClient(wampserver, realm, addr)
+		signal, err := wamp.NewClient(wampserver, realm, addr, certFile, common.NewTestEntry(t, common.TestLogLevel))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -54,15 +56,8 @@ func NewTestTransport(ttype int, addr string, wampserver string, t *testing.T) T
 
 func checkStartWampServer(ttype int, address string, t *testing.T) *wamp.Server {
 	if ttype == WEBRTC {
-		// The signal server seems to keep running sometimes after a test
-		// executes, which leads to 'connection refused' errors on the next
-		// tests when multiple tests are run concurrently (ex go test ./...).
-		// In the TCP transport, we found a way to forcefully close all the
-		// sockets properly, but with the wamp library (nexus) we don't have
-		// much control. This sleep statement is a temporary work-around...
 		time.Sleep(time.Second)
-
-		server, err := wamp.NewServer(address, realm)
+		server, err := wamp.NewServer(address, realm, certFile, keyFile, common.NewTestEntry(t, common.TestLogLevel))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -85,6 +80,7 @@ func TestTransport_StartStop(t *testing.T) {
 		if s != nil {
 			go s.Run()
 			defer s.Shutdown()
+			time.Sleep(time.Second)
 		}
 
 		trans := NewTestTransport(ttype, "127.0.0.1:0", wampserver, t)
@@ -104,6 +100,7 @@ func TestTransport_Sync(t *testing.T) {
 		if s != nil {
 			go s.Run()
 			defer s.Shutdown()
+			time.Sleep(time.Second)
 		}
 
 		trans1 := NewTestTransport(ttype, addr1, wampserver, t)
@@ -194,6 +191,7 @@ func TestTransport_EagerSync(t *testing.T) {
 		if s != nil {
 			go s.Run()
 			defer s.Shutdown()
+			time.Sleep(time.Second)
 		}
 
 		trans1 := NewTestTransport(ttype, addr1, wampserver, t)
@@ -274,6 +272,7 @@ func TestTransport_FastForward(t *testing.T) {
 		if s != nil {
 			go s.Run()
 			defer s.Shutdown()
+			time.Sleep(time.Second)
 		}
 
 		trans1 := NewTestTransport(ttype, addr1, wampserver, t)
@@ -418,6 +417,7 @@ func TestTransport_Join(t *testing.T) {
 		if s != nil {
 			go s.Run()
 			defer s.Shutdown()
+			time.Sleep(time.Second)
 		}
 
 		trans1 := NewTestTransport(ttype, addr1, wampserver, t)

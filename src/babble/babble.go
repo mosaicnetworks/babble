@@ -165,7 +165,10 @@ func (b *Babble) initTransport() error {
 		signal, err := wamp.NewClient(
 			b.Config.SignalAddr,
 			b.Config.SignalRealm,
-			keys.PublicKeyHex(&b.Config.Key.PublicKey))
+			keys.PublicKeyHex(&b.Config.Key.PublicKey),
+			b.Config.SignalCertFile,
+			b.Config.Logger().WithField("component", "webrtc-signal-client"),
+		)
 
 		if err != nil {
 			return err

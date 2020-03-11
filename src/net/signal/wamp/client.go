@@ -28,18 +28,16 @@ type Client struct {
 
 // NewClient instantiates a new Client, and opens a connection to the WAMP
 // signaling server.
-func NewClient(server string, realm string, pubKey string, skipVerify bool, caFile string, logger *logrus.Entry) (*Client, error) {
+func NewClient(server string, realm string, pubKey string, caFile string, logger *logrus.Entry) (*Client, error) {
 	cfg := client.Config{
 		Realm:  realm,
 		Logger: logger,
 	}
 
-	tlscfg := &tls.Config{
-		InsecureSkipVerify: skipVerify,
-	}
+	tlscfg := &tls.Config{}
 
-	// If not skipping verification and told to trust a certificate.
-	if !skipVerify && caFile != "" {
+	// If told to trust a certificate.
+	if caFile != "" {
 		// Load PEM-encoded certificate to trust.
 		certPEM, err := ioutil.ReadFile(caFile)
 		if err != nil {
@@ -67,8 +65,7 @@ func NewClient(server string, realm string, pubKey string, skipVerify bool, caFi
 			return nil, err
 		}
 
-		logger.Debug("Trusting certificate", caFile, "with CN:",
-			cert.Subject.CommonName)
+		logger.Debugf("Trusting certificate %s with CN: %s", caFile, cert.Subject.CommonName)
 
 		// Set ServerName in TLS config to CN from trusted cert so that
 		// certificate will validate if CN does not match DNS name.

@@ -135,6 +135,10 @@ type Config struct {
 	// server. WebRTC signaling messages are only routed within a Realm.
 	SignalRealm string `mapstructure:"signal-realm"`
 
+	// SignalCertFile is the filepath of the TLS certificate of the Signaling
+	// server
+	SignalCertFile string `mapstructure:"signal-cert-file"`
+
 	// Proxy is the application proxy that enables Babble to communicate with
 	// the application.
 	Proxy proxy.AppProxy
