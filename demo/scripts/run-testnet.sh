@@ -14,7 +14,18 @@ docker network create \
   --gateway=172.77.5.254 \
   babblenet
 
-docker run -d --name=signal --net=babblenet --ip=172.77.15.1 -it mosaicnetworks/signal:latest
+if "$WEBRTC"; then
+    # Start the signaling server (necessary with webrtc transport). The volume
+    # option copies the certificate and key files necessary to secure TLS 
+    # connections
+    docker run -d \
+     --name=signal \
+    --net=babblenet \
+    --ip=172.77.15.1 \
+    --volume "$(pwd)"/../src/net/signal/wamp/test_data:/signal \
+    -it \
+    mosaicnetworks/signal:latest --cert-file="/signal/cert.pem" --key-file="/signal/key.pem"
+fi
 
 for i in $(seq 1 $N)
 do

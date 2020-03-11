@@ -14,7 +14,7 @@ build :
 # generate keys and peers.json file
 conf : 
 	rm -rf conf
-	./scripts/build-conf.sh $(nodes)
+	./scripts/build-conf.sh $(nodes) $(webrtc)
 
 # launch testnet
 start:

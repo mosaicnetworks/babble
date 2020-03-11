@@ -149,9 +149,11 @@ type Config struct {
 	logger *logrus.Logger
 }
 
-// NewDefaultConfig returns the a config object with default values.
+// NewDefaultConfig returns the a config object with default values. All the
+// default configuration values are set, even if they cancel eachother out. For
+// example, When WebRTC = false, all the SignalXXX options are ignored.
+//Likewise, when WebRTC = true, BindAddr and ServiceAddr are not used.
 func NewDefaultConfig() *Config {
-
 	config := &Config{
 		DataDir:              DefaultDataDir(),
 		LogLevel:             "debug",
@@ -169,6 +171,10 @@ func NewDefaultConfig() *Config {
 		DatabaseDir:          DefaultDatabaseDir(),
 		LoadPeers:            true,
 		SuspendLimit:         100,
+		WebRTC:               false,
+		SignalAddr:           "127.0.0.1:443",
+		SignalRealm:          "office",
+		SignalCertFile:       filepath.Join(DefaultDataDir(), "cert.pem"),
 	}
 
 	return config

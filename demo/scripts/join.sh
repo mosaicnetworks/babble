@@ -15,6 +15,9 @@ docker run  \
     -v $dest:/.babble \
     --rm mosaicnetworks/babble:latest keygen 
 
+# copy signal TLS certificate
+cp $PWD/../src/net/signal/wamp/test_data/cert.pem $dest/cert.pem
+
 # get genesis.peers.json
 echo "Fetching peers.genesis.json from node1"
 curl -s http://172.77.5.1:80/genesispeers > $dest/peers.genesis.json
