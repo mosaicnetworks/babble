@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"github.com/gammazero/nexus/v3/client"
 	"github.com/gammazero/nexus/v3/wamp"
@@ -28,7 +29,12 @@ type Client struct {
 
 // NewClient instantiates a new Client, and opens a connection to the WAMP
 // signaling server.
-func NewClient(server string, realm string, pubKey string, caFile string, logger *logrus.Entry) (*Client, error) {
+func NewClient(server string,
+	realm string,
+	pubKey string,
+	caFile string,
+	logger *logrus.Entry) (*Client, error) {
+
 	cfg := client.Config{
 		Realm:  realm,
 		Logger: logger,
@@ -36,8 +42,11 @@ func NewClient(server string, realm string, pubKey string, caFile string, logger
 
 	tlscfg := &tls.Config{}
 
-	// If told to trust a certificate.
-	if caFile != "" {
+	if _, err := os.Stat(caFile); os.IsNotExist(err) {
+		logger.Debugf("No signal server certificate file found. Relying on web of trust...")
+	} else {
+		// trust the certificate.
+
 		// Load PEM-encoded certificate to trust.
 		certPEM, err := ioutil.ReadFile(caFile)
 		if err != nil {
@@ -47,7 +56,7 @@ func NewClient(server string, realm string, pubKey string, caFile string, logger
 		// Create CertPool containing the certificate to trust.
 		roots := x509.NewCertPool()
 		if !roots.AppendCertsFromPEM(certPEM) {
-			return nil, errors.New("failed to import certificate to trust")
+			return nil, errors.New("Failed to import certificate to trust")
 		}
 
 		// Trust the certificate by putting it into the pool of root CAs.
@@ -57,7 +66,7 @@ func NewClient(server string, realm string, pubKey string, caFile string, logger
 		block, _ := pem.Decode(certPEM)
 		if block == nil {
 
-			return nil, errors.New("failed to decode certificate to trust")
+			return nil, errors.New("Failed to decode certificate to trust")
 		}
 
 		cert, err := x509.ParseCertificate(block.Bytes)

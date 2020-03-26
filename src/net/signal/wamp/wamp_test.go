@@ -44,6 +44,7 @@ func TestWamp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	defer callee.Close()
 
 	if err := callee.Listen(); err != nil {
@@ -60,6 +61,7 @@ func TestWamp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	defer caller.Close()
 
 	// We expect the call to reach the callee and to generate an

@@ -23,7 +23,12 @@ type Server struct {
 }
 
 // NewServer instantiates a new Server which can be run at a specified address.
-func NewServer(address string, realm string, certFile string, keyFile string, logger *logrus.Entry) (*Server, error) {
+func NewServer(address string,
+	realm string,
+	certFile string,
+	keyFile string,
+	logger *logrus.Entry) (*Server, error) {
+
 	// Create router instance.
 	routerConfig := &router.Config{
 		RealmConfigs: []*router.RealmConfig{

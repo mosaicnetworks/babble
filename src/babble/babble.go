@@ -167,7 +167,7 @@ func (b *Babble) initTransport() error {
 			b.Config.SignalRealm,
 			keys.PublicKeyHex(&b.Config.Key.PublicKey),
 			b.Config.CertFile(),
-			b.Config.Logger().WithField("component", "webrtc-signal-client"),
+			b.Config.Logger().WithField("component", "webrtc-signal"),
 		)
 
 		if err != nil {

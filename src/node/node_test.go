@@ -30,8 +30,11 @@ NO FAST-SYNC, NO DYNAMIC PARTICIPANTS.
 
 */
 var ip = 9990
+
+//config for test WebRTC signaling service
 var certFile = "../net/signal/wamp/test_data/cert.pem"
 var keyFile = "../net/signal/wamp/test_data/key.pem"
+var realm = "office"
 
 func TestAddTransaction(t *testing.T) {
 	keys, peers := initPeers(t, 2)
@@ -117,7 +120,13 @@ func TestWebRTCGossip(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	server, err := wamp.NewServer("localhost:2443", "office", certFile, keyFile, common.NewTestEntry(t, common.TestLogLevel))
+	server, err := wamp.NewServer(
+		"localhost:2443",
+		realm,
+		certFile,
+		keyFile,
+		common.NewTestEntry(t, common.TestLogLevel),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +135,20 @@ func TestWebRTCGossip(t *testing.T) {
 	defer server.Shutdown()
 	time.Sleep(time.Second)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 5, false, "inmem", 5*time.Millisecond, true, "localhost:2443", t)
+	nodes := initNodes(
+		keys,
+		peers,
+		genesisPeerSet,
+		100000,
+		1000,
+		10,
+		false,
+		"inmem",
+		50*time.Millisecond, // slow down for webrtc
+		true,
+		"localhost:2443",
+		t,
+	)
 	//defer drawGraphs(nodes, t)
 
 	target := 50
@@ -308,7 +330,8 @@ func newNode(peer *peers.Peer,
 
 	conf := config.NewTestConfig(t, common.TestLogLevel)
 	conf.HeartbeatTimeout = heartbeatTimeout
-	conf.TCPTimeout = time.Second
+	conf.MaxPool = 3
+	conf.TCPTimeout = 2 * time.Second
 	conf.JoinTimeout = joinTimeoutSeconds * time.Second
 	conf.CacheSize = cacheSize
 	conf.SyncLimit = syncLimit
@@ -320,21 +343,38 @@ func newNode(peer *peers.Peer,
 	var err error
 
 	if !webrtc {
-		trans, err = net.NewTCPTransport(peer.NetAddr,
-			"", 5, conf.TCPTimeout, conf.JoinTimeout, conf.Logger())
+		trans, err = net.NewTCPTransport(
+			peer.NetAddr,
+			"",
+			conf.MaxPool,
+			conf.TCPTimeout,
+			conf.JoinTimeout,
+			conf.Logger(),
+		)
 		if err != nil {
 			t.Fatalf("Fatal failed to create transport for peer %d: %s", peer.ID(), err)
 		}
 	} else {
-		signal, err := wamp.NewClient(signalServer,
-			"office",
+		signal, err := wamp.NewClient(
+			signalServer,
+			realm,
 			peer.NetAddr,
 			certFile,
-			common.NewTestEntry(t, common.TestLogLevel))
+			common.NewTestEntry(t, common.TestLogLevel),
+		)
+
 		if err != nil {
 			t.Fatal(err)
 		}
-		trans, err = net.NewWebRTCTransport(signal, 5, time.Second, 2*time.Second, conf.Logger())
+
+		trans, err = net.NewWebRTCTransport(
+			signal,
+			conf.MaxPool,
+			conf.TCPTimeout,
+			conf.JoinTimeout,
+			conf.Logger(),
+		)
+
 		if err != nil {
 			t.Fatal(err)
 		}

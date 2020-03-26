@@ -132,7 +132,10 @@ type Config struct {
 	WebRTC bool `mapstructure:"webrtc"`
 
 	// SignalAddr is the IP:PORT of the WebRTC signaling server. It is ignored
-	// when WebRTC is not enabled.
+	// when WebRTC is not enabled. The connection is over secured web-sockets,
+	// wss, and it possible to include a self-signed certificated in a file
+	// called cert.pem in the datadir. If no self-signed certificate is found,
+	// the server's certifacate signing authority better be trusted.
 	SignalAddr string `mapstructure:"signal-addr"`
 
 	// SignalRealm is an administrative domain within the WebRTC signaling

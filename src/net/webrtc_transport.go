@@ -10,7 +10,8 @@ import (
 
 // NewWebRTCTransport returns a NetworkTransport that is built on top of
 // a WebRTC streaming transport layer, with log output going to the supplied
-// Logger
+// Logger. The signal is mechanism for peers to exchange connection information
+// prior to establishing a direct p2p link.
 func NewWebRTCTransport(
 	signal signal.Signal,
 	maxPool int,
