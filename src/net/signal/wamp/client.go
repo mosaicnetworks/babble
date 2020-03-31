@@ -33,6 +33,7 @@ func NewClient(server string,
 	realm string,
 	pubKey string,
 	caFile string,
+	insecureSkipVerify bool,
 	logger *logrus.Entry) (*Client, error) {
 
 	cfg := client.Config{
@@ -42,11 +43,12 @@ func NewClient(server string,
 
 	tlscfg := &tls.Config{}
 
-	if _, err := os.Stat(caFile); os.IsNotExist(err) {
-		logger.Debugf("No signal server certificate file found. Relying on web of trust...")
+	if insecureSkipVerify {
+		logger.Debug("Skip Verify. Accepting any certificate provided by signal server.")
+		tlscfg.InsecureSkipVerify = true
+	} else if _, err := os.Stat(caFile); os.IsNotExist(err) {
+		logger.Debugf("No certificate file found. Relying on platform trusted certificates.")
 	} else {
-		// trust the certificate.
-
 		// Load PEM-encoded certificate to trust.
 		certPEM, err := ioutil.ReadFile(caFile)
 		if err != nil {
@@ -83,7 +85,11 @@ func NewClient(server string,
 
 	cfg.TlsCfg = tlscfg
 
-	cli, err := client.ConnectNet(context.Background(), fmt.Sprintf("wss://%s", server), cfg)
+	cli, err := client.ConnectNet(
+		context.Background(),
+		fmt.Sprintf("wss://%s", server),
+		cfg,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -81,6 +81,7 @@ func AddRunFlags(cmd *cobra.Command) {
 	// WebRTC
 	cmd.Flags().Bool("webrtc", _config.Babble.WebRTC, "Use WebRTC transport")
 	cmd.Flags().String("signal-addr", _config.Babble.SignalAddr, "IP:Port of WebRTC signaling server")
+	cmd.Flags().Bool("signal-skip-verify", _config.Babble.SignalSkipVerify, "(Insecure) Accept any certificate presented by the signal server")
 
 	// Proxy
 	cmd.Flags().StringP("proxy-listen", "p", _config.ProxyAddr, "Listen IP:Port for babble proxy")

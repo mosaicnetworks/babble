@@ -142,6 +142,13 @@ type Config struct {
 	// server. WebRTC signaling messages are only routed within a Realm.
 	SignalRealm string `mapstructure:"signal-realm"`
 
+	// SignalSkipVerify controls whether the signal client verifies the server's
+	// certificate chain and host name. If SignalSkipVerify is true, TLS accepts
+	// any certificate presented by the server and any host name in that
+	// certificate. In this mode, TLS is susceptible to man-in-the-middle
+	// attacks. This should be used only for testing.
+	SignalSkipVerify bool `mapstructure:"signal-skip-verify"`
+
 	// Proxy is the application proxy that enables Babble to communicate with
 	// the application.
 	Proxy proxy.AppProxy
@@ -175,8 +182,9 @@ func NewDefaultConfig() *Config {
 		LoadPeers:            true,
 		SuspendLimit:         100,
 		WebRTC:               false,
-		SignalAddr:           "127.0.0.1:443",
+		SignalAddr:           "127.0.0.1:2443",
 		SignalRealm:          "office",
+		SignalSkipVerify:     false,
 	}
 
 	return config

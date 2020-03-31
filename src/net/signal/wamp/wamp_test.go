@@ -13,8 +13,8 @@ import (
 const certFile = "test_data/cert.pem"
 const keyFile = "test_data/key.pem"
 
-func TestWamp(t *testing.T) {
-	url := "localhost:1443"
+func TestWampSelfSigned(t *testing.T) {
+	url := "localhost:2443"
 	realm := "office"
 	certFile := "test_data/cert.pem"
 	keyFile := "test_data/key.pem"
@@ -39,6 +39,7 @@ func TestWamp(t *testing.T) {
 		realm,
 		"callee",
 		certFile,
+		false,
 		common.NewTestLogger(t, logrus.DebugLevel).WithField("component", "signal-client callee"))
 
 	if err != nil {
@@ -56,6 +57,7 @@ func TestWamp(t *testing.T) {
 		realm,
 		"caller",
 		certFile,
+		false,
 		common.NewTestLogger(t, logrus.DebugLevel).WithField("component", "signal-client caller"))
 
 	if err != nil {

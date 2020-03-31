@@ -124,6 +124,7 @@ func (b *Babble) validateConfig() error {
 		logFields["babble.WebRTC"] = b.Config.WebRTC
 		logFields["babble.SignalAddr"] = b.Config.SignalAddr
 		logFields["babble.SignalRealm"] = b.Config.SignalRealm
+		logFields["babble.SignalSkipVerify"] = b.Config.SignalSkipVerify
 	} else {
 		logFields["babble.BindAddr"] = b.Config.BindAddr
 		logFields["babble.AdvertiseAddr"] = b.Config.AdvertiseAddr
@@ -167,6 +168,7 @@ func (b *Babble) initTransport() error {
 			b.Config.SignalRealm,
 			keys.PublicKeyHex(&b.Config.Key.PublicKey),
 			b.Config.CertFile(),
+			b.Config.SignalSkipVerify,
 			b.Config.Logger().WithField("component", "webrtc-signal"),
 		)
 
