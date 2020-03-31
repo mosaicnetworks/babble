@@ -360,6 +360,7 @@ func newNode(peer *peers.Peer,
 			realm,
 			peer.NetAddr,
 			certFile,
+			false,
 			common.NewTestEntry(t, common.TestLogLevel),
 		)
 

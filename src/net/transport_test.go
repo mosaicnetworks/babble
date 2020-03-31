@@ -39,7 +39,7 @@ func NewTestTransport(ttype int, addr string, wampserver string, t *testing.T) T
 		go tt.Listen()
 		return tt
 	case WEBRTC:
-		signal, err := wamp.NewClient(wampserver, realm, addr, certFile, common.NewTestEntry(t, common.TestLogLevel))
+		signal, err := wamp.NewClient(wampserver, realm, addr, certFile, false, common.NewTestEntry(t, common.TestLogLevel))
 		if err != nil {
 			t.Fatal(err)
 		}

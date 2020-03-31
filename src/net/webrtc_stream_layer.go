@@ -3,6 +3,7 @@ package net
 import (
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/net/signal"
@@ -13,8 +14,12 @@ import (
 
 // WebRTCStreamLayer implements the StreamLayer interface for WebRTC
 type WebRTCStreamLayer struct {
-	peerConnections        map[string]*webrtc.PeerConnection
-	dataChannels           map[uint16]datachannel.ReadWriteCloser
+	peerConnections map[string]*webrtc.PeerConnection
+	peerConnLock    sync.Mutex
+
+	dataChannels map[uint16]datachannel.ReadWriteCloser
+	dataChanLock sync.Mutex
+
 	signal                 signal.Signal
 	incomingConnAggregator chan net.Conn
 	logger                 *logrus.Entry
@@ -74,7 +79,7 @@ func (w *WebRTCStreamLayer) listen() error {
 
 			offerPromise.Respond(&answer, nil)
 
-			w.peerConnections[offerPromise.From] = peerConnection
+			w.setPeerConnection(offerPromise.From, peerConnection)
 		}
 	}
 }
@@ -142,7 +147,7 @@ func (w *WebRTCStreamLayer) pipeDataChannel(dataChannel *webrtc.DataChannel, con
 		}
 
 		// keep track of channel so we can close it later
-		w.dataChannels[*dataChannel.ID()] = raw
+		w.setDataChannel(*dataChannel.ID(), raw)
 
 		connCh <- NewWebRTCConn(raw)
 	})
@@ -195,7 +200,7 @@ func (w *WebRTCStreamLayer) Dial(target string, timeout time.Duration) (net.Conn
 		return nil, err
 	}
 
-	w.peerConnections[target] = pc
+	w.setPeerConnection(target, pc)
 
 	// Wait for DataChannel opening
 	timer := time.After(timeout)
@@ -222,11 +227,15 @@ func (w *WebRTCStreamLayer) Close() (err error) {
 	w.signal.Close()
 
 	// Close all peer connections
+	w.peerConnLock.Lock()
+	defer w.peerConnLock.Unlock()
 	for _, pc := range w.peerConnections {
 		pc.Close()
 	}
 
 	// Close all data channels
+	w.dataChanLock.Lock()
+	defer w.dataChanLock.Unlock()
 	for _, dc := range w.dataChannels {
 		dc.Close()
 	}
@@ -241,4 +250,16 @@ func (w *WebRTCStreamLayer) Addr() net.Addr {
 // AdvertiseAddr implements the net.Listener interface
 func (w *WebRTCStreamLayer) AdvertiseAddr() string {
 	return w.signal.ID()
+}
+
+func (w *WebRTCStreamLayer) setPeerConnection(from string, peerConnection *webrtc.PeerConnection) {
+	w.peerConnLock.Lock()
+	w.peerConnections[from] = peerConnection
+	w.peerConnLock.Unlock()
+}
+
+func (w *WebRTCStreamLayer) setDataChannel(id uint16, dc datachannel.ReadWriteCloser) {
+	w.dataChanLock.Lock()
+	w.dataChannels[id] = dc
+	w.dataChanLock.Unlock()
 }
