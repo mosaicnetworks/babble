@@ -1,6 +1,6 @@
 package common
 
-//TAKEN FROM HASHICORP LRU
+// TAKEN FROM HASHICORP LRU
 
 import "container/list"
 
