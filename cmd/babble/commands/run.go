@@ -78,6 +78,11 @@ func AddRunFlags(cmd *cobra.Command) {
 	cmd.Flags().DurationP("join-timeout", "j", _config.Babble.JoinTimeout, "Join Timeout")
 	cmd.Flags().Int("max-pool", _config.Babble.MaxPool, "Connection pool size max")
 
+	// WebRTC
+	cmd.Flags().Bool("webrtc", _config.Babble.WebRTC, "Use WebRTC transport")
+	cmd.Flags().String("signal-addr", _config.Babble.SignalAddr, "IP:Port of WebRTC signaling server")
+	cmd.Flags().Bool("signal-skip-verify", _config.Babble.SignalSkipVerify, "(Insecure) Accept any certificate presented by the signal server")
+
 	// Proxy
 	cmd.Flags().StringP("proxy-listen", "p", _config.ProxyAddr, "Listen IP:Port for babble proxy")
 	cmd.Flags().StringP("client-connect", "c", _config.ClientAddr, "IP:Port to connect to client")

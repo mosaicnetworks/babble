@@ -4,8 +4,8 @@ set -eux
 
 N=${1:-4}
 FASTSYNC=${2:-false}
+WEBRTC=${3:-false}
 MPWD=$(pwd)
-
 
 docker network create \
   --driver=bridge \
@@ -13,6 +13,19 @@ docker network create \
   --ip-range=172.77.0.0/16 \
   --gateway=172.77.5.254 \
   babblenet
+
+if "$WEBRTC"; then
+    # Start the signaling server (necessary with webrtc transport). The volume
+    # option copies the certificate and key files necessary to secure TLS 
+    # connections
+    docker run -d \
+     --name=signal \
+    --net=babblenet \
+    --ip=172.77.15.1 \
+    --volume "$(pwd)"/../src/net/signal/wamp/test_data:/signal \
+    -it \
+    mosaicnetworks/signal:latest --cert-file="/signal/cert.pem" --key-file="/signal/key.pem"
+fi
 
 for i in $(seq 1 $N)
 do
@@ -34,9 +47,11 @@ do
     --proxy-listen="172.77.5.$i:1338" \
     --client-connect="172.77.10.$i:1339" \
     --service-listen="172.77.5.$i:80" \
-    --sync-limit=1000 \
+    --sync-limit=100 \
     --fast-sync=$FASTSYNC \
-    --log="debug"
+    --log="debug" \
+    --webrtc=$WEBRTC \
+    --signal-addr="172.77.15.1:2443"
 
     # --store \
     # --bootstrap \

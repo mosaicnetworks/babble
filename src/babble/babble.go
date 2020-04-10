@@ -9,6 +9,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/crypto/keys"
 	h "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
+	"github.com/mosaicnetworks/babble/src/net/signal/wamp"
 	"github.com/mosaicnetworks/babble/src/node"
 	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/mosaicnetworks/babble/src/service"
@@ -46,6 +47,12 @@ func (b *Babble) Init() error {
 		b.logger.WithError(err).Error("babble.go:Init() validateConfig")
 	}
 
+	b.logger.Debug("initKey")
+	if err := b.initKey(); err != nil {
+		b.logger.WithError(err).Error("babble.go:Init() initKey")
+		return err
+	}
+
 	b.logger.Debug("initPeers")
 	if err := b.initPeers(); err != nil {
 		b.logger.WithError(err).Error("babble.go:Init() initPeers")
@@ -61,12 +68,6 @@ func (b *Babble) Init() error {
 	b.logger.Debug("initTransport")
 	if err := b.initTransport(); err != nil {
 		b.logger.WithError(err).Error("babble.go:Init() initTransport")
-		return err
-	}
-
-	b.logger.Debug("initKey")
-	if err := b.initKey(); err != nil {
-		b.logger.WithError(err).Error("babble.go:Init() initKey")
 		return err
 	}
 
@@ -101,8 +102,6 @@ func (b *Babble) validateConfig() error {
 
 	logFields := logrus.Fields{
 		"babble.DataDir":          b.Config.DataDir,
-		"babble.BindAddr":         b.Config.BindAddr,
-		"babble.AdvertiseAddr":    b.Config.AdvertiseAddr,
 		"babble.ServiceAddr":      b.Config.ServiceAddr,
 		"babble.NoService":        b.Config.NoService,
 		"babble.MaxPool":          b.Config.MaxPool,
@@ -118,6 +117,17 @@ func (b *Babble) validateConfig() error {
 		"babble.EnableFastSync":   b.Config.EnableFastSync,
 		"babble.MaintenanceMode":  b.Config.MaintenanceMode,
 		"babble.SuspendLimit":     b.Config.SuspendLimit,
+	}
+
+	// WebRTC requires a signaling server
+	if b.Config.WebRTC {
+		logFields["babble.WebRTC"] = b.Config.WebRTC
+		logFields["babble.SignalAddr"] = b.Config.SignalAddr
+		logFields["babble.SignalRealm"] = b.Config.SignalRealm
+		logFields["babble.SignalSkipVerify"] = b.Config.SignalSkipVerify
+	} else {
+		logFields["babble.BindAddr"] = b.Config.BindAddr
+		logFields["babble.AdvertiseAddr"] = b.Config.AdvertiseAddr
 	}
 
 	// Maintenance-mode only works with bootstrap
@@ -152,20 +162,48 @@ func (b *Babble) validateConfig() error {
 }
 
 func (b *Babble) initTransport() error {
-	transport, err := net.NewTCPTransport(
-		b.Config.BindAddr,
-		b.Config.AdvertiseAddr,
-		b.Config.MaxPool,
-		b.Config.TCPTimeout,
-		b.Config.JoinTimeout,
-		b.Config.Logger(),
-	)
+	if b.Config.WebRTC {
+		signal, err := wamp.NewClient(
+			b.Config.SignalAddr,
+			b.Config.SignalRealm,
+			keys.PublicKeyHex(&b.Config.Key.PublicKey),
+			b.Config.CertFile(),
+			b.Config.SignalSkipVerify,
+			b.Config.Logger().WithField("component", "webrtc-signal"),
+		)
 
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
+
+		webRTCTransport, err := net.NewWebRTCTransport(
+			signal,
+			b.Config.MaxPool,
+			b.Config.TCPTimeout,
+			b.Config.JoinTimeout,
+			b.Config.Logger().WithField("component", "webrtc-transport"))
+
+		if err != nil {
+			return err
+		}
+
+		b.Transport = webRTCTransport
+	} else {
+		tcpTransport, err := net.NewTCPTransport(
+			b.Config.BindAddr,
+			b.Config.AdvertiseAddr,
+			b.Config.MaxPool,
+			b.Config.TCPTimeout,
+			b.Config.JoinTimeout,
+			b.Config.Logger(),
+		)
+
+		if err != nil {
+			return err
+		}
+
+		b.Transport = tcpTransport
 	}
-
-	b.Transport = transport
 
 	return nil
 }

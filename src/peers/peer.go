@@ -28,7 +28,7 @@ func NewPeer(pubKeyHex, netAddr, moniker string) *Peer {
 	return peer
 }
 
-// ID returns an ID for the peer, calculating a hash is one is not available
+// ID returns an ID for the peer, calculated from the public key
 func (p *Peer) ID() uint32 {
 	if p.id == 0 {
 		pubKeyBytes := p.PubKeyBytes()

@@ -1,22 +1,32 @@
 package net
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
+	"github.com/mosaicnetworks/babble/src/net/signal/wamp"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
 const (
 	INMEM = iota
 	TCP
+	WEBRTC
 	numTestTransports // NOTE: must be last
 )
 
-func NewTestTransport(ttype int, addr string, t *testing.T) Transport {
+var (
+	realm    = "office"
+	wampPort = 8443
+	certFile = "signal/wamp/test_data/cert.pem"
+	keyFile  = "signal/wamp/test_data/key.pem"
+)
+
+func NewTestTransport(ttype int, addr string, wampserver string, t *testing.T) Transport {
 	switch ttype {
 	case INMEM:
 		_, it := NewInmemTransport(addr)
@@ -28,14 +38,52 @@ func NewTestTransport(ttype int, addr string, t *testing.T) Transport {
 		}
 		go tt.Listen()
 		return tt
+	case WEBRTC:
+		signal, err := wamp.NewClient(wampserver, realm, addr, certFile, false, common.NewTestEntry(t, common.TestLogLevel))
+		if err != nil {
+			t.Fatal(err)
+		}
+		wt, err := NewWebRTCTransport(signal, 1, time.Second, 2*time.Second, common.NewTestEntry(t, common.TestLogLevel))
+		if err != nil {
+			t.Fatal(err)
+		}
+		go wt.Listen()
+		return wt
 	default:
 		panic("Unknown transport type")
 	}
 }
 
+func checkStartWampServer(ttype int, address string, t *testing.T) *wamp.Server {
+	if ttype == WEBRTC {
+		time.Sleep(time.Second)
+		server, err := wamp.NewServer(address, realm, certFile, keyFile, common.NewTestEntry(t, common.TestLogLevel))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return server
+	}
+	return nil
+}
+
+func nextWampAddress() string {
+	res := fmt.Sprintf("localhost:%d", wampPort)
+	wampPort++
+	return res
+}
+
 func TestTransport_StartStop(t *testing.T) {
+	wampserver := nextWampAddress()
+
 	for ttype := 0; ttype < numTestTransports; ttype++ {
-		trans := NewTestTransport(ttype, "127.0.0.1:0", t)
+		s := checkStartWampServer(ttype, wampserver, t)
+		if s != nil {
+			go s.Run()
+			defer s.Shutdown()
+			time.Sleep(time.Second)
+		}
+
+		trans := NewTestTransport(ttype, "127.0.0.1:0", wampserver, t)
 		if err := trans.Close(); err != nil {
 			t.Fatalf("err: %v", err)
 		}
@@ -43,10 +91,19 @@ func TestTransport_StartStop(t *testing.T) {
 }
 
 func TestTransport_Sync(t *testing.T) {
+	wampserver := nextWampAddress()
 	addr1 := "127.0.0.1:1234"
 	addr2 := "127.0.0.1:1235"
+
 	for ttype := 0; ttype < numTestTransports; ttype++ {
-		trans1 := NewTestTransport(ttype, addr1, t)
+		s := checkStartWampServer(ttype, wampserver, t)
+		if s != nil {
+			go s.Run()
+			defer s.Shutdown()
+			time.Sleep(time.Second)
+		}
+
+		trans1 := NewTestTransport(ttype, addr1, wampserver, t)
 		defer trans1.Close()
 		rpcCh := trans1.Consumer()
 
@@ -81,23 +138,26 @@ func TestTransport_Sync(t *testing.T) {
 		}
 
 		// Listen for a request
+		stopCh := make(chan struct{})
+		defer close(stopCh)
 		go func() {
 			select {
 			case rpc := <-rpcCh:
 				// Verify the command
 				req := rpc.Command.(*SyncRequest)
 				if !reflect.DeepEqual(req, &args) {
-					t.Fatalf("command mismatch: %#v %#v", *req, args)
+					t.Logf("command mismatch: %#v %#v", *req, args)
 				}
 				rpc.Respond(&resp, nil)
-
-			case <-time.After(200 * time.Millisecond):
-				t.Fatalf("timeout")
+			case <-stopCh:
+				return
+			case <-time.After(1000 * time.Millisecond):
+				t.Logf("consumer timeout")
 			}
 		}()
 
 		// Transport 2 makes outbound request
-		trans2 := NewTestTransport(ttype, addr2, t)
+		trans2 := NewTestTransport(ttype, addr2, wampserver, t)
 		defer trans2.Close()
 
 		if ttype == INMEM {
@@ -110,7 +170,7 @@ func TestTransport_Sync(t *testing.T) {
 		}
 
 		var out SyncResponse
-		if err := trans2.Sync(trans1.LocalAddr(), &args, &out); err != nil {
+		if err := trans2.Sync(trans1.AdvertiseAddr(), &args, &out); err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
@@ -122,10 +182,19 @@ func TestTransport_Sync(t *testing.T) {
 }
 
 func TestTransport_EagerSync(t *testing.T) {
+	wampserver := nextWampAddress()
 	addr1 := "127.0.0.1:1236"
 	addr2 := "127.0.0.1:1237"
+
 	for ttype := 0; ttype < numTestTransports; ttype++ {
-		trans1 := NewTestTransport(ttype, addr1, t)
+		s := checkStartWampServer(ttype, wampserver, t)
+		if s != nil {
+			go s.Run()
+			defer s.Shutdown()
+			time.Sleep(time.Second)
+		}
+
+		trans1 := NewTestTransport(ttype, addr1, wampserver, t)
 		defer trans1.Close()
 		rpcCh := trans1.Consumer()
 
@@ -150,23 +219,26 @@ func TestTransport_EagerSync(t *testing.T) {
 		}
 
 		// Listen for a request
+		stopCh := make(chan struct{})
+		defer close(stopCh)
 		go func() {
 			select {
 			case rpc := <-rpcCh:
 				// Verify the command
 				req := rpc.Command.(*EagerSyncRequest)
 				if !reflect.DeepEqual(req, &args) {
-					t.Fatalf("command mismatch: %#v %#v", *req, args)
+					t.Logf("command mismatch: %#v %#v", *req, args)
 				}
 				rpc.Respond(&resp, nil)
-
-			case <-time.After(200 * time.Millisecond):
-				t.Fatalf("timeout")
+			case <-stopCh:
+				return
+			case <-time.After(1000 * time.Millisecond):
+				t.Logf("consumer timeout")
 			}
 		}()
 
 		// Transport 2 makes outbound request
-		trans2 := NewTestTransport(ttype, addr2, t)
+		trans2 := NewTestTransport(ttype, addr2, wampserver, t)
 		defer trans2.Close()
 
 		if ttype == INMEM {
@@ -179,7 +251,7 @@ func TestTransport_EagerSync(t *testing.T) {
 		}
 
 		var out EagerSyncResponse
-		if err := trans2.EagerSync(trans1.LocalAddr(), &args, &out); err != nil {
+		if err := trans2.EagerSync(trans1.AdvertiseAddr(), &args, &out); err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
@@ -191,10 +263,19 @@ func TestTransport_EagerSync(t *testing.T) {
 }
 
 func TestTransport_FastForward(t *testing.T) {
+	wampserver := nextWampAddress()
 	addr1 := "127.0.0.1:1238"
 	addr2 := "127.0.0.1:1239"
+
 	for ttype := 0; ttype < numTestTransports; ttype++ {
-		trans1 := NewTestTransport(ttype, addr1, t)
+		s := checkStartWampServer(ttype, wampserver, t)
+		if s != nil {
+			go s.Run()
+			defer s.Shutdown()
+			time.Sleep(time.Second)
+		}
+
+		trans1 := NewTestTransport(ttype, addr1, wampserver, t)
 		defer trans1.Close()
 		rpcCh := trans1.Consumer()
 
@@ -228,9 +309,9 @@ func TestTransport_FastForward(t *testing.T) {
 						},
 						[]hashgraph.BlockSignature{
 							{
-								[]byte("pub1"),
-								0,
-								"the signature",
+								Validator: []byte("pub1"),
+								Index:     0,
+								Signature: "the signature",
 							},
 						},
 						[]string{"pub1", "pub2"},
@@ -283,23 +364,26 @@ func TestTransport_FastForward(t *testing.T) {
 		}
 
 		// Listen for a request
+		stopCh := make(chan struct{})
+		defer close(stopCh)
 		go func() {
 			select {
 			case rpc := <-rpcCh:
 				// Verify the command
 				req := rpc.Command.(*FastForwardRequest)
 				if !reflect.DeepEqual(req, &args) {
-					t.Fatalf("command mismatch: %#v %#v", *req, args)
+					t.Logf("command mismatch: %#v %#v", *req, args)
 				}
 				rpc.Respond(&resp, nil)
-
-			case <-time.After(200 * time.Millisecond):
-				t.Fatalf("timeout")
+			case <-stopCh:
+				return
+			case <-time.After(1000 * time.Millisecond):
+				t.Logf("consumer timeout")
 			}
 		}()
 
 		// Transport 2 makes outbound request
-		trans2 := NewTestTransport(ttype, addr2, t)
+		trans2 := NewTestTransport(ttype, addr2, wampserver, t)
 		defer trans2.Close()
 
 		if ttype == INMEM {
@@ -312,7 +396,7 @@ func TestTransport_FastForward(t *testing.T) {
 		}
 
 		var out FastForwardResponse
-		if err := trans2.FastForward(trans1.LocalAddr(), &args, &out); err != nil {
+		if err := trans2.FastForward(trans1.AdvertiseAddr(), &args, &out); err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
@@ -324,10 +408,19 @@ func TestTransport_FastForward(t *testing.T) {
 }
 
 func TestTransport_Join(t *testing.T) {
+	wampserver := nextWampAddress()
 	addr1 := "127.0.0.1:2345"
 	addr2 := "127.0.0.1:2346"
+
 	for ttype := 0; ttype < numTestTransports; ttype++ {
-		trans1 := NewTestTransport(ttype, addr1, t)
+		s := checkStartWampServer(ttype, wampserver, t)
+		if s != nil {
+			go s.Run()
+			defer s.Shutdown()
+			time.Sleep(time.Second)
+		}
+
+		trans1 := NewTestTransport(ttype, addr1, wampserver, t)
 		defer trans1.Close()
 		rpcCh := trans1.Consumer()
 
@@ -367,23 +460,26 @@ func TestTransport_Join(t *testing.T) {
 		}
 
 		// Listen for a request
+		stopCh := make(chan struct{})
+		defer close(stopCh)
 		go func() {
 			select {
 			case rpc := <-rpcCh:
 				// Verify the command
 				req := rpc.Command.(*JoinRequest)
 				if !reflect.DeepEqual(req, &args) {
-					t.Fatalf("command mismatch: %#v %#v", *req, args)
+					t.Logf("command mismatch: %#v %#v", *req, args)
 				}
 				rpc.Respond(&resp, nil)
-
-			case <-time.After(200 * time.Millisecond):
-				t.Fatalf("timeout")
+			case <-stopCh:
+				return
+			case <-time.After(1000 * time.Millisecond):
+				t.Logf("consumer timeout")
 			}
 		}()
 
 		// Transport 2 makes outbound request
-		trans2 := NewTestTransport(ttype, addr2, t)
+		trans2 := NewTestTransport(ttype, addr2, wampserver, t)
 		defer trans2.Close()
 
 		if ttype == INMEM {
@@ -396,7 +492,7 @@ func TestTransport_Join(t *testing.T) {
 		}
 
 		var out JoinResponse
-		if err := trans2.Join(trans1.LocalAddr(), &args, &out); err != nil {
+		if err := trans2.Join(trans1.AdvertiseAddr(), &args, &out); err != nil {
 			t.Fatalf("err: %v", err)
 		}
 

@@ -17,6 +17,7 @@ import (
 	bkeys "github.com/mosaicnetworks/babble/src/crypto/keys"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
+	"github.com/mosaicnetworks/babble/src/net/signal/wamp"
 	"github.com/mosaicnetworks/babble/src/peers"
 	dummy "github.com/mosaicnetworks/babble/src/proxy/dummy"
 )
@@ -29,6 +30,11 @@ NO FAST-SYNC, NO DYNAMIC PARTICIPANTS.
 
 */
 var ip = 9990
+
+//config for test WebRTC signaling service
+var certFile = "../net/signal/wamp/test_data/cert.pem"
+var keyFile = "../net/signal/wamp/test_data/key.pem"
+var realm = "office"
 
 func TestAddTransaction(t *testing.T) {
 	keys, peers := initPeers(t, 2)
@@ -45,6 +51,8 @@ func TestAddTransaction(t *testing.T) {
 		false,
 		"inmem",
 		10*time.Millisecond,
+		false,
+		"",
 		t)
 	defer shutdownNodes(nodes)
 
@@ -94,11 +102,57 @@ func TestGossip(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 5, false, "inmem", 5*time.Millisecond, false, "", t)
 	//defer drawGraphs(nodes, t)
 
 	target := 50
 	err := gossip(nodes, target, true)
+	if err != nil {
+		t.Error("Fatal Error", err)
+		t.Fatal(err)
+	}
+
+	checkGossip(nodes, 0, t)
+}
+
+func TestWebRTCGossip(t *testing.T) {
+	keys, peers := initPeers(t, 4)
+
+	genesisPeerSet := clonePeerSet(t, peers.Peers)
+
+	server, err := wamp.NewServer(
+		"localhost:2443",
+		realm,
+		certFile,
+		keyFile,
+		common.NewTestEntry(t, common.TestLogLevel),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	go server.Run()
+	defer server.Shutdown()
+	time.Sleep(time.Second)
+
+	nodes := initNodes(
+		keys,
+		peers,
+		genesisPeerSet,
+		100000,
+		1000,
+		10,
+		false,
+		"inmem",
+		50*time.Millisecond, // slow down for webrtc
+		true,
+		"localhost:2443",
+		t,
+	)
+	//defer drawGraphs(nodes, t)
+
+	target := 50
+	err = gossip(nodes, target, true)
 	if err != nil {
 		t.Error("Fatal Error", err)
 		t.Fatal(err)
@@ -112,7 +166,7 @@ func TestMissingNodeGossip(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, false, "", t)
 	//defer drawGraphs(nodes, t)
 
 	err := gossip(nodes[1:], 10, true)
@@ -129,7 +183,7 @@ func TestSyncLimit(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, false, "", t)
 	defer shutdownNodes(nodes)
 
 	err := gossip(nodes, 10, false)
@@ -168,7 +222,7 @@ func TestShutdown(t *testing.T) {
 
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, false, "", t)
 	runNodes(nodes, false)
 	defer shutdownNodes(nodes)
 
@@ -188,7 +242,7 @@ func TestBootstrapAllNodes(t *testing.T) {
 	keys, peers := initPeers(t, 4)
 	genesisPeerSet := clonePeerSet(t, peers.Peers)
 
-	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 10, false, "badger", 10*time.Millisecond, t)
+	nodes := initNodes(keys, peers, genesisPeerSet, 100000, 1000, 10, false, "badger", 10*time.Millisecond, false, "", t)
 
 	err := gossip(nodes, 10, true)
 	if err != nil {
@@ -218,7 +272,7 @@ func BenchmarkGossip(b *testing.B) {
 
 		genesisPeerSet := clonePeerSet(b, peers.Peers)
 
-		nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, b)
+		nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, false, "", b)
 		gossip(nodes, 50, true)
 	}
 }
@@ -270,12 +324,14 @@ func newNode(peer *peers.Peer,
 	enableSyncLimit bool,
 	storeType string,
 	heartbeatTimeout time.Duration,
-
+	webrtc bool,
+	signalServer string,
 	t testing.TB) *Node {
 
 	conf := config.NewTestConfig(t, common.TestLogLevel)
 	conf.HeartbeatTimeout = heartbeatTimeout
-	conf.TCPTimeout = time.Second
+	conf.MaxPool = 3
+	conf.TCPTimeout = 2 * time.Second
 	conf.JoinTimeout = joinTimeoutSeconds * time.Second
 	conf.CacheSize = cacheSize
 	conf.SyncLimit = syncLimit
@@ -283,11 +339,48 @@ func newNode(peer *peers.Peer,
 
 	t.Logf("Starting node on %s", peer.NetAddr)
 
-	trans, err := net.NewTCPTransport(peer.NetAddr,
-		"", 2, conf.TCPTimeout, conf.JoinTimeout, conf.Logger())
-	if err != nil {
-		t.Fatalf("Fatal failed to create transport for peer %d: %s", peer.ID(), err)
+	var trans net.Transport
+	var err error
+
+	if !webrtc {
+		trans, err = net.NewTCPTransport(
+			peer.NetAddr,
+			"",
+			conf.MaxPool,
+			conf.TCPTimeout,
+			conf.JoinTimeout,
+			conf.Logger(),
+		)
+		if err != nil {
+			t.Fatalf("Fatal failed to create transport for peer %d: %s", peer.ID(), err)
+		}
+	} else {
+		signal, err := wamp.NewClient(
+			signalServer,
+			realm,
+			peer.NetAddr,
+			certFile,
+			false,
+			common.NewTestEntry(t, common.TestLogLevel),
+		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		trans, err = net.NewWebRTCTransport(
+			signal,
+			conf.MaxPool,
+			conf.TCPTimeout,
+			conf.JoinTimeout,
+			conf.Logger(),
+		)
+
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
+
 	go trans.Listen()
 
 	var store hg.Store
@@ -329,6 +422,8 @@ func initNodes(keys []*ecdsa.PrivateKey,
 	enableSyncLimit bool,
 	storeType string,
 	heartbeatTimeout time.Duration,
+	webrtc bool,
+	signalAddress string,
 	t testing.TB) []*Node {
 
 	nodes := []*Node{}
@@ -351,6 +446,8 @@ func initNodes(keys []*ecdsa.PrivateKey,
 			enableSyncLimit,
 			storeType,
 			heartbeatTimeout,
+			webrtc,
+			signalAddress,
 			t)
 
 		nodes = append(nodes, node)

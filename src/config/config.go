@@ -23,6 +23,10 @@ const (
 	// DefaultBadgerFile defines the default name of the folder containing the
 	// Badger database
 	DefaultBadgerFile = "badger_db"
+
+	// DefaultCertFile defines the default name of the file containing the TLS
+	// certificate for connecting to the signaling server.
+	DefaultCertFile = "cert.pem"
 )
 
 // Config contains all the configuration properties of a Babble node.
@@ -119,6 +123,32 @@ type Config struct {
 	// a local json file.
 	LoadPeers bool `mapstructure:"loadpeers"`
 
+	// WebRTC determines whether to use a WebRTC transport. WebRTC uses a very
+	// different protocol stack than TCP/IP and enables peers to connect
+	// directly even with multiple layers of NAT between them, such as in
+	// cellular networks. WebRTC relies on a signalling server who's address is
+	// specified by SignalAddr. When WebRTC is enabled, BindAddr and
+	// AdvertiseAddr are ignored.
+	WebRTC bool `mapstructure:"webrtc"`
+
+	// SignalAddr is the IP:PORT of the WebRTC signaling server. It is ignored
+	// when WebRTC is not enabled. The connection is over secured web-sockets,
+	// wss, and it possible to include a self-signed certificated in a file
+	// called cert.pem in the datadir. If no self-signed certificate is found,
+	// the server's certifacate signing authority better be trusted.
+	SignalAddr string `mapstructure:"signal-addr"`
+
+	// SignalRealm is an administrative domain within the WebRTC signaling
+	// server. WebRTC signaling messages are only routed within a Realm.
+	SignalRealm string `mapstructure:"signal-realm"`
+
+	// SignalSkipVerify controls whether the signal client verifies the server's
+	// certificate chain and host name. If SignalSkipVerify is true, TLS accepts
+	// any certificate presented by the server and any host name in that
+	// certificate. In this mode, TLS is susceptible to man-in-the-middle
+	// attacks. This should be used only for testing.
+	SignalSkipVerify bool `mapstructure:"signal-skip-verify"`
+
 	// Proxy is the application proxy that enables Babble to communicate with
 	// the application.
 	Proxy proxy.AppProxy
@@ -129,9 +159,11 @@ type Config struct {
 	logger *logrus.Logger
 }
 
-// NewDefaultConfig returns the a config object with default values.
+// NewDefaultConfig returns the a config object with default values. All the
+// default configuration values are set, even if they cancel eachother out. For
+// example, When WebRTC = false, all the SignalXXX options are ignored.
+//Likewise, when WebRTC = true, BindAddr and ServiceAddr are not used.
 func NewDefaultConfig() *Config {
-
 	config := &Config{
 		DataDir:              DefaultDataDir(),
 		LogLevel:             "debug",
@@ -149,6 +181,10 @@ func NewDefaultConfig() *Config {
 		DatabaseDir:          DefaultDatabaseDir(),
 		LoadPeers:            true,
 		SuspendLimit:         100,
+		WebRTC:               false,
+		SignalAddr:           "127.0.0.1:2443",
+		SignalRealm:          "office",
+		SignalSkipVerify:     false,
 	}
 
 	return config
@@ -178,6 +214,12 @@ func (c *Config) SetDataDir(dataDir string) {
 // Keyfile returns the full path of the file containing the private key.
 func (c *Config) Keyfile() string {
 	return filepath.Join(c.DataDir, DefaultKeyfile)
+}
+
+// CertFile returns the full path of the file containing the signal-server TLS
+// certificate.
+func (c *Config) CertFile() string {
+	return filepath.Join(c.DataDir, DefaultCertFile)
 }
 
 // Logger returns a formatted logrus Entry, with prefix set to "babble".

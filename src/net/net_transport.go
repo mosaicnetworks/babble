@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"sync"
 	"time"
@@ -22,6 +23,11 @@ const (
 	rpcSync
 	rpcEagerSync
 	rpcFastForward
+)
+
+const (
+	// we need this high buffer size for compatibility with WebRTC
+	bufSize = math.MaxUint16
 )
 
 var (
@@ -62,18 +68,6 @@ type NetworkTransport struct {
 	joinTimeout time.Duration
 }
 
-// StreamLayer is used with the NetworkTransport to provide
-// the low level stream abstraction.
-type StreamLayer interface {
-	net.Listener
-
-	// Dial is used to create a new outgoing connection
-	Dial(address string, timeout time.Duration) (net.Conn, error)
-
-	// AdvertiseAddr returns the publicly-reachable address of the stream
-	AdvertiseAddr() string
-}
-
 type netConn struct {
 	target string
 	conn   net.Conn
@@ -83,7 +77,7 @@ type netConn struct {
 	enc    *json.Encoder
 }
 
-// Release ...
+// Release closes the underlying connection
 func (n *netConn) Release() error {
 	return n.conn.Close()
 }
@@ -127,6 +121,7 @@ func (n *NetworkTransport) Close() error {
 	if !n.shutdown {
 		close(n.shutdownCh)
 		n.stream.Close()
+
 		n.shutdown = true
 	}
 	return nil
@@ -139,7 +134,13 @@ func (n *NetworkTransport) Consumer() <-chan RPC {
 
 // LocalAddr implements the Transport interface.
 func (n *NetworkTransport) LocalAddr() string {
-	return n.stream.Addr().String()
+	addr := n.stream.Addr()
+
+	if addr != nil {
+		return addr.String()
+	}
+
+	return ""
 }
 
 // AdvertiseAddr implements the Transport interface.
@@ -191,8 +192,8 @@ func (n *NetworkTransport) getConn(target string, timeout time.Duration) (*netCo
 	netConn := &netConn{
 		target: target,
 		conn:   conn,
-		r:      bufio.NewReader(conn),
-		w:      bufio.NewWriter(conn),
+		r:      bufio.NewReaderSize(conn, bufSize),
+		w:      bufio.NewWriterSize(conn, bufSize),
 	}
 	// Setup encoder/decoders
 	netConn.dec = json.NewDecoder(netConn.r)
@@ -260,6 +261,7 @@ func (n *NetworkTransport) genericRPC(target string, rpcType uint8, timeout time
 	if canReturn {
 		n.returnConn(conn)
 	}
+
 	return err
 }
 
@@ -333,8 +335,8 @@ func (n *NetworkTransport) Listen() {
 // handleConn is used to handle an inbound connection for its lifespan.
 func (n *NetworkTransport) handleConn(conn net.Conn) {
 	defer conn.Close()
-	r := bufio.NewReader(conn)
-	w := bufio.NewWriter(conn)
+	r := bufio.NewReaderSize(conn, bufSize)
+	w := bufio.NewWriterSize(conn, bufSize)
 	dec := json.NewDecoder(r)
 	enc := json.NewEncoder(w)
 
@@ -427,5 +429,6 @@ func (n *NetworkTransport) handleCommand(r *bufio.Reader, dec *json.Decoder, enc
 	case <-n.shutdownCh:
 		return ErrTransportShutdown
 	}
+
 	return nil
 }
