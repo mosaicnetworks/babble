@@ -1,3 +1,4 @@
+// Package version manages the version string associated with a Babble build.
 package version
 
 // Flag contains extra info about the version. It is helpul for tracking

@@ -1,3 +1,5 @@
+// Package app implements a TCP AppProxy which resides inside Babble and
+// connects to the other side of the proxy.
 package app
 
 import (

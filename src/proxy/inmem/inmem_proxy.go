@@ -1,3 +1,5 @@
+// Package inmem implements an in-memory AppProxy to use Babble directly from Go
+// code.
 package inmem
 
 import (

@@ -5,10 +5,8 @@ import (
 	"github.com/mosaicnetworks/babble/src/node/state"
 )
 
-/*
-These types are exported and need to be implemented and used by the calling
-application.
-*/
+// These types are exported and need to be implemented and used by the calling
+// application.
 
 // ProxyHandler is used to instanciate an InmemProxy
 type ProxyHandler interface {

@@ -25,4 +25,5 @@ require (
 	github.com/ugorji/go/codec v1.1.7
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2
 	golang.org/x/mobile v0.0.0-20200212152714-2b26a4705d24 // indirect
+	golang.org/x/tools v0.0.0-20200410040751-3bd20875a2eb // indirect
 )

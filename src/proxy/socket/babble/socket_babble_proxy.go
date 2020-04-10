@@ -1,3 +1,4 @@
+// Package babble implements a component that the TCP AppProxy can connect to.
 package babble
 
 import (

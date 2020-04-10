@@ -1,8 +1,7 @@
-// Package wamp implements a signaling system using RPC over WebSockets as
-// defined in the Web Application Messaging Protocol (WAMP). This package
-// contains a wamp server that relays RPC requests between connected clients,
-// and a client which implements the Signal interface, and which can be used to
-// instantiate a WebRTCStreamLayer
+// Package wamp implements a WebRTC signaling system using RPC over WebSockets.
+// This package  contains a wamp server that relays RPC requests between
+// connected clients, and a client which implements the Signal interface, and
+// which can be used to instantiate a WebRTCStreamLayer
 package wamp
 
 const (
