@@ -10,7 +10,7 @@ import (
 )
 
 func TestParticipantEventsCache(t *testing.T) {
-	size := 10
+	size := 20
 	testSize := 25
 	participants := peers.NewPeerSet([]*peers.Peer{
 		peers.NewPeer("0xaa", "", ""),
@@ -122,7 +122,7 @@ func TestParticipantEventsCache(t *testing.T) {
 }
 
 func TestParticipantEventsCacheEdge(t *testing.T) {
-	size := 10
+	size := 20
 	testSize := 11
 	participants := peers.NewPeerSet([]*peers.Peer{
 		peers.NewPeer("0xaa", "", ""),
@@ -156,9 +156,11 @@ func TestParticipantEventsCacheEdge(t *testing.T) {
 		}
 	}
 
+	half := size / 2
+
 	for pk := range participants.ByPubKey {
-		expected := items[pk][size:]
-		cached, err := pec.Get(pk, size-1)
+		expected := items[pk][half:]
+		cached, err := pec.Get(pk, half-1)
 		if err != nil {
 			t.Fatal(err)
 		}

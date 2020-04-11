@@ -10,9 +10,9 @@ const (
 	True
 	// False means the value is defined and false
 	False
-
-	trileans = []string{"Undefined", "True", "False"}
 )
+
+var trileans = []string{"Undefined", "True", "False"}
 
 // String returns the string representation of Trilean
 func (t Trilean) String() string {

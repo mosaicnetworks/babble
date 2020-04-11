@@ -16,18 +16,41 @@ import (
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 )
 
+// Default filenames.
 const (
-	// DefaultKeyfile defines the default name of the file containing the
-	// validator's private key
+	// DefaultKeyfile is the default name of the file containing the validator's
+	// private key
 	DefaultKeyfile = "priv_key"
 
-	// DefaultBadgerFile defines the default name of the folder containing the
-	// Badger database
+	// DefaultBadgerFile is the default name of the folder containing the Badger
+	// database
 	DefaultBadgerFile = "badger_db"
 
-	// DefaultCertFile defines the default name of the file containing the TLS
+	// DefaultCertFile is the default name of the file containing the TLS
 	// certificate for connecting to the signaling server.
 	DefaultCertFile = "cert.pem"
+)
+
+// Default configuration values.
+const (
+	DefaultLogLevel             = "debug"
+	DefaultBindAddr             = "127.0.0.1:1337"
+	DefaultServiceAddr          = "127.0.0.1:8000"
+	DefaultHeartbeatTimeout     = 10 * time.Millisecond
+	DefaultSlowHeartbeatTimeout = 1000 * time.Millisecond
+	DefaultTCPTimeout           = 1000 * time.Millisecond
+	DefaultJoinTimeout          = 10000 * time.Millisecond
+	DefaultCacheSize            = 10000
+	DefaultSyncLimit            = 1000
+	DefaultMaxPool              = 2
+	DefaultStore                = false
+	DefaultMaintenanceMode      = false
+	DefaultLoadPeers            = true
+	DefaultSuspendLimit         = 100
+	DefaultWebRTC               = false
+	DefaultSignalAddr           = "127.0.0.1:2443"
+	DefaultSignalRealm          = "office"
+	DefaultSignalSkipVerify     = false
 )
 
 // Config contains all the configuration properties of a Babble node.
@@ -40,22 +63,21 @@ type Config struct {
 	LogLevel string `mapstructure:"log"`
 
 	// BindAddr is the local address:port where this node gossips with other
-	// nodes. By default, this is "0.0.0.0", meaning Babble will bind to all
-	// addresses on the local machine. However, in some cases, there may be a
-	// routable address that cannot be bound. Use AdvertiseAddr to enable
-	// gossiping a different address to support this. If this address is not
-	// routable, the node will be in a constant flapping state as other nodes
-	// will treat the non-routability as a failure
+	// nodes. in some cases, there may be a routable address that cannot be
+	// bound. Use AdvertiseAddr to advertise a different address to support
+	// this. If this address is not routable, the node will be in a constant
+	// flapping state as other nodes will treat the non-routability as a
+	// failure.
 	BindAddr string `mapstructure:"listen"`
 
 	// AdvertiseAddr is used to change the address that we advertise to other
-	// nodes in the cluster
+	// nodes.
 	AdvertiseAddr string `mapstructure:"advertise"`
 
 	// NoService disables the HTTP API service.
 	NoService bool `mapstructure:"no-service"`
 
-	// ServiceAddr is the address:port that serves the user-facing API. If not
+	// ServiceAddr is the address:port of the optional HTTP service. If not
 	// specified, and "no-service" is not set, the API handlers are registered
 	// with the DefaultServerMux of the http package. It is possible that
 	// another server in the same process is simultaneously using the
@@ -86,10 +108,10 @@ type Config struct {
 	// SyncResponse or EagerSyncRequest
 	SyncLimit int `mapstructure:"sync-limit"`
 
-	// EnableFastSync determines whether or not to enable the FastSync protocol.
+	// EnableFastSync enables the FastSync protocol.
 	EnableFastSync bool `mapstructure:"fast-sync"`
 
-	// Store is a flag that determines whether or not to use persistant storage.
+	// Store activates persistant storage.
 	Store bool `mapstructure:"store"`
 
 	// DatabaseDir is the directory containing database files.
@@ -110,11 +132,10 @@ type Config struct {
 	MaintenanceMode bool `mapstructure:"maintenance-mode"`
 
 	// SuspendLimit is the multiplyer that is dynamically applied to the number
-	// of validators to determine the limit of undertermined events (events
-	// which haven't reached consensus) that will cause the node to become
-	// suspended. For example, if there are 4 validators and SuspendLimit=100,
-	// then the node will suspend itself after registering 400 undetermined
-	// events.
+	// of validators to determine the limit of undetermined events (events which
+	// haven't reached consensus) that will cause the node to become suspended.
+	// For example, if there are 4 validators and SuspendLimit=100, then the
+	// node will suspend itself after registering 400 undetermined events.
 	SuspendLimit int `mapstructure:"suspend-limit"`
 
 	// Moniker defines the friendly name of this node
@@ -160,39 +181,39 @@ type Config struct {
 	logger *logrus.Logger
 }
 
-// NewDefaultConfig returns the a config object with default values. All the
-// default configuration values are set, even if they cancel eachother out. For
-// example, When WebRTC = false, all the SignalXXX options are ignored.
-//Likewise, when WebRTC = true, BindAddr and ServiceAddr are not used.
+// NewDefaultConfig returns a config object with default values. All the default
+// configuration values are set, even if they cancel eachother out. For example,
+// When WebRTC = false, all the Signal options are ignored. Likewise, when
+// WebRTC = true, BindAddr and ServiceAddr are not used.
 func NewDefaultConfig() *Config {
 	config := &Config{
 		DataDir:              DefaultDataDir(),
-		LogLevel:             "debug",
-		BindAddr:             "127.0.0.1:1337",
-		ServiceAddr:          "127.0.0.1:8000",
-		HeartbeatTimeout:     10 * time.Millisecond,
-		SlowHeartbeatTimeout: 1000 * time.Millisecond,
-		TCPTimeout:           1000 * time.Millisecond,
-		JoinTimeout:          10000 * time.Millisecond,
-		CacheSize:            5000,
-		SyncLimit:            1000,
-		MaxPool:              2,
-		Store:                false,
-		MaintenanceMode:      false,
+		LogLevel:             DefaultLogLevel,
+		BindAddr:             DefaultBindAddr,
+		ServiceAddr:          DefaultServiceAddr,
+		HeartbeatTimeout:     DefaultHeartbeatTimeout,
+		SlowHeartbeatTimeout: DefaultSlowHeartbeatTimeout,
+		TCPTimeout:           DefaultTCPTimeout,
+		JoinTimeout:          DefaultJoinTimeout,
+		CacheSize:            DefaultCacheSize,
+		SyncLimit:            DefaultSyncLimit,
+		MaxPool:              DefaultMaxPool,
+		Store:                DefaultStore,
+		MaintenanceMode:      DefaultMaintenanceMode,
 		DatabaseDir:          DefaultDatabaseDir(),
-		LoadPeers:            true,
-		SuspendLimit:         100,
-		WebRTC:               false,
-		SignalAddr:           "127.0.0.1:2443",
-		SignalRealm:          "office",
-		SignalSkipVerify:     false,
+		LoadPeers:            DefaultLoadPeers,
+		SuspendLimit:         DefaultSuspendLimit,
+		WebRTC:               DefaultWebRTC,
+		SignalAddr:           DefaultSignalAddr,
+		SignalRealm:          DefaultSignalRealm,
+		SignalSkipVerify:     DefaultSignalSkipVerify,
 	}
 
 	return config
 }
 
 // NewTestConfig returns a config object with default values and a special
-// logger.
+// logger for debugging tests.
 func NewTestConfig(t testing.TB, level logrus.Level) *Config {
 	config := NewDefaultConfig()
 	config.logger = common.NewTestLogger(t, level)
