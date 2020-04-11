@@ -3,7 +3,7 @@
     
     babble	    Package babble is the entry point to run a Babble node.
 ok  common	    Package common contains utilities that are used accross various Babble packages.
-    config	    Package config defines the configuration for a Babble node.
+ok  config	    Package config defines the configuration for a Babble node.
     crypto	    Package crypto implements cryptographic functions for Babble.
      keys	    Package keys implements the public key cryptography used throughout Babble.
     hashgraph	Package hashgraph implements the distributed consensus algorithm.
