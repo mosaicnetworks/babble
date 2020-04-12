@@ -70,7 +70,7 @@ func TestJoinLateExtra(t *testing.T) {
 	start := newNode.core.hg.FirstConsensusRound
 	checkGossip(nodes, *start, t)
 	checkPeerSets(nodes, t)
-	verifyNewPeerSet(nodes, newNode.core.AcceptedRound, 5, t)
+	verifyNewPeerSet(nodes, newNode.core.acceptedRound, 5, t)
 
 	time.Sleep(2 * time.Second)
 }

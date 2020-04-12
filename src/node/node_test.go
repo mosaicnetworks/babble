@@ -65,7 +65,7 @@ func TestAddTransaction(t *testing.T) {
 	node0AppProxy.SubmitTx([]byte(message))
 
 	//simulate a SyncRequest from node0 to node1
-	node0KnownEvents := nodes[0].core.KnownEvents()
+	node0KnownEvents := nodes[0].core.knownEvents()
 
 	resp, err := nodes[0].requestSync(
 		peers.Peers[1].NetAddr,
@@ -87,7 +87,7 @@ func TestAddTransaction(t *testing.T) {
 		t.Fatalf("Fatal node0's transactionPool should have 0 elements, not %d\n", l)
 	}
 
-	node0Head, _ := nodes[0].core.GetHead()
+	node0Head, _ := nodes[0].core.getHead()
 	if l := len(node0Head.Transactions()); l != 1 {
 		t.Fatalf("Fatal node0's Head should have 1 element, not %d\n", l)
 	}
@@ -193,7 +193,7 @@ func TestSyncLimit(t *testing.T) {
 	}
 
 	//create fake node[0] known to artificially reach SyncLimit
-	node0KnownEvents := nodes[0].core.KnownEvents()
+	node0KnownEvents := nodes[0].core.knownEvents()
 	for k := range node0KnownEvents {
 		node0KnownEvents[k] = 0
 	}
@@ -549,7 +549,7 @@ func bombardAndWait(nodes []*Node, target int) error {
 	nodelength := len(nodes)
 	nodeBlockNums := make([]int, nodelength)
 	for i, n := range nodes {
-		nodeBlockNums[i] = n.core.GetLastBlockIndex()
+		nodeBlockNums[i] = n.core.getLastBlockIndex()
 	}
 
 OUTERFOR:
@@ -563,7 +563,7 @@ OUTERFOR:
 			case <-stopper:
 
 				for i, n := range nodes {
-					ce := n.core.GetLastBlockIndex()
+					ce := n.core.getLastBlockIndex()
 					if ce <= nodeBlockNums[i] {
 						return fmt.Errorf("TIMEOUT in bombardAndWait node %d waiting for block %d, stalled at %d",
 							i, target, ce)
@@ -577,7 +577,7 @@ OUTERFOR:
 			time.Sleep(10 * time.Millisecond)
 			done := true
 			for _, n := range nodes {
-				ce := n.core.GetLastBlockIndex()
+				ce := n.core.getLastBlockIndex()
 				if ce < target {
 					done = false
 					break

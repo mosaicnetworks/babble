@@ -31,7 +31,7 @@ type Node struct {
 	// core is the link between the node and the underlying hashgraph. It
 	// controls some higher-level operations like inserting a list of events,
 	// keeping track of the peers list, fast-forwarding, etc.
-	core     *Core
+	core     *core
 	coreLock sync.Mutex
 
 	// transport is the object used to transmit and receive commands to other
@@ -88,7 +88,7 @@ func NewNode(conf *config.Config,
 	sigCh := make(chan os.Signal)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	core := NewCore(validator,
+	core := newCore(validator,
 		peers,
 		genesisPeers,
 		store,
@@ -125,7 +125,7 @@ func (n *Node) Init() error {
 	// database (if bootstrap option is set in config).
 	if n.conf.Bootstrap {
 		n.logger.Debug("Bootstrap")
-		if err := n.core.Bootstrap(); err != nil {
+		if err := n.core.bootstrap(); err != nil {
 			return err
 		}
 		n.logger.Debug("Bootstrap completed")
@@ -152,7 +152,7 @@ func (n *Node) Init() error {
 
 	// record the number of initial undetermined events so as to suspend the
 	// node when undetermined events exceed this value by SuspendLimit.
-	n.initialUndeterminedEvents = len(n.core.GetUndeterminedEvents())
+	n.initialUndeterminedEvents = len(n.core.getUndeterminedEvents())
 
 	return nil
 }
@@ -201,7 +201,7 @@ func (n *Node) Leave() error {
 
 	defer n.Shutdown()
 
-	err := n.core.Leave(n.conf.JoinTimeout)
+	err := n.core.leave(n.conf.JoinTimeout)
 	if err != nil {
 		n.logger.WithError(err).Error("Leaving")
 		return err
@@ -263,11 +263,11 @@ func (n *Node) GetStats() map[string]string {
 
 	timeElapsed := time.Since(n.start)
 
-	consensusEvents := n.core.GetConsensusEventsCount()
+	consensusEvents := n.core.getConsensusEventsCount()
 
 	consensusEventsPerSecond := float64(consensusEvents) / timeElapsed.Seconds()
 
-	lastConsensusRound := n.core.GetLastConsensusRoundIndex()
+	lastConsensusRound := n.core.getLastConsensusRoundIndex()
 
 	var consensusRoundsPerSecond float64
 
@@ -277,17 +277,17 @@ func (n *Node) GetStats() map[string]string {
 
 	s := map[string]string{
 		"last_consensus_round":   toString(lastConsensusRound),
-		"last_block_index":       strconv.Itoa(n.core.GetLastBlockIndex()),
+		"last_block_index":       strconv.Itoa(n.core.getLastBlockIndex()),
 		"consensus_events":       strconv.Itoa(consensusEvents),
-		"consensus_transactions": strconv.Itoa(n.core.GetConsensusTransactionsCount()),
-		"undetermined_events":    strconv.Itoa(len(n.core.GetUndeterminedEvents())),
+		"consensus_transactions": strconv.Itoa(n.core.getConsensusTransactionsCount()),
+		"undetermined_events":    strconv.Itoa(len(n.core.getUndeterminedEvents())),
 		"transaction_pool":       strconv.Itoa(len(n.core.transactionPool)),
 		"num_peers":              strconv.Itoa(n.core.peerSelector.Peers().Len()),
-		"last_peer_change":       strconv.Itoa(n.core.LastPeerChangeRound),
+		"last_peer_change":       strconv.Itoa(n.core.lastPeerChangeRound),
 		"sync_rate":              strconv.FormatFloat(n.syncRate(), 'f', 2, 64),
 		"events_per_second":      strconv.FormatFloat(consensusEventsPerSecond, 'f', 2, 64),
 		"rounds_per_second":      strconv.FormatFloat(consensusRoundsPerSecond, 'f', 2, 64),
-		"round_events":           strconv.Itoa(n.core.GetLastCommitedRoundEventsCount()),
+		"round_events":           strconv.Itoa(n.core.getLastCommitedRoundEventsCount()),
 		"id":                     fmt.Sprint(n.core.validator.ID()),
 		"state":                  n.GetState().String(),
 		"moniker":                n.core.validator.Moniker,
@@ -303,12 +303,12 @@ func (n *Node) GetBlock(blockIndex int) (*hg.Block, error) {
 
 // GetLastBlockIndex returns the index of the last known block
 func (n *Node) GetLastBlockIndex() int {
-	return n.core.GetLastBlockIndex()
+	return n.core.getLastBlockIndex()
 }
 
 // GetLastConsensusRoundIndex returns the index of the last consensus round
 func (n *Node) GetLastConsensusRoundIndex() int {
-	lcr := n.core.GetLastConsensusRoundIndex()
+	lcr := n.core.getLastConsensusRoundIndex()
 	if lcr == nil {
 		return -1
 	}
@@ -373,7 +373,7 @@ func (n *Node) resetTimer() {
 		ts := n.conf.HeartbeatTimeout
 
 		//Slow gossip if nothing interesting to say
-		if !n.core.Busy() {
+		if !n.core.busy() {
 			ts = time.Duration(n.conf.SlowHeartbeatTimeout)
 		}
 
@@ -387,14 +387,14 @@ func (n *Node) resetTimer() {
 func (n *Node) checkSuspend() {
 
 	// check too many undetermined events
-	newUndeterminedEvents := len(n.core.GetUndeterminedEvents()) - n.initialUndeterminedEvents
+	newUndeterminedEvents := len(n.core.getUndeterminedEvents()) - n.initialUndeterminedEvents
 	tooManyUndeterminedEvents := newUndeterminedEvents > n.conf.SuspendLimit*n.core.validators.Len()
 
 	// check evicted
 	evicted := n.core.hg.LastConsensusRound != nil &&
-		n.core.RemovedRound > 0 &&
-		n.core.RemovedRound > n.core.AcceptedRound &&
-		*n.core.hg.LastConsensusRound >= n.core.RemovedRound
+		n.core.removedRound > 0 &&
+		n.core.removedRound > n.core.acceptedRound &&
+		*n.core.hg.LastConsensusRound >= n.core.removedRound
 
 	// suspend if too many undetermined events or evicted
 	if tooManyUndeterminedEvents || evicted {
@@ -402,8 +402,8 @@ func (n *Node) checkSuspend() {
 			"evicted":                   evicted,
 			"tooManyUndeterminedEvents": tooManyUndeterminedEvents,
 			"id":                        n.GetID(),
-			"removedRound":              n.core.RemovedRound,
-			"acceptedRound":             n.core.AcceptedRound,
+			"removedRound":              n.core.removedRound,
+			"acceptedRound":             n.core.acceptedRound,
 		}).Debugf("SUSPEND")
 
 		n.Suspend()
@@ -448,14 +448,14 @@ func (n *Node) monologue() error {
 	n.coreLock.Lock()
 	defer n.coreLock.Unlock()
 
-	if n.core.Busy() {
-		err := n.core.AddSelfEvent("")
+	if n.core.busy() {
+		err := n.core.addSelfEvent("")
 		if err != nil {
 			n.logger.WithError(err).Error("monologue, AddSelfEvent()")
 			return err
 		}
 
-		err = n.core.ProcessSigPool()
+		err = n.core.processSigPool()
 		if err != nil {
 			n.logger.WithError(err).Error("monologue, ProcessSigPool()")
 			return err
@@ -507,7 +507,7 @@ func (n *Node) gossip(peer *peers.Peer) error {
 func (n *Node) pull(peer *peers.Peer) (otherKnownEvents map[uint32]int, err error) {
 	//Compute Known
 	n.coreLock.Lock()
-	knownEvents := n.core.KnownEvents()
+	knownEvents := n.core.knownEvents()
 	n.coreLock.Unlock()
 
 	//Send SyncRequest
@@ -545,7 +545,7 @@ func (n *Node) push(peer *peers.Peer, knownEvents map[uint32]int) error {
 	// Compute Diff
 	start := time.Now()
 	n.coreLock.Lock()
-	eventDiff, err := n.core.EventDiff(knownEvents)
+	eventDiff, err := n.core.eventDiff(knownEvents)
 	n.coreLock.Unlock()
 	elapsed := time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Diff()")
@@ -565,7 +565,7 @@ func (n *Node) push(peer *peers.Peer, knownEvents map[uint32]int) error {
 		}
 
 		// Convert to WireEvents
-		wireEvents, err := n.core.ToWire(eventDiff)
+		wireEvents, err := n.core.toWire(eventDiff)
 		if err != nil {
 			n.logger.WithField("error", err).Debug("Converting to WireEvent")
 			return err
@@ -594,7 +594,7 @@ func (n *Node) push(peer *peers.Peer, knownEvents map[uint32]int) error {
 func (n *Node) sync(fromID uint32, events []hg.WireEvent) error {
 	//Insert Events in Hashgraph and create new Head if necessary
 	start := time.Now()
-	err := n.core.Sync(fromID, events)
+	err := n.core.sync(fromID, events)
 	elapsed := time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("Sync()")
 	if err != nil {
@@ -606,7 +606,7 @@ func (n *Node) sync(fromID uint32, events []hg.WireEvent) error {
 
 	//Process SignaturePool
 	start = time.Now()
-	err = n.core.ProcessSigPool()
+	err = n.core.processSigPool()
 	elapsed = time.Since(start)
 	n.logger.WithField("duration", elapsed.Nanoseconds()).Debug("ProcessSigPool()")
 	if err != nil {
@@ -649,14 +649,14 @@ func (n *Node) fastForward() error {
 
 	//prepare core. ie: fresh hashgraph
 	n.coreLock.Lock()
-	err = n.core.FastForward(&resp.Block, &resp.Frame)
+	err = n.core.fastForward(&resp.Block, &resp.Frame)
 	n.coreLock.Unlock()
 	if err != nil {
 		n.logger.WithError(err).Error("Fast Forwarding Hashgraph")
 		return err
 	}
 
-	err = n.core.ProcessAcceptedInternalTransactions(resp.Block.RoundReceived(), resp.Block.InternalTransactionReceipts())
+	err = n.core.processAcceptedInternalTransactions(resp.Block.RoundReceived(), resp.Block.InternalTransactionReceipts())
 	if err != nil {
 		n.logger.WithError(err).Error("Processing AnchorBlock InternalTransactionReceipts")
 	}
@@ -735,8 +735,8 @@ func (n *Node) join() error {
 		// Set AcceptedRound, which is the next round at which the node is
 		// allowed to create SelfEvents, and reset RemovedRound to "unsuspend" a
 		// node if had been evicted prior to rejoining.
-		n.core.AcceptedRound = resp.AcceptedRound
-		n.core.RemovedRound = -1
+		n.core.acceptedRound = resp.AcceptedRound
+		n.core.removedRound = -1
 
 		n.setBabblingOrCatchingUpState()
 	} else {
@@ -771,8 +771,8 @@ func (n *Node) setBabblingOrCatchingUpState() {
 		n.transition(_state.CatchingUp)
 	} else {
 		n.logger.Debug("FastSync not enabled => Babbling")
-		if err := n.core.SetHeadAndSeq(); err != nil {
-			n.core.SetHeadAndSeq()
+		if err := n.core.setHeadAndSeq(); err != nil {
+			n.core.setHeadAndSeq()
 		}
 		n.transition(_state.Babbling)
 	}
@@ -784,7 +784,7 @@ func (n *Node) addTransaction(tx []byte) {
 	n.coreLock.Lock()
 	defer n.coreLock.Unlock()
 
-	n.core.AddTransactions([][]byte{tx})
+	n.core.addTransactions([][]byte{tx})
 }
 
 // logStats logs the output returned by GetStats()

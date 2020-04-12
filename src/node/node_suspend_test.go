@@ -42,16 +42,16 @@ func TestAutoSuspend(t *testing.T) {
 
 	if s := nodes[0].GetState(); s != _state.Suspended {
 		t.Fatalf("nodes[0] should be Suspended, not %v. UndeterminedEvents: %d",
-			s, len(nodes[0].core.GetUndeterminedEvents()))
+			s, len(nodes[0].core.getUndeterminedEvents()))
 	}
 	if s := nodes[1].GetState(); s != _state.Suspended {
 		t.Fatalf("nodes[1] should be Suspended, not %v. UndeterminedEvents: %d",
-			s, len(nodes[1].core.GetUndeterminedEvents()))
+			s, len(nodes[1].core.getUndeterminedEvents()))
 	}
 
-	node0FirstUE := len(nodes[0].core.GetUndeterminedEvents())
+	node0FirstUE := len(nodes[0].core.getUndeterminedEvents())
 	t.Logf("nodes[0].UndeterminedEvents = %d", node0FirstUE)
-	node1FirstUE := len(nodes[1].core.GetUndeterminedEvents())
+	node1FirstUE := len(nodes[1].core.getUndeterminedEvents())
 	t.Logf("nodes[1].UndeterminedEvents = %d", node1FirstUE)
 
 	// Now restart the nodes and hope that they gossip some more, until they
@@ -68,16 +68,16 @@ func TestAutoSuspend(t *testing.T) {
 
 	if s := nodes[0].GetState(); s != _state.Suspended {
 		t.Fatalf("nodes[0] should be Suspended, not %v. UndeterminedEvents: %d",
-			s, len(nodes[0].core.GetUndeterminedEvents()))
+			s, len(nodes[0].core.getUndeterminedEvents()))
 	}
 	if s := nodes[1].GetState(); s != _state.Suspended {
 		t.Fatalf("nodes[1] should be Suspended, not %v. UndeterminedEvents: %d",
-			s, len(nodes[1].core.GetUndeterminedEvents()))
+			s, len(nodes[1].core.getUndeterminedEvents()))
 	}
 
-	node0SecondUE := len(nodes[0].core.GetUndeterminedEvents())
+	node0SecondUE := len(nodes[0].core.getUndeterminedEvents())
 	t.Logf("nodes[0].UndeterminedEvents = %d", node0SecondUE)
-	node1SecondUE := len(nodes[1].core.GetUndeterminedEvents())
+	node1SecondUE := len(nodes[1].core.getUndeterminedEvents())
 	t.Logf("nodes[1].UndeterminedEvents = %d", node1SecondUE)
 
 	if node0SecondUE-node0FirstUE < nodes[0].conf.SuspendLimit {

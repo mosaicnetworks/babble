@@ -75,7 +75,7 @@ func TestJoinRequest(t *testing.T) {
 
 	checkGossip(nodes, 0, t)
 	checkPeerSets(nodes, t)
-	verifyNewPeerSet(nodes, newNode.core.AcceptedRound, 5, t)
+	verifyNewPeerSet(nodes, newNode.core.acceptedRound, 5, t)
 }
 
 func TestLeaveRequest(t *testing.T) {
@@ -111,7 +111,7 @@ func TestLeaveRequest(t *testing.T) {
 
 	checkGossip(nodes[0:3], 0, t)
 	checkPeerSets(nodes[0:3], t)
-	verifyNewPeerSet(nodes[0:3], leavingNode.core.RemovedRound, 3, t)
+	verifyNewPeerSet(nodes[0:3], leavingNode.core.removedRound, 3, t)
 }
 
 func TestJoinFull(t *testing.T) {
@@ -156,7 +156,7 @@ func TestJoinFull(t *testing.T) {
 		start := newNode.core.hg.FirstConsensusRound
 		checkGossip(nodes, *start, t)
 		checkPeerSets(nodes, t)
-		verifyNewPeerSet(nodes, newNode.core.AcceptedRound, 5, t)
+		verifyNewPeerSet(nodes, newNode.core.acceptedRound, 5, t)
 	}
 
 	t.Run("FastSync enabled", func(t *testing.T) { f(true) })

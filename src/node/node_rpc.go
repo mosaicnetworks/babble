@@ -119,7 +119,7 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 	//Compute Diff
 	start := time.Now()
 	n.coreLock.Lock()
-	eventDiff, err := n.core.EventDiff(cmd.Known)
+	eventDiff, err := n.core.eventDiff(cmd.Known)
 	n.coreLock.Unlock()
 	elapsed := time.Since(start)
 
@@ -146,7 +146,7 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 		}
 
 		//Convert to WireEvents
-		wireEvents, err := n.core.ToWire(eventDiff)
+		wireEvents, err := n.core.toWire(eventDiff)
 		if err != nil {
 			n.logger.WithField("error", err).Debug("Converting to WireEvent")
 			respErr = err
@@ -157,7 +157,7 @@ func (n *Node) processSyncRequest(rpc net.RPC, cmd *net.SyncRequest) {
 
 	//Get Self Known
 	n.coreLock.Lock()
-	knownEvents := n.core.KnownEvents()
+	knownEvents := n.core.knownEvents()
 	n.coreLock.Unlock()
 
 	resp.Known = knownEvents
@@ -214,9 +214,9 @@ func (n *Node) processFastForwardRequest(rpc net.RPC, cmd *net.FastForwardReques
 
 	var respErr error
 
-	//Get latest Frame
+	// Get latest Frame
 	n.coreLock.Lock()
-	block, frame, err := n.core.GetAnchorBlockWithFrame()
+	block, frame, err := n.core.getAnchorBlockWithFrame()
 	n.coreLock.Unlock()
 
 	if err != nil {
@@ -270,7 +270,7 @@ func (n *Node) processJoinRequest(rpc net.RPC, cmd *net.JoinRequest) {
 		accepted = true
 
 		//Get current peerset and accepted round
-		lastConsensusRound := n.core.GetLastConsensusRoundIndex()
+		lastConsensusRound := n.core.getLastConsensusRoundIndex()
 		if lastConsensusRound != nil {
 			acceptedRound = *lastConsensusRound
 		}
@@ -280,7 +280,7 @@ func (n *Node) processJoinRequest(rpc net.RPC, cmd *net.JoinRequest) {
 	} else {
 		// Dispatch the InternalTransaction
 		n.coreLock.Lock()
-		promise := n.core.AddInternalTransaction(cmd.InternalTransaction)
+		promise := n.core.addInternalTransaction(cmd.InternalTransaction)
 		n.coreLock.Unlock()
 
 		//Wait for the InternalTransaction to go through consensus

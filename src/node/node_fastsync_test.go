@@ -34,7 +34,7 @@ func TestFastForward(t *testing.T) {
 		t.Fatalf("Fatal Error FastForwarding: %s", err)
 	}
 
-	lbi := nodes[0].core.GetLastBlockIndex()
+	lbi := nodes[0].core.getLastBlockIndex()
 	if lbi <= 0 {
 		t.Fatalf("Fatal LastBlockIndex is too low: %d", lbi)
 	}
