@@ -10,19 +10,35 @@ import (
 type State uint32
 
 const (
-	//Babbling is the initial state of a Babble node.
+	// Babbling is the state in which a node gossips regularly with other nodes
+	// as part of the hashgraph consensus algorithm, and responds to other
+	// requests.
 	Babbling State = iota
-	//CatchingUp implements Fast Sync
+
+	// CatchingUp is the state in which a node attempts to fast-forward to a
+	// future point in the hashgraph as part of the FastSync protocol.
 	CatchingUp
-	//Joining is joining
+
+	// Joining is the state in which a node attempts to join a Babble group by
+	// submitting a join request.
 	Joining
-	//Leaving is leaving
+
+	// Leaving is the state in which a node attempts to politely leave a Babble
+	// group by submitting a leave request.
 	Leaving
-	//Shutdown is shutdown
+
+	// Shutdown is the state in which a node stops responding to external events
+	// and closes its transport.
 	Shutdown
-	//Suspended is initialised, but not gossipping
+
+	// Suspended is the state in which a node passively participates in the
+	// gossip protocol but does not process any new events or transactions.
 	Suspended
 )
+
+// WGLIMIT is the maximum number of goroutines that can be launched through
+// state.GoFunc
+const WGLIMIT = 20
 
 // String returns the string representation of a State
 func (s State) String() string {
@@ -44,10 +60,6 @@ func (s State) String() string {
 	}
 }
 
-// WGLIMIT is the maximum number of goroutines that can be launched through
-// state.goFunc
-const WGLIMIT = 20
-
 // Manager wraps a State with get and set methods. It is also used to limit the
 // number of goroutines launched by the node, and to wait for all of them to
 // complete.
@@ -57,13 +69,13 @@ type Manager struct {
 	wgCount int32
 }
 
-// GetState returns the current state
+// GetState returns the current state.
 func (b *Manager) GetState() State {
 	stateAddr := (*uint32)(&b.state)
 	return State(atomic.LoadUint32(stateAddr))
 }
 
-// SetState sets the state
+// SetState sets the state.
 func (b *Manager) SetState(s State) {
 	stateAddr := (*uint32)(&b.state)
 	atomic.StoreUint32(stateAddr, uint32(s))
