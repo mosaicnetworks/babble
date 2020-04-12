@@ -21,4 +21,4 @@ ok  peers	    Package peers defines peers and implements functions to manage pee
        app      Package app implements a TCP AppProxy which resides inside Babble and connects to the other side of the proxy.
        babble   Package babble implements a component that the TCP AppProxy can connect to.
 ok  service	    Package service implements an optional HTTP service to expose internal operation.
-    version	    Package version manages the version string associated with a Babble build.
+ok  version	    Package version manages the version string associated with a Babble build.
