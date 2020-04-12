@@ -9,11 +9,6 @@ import (
 	"math/big"
 )
 
-/*
-All the functions here are wrappers around the ecdsa.PrivateKey object of the
-standard library.
-*/
-
 const (
 	// number of bits in a big.Word
 	wordBits = 32 << (uint64(^big.Word(0)) >> 63)
@@ -21,13 +16,13 @@ const (
 	wordBytes = wordBits / 8
 )
 
-//GenerateECDSAKey creates a new ecdsa.PrivateKey using the elliptic.Curve
-//returned by Curve() function.
+// GenerateECDSAKey creates a new ecdsa.PrivateKey using the elliptic.Curve
+// returned by Curve() function.
 func GenerateECDSAKey() (*ecdsa.PrivateKey, error) {
-	return ecdsa.GenerateKey(Curve(), rand.Reader)
+	return ecdsa.GenerateKey(curve(), rand.Reader)
 }
 
-//DumpPrivateKey exports a private key into a binary dump.
+// DumpPrivateKey exports a private key into a binary dump.
 func DumpPrivateKey(priv *ecdsa.PrivateKey) []byte {
 	if priv == nil {
 		return nil
@@ -35,10 +30,10 @@ func DumpPrivateKey(priv *ecdsa.PrivateKey) []byte {
 	return paddedBigBytes(priv.D, priv.Params().BitSize/8)
 }
 
-//ParsePrivateKey creates a private key with the given D value.
+// ParsePrivateKey creates a private key with the given D value.
 func ParsePrivateKey(d []byte) (*ecdsa.PrivateKey, error) {
 	priv := new(ecdsa.PrivateKey)
-	priv.PublicKey.Curve = Curve()
+	priv.PublicKey.Curve = curve()
 
 	if 8*len(d) != priv.Params().BitSize {
 		return nil, fmt.Errorf("invalid length, need %d bits", priv.Params().BitSize)
@@ -64,14 +59,14 @@ func ParsePrivateKey(d []byte) (*ecdsa.PrivateKey, error) {
 	return priv, nil
 }
 
-//PrivateKeyHex returns the hexadecimal representation of a raw private key as
-//returned by DumpPrivateKey
+// PrivateKeyHex returns the hexadecimal representation of a raw private key as
+// returned by DumpPrivateKey
 func PrivateKeyHex(key *ecdsa.PrivateKey) string {
 	return hex.EncodeToString(DumpPrivateKey(key))
 }
 
-//paddedBigBytes encodes a big integer as a big-endian byte slice. The length of
-//the slice is at least n bytes.
+// paddedBigBytes encodes a big integer as a big-endian byte slice. The length
+// of the slice is at least n bytes.
 func paddedBigBytes(bigint *big.Int, n int) []byte {
 	if bigint.BitLen()/8 >= n {
 		return bigint.Bytes()
@@ -81,9 +76,9 @@ func paddedBigBytes(bigint *big.Int, n int) []byte {
 	return ret
 }
 
-//readBits encodes the absolute value of bigint as big-endian bytes. Callers
-//must ensure that buf has enough space. If buf is too short the result will be
-//incomplete.
+// readBits encodes the absolute value of bigint as big-endian bytes. Callers
+// must ensure that buf has enough space. If buf is too short the result will be
+// incomplete.
 func readBits(bigint *big.Int, buf []byte) {
 	i := len(buf)
 	for _, d := range bigint.Bits() {

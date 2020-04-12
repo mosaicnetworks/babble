@@ -32,7 +32,7 @@ func NewPeer(pubKeyHex, netAddr, moniker string) *Peer {
 func (p *Peer) ID() uint32 {
 	if p.id == 0 {
 		pubKeyBytes := p.PubKeyBytes()
-		p.id = keys.Hash32(pubKeyBytes)
+		p.id = keys.PublicKeyID(pubKeyBytes)
 	}
 	return p.id
 }

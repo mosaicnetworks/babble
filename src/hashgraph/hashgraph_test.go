@@ -31,7 +31,7 @@ type TestNode struct {
 
 func NewTestNode(key *ecdsa.PrivateKey) TestNode {
 	pubBytes := bkeys.FromPublicKey(&key.PublicKey)
-	pubID := bkeys.PublicKeyID(&key.PublicKey)
+	pubID := bkeys.PublicKeyID(pubBytes)
 	pubHex := bkeys.PublicKeyHex(&key.PublicKey)
 
 	node := TestNode{

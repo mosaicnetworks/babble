@@ -27,7 +27,7 @@ func NewValidator(key *ecdsa.PrivateKey, moniker string) *Validator {
 //ID returns an ID for the validator
 func (v *Validator) ID() uint32 {
 	if v.id == 0 {
-		v.id = keys.PublicKeyID(&v.Key.PublicKey)
+		v.id = keys.PublicKeyID(v.PublicKeyBytes())
 	}
 	return v.id
 }
