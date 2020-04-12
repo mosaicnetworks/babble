@@ -44,7 +44,6 @@ const (
 	DefaultMaxPool              = 2
 	DefaultStore                = false
 	DefaultMaintenanceMode      = false
-	DefaultLoadPeers            = true
 	DefaultSuspendLimit         = 100
 	DefaultWebRTC               = false
 	DefaultSignalAddr           = "127.0.0.1:2443"
@@ -140,10 +139,6 @@ type Config struct {
 	// Moniker defines the friendly name of this node
 	Moniker string `mapstructure:"moniker"`
 
-	// LoadPeers determines whether or not to attempt loading the peer-set from
-	// a local json file.
-	LoadPeers bool `mapstructure:"loadpeers"`
-
 	// WebRTC determines whether to use a WebRTC transport. WebRTC uses a very
 	// different protocol stack than TCP/IP and enables peers to connect
 	// directly even with multiple layers of NAT between them, such as in
@@ -200,7 +195,6 @@ func NewDefaultConfig() *Config {
 		Store:                DefaultStore,
 		MaintenanceMode:      DefaultMaintenanceMode,
 		DatabaseDir:          DefaultDatabaseDir(),
-		LoadPeers:            DefaultLoadPeers,
 		SuspendLimit:         DefaultSuspendLimit,
 		WebRTC:               DefaultWebRTC,
 		SignalAddr:           DefaultSignalAddr,

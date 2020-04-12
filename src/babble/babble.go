@@ -106,7 +106,6 @@ func (b *Babble) validateConfig() error {
 		"babble.NoService":        b.Config.NoService,
 		"babble.MaxPool":          b.Config.MaxPool,
 		"babble.Store":            b.Config.Store,
-		"babble.LoadPeers":        b.Config.LoadPeers,
 		"babble.LogLevel":         b.Config.LogLevel,
 		"babble.Moniker":          b.Config.Moniker,
 		"babble.HeartbeatTimeout": b.Config.HeartbeatTimeout,
@@ -209,19 +208,6 @@ func (b *Babble) initTransport() error {
 }
 
 func (b *Babble) initPeers() error {
-	if !b.Config.LoadPeers {
-		if b.Peers == nil {
-			return fmt.Errorf("LoadPeers false, but babble.Peers is nil")
-		}
-
-		if b.GenesisPeers == nil {
-			return fmt.Errorf("LoadPeers false, but babble.GenesisPeers is nil")
-		}
-
-		b.logger.Debug("LoadPeers is false. Skipped loading peers.")
-		return nil
-	}
-
 	peerStore := peers.NewJSONPeerSet(b.Config.DataDir, true)
 
 	participants, err := peerStore.PeerSet()
@@ -232,7 +218,6 @@ func (b *Babble) initPeers() error {
 	b.Peers = participants
 
 	b.logger.Debug("Loaded Peers")
-	//	b.logger.WithField("*participants", *participants).Info("Created Peers")
 
 	// Set Genesis Peer Set from peers.genesis.json
 	genesisPeerStore := peers.NewJSONPeerSet(b.Config.DataDir, false)
