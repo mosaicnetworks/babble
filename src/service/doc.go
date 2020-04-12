@@ -1,3 +1,3 @@
-// Package service implements an optional HTTP service to expose internal
+// Package service implements an optional HTTP service that expose internal
 // operation.
 package service
