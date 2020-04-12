@@ -7,20 +7,20 @@ import (
 
 type timerFactory func(time.Duration) <-chan time.Time
 
-//ControlTimer struct
-type ControlTimer struct {
+// controlTimer controls the node's heartbeat.
+type controlTimer struct {
 	timerFactory timerFactory
-	tickCh       chan struct{}      //sends a signal to listening process
-	resetCh      chan time.Duration //receives instruction to reset the heartbeatTimer
-	stopCh       chan struct{}      //receives instruction to stop the heartbeatTimer
-	shutdownCh   chan struct{}      //receives instruction to exit Run loop
-	set          bool
-	shutdown     bool
+	tickCh       chan struct{}      // sends a signal to listening process
+	resetCh      chan time.Duration // receives instruction to reset the heartbeatTimer
+	stopCh       chan struct{}      // receives instruction to stop the heartbeatTimer
+	shutdownCh   chan struct{}      // receives instruction to exit Run loop
+	isSet        bool
+	isShutdown   bool
 }
 
-//NewControlTimer is a ControlTimer factory method
-func NewControlTimer(timerFactory timerFactory) *ControlTimer {
-	return &ControlTimer{
+// newControlTimer is a controlTimer factory method.
+func newControlTimer(timerFactory timerFactory) *controlTimer {
+	return &controlTimer{
 		timerFactory: timerFactory,
 		tickCh:       make(chan struct{}),
 		resetCh:      make(chan time.Duration),
@@ -29,10 +29,10 @@ func NewControlTimer(timerFactory timerFactory) *ControlTimer {
 	}
 }
 
-//NewRandomControlTimer is a ControlTimer factory method that produces a
-//ControlTimer with a random timeout
-func NewRandomControlTimer() *ControlTimer {
-
+// newRandomcontrolTimer creates a new controlTimer that ticks at random
+// intervals between min and 2*min, where min is a specified minimum time
+// interval.
+func newRandomControlTimer() *controlTimer {
 	randomTimeout := func(min time.Duration) <-chan time.Time {
 		if min == 0 {
 			return nil
@@ -40,14 +40,14 @@ func NewRandomControlTimer() *ControlTimer {
 		extra := (time.Duration(rand.Int63()) % min)
 		return time.After(min + extra)
 	}
-	return NewControlTimer(randomTimeout)
+	return newControlTimer(randomTimeout)
 }
 
-//Run starts the Control Timer
-func (c *ControlTimer) Run(init time.Duration) {
+// run starts the Control Timer
+func (c *controlTimer) run(init time.Duration) {
 
 	setTimer := func(t time.Duration) <-chan time.Time {
-		c.set = true
+		c.isSet = true
 		return c.timerFactory(t)
 	}
 
@@ -56,24 +56,24 @@ func (c *ControlTimer) Run(init time.Duration) {
 		select {
 		case <-timer:
 			c.tickCh <- struct{}{}
-			c.set = false
+			c.isSet = false
 		case t := <-c.resetCh:
 			timer = setTimer(t)
 		case <-c.stopCh:
 			timer = nil
-			c.set = false
+			c.isSet = false
 		case <-c.shutdownCh:
-			c.set = false
+			c.isSet = false
 			return
 		}
 	}
 }
 
-//Shutdown shuts down the ControlTimer
-func (c *ControlTimer) Shutdown() {
-	if !c.shutdown {
+// shutdown shuts down the controlTimer
+func (c *controlTimer) shutdown() {
+	if !c.isShutdown {
 		close(c.shutdownCh)
-		c.shutdown = true
+		c.isShutdown = true
 	}
 	return
 }

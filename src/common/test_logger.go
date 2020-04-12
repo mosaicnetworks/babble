@@ -9,11 +9,34 @@ import (
 // TestLogLevel is the level used in tests by default.
 var TestLogLevel = logrus.DebugLevel
 
-// NewTestLogger returns a logrus Logger which displays extra information for
-// debugging tests.
+// This can be used as the destination for a logger and it will map them into
+// calls to testing.T.Log, so that you only see the logging for failed tests.
+type testLoggerAdapter struct {
+	t      testing.TB
+	prefix string
+}
+
+// Write implements io.Writer interface.
+func (a *testLoggerAdapter) Write(d []byte) (int, error) {
+	if d[len(d)-1] == '\n' {
+		d = d[:len(d)-1]
+	}
+
+	if a.prefix != "" {
+		l := a.prefix + ": " + string(d)
+		a.t.Log(l)
+		return len(l), nil
+	}
+
+	a.t.Log(string(d))
+	return len(d), nil
+}
+
+// NewTestLogger return a logrus Logger for testing
 func NewTestLogger(t testing.TB, level logrus.Level) *logrus.Logger {
 	logger := logrus.New()
-	logger.SetReportCaller(true)
+	logger.Out = &testLoggerAdapter{t: t}
+	// logger.SetReportCaller(true)
 	logger.Level = level
 	return logger
 }

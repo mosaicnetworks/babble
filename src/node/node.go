@@ -60,8 +60,8 @@ type Node struct {
 
 	// The node runs the controlTimer in the background to periodically receive
 	// signals to initiate gossip routines. It is paused, reset, etc., based on
-	// the node's current state
-	controlTimer *ControlTimer
+	// the node's current state.
+	controlTimer *controlTimer
 
 	start        time.Time
 	syncRequests int
@@ -107,7 +107,7 @@ func NewNode(conf *config.Config,
 		sigCh:        sigCh,
 		shutdownCh:   make(chan struct{}),
 		suspendCh:    make(chan struct{}),
-		controlTimer: NewRandomControlTimer(),
+		controlTimer: newRandomControlTimer(),
 	}
 
 	return &node
@@ -163,7 +163,7 @@ func (n *Node) Run(gossip bool) {
 	// The ControlTimer allows the background routines to control the heartbeat
 	// timer when the node is in the Babbling state. The timer should only be
 	// running when there are uncommitted transactions in the system.
-	go n.controlTimer.Run(n.conf.HeartbeatTimeout)
+	go n.controlTimer.run(n.conf.HeartbeatTimeout)
 
 	// Execute some background work regardless of the state of the node.
 	go n.doBackgroundWork()
@@ -369,7 +369,7 @@ func (n *Node) resetTimer() {
 	n.coreLock.Lock()
 	defer n.coreLock.Unlock()
 
-	if !n.controlTimer.set {
+	if !n.controlTimer.isSet {
 		ts := n.conf.HeartbeatTimeout
 
 		//Slow gossip if nothing interesting to say
@@ -401,9 +401,9 @@ func (n *Node) checkSuspend() {
 		n.logger.WithFields(logrus.Fields{
 			"evicted":                   evicted,
 			"tooManyUndeterminedEvents": tooManyUndeterminedEvents,
-			"id":            n.GetID(),
-			"removedRound":  n.core.RemovedRound,
-			"acceptedRound": n.core.AcceptedRound,
+			"id":                        n.GetID(),
+			"removedRound":              n.core.RemovedRound,
+			"acceptedRound":             n.core.AcceptedRound,
 		}).Debugf("SUSPEND")
 
 		n.Suspend()
