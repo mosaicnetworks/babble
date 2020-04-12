@@ -496,7 +496,13 @@ func (s *BadgerStore) dbGetPeerSet(round int) (*peers.PeerSet, error) {
 		return nil, err
 	}
 
-	return peers.NewPeerSetFromPeerSliceBytes(peerSliceBytes)
+	peerSet := new(peers.PeerSet)
+	err = peerSet.Unmarshal(peerSliceBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return peerSet, nil
 }
 
 func (s *BadgerStore) dbSetPeerSet(round int, peerSet *peers.PeerSet) error {

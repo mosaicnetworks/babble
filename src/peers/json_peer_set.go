@@ -14,14 +14,15 @@ const (
 	jsonGenesisPeerSetPath = "peers.genesis.json"
 )
 
-// JSONPeerSet is used to provide peer persistence on disk in the form
-// of a JSON file.
+// JSONPeerSet is used to provide peer persistence on disk in the form of a JSON
+// file.
 type JSONPeerSet struct {
 	l    sync.Mutex
 	path string
 }
 
-// NewJSONPeerSet creates a new JSONPeerSet.
+// NewJSONPeerSet creates a new JSONPeerSet with reference to a base directory
+// where the JSON files reside.
 func NewJSONPeerSet(base string, isCurrent bool) *JSONPeerSet {
 	var path string
 
@@ -37,7 +38,8 @@ func NewJSONPeerSet(base string, isCurrent bool) *JSONPeerSet {
 	return store
 }
 
-//PeerSet creates a PeerSet from the JSONPeerSet
+// PeerSet parses the underlying JSON file and returns the corresponding
+// PeerSet.
 func (j *JSONPeerSet) PeerSet() (*PeerSet, error) {
 	j.l.Lock()
 	defer j.l.Unlock()
@@ -65,17 +67,15 @@ func (j *JSONPeerSet) PeerSet() (*PeerSet, error) {
 	return NewPeerSet(peers), nil
 }
 
-//NB this is safe because only value are altered, but no items are added / deleted
-//so the slice header is unaffected
-//This function standardises the peer string format passed into peerset. It matches
-//the format Babble derives from a private key.
+// cleansePeerSet standardises the public key strings to match the format Babble
+// derives from a private key.
 func cleansePeerSet(peers []*Peer) {
 	for _, peer := range peers {
 		peer.PubKeyHex = "0X" + strings.TrimPrefix((strings.ToUpper(peer.PubKeyHex)), "0X")
 	}
 }
 
-//Write persists a PeerSet to a JSON file in path
+// Write persists a PeerSet to a JSON file.
 func (j *JSONPeerSet) Write(peers []*Peer) error {
 	j.l.Lock()
 	defer j.l.Unlock()

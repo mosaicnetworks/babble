@@ -13,7 +13,7 @@ ok   keys	    Package keys implements the public key cryptography used throughou
       wamp	    Package wamp implements a WebRTC signaling system using RPC over WebSockets.
     node	    Package node implements the reactive component of a Babble node.
      state	    Package state defines the states of the node state machine.
-    peers	    Package peers defines peers and implements functions to manage peer sets.
+ok  peers	    Package peers defines peers and implements functions to manage peer sets.
     proxy	    Package proxy defines and implements AppProxy: the interface between Babble and an application.
      dummy	    Package dummy implements a barebones chat application to test Babble.
      inmem	    Package inmem implements an in-memory AppProxy to use Babble directly from Go code.

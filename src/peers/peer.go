@@ -9,16 +9,20 @@ import (
 	"github.com/mosaicnetworks/babble/src/crypto/keys"
 )
 
-// Peer is a struct that holds Peer data
+// Peer is a struct that holds Peer data.
 type Peer struct {
-	NetAddr   string
+	// NetAddr is the IP:PORT of the Babble node. Not necessary with WebRTC.
+	NetAddr string
+	// PubKeyHex is the hexadecimal representation of the peer's public key.
 	PubKeyHex string
-	Moniker   string
+	// Moniker is an optional friendly name for the peer. It does not need to be
+	// unique.
+	Moniker string
 
 	id uint32
 }
 
-// NewPeer is a factory method for creating a new Peer instance
+// NewPeer instantiates a Peer.
 func NewPeer(pubKeyHex, netAddr, moniker string) *Peer {
 	peer := &Peer{
 		PubKeyHex: pubKeyHex,
@@ -28,7 +32,7 @@ func NewPeer(pubKeyHex, netAddr, moniker string) *Peer {
 	return peer
 }
 
-// ID returns an ID for the peer, calculated from the public key
+// ID returns an ID for the peer, calculated from the public key.
 func (p *Peer) ID() uint32 {
 	if p.id == 0 {
 		pubKeyBytes := p.PubKeyBytes()
@@ -43,15 +47,14 @@ func (p *Peer) PubKeyString() string {
 	return strings.ToUpper(p.PubKeyHex)
 }
 
-// PubKeyBytes converts hex string representation of the public key and returns
-// a byte array
+// PubKeyBytes returns the byte slice representation of the Peer's public key.
 func (p *Peer) PubKeyBytes() []byte {
 	res, _ := common.DecodeFromString(p.PubKeyHex)
 	return res
 }
 
-// Marshal marshals the json representation of the peer. Note that this excludes
-// the id field, forcing consumers to recalculate it.
+// Marshal marshals the Peer object. Note that this excludes the id field,
+// forcing consumers to recalculate it.
 func (p *Peer) Marshal() ([]byte, error) {
 	var b bytes.Buffer
 
@@ -64,7 +67,7 @@ func (p *Peer) Marshal() ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-// Unmarshal generates a JSON representation of the peer
+// Unmarshal unmarshals a byte slice into a Peer object.
 func (p *Peer) Unmarshal(data []byte) error {
 	b := bytes.NewBuffer(data)
 
