@@ -74,7 +74,8 @@ type Node struct {
 	initialUndeterminedEvents int
 }
 
-// NewNode is a factory method that returns a Node instance
+// NewNode instantiates a new Node and initializes it's Hashgraph with the
+// genesis peers and backend store.
 func NewNode(conf *config.Config,
 	validator *Validator,
 	peers *peers.PeerSet,
@@ -84,7 +85,7 @@ func NewNode(conf *config.Config,
 	proxy proxy.AppProxy,
 ) *Node {
 
-	//Prepare sigCh to relay SIGINT and SIGTERM system calls
+	// Prepare sigCh to relay SIGINT and SIGTERM system calls
 	sigCh := make(chan os.Signal)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
@@ -194,8 +195,8 @@ func (n *Node) RunAsync(gossip bool) {
 	go n.Run(gossip)
 }
 
-// Leave causes the node to politely leave the network via a LeaveRequest and
-// wait for the node to be removed from the validator-list via consensus.
+// Leave causes the node to politely leave the network with a LeaveRequest and
+// to wait for its validator to be removed from the validator-set via consensus.
 func (n *Node) Leave() error {
 	n.logger.Info("LEAVING")
 
@@ -246,7 +247,8 @@ func (n *Node) Suspend() {
 	}
 }
 
-// GetID returns the numeric ID of the node's validator
+// GetID returns the numeric ID of the node's validator, which is derived from
+// its public key.
 func (n *Node) GetID() uint32 {
 	return n.core.validator.ID()
 }
@@ -296,17 +298,17 @@ func (n *Node) GetStats() map[string]string {
 	return s
 }
 
-// GetBlock returns a block
+// GetBlock returns a block by index.
 func (n *Node) GetBlock(blockIndex int) (*hg.Block, error) {
 	return n.core.hg.Store.GetBlock(blockIndex)
 }
 
-// GetLastBlockIndex returns the index of the last known block
+// GetLastBlockIndex returns the index of the last known block.
 func (n *Node) GetLastBlockIndex() int {
 	return n.core.getLastBlockIndex()
 }
 
-// GetLastConsensusRoundIndex returns the index of the last consensus round
+// GetLastConsensusRoundIndex returns the index of the last consensus round.
 func (n *Node) GetLastConsensusRoundIndex() int {
 	lcr := n.core.getLastConsensusRoundIndex()
 	if lcr == nil {
@@ -315,13 +317,14 @@ func (n *Node) GetLastConsensusRoundIndex() int {
 	return *lcr
 }
 
-// GetPeers returns the current peers. Not necessarily equal to the
-// current validator-set
+// GetPeers returns the list of currently known peers, which is not necessarily
+// equal to the current validator-set.
 func (n *Node) GetPeers() []*peers.Peer {
 	return n.core.peers.Peers
 }
 
-// GetValidatorSet returns the validator-set associated to a round
+// GetValidatorSet returns the validator-set that is autoritative at a given
+// round.
 func (n *Node) GetValidatorSet(round int) ([]*peers.Peer, error) {
 	peerSet, err := n.core.hg.Store.GetPeerSet(round)
 	if err != nil {
@@ -330,7 +333,7 @@ func (n *Node) GetValidatorSet(round int) ([]*peers.Peer, error) {
 	return peerSet.Peers, nil
 }
 
-// GetAllValidatorSets returns the entire history of validator-sets
+// GetAllValidatorSets returns the entire history of validator-sets per round.
 func (n *Node) GetAllValidatorSets() (map[int][]*peers.Peer, error) {
 	return n.core.hg.Store.GetAllPeerSets()
 }

@@ -11,7 +11,7 @@ ok   keys	    Package keys implements the public key cryptography used throughou
     net	        Package net implements different transports to communicate among Babble nodes.
      signal	    Package signal implements different signalling mechanisms for WebRTC.
       wamp	    Package wamp implements a WebRTC signaling system using RPC over WebSockets.
-    node	    Package node implements the reactive component of a Babble node.
+ok  node	    Package node implements the reactive component of a Babble node.
 ok   state	    Package state defines the states of the node state machine.
 ok  peers	    Package peers defines peers and implements functions to manage peer sets.
     proxy	    Package proxy defines and implements AppProxy: the interface between Babble and an application.
