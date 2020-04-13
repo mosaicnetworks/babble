@@ -93,7 +93,7 @@ type core struct {
 
 	// promises keeps track of pending JoinRequests while the corresponding
 	// InternalTransactions go through consensus asynchronously.
-	promises map[string]*JoinPromise
+	promises map[string]*joinPromise
 
 	logger *logrus.Entry
 }
@@ -120,7 +120,7 @@ func newCore(
 		transactionPool:         [][]byte{},
 		internalTransactionPool: []hg.InternalTransaction{},
 		selfBlockSignatures:     hg.NewSigPool(),
-		promises:                make(map[string]*JoinPromise),
+		promises:                make(map[string]*joinPromise),
 		heads:                   make(map[uint32]*hg.Event),
 		logger:                  logger,
 		head:                    "",
@@ -444,10 +444,10 @@ func (c *core) leave(leaveTimeout time.Duration) error {
 	// Wait for the InternalTransaction to go through consensus
 	timeout := time.After(leaveTimeout)
 	select {
-	case resp := <-promise.RespCh:
+	case resp := <-promise.respCh:
 		c.logger.WithFields(logrus.Fields{
-			"leaving_round": resp.AcceptedRound,
-			"peers":         len(resp.Peers),
+			"leaving_round": resp.acceptedRound,
+			"peers":         len(resp.peers),
 		}).Debug("leave request processed")
 	case <-timeout:
 		err := fmt.Errorf("Timeout waiting for leave request to go through consensus")
@@ -638,9 +638,9 @@ func (c *core) processAcceptedInternalTransactions(roundReceived int, receipts [
 		//respond to the corresponding promise
 		if p, ok := c.promises[r.InternalTransaction.HashString()]; ok {
 			if r.Accepted {
-				p.Respond(true, effectiveRound, c.validators.Peers)
+				p.respond(true, effectiveRound, c.validators.Peers)
 			} else {
-				p.Respond(false, 0, []*peers.Peer{})
+				p.respond(false, 0, []*peers.Peer{})
 			}
 			delete(c.promises, r.InternalTransaction.HashString())
 		}
@@ -745,8 +745,8 @@ func (c *core) addTransactions(txs [][]byte) {
 
 // addInternalTransaction adds an InternalTransaction to the  pool, and creates
 // a corresponding promise.
-func (c *core) addInternalTransaction(tx hg.InternalTransaction) *JoinPromise {
-	promise := NewJoinPromise(tx)
+func (c *core) addInternalTransaction(tx hg.InternalTransaction) *joinPromise {
+	promise := newJoinPromise(tx)
 
 	// Save it to promise store, for later use by the Commit callback
 	c.promises[tx.HashString()] = promise

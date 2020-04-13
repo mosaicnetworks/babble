@@ -5,39 +5,33 @@ import (
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
-/*
-
-JoinPromise acts as a relay between the requestJoin RPC handler (which receives
-join requests from other peers), and the consensus system which asynchronously
-processes the corresponding InternalTransaction. It is also used with leave
-requests.
-
-*/
-
-// JoinPromiseResponse is a struct returned by a JoinPromise
-type JoinPromiseResponse struct {
-	Accepted      bool
-	AcceptedRound int
-	Peers         []*peers.Peer
+// joinPromiseResponse is a struct returned by a joinPromise.
+type joinPromiseResponse struct {
+	accepted      bool
+	acceptedRound int
+	peers         []*peers.Peer
 }
 
-// JoinPromise is a struct for an asynchronous response to a Join Request
-type JoinPromise struct {
-	Tx     hashgraph.InternalTransaction
-	RespCh chan JoinPromiseResponse
+// joinPromise is a relay between the requestJoin RPC handler (which receives
+// join requests from other peers), and the consensus system which
+// asynchronously processes the corresponding InternalTransaction. It is also
+// used with leave requests.
+type joinPromise struct {
+	tx     hashgraph.InternalTransaction
+	respCh chan joinPromiseResponse
 }
 
-// NewJoinPromise is a factory method for a JoinPromise
-func NewJoinPromise(tx hashgraph.InternalTransaction) *JoinPromise {
-	return &JoinPromise{
-		Tx: tx,
+// newJoinPromise is a factory method for a joinPromise
+func newJoinPromise(tx hashgraph.InternalTransaction) *joinPromise {
+	return &joinPromise{
+		tx: tx,
 		// buffered because we don't want to block if there is no listener.
 		// There might be something smarter to do here
-		RespCh: make(chan JoinPromiseResponse, 2),
+		respCh: make(chan joinPromiseResponse, 2),
 	}
 }
 
-// Respond handles sending a JoinPromiseResponse to a JoinPromise
-func (p *JoinPromise) Respond(accepted bool, acceptedRound int, peers []*peers.Peer) {
-	p.RespCh <- JoinPromiseResponse{accepted, acceptedRound, peers}
+// respond handles sending a joinPromiseResponse to a joinPromise
+func (p *joinPromise) respond(accepted bool, acceptedRound int, peers []*peers.Peer) {
+	p.respCh <- joinPromiseResponse{accepted, acceptedRound, peers}
 }
