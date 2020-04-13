@@ -30,7 +30,7 @@ func TestWebRTCStreamLayerWithWampSignal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stream1 := NewWebRTCStreamLayer(wampSignal1, common.NewTestEntry(t, common.TestLogLevel))
+	stream1 := newWebRTCStreamLayer(wampSignal1, common.NewTestEntry(t, common.TestLogLevel))
 	defer stream1.Close()
 
 	go func() {
@@ -40,7 +40,7 @@ func TestWebRTCStreamLayerWithWampSignal(t *testing.T) {
 		}
 	}()
 
-	stream2 := NewWebRTCStreamLayer(wampSignal2, common.NewTestEntry(t, common.TestLogLevel))
+	stream2 := newWebRTCStreamLayer(wampSignal2, common.NewTestEntry(t, common.TestLogLevel))
 	defer stream2.Close()
 
 	_, err = stream2.Dial("alice", 5*time.Second)

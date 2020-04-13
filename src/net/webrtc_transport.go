@@ -8,10 +8,9 @@ import (
 	"github.com/mosaicnetworks/babble/src/net/signal"
 )
 
-// NewWebRTCTransport returns a NetworkTransport that is built on top of
-// a WebRTC streaming transport layer, with log output going to the supplied
-// Logger. The signal is mechanism for peers to exchange connection information
-// prior to establishing a direct p2p link.
+// NewWebRTCTransport returns a NetworkTransport that is built on top of a
+// WebRTC StreamLayer. The signal is a mechanism for peers to exchange
+// connection information prior to establishing a direct p2p link.
 func NewWebRTCTransport(
 	signal signal.Signal,
 	maxPool int,
@@ -33,7 +32,7 @@ func newWebRTCTransport(
 	transportCreator func(stream StreamLayer) *NetworkTransport) (*NetworkTransport, error) {
 
 	// Create stream
-	stream := NewWebRTCStreamLayer(signal, logger)
+	stream := newWebRTCStreamLayer(signal, logger)
 
 	go stream.listen()
 

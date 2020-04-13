@@ -8,9 +8,9 @@ import (
 	"time"
 )
 
-// NewInmemAddr returns a new in-memory addr with
-// a randomly generate UUID as the ID.
-func NewInmemAddr() string {
+// newInmemAddr returns a new in-memory addr with a randomly generate UUID as
+// the ID.
+func newInmemAddr() string {
 	return generateUUID()
 }
 
@@ -29,8 +29,8 @@ func generateUUID() string {
 		buf[10:16])
 }
 
-// InmemTransport Implements the Transport interface, to allow babble to be
-// tested in-memory without going over a network.
+// InmemTransport implements the Transport interface to allow testing Babble
+// internally.
 type InmemTransport struct {
 	sync.RWMutex
 	consumerCh chan RPC
@@ -39,11 +39,11 @@ type InmemTransport struct {
 	timeout    time.Duration
 }
 
-// NewInmemTransport is used to initialize a new transport
-// and generates a random local address if none is specified
+// NewInmemTransport is used to initialize a new InmemTransport and generates a
+// random local address if none is specified
 func NewInmemTransport(addr string) (string, *InmemTransport) {
 	if addr == "" {
-		addr = NewInmemAddr()
+		addr = newInmemAddr()
 	}
 	trans := &InmemTransport{
 		consumerCh: make(chan RPC, 16),
@@ -135,7 +135,6 @@ func (i *InmemTransport) makeRPC(target string, args interface{}, r io.Reader, t
 	respCh := make(chan RPCResponse)
 	peer.consumerCh <- RPC{
 		Command:  args,
-		Reader:   r,
 		RespChan: respCh,
 	}
 
@@ -151,8 +150,8 @@ func (i *InmemTransport) makeRPC(target string, args interface{}, r io.Reader, t
 	return
 }
 
-// Connect is used to connect this transport to another transport for
-// a given peer name. This allows for local routing.
+// Connect is used to connect this transport to another transport for a given
+// peer name. This allows for local routing.
 func (i *InmemTransport) Connect(peer string, t Transport) {
 	trans := t.(*InmemTransport)
 	i.Lock()
@@ -180,7 +179,7 @@ func (i *InmemTransport) Close() error {
 	return nil
 }
 
-// Listen is an empty function as there is no need to defer
-// initialisation of the InMem service
+// Listen is an empty function as there is no need to defer initialisation of
+// the InmemTransport
 func (i *InmemTransport) Listen() {
 }

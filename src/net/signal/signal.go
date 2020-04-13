@@ -1,5 +1,7 @@
-// Package signal implements different signalling mechanisms for WebRTC. A
-// signalling mechanism is a way for peers to exchange connection metadata
+// Package signal defines an interface for WebRTC signaling mechanisms used by
+// the WebRTCTransport.
+//
+// A signalling mechanism is a way for peers to exchange connection metadata
 // prior to establishing a direct p2p connection.
 package signal
 

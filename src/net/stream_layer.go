@@ -10,9 +10,9 @@ import (
 type StreamLayer interface {
 	net.Listener
 
-	// Dial is used to create a new outgoing connection
+	// Dial is used to create a new outgoing connection.
 	Dial(address string, timeout time.Duration) (net.Conn, error)
 
-	// AdvertiseAddr returns the publicly-reachable address of the stream
+	// AdvertiseAddr returns the publicly-reachable address of the stream.
 	AdvertiseAddr() string
 }

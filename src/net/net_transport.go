@@ -37,17 +37,16 @@ var (
 )
 
 /*
-NetworkTransport provides a network based transport that can be
-used to communicate with babble on remote machines. It requires
-an underlying stream layer to provide a stream abstraction, which can
-be simple TCP, TLS, etc.
+NetworkTransport provides a network based transport that can be used to
+communicate with babble on remote machines. It requires an underlying stream
+layer to provide a stream abstraction, which can be simple TCP, or WebRTC.
 
-This transport is very simple and lightweight. Each RPC request is
-framed by sending a byte that indicates the message type, followed
-by the json encoded request.
+This transport is very simple and lightweight. Each RPC request is framed by
+sending a byte that indicates the message type, followed by the json encoded
+request.
 
-The response is an error string followed by the response object,
-both are encoded using msgpack
+The response is an error string followed by the response object, both are
+encoded using JSON
 */
 type NetworkTransport struct {
 	logger *logrus.Entry
@@ -82,8 +81,8 @@ func (n *netConn) Release() error {
 	return n.conn.Close()
 }
 
-// NewNetworkTransport creates a new network transport with the given dialer
-// and listener. The maxPool controls how many connections we will pool (per
+// NewNetworkTransport creates a new network transport with the given
+// StreamLayer. The maxPool controls how many connections we will pool (per
 // target). The timeout is used to apply I/O deadlines.
 func NewNetworkTransport(
 	stream StreamLayer,

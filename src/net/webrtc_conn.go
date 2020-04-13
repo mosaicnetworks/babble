@@ -7,54 +7,54 @@ import (
 	"github.com/pion/datachannel"
 )
 
-// WebRTCConn implements net.Conn around a webrtc datachannel
-type WebRTCConn struct {
+// webRTCConn implements net.Conn around a webrtc datachannel.
+type webRTCConn struct {
 	dataChannel datachannel.ReadWriteCloser
 }
 
-// NewWebRTCConn instantiates a WebRTCConn from a datachannel
-func NewWebRTCConn(dataChannel datachannel.ReadWriteCloser) *WebRTCConn {
-	return &WebRTCConn{
+// newWebRTCConn instantiates a webRTCConn from a datachannel.
+func newWebRTCConn(dataChannel datachannel.ReadWriteCloser) *webRTCConn {
+	return &webRTCConn{
 		dataChannel: dataChannel,
 	}
 }
 
 // Read implements the Conn Read method.
-func (c *WebRTCConn) Read(p []byte) (int, error) {
+func (c *webRTCConn) Read(p []byte) (int, error) {
 	return c.dataChannel.Read(p)
 }
 
 // Write implements the Conn Write method.
-func (c *WebRTCConn) Write(p []byte) (int, error) {
+func (c *webRTCConn) Write(p []byte) (int, error) {
 	return c.dataChannel.Write(p)
 }
 
 // Close implements the Conn Close method.
-func (c *WebRTCConn) Close() error {
+func (c *webRTCConn) Close() error {
 	return c.dataChannel.Close()
 }
 
 // LocalAddr is a stub
-func (c *WebRTCConn) LocalAddr() net.Addr {
+func (c *webRTCConn) LocalAddr() net.Addr {
 	return nil
 }
 
 // RemoteAddr is a stub
-func (c *WebRTCConn) RemoteAddr() net.Addr {
+func (c *webRTCConn) RemoteAddr() net.Addr {
 	return nil
 }
 
 // SetDeadline is a stub
-func (c *WebRTCConn) SetDeadline(t time.Time) error {
+func (c *webRTCConn) SetDeadline(t time.Time) error {
 	return nil
 }
 
 // SetReadDeadline is a stub
-func (c *WebRTCConn) SetReadDeadline(t time.Time) error {
+func (c *webRTCConn) SetReadDeadline(t time.Time) error {
 	return nil
 }
 
 // SetWriteDeadline is a stub
-func (c *WebRTCConn) SetWriteDeadline(t time.Time) error {
+func (c *webRTCConn) SetWriteDeadline(t time.Time) error {
 	return nil
 }

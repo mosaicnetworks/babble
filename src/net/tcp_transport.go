@@ -13,8 +13,8 @@ var (
 	errNotTCP          = errors.New("local address is not a TCP address")
 )
 
-// NewTCPTransport returns a NetworkTransport that is built on top of
-// a TCP streaming transport layer, with log output going to the supplied Logger
+// NewTCPTransport returns a NetworkTransport that is built on top of a TCP
+// StreamLayer.
 func NewTCPTransport(
 	bindAddr string,
 	advertise string,
@@ -66,7 +66,7 @@ func newTCPTransport(bindAddr string,
 	}
 
 	// Create stream
-	stream := &TCPStreamLayer{
+	stream := &tcpStreamLayer{
 		advertise: advertiseAddr,
 		listener:  list.(*net.TCPListener),
 	}

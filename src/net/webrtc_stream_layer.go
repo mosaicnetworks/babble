@@ -12,8 +12,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// WebRTCStreamLayer implements the StreamLayer interface for WebRTC
-type WebRTCStreamLayer struct {
+// webRTCStreamLayer implements the StreamLayer interface for WebRTC.
+type webRTCStreamLayer struct {
 	peerConnections map[string]*webrtc.PeerConnection
 	peerConnLock    sync.Mutex
 
@@ -25,10 +25,10 @@ type WebRTCStreamLayer struct {
 	logger                 *logrus.Entry
 }
 
-// NewWebRTCStreamLayer instantiates a new WebRTCStreamLayer and fires up the
+// newwebRTCStreamLayer instantiates a new webRTCStreamLayer and fires up the
 // background connection aggregator (signaling process)
-func NewWebRTCStreamLayer(signal signal.Signal, logger *logrus.Entry) *WebRTCStreamLayer {
-	stream := &WebRTCStreamLayer{
+func newWebRTCStreamLayer(signal signal.Signal, logger *logrus.Entry) *webRTCStreamLayer {
+	stream := &webRTCStreamLayer{
 		peerConnections:        make(map[string]*webrtc.PeerConnection),
 		dataChannels:           make(map[uint16]datachannel.ReadWriteCloser),
 		signal:                 signal,
@@ -41,7 +41,7 @@ func NewWebRTCStreamLayer(signal signal.Signal, logger *logrus.Entry) *WebRTCStr
 // Receive SDP offers from Signal, create corresponding PeerConnections and
 // respond. The PeerConnection's DataChannel is piped into the connection
 // aggregator.
-func (w *WebRTCStreamLayer) listen() error {
+func (w *webRTCStreamLayer) listen() error {
 	// Start the Signal listener
 	go w.signal.Listen()
 
@@ -52,7 +52,7 @@ func (w *WebRTCStreamLayer) listen() error {
 		select {
 		case offerPromise := <-consumer:
 
-			w.logger.Debug("WebRTCStreamLayer Processing Offer")
+			w.logger.Debug("webRTCStreamLayer Processing Offer")
 
 			peerConnection, err := w.newPeerConnection(w.incomingConnAggregator, false)
 			if err != nil {
@@ -90,7 +90,7 @@ func (w *WebRTCStreamLayer) listen() error {
 // PeerConnection or if we just bind to its OnDataChannel handler. Basically,
 // set it to true when actively creating a PeerConnection (you are making the
 // offer) and vice-versa.
-func (w *WebRTCStreamLayer) newPeerConnection(connCh chan net.Conn, createDataChannel bool) (*webrtc.PeerConnection, error) {
+func (w *webRTCStreamLayer) newPeerConnection(connCh chan net.Conn, createDataChannel bool) (*webrtc.PeerConnection, error) {
 	// Create a SettingEngine and enable Detach
 	s := webrtc.SettingEngine{}
 	s.DetachDataChannels()
@@ -137,7 +137,8 @@ func (w *WebRTCStreamLayer) newPeerConnection(connCh chan net.Conn, createDataCh
 	return peerConnection, nil
 }
 
-func (w *WebRTCStreamLayer) pipeDataChannel(dataChannel *webrtc.DataChannel, connCh chan net.Conn) error {
+// Unpack a WebRTCConn from the datachannel and pipe it to connCh.
+func (w *webRTCStreamLayer) pipeDataChannel(dataChannel *webrtc.DataChannel, connCh chan net.Conn) error {
 	// Register channel opening handling
 	dataChannel.OnOpen(func() {
 		// Detach the data channel
@@ -149,7 +150,7 @@ func (w *WebRTCStreamLayer) pipeDataChannel(dataChannel *webrtc.DataChannel, con
 		// keep track of channel so we can close it later
 		w.setDataChannel(*dataChannel.ID(), raw)
 
-		connCh <- NewWebRTCConn(raw)
+		connCh <- newWebRTCConn(raw)
 	})
 
 	return nil
@@ -160,7 +161,7 @@ func (w *WebRTCStreamLayer) pipeDataChannel(dataChannel *webrtc.DataChannel, con
 // - Create a DataChannel and detatch it in it's OnOpen handler
 // - ICE negotiation
 // - Return a net.Conn wrapping the detached datachannel
-func (w *WebRTCStreamLayer) Dial(target string, timeout time.Duration) (net.Conn, error) {
+func (w *webRTCStreamLayer) Dial(target string, timeout time.Duration) (net.Conn, error) {
 	// connCh is a channel for receiving net.Conn objects asynchronously when
 	// the DataChannel's OnOpen callback is fired.
 	connCh := make(chan net.Conn)
@@ -215,14 +216,14 @@ func (w *WebRTCStreamLayer) Dial(target string, timeout time.Duration) (net.Conn
 // Accept consumes the incoming connection aggregator fed by the 'listen'
 // routine. It aggregates the connections from all DataChannels formed with
 // PeerConnections.
-func (w *WebRTCStreamLayer) Accept() (c net.Conn, err error) {
+func (w *webRTCStreamLayer) Accept() (c net.Conn, err error) {
 	nextConn := <-w.incomingConnAggregator
 	return nextConn, nil
 }
 
 // Close implements the net.Listener interface. It closes the Signal and all the
 // PeerConnections
-func (w *WebRTCStreamLayer) Close() (err error) {
+func (w *webRTCStreamLayer) Close() (err error) {
 	// Close the connection to the signal server
 	w.signal.Close()
 
@@ -243,22 +244,22 @@ func (w *WebRTCStreamLayer) Close() (err error) {
 }
 
 // Addr implements the net.Listener interface
-func (w *WebRTCStreamLayer) Addr() net.Addr {
+func (w *webRTCStreamLayer) Addr() net.Addr {
 	return nil
 }
 
 // AdvertiseAddr implements the net.Listener interface
-func (w *WebRTCStreamLayer) AdvertiseAddr() string {
+func (w *webRTCStreamLayer) AdvertiseAddr() string {
 	return w.signal.ID()
 }
 
-func (w *WebRTCStreamLayer) setPeerConnection(from string, peerConnection *webrtc.PeerConnection) {
+func (w *webRTCStreamLayer) setPeerConnection(from string, peerConnection *webrtc.PeerConnection) {
 	w.peerConnLock.Lock()
 	w.peerConnections[from] = peerConnection
 	w.peerConnLock.Unlock()
 }
 
-func (w *WebRTCStreamLayer) setDataChannel(id uint16, dc datachannel.ReadWriteCloser) {
+func (w *webRTCStreamLayer) setDataChannel(id uint16, dc datachannel.ReadWriteCloser) {
 	w.dataChanLock.Lock()
 	w.dataChannels[id] = dc
 	w.dataChanLock.Unlock()

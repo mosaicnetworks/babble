@@ -1,14 +1,14 @@
 package net
 
-// Transport provides an interface for network transports
-// to allow a node to communicate with other nodes.
+// Transport provides an interface for network transports to allow a node to
+// communicate with other nodes.
 type Transport interface {
 
 	// Starts the transport listening
 	Listen()
 
-	// Consumer returns a channel that can be used to
-	// consume and respond to RPC requests.
+	// Consumer returns a channel that can be used to consume and respond to RPC
+	// requests.
 	Consumer() <-chan RPC
 
 	// LocalAddr is used to return our local address
@@ -29,7 +29,7 @@ type Transport interface {
 
 	Join(target string, args *JoinRequest, resp *JoinResponse) error
 
-	// Close permanently closes a transport, stopping
-	// any associated goroutines and freeing other resources.
+	// Close permanently closes a transport, stopping any associated goroutines
+	// and freeing other resources.
 	Close() error
 }

@@ -8,9 +8,9 @@ ok  crypto	    Package crypto implements cryptographic functions for Babble.
 ok   keys	    Package keys implements the public key cryptography used throughout Babble.
     hashgraph	Package hashgraph implements the distributed consensus algorithm.
     mobile	    Package mobile is a wrapper for Babble that can be compiled with gomobile for use in Android and iOS.
-    net	        Package net implements different transports to communicate among Babble nodes.
-     signal	    Package signal implements different signalling mechanisms for WebRTC.
-      wamp	    Package wamp implements a WebRTC signaling system using RPC over WebSockets.
+ok  net	        Package net implements different transports to communicate among Babble nodes.
+ok   signal	    Package signal implements different signalling mechanisms for WebRTC.
+ok    wamp	    Package wamp implements a WebRTC signaling system using RPC over WebSockets.
 ok  node	    Package node implements the reactive component of a Babble node.
 ok   state	    Package state defines the states of the node state machine.
 ok  peers	    Package peers defines peers and implements functions to manage peer sets.
