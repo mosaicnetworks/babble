@@ -38,7 +38,7 @@ type core struct {
 	peers *peers.PeerSet
 
 	// peerSelector is the object that decides which peer to talk to next.
-	peerSelector PeerSelector
+	peerSelector peerSelector
 	selectorLock sync.Mutex
 
 	// Hash and Index of this instance's head Event
@@ -108,7 +108,7 @@ func newCore(
 	maintenanceMode bool,
 	logger *logrus.Entry) *core {
 
-	peerSelector := NewRandomPeerSelector(peers, validator.ID())
+	peerSelector := newRandomPeerSelector(peers, validator.ID())
 
 	core := &core{
 		validator:               validator,
@@ -185,7 +185,7 @@ func (c *core) bootstrap() error {
 // setPeers sets the peers property and a New RandomPeerSelector
 func (c *core) setPeers(ps *peers.PeerSet) {
 	c.peers = ps
-	c.peerSelector = NewRandomPeerSelector(c.peers, c.validator.ID())
+	c.peerSelector = newRandomPeerSelector(c.peers, c.validator.ID())
 }
 
 /*******************************************************************************

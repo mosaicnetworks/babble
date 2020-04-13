@@ -282,7 +282,7 @@ func (n *Node) GetStats() map[string]string {
 		"consensus_transactions": strconv.Itoa(n.core.getConsensusTransactionsCount()),
 		"undetermined_events":    strconv.Itoa(len(n.core.getUndeterminedEvents())),
 		"transaction_pool":       strconv.Itoa(len(n.core.transactionPool)),
-		"num_peers":              strconv.Itoa(n.core.peerSelector.Peers().Len()),
+		"num_peers":              strconv.Itoa(n.core.peerSelector.getPeers().Len()),
 		"last_peer_change":       strconv.Itoa(n.core.lastPeerChangeRound),
 		"sync_rate":              strconv.FormatFloat(n.syncRate(), 'f', 2, 64),
 		"events_per_second":      strconv.FormatFloat(consensusEventsPerSecond, 'f', 2, 64),
@@ -423,7 +423,7 @@ func (n *Node) babble(gossip bool) {
 		select {
 		case <-n.controlTimer.tickCh:
 			if gossip {
-				peer := n.core.peerSelector.Next()
+				peer := n.core.peerSelector.next()
 				if peer != nil {
 					n.GoFunc(func() {
 						n.gossip(peer)
@@ -472,7 +472,7 @@ func (n *Node) gossip(peer *peers.Peer) error {
 	defer func() {
 		// update peer selector
 		n.core.selectorLock.Lock()
-		newConnection := n.core.peerSelector.UpdateLast(peer.ID(), connected)
+		newConnection := n.core.peerSelector.updateLast(peer.ID(), connected)
 		n.core.selectorLock.Unlock()
 		if newConnection {
 			n.logger.WithFields(logrus.Fields{
@@ -674,7 +674,7 @@ func (n *Node) getBestFastForwardResponse() *net.FastForwardResponse {
 	var bestResponse *net.FastForwardResponse
 	maxBlock := 0
 
-	for _, p := range n.core.peerSelector.Peers().Peers {
+	for _, p := range n.core.peerSelector.getPeers().Peers {
 		start := time.Now()
 		resp, err := n.requestFastForward(p.NetAddr)
 		elapsed := time.Since(start)
@@ -712,7 +712,7 @@ Joining
 func (n *Node) join() error {
 	n.logger.Info("JOINING")
 
-	peer := n.core.peerSelector.Next()
+	peer := n.core.peerSelector.next()
 
 	start := time.Now()
 	resp, err := n.requestJoin(peer.NetAddr)
