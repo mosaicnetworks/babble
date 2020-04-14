@@ -292,7 +292,7 @@ func TestR2DynDecideFame(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expectedEvents := map[int]map[string]RoundEvent{
+	expectedEvents := map[int]map[string]roundEvent{
 		0: {
 			"w00": {Witness: true, Famous: common.True},
 			"w01": {Witness: true, Famous: common.True},
@@ -769,7 +769,7 @@ func TestMonologueDecideFame(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expectedEvents := map[int]map[string]RoundEvent{
+	expectedEvents := map[int]map[string]roundEvent{
 		0: {
 			"w00": {Witness: true, Famous: common.True},
 		},

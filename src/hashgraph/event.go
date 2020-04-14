@@ -399,7 +399,8 @@ func (e *Event) ToWire() WireEvent {
 WireEvent
 *******************************************************************************/
 
-// WireBody ...
+// WireBody is a light-weight representation of an EventBody where hashes are
+// replaced by ints.
 type WireBody struct {
 	Transactions         [][]byte
 	InternalTransactions []InternalTransaction
@@ -412,13 +413,14 @@ type WireBody struct {
 	OtherParentIndex     int
 }
 
-// WireEvent ...
+// WireEvent is a light-weight representation of an Event that is used to send
+// Events over the wire because they take less space.
 type WireEvent struct {
 	Body      WireBody
 	Signature string
 }
 
-// BlockSignatures ...
+// BlockSignatures unpacks BlockSignatures from a WireEvent.
 func (we *WireEvent) BlockSignatures(validator []byte) []BlockSignature {
 	if we.Body.BlockSignatures != nil {
 		blockSignatures := make([]BlockSignature, len(we.Body.BlockSignatures))
@@ -441,8 +443,8 @@ func (we *WireEvent) BlockSignatures(validator []byte) []BlockSignature {
 FrameEvent
 *******************************************************************************/
 
-//FrameEvent is a wrapper around a regular Event. It contains exported fields
-//Round, Witness, and LamportTimestamp.
+// FrameEvent is a wrapper around a regular Event. It contains exported fields
+// Round, Witness, and LamportTimestamp.
 type FrameEvent struct {
 	Core             *Event //EventBody + Signature
 	Round            int
@@ -464,7 +466,7 @@ hashes. This is consensus total ordering.
 *******************************************************************************/
 
 // ByTopologicalOrder implements sort.Interface for []Event based on the private
-// topologicalIndex field. THIS IS A PARTIAL ORDER.
+// topologicalIndex field.
 type ByTopologicalOrder []*Event
 
 // Len implements the sort.Interface
@@ -478,9 +480,8 @@ func (a ByTopologicalOrder) Less(i, j int) bool {
 	return a[i].topologicalIndex < a[j].topologicalIndex
 }
 
-//SortedFrameEvents implements sort.Interface for []FrameEvent based on
-//the lamportTimestamp field.
-//THIS IS A TOTAL ORDER
+// SortedFrameEvents implements sort.Interface for []FrameEvent based on
+// the lamportTimestamp field.
 type SortedFrameEvents []*FrameEvent
 
 // Len implements the sort.Interface

@@ -167,7 +167,7 @@ func (s *BadgerStore) FirstRound(id uint32) (int, bool) {
 	return s.inmemStore.FirstRound(id)
 }
 
-// RepertoireByPubKey returns map of peers by public-key.
+// RepertoireByPubKey returns a map of peers by public-key.
 func (s *BadgerStore) RepertoireByPubKey() map[string]*peers.Peer {
 	return s.inmemStore.RepertoireByPubKey()
 }

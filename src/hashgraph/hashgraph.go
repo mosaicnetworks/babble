@@ -94,14 +94,14 @@ Private Methods
 
 //true if y is an ancestor of x
 func (h *Hashgraph) ancestor(x, y string) (bool, error) {
-	if c, ok := h.ancestorCache.Get(Key{x, y}); ok {
+	if c, ok := h.ancestorCache.Get(key{x, y}); ok {
 		return c.(bool), nil
 	}
 	a, err := h._ancestor(x, y)
 	if err != nil {
 		return false, err
 	}
-	h.ancestorCache.Add(Key{x, y}, a)
+	h.ancestorCache.Add(key{x, y}, a)
 	return a, nil
 }
 
@@ -129,14 +129,14 @@ func (h *Hashgraph) _ancestor(x, y string) (bool, error) {
 
 //true if y is a self-ancestor of x
 func (h *Hashgraph) selfAncestor(x, y string) (bool, error) {
-	if c, ok := h.selfAncestorCache.Get(Key{x, y}); ok {
+	if c, ok := h.selfAncestorCache.Get(key{x, y}); ok {
 		return c.(bool), nil
 	}
 	a, err := h._selfAncestor(x, y)
 	if err != nil {
 		return false, err
 	}
-	h.selfAncestorCache.Add(Key{x, y}, a)
+	h.selfAncestorCache.Add(key{x, y}, a)
 	return a, nil
 }
 
@@ -170,14 +170,14 @@ func (h *Hashgraph) see(x, y string) (bool, error) {
 
 //true if x strongly sees y based on peers set
 func (h *Hashgraph) stronglySee(x, y string, peers *peers.PeerSet) (bool, error) {
-	if c, ok := h.stronglySeeCache.Get(TreKey{x, y, peers.Hex()}); ok {
+	if c, ok := h.stronglySeeCache.Get(treKey{x, y, peers.Hex()}); ok {
 		return c.(bool), nil
 	}
 	ss, err := h._stronglySee(x, y, peers)
 	if err != nil {
 		return false, err
 	}
-	h.stronglySeeCache.Add(TreKey{x, y, peers.Hex()}, ss)
+	h.stronglySeeCache.Add(treKey{x, y, peers.Hex()}, ss)
 	return ss, nil
 }
 

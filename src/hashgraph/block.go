@@ -12,7 +12,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
-// BlockBody ...
+// BlockBody is the content of a Block.
 type BlockBody struct {
 	Index                       int
 	RoundReceived               int
@@ -24,7 +24,7 @@ type BlockBody struct {
 	InternalTransactionReceipts []InternalTransactionReceipt
 }
 
-//Marshal - json encoding of body only
+// Marshal produces the JSON encoding of a BlockBody.
 func (bb *BlockBody) Marshal() ([]byte, error) {
 	bf := bytes.NewBuffer([]byte{})
 	enc := json.NewEncoder(bf)
@@ -34,7 +34,7 @@ func (bb *BlockBody) Marshal() ([]byte, error) {
 	return bf.Bytes(), nil
 }
 
-// Unmarshal ...
+// Unmarshal parses a JSON encoded BlockBody.
 func (bb *BlockBody) Unmarshal(data []byte) error {
 	b := bytes.NewBuffer(data)
 	dec := json.NewDecoder(b) //will read from b
@@ -44,7 +44,7 @@ func (bb *BlockBody) Unmarshal(data []byte) error {
 	return nil
 }
 
-// Hash ...
+// Hash produces the SHA256 hash of the marshalled BlockBody.
 func (bb *BlockBody) Hash() ([]byte, error) {
 	hashBytes, err := bb.Marshal()
 	if err != nil {
@@ -53,19 +53,24 @@ func (bb *BlockBody) Hash() ([]byte, error) {
 	return crypto.SHA256(hashBytes), nil
 }
 
-// BlockSignature ...
+// BlockSignature gathers a signature encoded as a string, along with the index
+// of the block, and the public-key of the signer.
 type BlockSignature struct {
+	// Validator is the public key of the signer.
 	Validator []byte
-	Index     int //Block Index
+	// Block Index
+	Index int
+	// String encoding of the signature
 	Signature string
 }
 
-// ValidatorHex ...
+// ValidatorHex returns the hex string representation of the signer's public
+// key.
 func (bs *BlockSignature) ValidatorHex() string {
 	return common.EncodeToString(bs.Validator)
 }
 
-// Marshal ...
+// Marshal produces the JSON encoding of the BlockSignature.
 func (bs *BlockSignature) Marshal() ([]byte, error) {
 	bf := bytes.NewBuffer([]byte{})
 	enc := json.NewEncoder(bf)
@@ -75,7 +80,7 @@ func (bs *BlockSignature) Marshal() ([]byte, error) {
 	return bf.Bytes(), nil
 }
 
-// Unmarshal ...
+// Unmarshal parses a BlockSignature from JSON.
 func (bs *BlockSignature) Unmarshal(data []byte) error {
 	b := bytes.NewBuffer(data)
 	dec := json.NewDecoder(b) //will read from b
@@ -85,7 +90,7 @@ func (bs *BlockSignature) Unmarshal(data []byte) error {
 	return nil
 }
 
-// ToWire ...
+// ToWire returns the wire representation of a BlockSignature.
 func (bs *BlockSignature) ToWire() WireBlockSignature {
 	return WireBlockSignature{
 		Index:     bs.Index,
@@ -93,18 +98,29 @@ func (bs *BlockSignature) ToWire() WireBlockSignature {
 	}
 }
 
-// Key ...
+// Key produces a string identifier of the signature for storage in a key-value
+// store.
 func (bs *BlockSignature) Key() string {
 	return fmt.Sprintf("%d-%s", bs.Index, bs.ValidatorHex())
 }
 
-// WireBlockSignature ...
+// WireBlockSignature is a light-weight representation of a signature to travel
+// over the wire.
 type WireBlockSignature struct {
 	Index     int
 	Signature string
 }
 
-// Block ...
+// Block represents a section of the Hashgraph that has reached consensus. It
+// contains an ordered list of transactions and internal transactions. When a
+// section of the hashgraph reaches consensus, a corresponding block is
+// assembled and committed to the application. After processing the block, the
+// application updates the block's state-hash and internal transaction receipts.
+// The block is then signed and the signatures are gossipped and gathered as
+// part of the normal gossip routines. A block with enough signatures is final;
+// it is a self-contained proof that a section of the hashgraph and the
+// associated transactions are a result of consensus among the prevailing peer-
+// set.
 type Block struct {
 	Body       BlockBody
 	Signatures map[string]string // [validator hex] => signature
@@ -114,7 +130,7 @@ type Block struct {
 	peerSet *peers.PeerSet
 }
 
-// NewBlockFromFrame ...
+// NewBlockFromFrame assembles a block from a Frame.
 func NewBlockFromFrame(blockIndex int, frame *Frame) (*Block, error) {
 	frameHash, err := frame.Hash()
 	if err != nil {
@@ -131,7 +147,7 @@ func NewBlockFromFrame(blockIndex int, frame *Frame) (*Block, error) {
 	return NewBlock(blockIndex, frame.Round, frameHash, frame.Peers, transactions, internalTransactions), nil
 }
 
-// NewBlock ...
+// NewBlock creates a new Block.
 func NewBlock(blockIndex,
 	roundReceived int,
 	frameHash []byte,
@@ -163,47 +179,48 @@ func NewBlock(blockIndex,
 	}
 }
 
-// Index ...
+// Index returns the block's index.
 func (b *Block) Index() int {
 	return b.Body.Index
 }
 
-// Transactions ...
+// Transactions return's the block's transactoins.
 func (b *Block) Transactions() [][]byte {
 	return b.Body.Transactions
 }
 
-// InternalTransactions ...
+// InternalTransactions returns the block's internal transactions.
 func (b *Block) InternalTransactions() []InternalTransaction {
 	return b.Body.InternalTransactions
 }
 
-// InternalTransactionReceipts ...
+// InternalTransactionReceipts returns the block's internal transaction
+// receipts.
 func (b *Block) InternalTransactionReceipts() []InternalTransactionReceipt {
 	return b.Body.InternalTransactionReceipts
 }
 
-// RoundReceived ...
+// RoundReceived returns the block's round-received.
 func (b *Block) RoundReceived() int {
 	return b.Body.RoundReceived
 }
 
-// StateHash ...
+// StateHash returns the block's state hash.
 func (b *Block) StateHash() []byte {
 	return b.Body.StateHash
 }
 
-// FrameHash ...
+// FrameHash returns the block's frame hash.
 func (b *Block) FrameHash() []byte {
 	return b.Body.FrameHash
 }
 
-// PeersHash ...
+// PeersHash returns the block's peers hash.
 func (b *Block) PeersHash() []byte {
 	return b.Body.PeersHash
 }
 
-// GetSignatures ...
+// GetSignatures returns the block's signatures.
 func (b *Block) GetSignatures() []BlockSignature {
 	res := make([]BlockSignature, len(b.Signatures))
 	i := 0
@@ -219,7 +236,7 @@ func (b *Block) GetSignatures() []BlockSignature {
 	return res
 }
 
-// GetSignature ...
+// GetSignature returns a block signature from a specific validator.
 func (b *Block) GetSignature(validator string) (res BlockSignature, err error) {
 	sig, ok := b.Signatures[validator]
 	if !ok {
@@ -234,12 +251,12 @@ func (b *Block) GetSignature(validator string) (res BlockSignature, err error) {
 	}, nil
 }
 
-// AppendTransactions ...
+// AppendTransactions adds a transaction to the block.
 func (b *Block) AppendTransactions(txs [][]byte) {
 	b.Body.Transactions = append(b.Body.Transactions, txs...)
 }
 
-// Marshal ...
+// Marshal produces a JSON encoding of the Block.
 func (b *Block) Marshal() ([]byte, error) {
 	bf := bytes.NewBuffer([]byte{})
 	enc := json.NewEncoder(bf)
@@ -249,7 +266,7 @@ func (b *Block) Marshal() ([]byte, error) {
 	return bf.Bytes(), nil
 }
 
-// Unmarshal ...
+// Unmarshal parses a JSON encoded Block.
 func (b *Block) Unmarshal(data []byte) error {
 	bf := bytes.NewBuffer(data)
 	dec := json.NewDecoder(bf)
@@ -259,7 +276,7 @@ func (b *Block) Unmarshal(data []byte) error {
 	return nil
 }
 
-// Hash ...
+// Hash returns the SHA256 encoding of a marshalled block.
 func (b *Block) Hash() ([]byte, error) {
 	if len(b.hash) == 0 {
 		hashBytes, err := b.Marshal()
@@ -271,7 +288,7 @@ func (b *Block) Hash() ([]byte, error) {
 	return b.hash, nil
 }
 
-// Hex ...
+// Hex returns the hex string representations of the block's hash.
 func (b *Block) Hex() string {
 	if b.hex == "" {
 		hash, _ := b.Hash()
@@ -280,7 +297,7 @@ func (b *Block) Hex() string {
 	return b.hex
 }
 
-// Sign ...
+// Sign returns the signature of the hash of the block's body.
 func (b *Block) Sign(privKey *ecdsa.PrivateKey) (bs BlockSignature, err error) {
 	signBytes, err := b.Body.Hash()
 	if err != nil {
@@ -299,13 +316,13 @@ func (b *Block) Sign(privKey *ecdsa.PrivateKey) (bs BlockSignature, err error) {
 	return signature, nil
 }
 
-// SetSignature ...
+// SetSignature appends a signature to the block.
 func (b *Block) SetSignature(bs BlockSignature) error {
 	b.Signatures[bs.ValidatorHex()] = bs.Signature
 	return nil
 }
 
-// Verify ...
+// Verify verifies that a signature is valid against the block.
 func (b *Block) Verify(sig BlockSignature) (bool, error) {
 	signBytes, err := b.Body.Hash()
 	if err != nil {

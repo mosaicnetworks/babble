@@ -8,26 +8,26 @@ import (
 	"github.com/mosaicnetworks/babble/src/crypto"
 )
 
-//Root forms a base on top of which a participant's Events can be inserted. It
-//contains FrameEvents sorted by Lamport timestamp.
+// Root forms a base on top of which a participant's Events can be inserted. It
+// contains FrameEvents sorted by Lamport timestamp.
 type Root struct {
 	Events []*FrameEvent
 }
 
-//NewRoot instantianted an new empty root
+// NewRoot instantiantes an new empty root.
 func NewRoot() *Root {
 	return &Root{
 		Events: []*FrameEvent{},
 	}
 }
 
-//Insert appends a FrameEvent to the root's Event slice. It is assumend that
-//items are inserted in topological order.
+// Insert appends a FrameEvent to the root's Event slice. It is assumend that
+// items are inserted in topological order.
 func (r *Root) Insert(frameEvent *FrameEvent) {
 	r.Events = append(r.Events, frameEvent)
 }
 
-// Marshal ...
+// Marshal returns the JSON encoding of a Root.
 func (r *Root) Marshal() ([]byte, error) {
 	var b bytes.Buffer
 
@@ -40,7 +40,7 @@ func (r *Root) Marshal() ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-//Unmarshal decodes data into a Root object
+// Unmarshal parses a JSON encoded Root.
 func (r *Root) Unmarshal(data []byte) error {
 	b := bytes.NewBuffer(data)
 
@@ -49,7 +49,7 @@ func (r *Root) Unmarshal(data []byte) error {
 	return dec.Decode(r)
 }
 
-// Hash ...
+// Hash returns the SHA256 hash or the marshalled Root.
 func (r *Root) Hash() (string, error) {
 	hashBytes, err := r.Marshal()
 	if err != nil {
