@@ -42,6 +42,6 @@ lint:
 	golint ./...
 
 doc:
-	GO111MODULE=off godoc -goroot .
+	GO111MODULE=off godoc -play -goroot .
 
 .PHONY: vendor install build dist test flagtest extratests alltests tests mobile-dist

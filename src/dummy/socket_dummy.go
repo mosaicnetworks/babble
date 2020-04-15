@@ -16,8 +16,8 @@ type DummySocketClient struct {
 	logger      *logrus.Entry
 }
 
-//NewDummySocketClient instantiates a DummySocketClient and starts the
-//SocketBabbleProxy
+// NewDummySocketClient instantiates a DummySocketClient and starts the
+// SocketBabbleProxy
 func NewDummySocketClient(clientAddr string, nodeAddr string, logger *logrus.Entry) (*DummySocketClient, error) {
 	state := NewState(logger)
 
@@ -36,7 +36,7 @@ func NewDummySocketClient(clientAddr string, nodeAddr string, logger *logrus.Ent
 	return client, nil
 }
 
-//SubmitTx sends a transaction to Babble via the SocketProxy
+// SubmitTx sends a transaction to Babble via the SocketProxy
 func (c *DummySocketClient) SubmitTx(tx []byte) error {
 	return c.babbleProxy.SubmitTx(tx)
 }

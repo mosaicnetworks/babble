@@ -5,10 +5,11 @@ import (
 	"github.com/mosaicnetworks/babble/src/node/state"
 )
 
-// These types are exported and need to be implemented and used by the calling
-// application.
-
-// ProxyHandler is used to instanciate an InmemProxy
+// ProxyHandler encapsulates callbacks to be called by the InmemProxy. This is
+// the true contact surface between Babble and the Application. The application
+// must implement these handlers to process incoming Babble blocks and state
+// changes. The Snapshot and Restore handlers are necessary only with fast-sync,
+// which is still experimental, so can safely be empty.
 type ProxyHandler interface {
 	// CommitHandler is called when Babble commits a block to the application
 	CommitHandler(block hashgraph.Block) (response CommitResponse, err error)

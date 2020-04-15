@@ -15,11 +15,11 @@ import (
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/config"
 	bkeys "github.com/mosaicnetworks/babble/src/crypto/keys"
+	dummy "github.com/mosaicnetworks/babble/src/dummy"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
 	"github.com/mosaicnetworks/babble/src/net/signal/wamp"
 	"github.com/mosaicnetworks/babble/src/peers"
-	dummy "github.com/mosaicnetworks/babble/src/proxy/dummy"
 )
 
 /*

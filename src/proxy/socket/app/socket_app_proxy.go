@@ -11,8 +11,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// SocketAppProxy is the Babble side of the AppProxy interface implemented over
-// a TCP/RPC connection
+// SocketAppProxy is the Babble side of the socket AppProxy which communicates
+// with the application via remote procedure calls (RPC) over TCP.
 type SocketAppProxy struct {
 	clientAddress string
 	bindAddress   string
@@ -23,8 +23,15 @@ type SocketAppProxy struct {
 	logger *logrus.Entry
 }
 
-// NewSocketAppProxy creates a new SocketAppProxy
-func NewSocketAppProxy(clientAddr string, bindAddr string, timeout time.Duration, logger *logrus.Entry) (*SocketAppProxy, error) {
+// NewSocketAppProxy creates a new SocketAppProxy that uses RPC over TCP to
+// communicate with the app. The clientAddr parameter corresponds to the remote
+// address that the AppProxy connects to. The bindAddr parameter corresponds to
+// the localAddr that the AppProxy listens on.
+func NewSocketAppProxy(clientAddr string,
+	bindAddr string,
+	timeout time.Duration,
+	logger *logrus.Entry) (*SocketAppProxy, error) {
+
 	if logger == nil {
 		log := logrus.New()
 		log.Level = logrus.DebugLevel
@@ -55,27 +62,27 @@ func NewSocketAppProxy(clientAddr string, bindAddr string, timeout time.Duration
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //Implement AppProxy Interface
 
-// SubmitCh implements the AppProxy interface
+// SubmitCh implements the AppProxy interface.
 func (p *SocketAppProxy) SubmitCh() chan []byte {
 	return p.server.submitCh
 }
 
-// CommitBlock implements the AppProxy interface
+// CommitBlock implements the AppProxy interface.
 func (p *SocketAppProxy) CommitBlock(block hashgraph.Block) (proxy.CommitResponse, error) {
 	return p.client.CommitBlock(block)
 }
 
-// GetSnapshot implements the AppProxy interface
+// GetSnapshot implements the AppProxy interface.
 func (p *SocketAppProxy) GetSnapshot(blockIndex int) ([]byte, error) {
 	return p.client.GetSnapshot(blockIndex)
 }
 
-// Restore implements the AppProxy interface
+// Restore implements the AppProxy interface.
 func (p *SocketAppProxy) Restore(snapshot []byte) error {
 	return p.client.Restore(snapshot)
 }
 
-// OnStateChanged implements the AppProxy interface
+// OnStateChanged implements the AppProxy interface.
 func (p *SocketAppProxy) OnStateChanged(state state.State) error {
 	return p.client.OnStateChanged(state)
 }

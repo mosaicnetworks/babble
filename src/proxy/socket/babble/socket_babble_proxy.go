@@ -9,8 +9,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// SocketBabbleProxy is the App side of the AppProxy interface implemented over
-// a TCP/RPC connection.
+// SocketBabbleProxy is a Golang implementation of a service that binds to a
+// remote Babble over an RPC/TCP connection. It implements handlers for the RPC
+// requests sent by the SocketAppProxy, and submits transactions to Babble via
+// an RPC request. A SocketBabbleProxy can be implemented in any programming
+// language as long as it implements the AppProxy interface over RPC.
 type SocketBabbleProxy struct {
 	nodeAddress string
 	bindAddress string

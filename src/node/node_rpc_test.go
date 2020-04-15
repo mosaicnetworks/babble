@@ -7,9 +7,9 @@ import (
 
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/config"
+	dummy "github.com/mosaicnetworks/babble/src/dummy"
 	hg "github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net"
-	dummy "github.com/mosaicnetworks/babble/src/proxy/dummy"
 )
 
 func TestProcessSync(t *testing.T) {

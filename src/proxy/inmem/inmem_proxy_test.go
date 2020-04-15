@@ -9,68 +9,13 @@ import (
 	"github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/node/state"
 	"github.com/mosaicnetworks/babble/src/peers"
-	"github.com/mosaicnetworks/babble/src/proxy"
-	"github.com/sirupsen/logrus"
 )
 
-type TestProxy struct {
-	*InmemProxy
-	transactions [][]byte
-	state        state.State
-	logger       *logrus.Entry
-}
-
-func (p *TestProxy) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, error) {
-	p.logger.Debug("CommitBlock")
-
-	p.transactions = append(p.transactions, block.Transactions()...)
-
-	receipts := []hashgraph.InternalTransactionReceipt{}
-	for _, it := range block.InternalTransactions() {
-		receipts = append(receipts, it.AsAccepted())
-	}
-
-	response := proxy.CommitResponse{
-		StateHash:                   []byte("statehash"),
-		InternalTransactionReceipts: receipts,
-	}
-
-	return response, nil
-}
-
-func (p *TestProxy) SnapshotHandler(blockIndex int) ([]byte, error) {
-	p.logger.Debug("GetSnapshot")
-
-	return []byte("snapshot"), nil
-}
-
-func (p *TestProxy) RestoreHandler(snapshot []byte) ([]byte, error) {
-	p.logger.Debug("RestoreSnapshot")
-
-	return []byte("statehash"), nil
-}
-
-func (p *TestProxy) StateChangeHandler(state state.State) error {
-	p.logger.WithField("state", state).Debug("StateChange")
-	p.state = state
-	return nil
-}
-
-func NewTestProxy(t *testing.T) *TestProxy {
-	logger := common.NewTestEntry(t, common.TestLogLevel)
-
-	proxy := &TestProxy{
-		transactions: [][]byte{},
-		logger:       logger,
-	}
-
-	proxy.InmemProxy = NewInmemProxy(proxy, logger)
-
-	return proxy
-}
-
 func TestInmemProxyAppSide(t *testing.T) {
-	proxy := NewTestProxy(t)
+	proxy := NewInmemProxy(
+		NewExampleHandler(),
+		common.NewTestEntry(t, common.TestLogLevel),
+	)
 
 	submitCh := proxy.SubmitCh()
 
@@ -94,7 +39,12 @@ func TestInmemProxyAppSide(t *testing.T) {
 }
 
 func TestInmemProxyBabbleSide(t *testing.T) {
-	proxy := NewTestProxy(t)
+	handler := NewExampleHandler()
+
+	proxy := NewInmemProxy(
+		handler,
+		common.NewTestEntry(t, common.TestLogLevel),
+	)
 
 	transactions := [][]byte{
 		[]byte("tx 1"),
@@ -117,8 +67,8 @@ func TestInmemProxyBabbleSide(t *testing.T) {
 		t.Fatalf("StateHash should be %v, not %v", expectedStateHash, commitResponse.StateHash)
 	}
 
-	if !reflect.DeepEqual(transactions, proxy.transactions) {
-		t.Fatalf("Transactions should be %v, not %v", transactions, proxy.transactions)
+	if !reflect.DeepEqual(transactions, handler.transactions) {
+		t.Fatalf("Transactions should be %v, not %v", transactions, handler.transactions)
 	}
 
 	/***************************************************************************
@@ -151,8 +101,8 @@ func TestInmemProxyBabbleSide(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if proxy.state != state.Babbling {
-		t.Fatalf("Proxy state should be Babbling, not %v", proxy.state.String())
+	if handler.state != state.Babbling {
+		t.Fatalf("Proxy state should be Babbling, not %v", handler.state.String())
 	}
 
 }

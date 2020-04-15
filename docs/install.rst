@@ -102,7 +102,7 @@ If everything goes well, it should output something along these lines:
     ok      github.com/mosaicnetworks/babble/src/node       19.171s
     ok      github.com/mosaicnetworks/babble/src/peers      0.038s
     ?       github.com/mosaicnetworks/babble/src/proxy      [no test files]
-    ok      github.com/mosaicnetworks/babble/src/proxy/dummy        0.013s
+    ok      github.com/mosaicnetworks/babble/src/dummy        0.013s
     ok      github.com/mosaicnetworks/babble/src/proxy/inmem        0.037s
     ok      github.com/mosaicnetworks/babble/src/proxy/socket       0.009s
     ?       github.com/mosaicnetworks/babble/src/proxy/socket/app   [no test files]

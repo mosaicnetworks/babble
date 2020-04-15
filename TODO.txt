@@ -6,7 +6,7 @@ ok  common	    Package common contains utilities that are used accross various B
 ok  config	    Package config defines the configuration for a Babble node.
 ok  crypto	    Package crypto implements cryptographic functions for Babble.
 ok   keys	    Package keys implements the public key cryptography used throughout Babble.
-    hashgraph	Package hashgraph implements the distributed consensus algorithm.
+ok  hashgraph	Package hashgraph implements the distributed consensus algorithm.
     mobile	    Package mobile is a wrapper for Babble that can be compiled with gomobile for use in Android and iOS.
 ok  net	        Package net implements different transports to communicate among Babble nodes.
 ok   signal	    Package signal implements different signalling mechanisms for WebRTC.
@@ -14,10 +14,10 @@ ok    wamp	    Package wamp implements a WebRTC signaling system using RPC over 
 ok  node	    Package node implements the reactive component of a Babble node.
 ok   state	    Package state defines the states of the node state machine.
 ok  peers	    Package peers defines peers and implements functions to manage peer sets.
-    proxy	    Package proxy defines and implements AppProxy: the interface between Babble and an application.
+ok  proxy	    Package proxy defines and implements AppProxy: the interface between Babble and an application.
      dummy	    Package dummy implements a barebones chat application to test Babble.
-     inmem	    Package inmem implements an in-memory AppProxy to use Babble directly from Go code.
-      socket    Package socket implements both sides of a TCP AppProxy to run Babble and the application in separate processes.
+ok    inmem	    Package inmem implements an in-memory AppProxy to use Babble directly from Go code.
+     socket    Package socket implements both sides of a TCP AppProxy to run Babble and the application in separate processes.
        app      Package app implements a TCP AppProxy which resides inside Babble and connects to the other side of the proxy.
        babble   Package babble implements a component that the TCP AppProxy can connect to.
 ok  service	    Package service implements an optional HTTP service to expose internal operation.
