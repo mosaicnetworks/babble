@@ -15,7 +15,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Node is the object that mobile consumers interact with.
+// Node is the entry point for using Babble from Java or Objective-C. It is a
+// wrapper around a normal Babble node that works around the limitations of
+// gomobile concerning the exportable types.
 type Node struct {
 	nodeID uint32
 	node   *node.Node
@@ -23,7 +25,8 @@ type Node struct {
 	logger *logrus.Entry
 }
 
-// New initializes Node struct
+// New creates a new mobile node from a set of handlers. The configDir
+// parameter points to the directory where Babble configuration files reside.
 func New(
 	commitHandler CommitHandler,
 	stateChangeHandler StateChangeHandler,
@@ -80,7 +83,7 @@ func New(
 	}
 }
 
-// Run runs the Babble node
+// Run runs the Babble node.
 func (n *Node) Run(async bool) {
 	if async {
 		n.node.RunAsync(true)
