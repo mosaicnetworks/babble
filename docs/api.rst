@@ -3,13 +3,42 @@
 API
 ===
 
-As mentioned in the :ref:`design` section, Babble communicates with the App
-through an ``AppProxy`` interface, which exposes three methods for Babble to
-call the App. Here we explain how to implement this API.
+Babble communicates with the App through an `AppProxy` interface, which has two
+implementations:
+
+- ``InmemProxy``: An InmemProxy uses native callback handlers to integrate
+  Babble as a regular Go dependency.
+
+- ``SocketProxy``: A SocketProxy connects to an App via TCP sockets. It enables
+  the application to run in a separate process or machine, and to
+  be written in any programming language.
+
+The ``AppProxy`` interface exposes four methods for Babble to call the App:
+
+- ``CommitBlock(block hashgraph.Block) (CommitResponse, error)``: Commits a 
+  block to the application and returns the resulting state hash.
+
+- ``OnStateChanged(state.State) error``: Notifies the app when Babble enters a 
+  new internal state.
+  
+- ``GetSnapshot(int) ([]byte, error)``: Gets the application snapshot
+  corresponding to a particular block index.
+
+- ``Restore([]byte) error``: Restores the App state from a snapshot.
 
 **Note**: The Snapshot and Restore methods of the API are still work in
 progress. They are necessary for the :ref:`fastsync` protocol which is not
 completely ready yet. It is safe to just implement stubs for these methods.
+
+Reciprocally, ``AppProxy`` relays transactions from the App to Babble via a
+native Go channel - ``SubmitCh`` - which ties into the application differently
+depending on the type of proxy (Socket or Inmem).
+
+Babble asynchronously processes transactions and eventually feeds them back to
+the App, in consensus order and bundled into blocks, with a **CommitBlock**
+call. Transactions are just raw bytes and Babble does not need to know what
+they represent. Therefore, encoding and decoding transactions is done by the
+App.
 
 Inmem
 -----
@@ -26,79 +55,127 @@ same process as your handler):
     package main
 
     import (
-      "github.com/mosaicnetworks/babble/src/babble"
-      "github.com/mosaicnetworks/babble/src/crypto"
-      "github.com/mosaicnetworks/babble/src/hashgraph"
-      "github.com/mosaicnetworks/babble/src/proxy/inmem"
+    	"os"
+    
+    	"github.com/mosaicnetworks/babble/src/config"
+    	"github.com/mosaicnetworks/babble/src/hashgraph"
+    	"github.com/mosaicnetworks/babble/src/node/state"
+    	"github.com/mosaicnetworks/babble/src/proxy"
+    	"github.com/mosaicnetworks/babble/src/proxy/inmem"
     )
-
-    // Implements proxy.ProxyHandler interface
-    type Handler struct {
-      stateHash []byte
+    
+    // ExampleHandler implements the ProxyHandler interface. This is where an
+    // application would normally register callbacks that Babble will call through
+    // the InmemProxy. ExampleHandler simply maintains a list of all the committed
+    // transactions in the order they were received from Babble, and keeps track of
+    // Babble's state. Refer to the dummy package for a more meaningful example.
+    type ExampleHandler struct {
+    	transactions [][]byte
+    	state        state.State
     }
-
-    // Called when a new block is committed by Babble. This particular example
-    // just computes the stateHash incrementaly with incoming blocks, and accepts
-    // all InternalTransactions
-    func (h *Handler) CommitHandler(block hashgraph.Block) (stateHash []byte, err error) {
-      hash := h.stateHash
-
-      for _, tx := range block.Transactions() {
-        hash = crypto.SimpleHashFromTwoHashes(hash, crypto.SHA256(tx))
-      }
-
-      h.stateHash = hash
-
-      receipts := []hashgraph.InternalTransactionReceipt{}
-      for _, it := range block.InternalTransactions() {
-        r := it.AsAccepted()
-        receipts = append(receipts, r)
-      }
-
-      response := proxy.CommitResponse{
-        StateHash:                   h.stateHash,
-        InternalTransactionReceipts: receipts,
-      }
-
-      return response, nil
+    
+    // CommitHandler is called by Babble to commit a block to the application.
+    // Blocks contain transactions that represent commands for the application, and
+    // internal transactions that are used internally by Babble to update the
+    // peer-set. The application can accept or refuse internal transactions based on
+    // custom rules. Here we accept all internal transactions. The commit response
+    // contains a state hash that should represent the state of the application
+    // after applying all the transactions sequentially.
+    func (p *ExampleHandler) CommitHandler(block hashgraph.Block) (proxy.CommitResponse, error) {
+    	// block transactions are ordered. Every Babble node will receive the same
+    	// transactions in the same order.
+    	p.transactions = append(p.transactions, block.Transactions()...)
+    
+    	// internal transactions represent requests to add or remove participants
+    	// from the Babble peer-set. This decision can be based on the application
+    	// state. For example the application could maintain a whitelist such that
+    	// only people whose public key belongs to the whitelist will be accepted to
+    	// join the peer-set. The decision must be deterministic, this is not a vote
+    	// where every one gives their opinion. All peers must return the same
+    	// answer, or risk creating a fork.
+    	receipts := []hashgraph.InternalTransactionReceipt{}
+    	for _, it := range block.InternalTransactions() {
+    		receipts = append(receipts, it.AsAccepted())
+    	}
+    
+    	// The commit response contains the state-hash resulting from applying all
+    	// the transactions, and all the transaction receipts. Here we always
+    	// return the same hard-coded state-hash.
+    	response := proxy.CommitResponse{
+    		StateHash:                   []byte("statehash"),
+    		InternalTransactionReceipts: receipts,
+    	}
+    
+    	return response, nil
     }
-
-    // Called when syncing with the network
-    func (h *Handler) SnapshotHandler(blockIndex int) (snapshot []byte, err error) {
-      return []byte{}, nil
+    
+    // StateChangedHandler is called by Babble to notify the application that the
+    // node has entered a new state (ex Babbling, Joining, Suspended, etc.).
+    func (p *ExampleHandler) StateChangeHandler(state state.State) error {
+    	p.state = state
+    	return nil
     }
-
-    // Called when syncing with the network
-    func (h *Handler) RestoreHandler(snapshot []byte) (stateHash []byte, err error) {
-      return []byte{}, nil
+    
+    // SnapshotHandler is used by Babble to retrieve a snapshot of the application
+    // corresponding to a specific block index. It is left to the application to
+    // keep track of snapshots and to encode/decode state snapshots to and from raw
+    // bytes. This handler is only used when fast-sync is activated.
+    func (p *ExampleHandler) SnapshotHandler(blockIndex int) ([]byte, error) {
+    	return []byte("snapshot"), nil
     }
-
-    func NewHandler() *Handler {
-      return &Handler{}
+    
+    // RestoreHandler is called by Babble to instruct the application to restore its
+    // state back to a given snapshot. This is only used when fast-sync is
+    // activated.
+    func (p *ExampleHandler) RestoreHandler(snapshot []byte) ([]byte, error) {
+    	return []byte("statehash"), nil
     }
-
+    
+    func NewExampleHandler() *ExampleHandler {
+    	return &ExampleHandler{
+    		transactions: [][]byte{},
+    	}
+    }
+    
     func main() {
-
-      config := babble.NewDefaultConfig()
-
-      // To use babble as an internal engine we use InmemProxy.
-      proxy := inmem.NewInmemProxy(NewHandler(), config.Logger)
-
-      config.Proxy = proxy
-
-      // Create the engine with the provided config
-      engine := babble.NewBabble(config)
-
-      // Initialize the engine
-      if err := engine.Init(); err != nil {
-        panic(err)
-      }
-
-      // Submit a transaction directly through the Proxy
-      go func() { proxy.SubmitTx([]byte("some content")) }()
-
-      // This is a blocking call
-      engine.Run()
+    	// An application needs to implement the ProxyHandler interface and define
+    	// the callbacks that will be automatically called by the proxy when Babble
+    	// has things to communicate to the application.
+    	handler := NewExampleHandler()
+    
+    	// We create an InmemProxy based on the handler.
+    	proxy := inmem.NewInmemProxy(handler, nil)
+    
+    	// Start from default configuration.
+    	babbleConfig := config.NewDefaultConfig()
+    
+    	// Set the AppProxy in the Babble configuration.
+    	babbleConfig.Proxy = proxy
+    
+    	// Instantiate Babble.
+    	babble := NewBabble(babbleConfig)
+    
+    	// Read in the confiuration and initialise the node accordingly.
+    	if err := babble.Init(); err != nil {
+    		babbleConfig.Logger().Error("Cannot initialize babble:", err)
+    		os.Exit(1)
+    	}
+    
+    	// The application can submit transactions to Babble using the proxy's
+    	// SubmitTx. Babble will broadcast the transactions to other nodes, run
+    	// them through the consensus algorithm, and eventually call the callback
+    	// methods implemented in the handler.
+    	go func() {
+    		proxy.SubmitTx([]byte("the test transaction"))
+    	}()
+    
+    	// Run the node aynchronously.
+    	babble.Run()
+    
+    	// Babble reacts to SIGINT (Ctrl + c) and SIGTERM by calling the leave
+    	// method to politely leave a Babble network, but it can also be called
+    	// manually.
+    	defer babble.Node.Leave()
     }
 
 Socket
@@ -114,140 +191,5 @@ implement the application in any programming language. The specification of the
 JSON-RPC interface is provided below, but here is an example of how to use our
 Go implementation, ``SocketBabbleProxy``, to connect to a remote Babble node.
 
-Assuming there is a Babble node running with its proxy listening on
-``127.0.0.1:1338`` and configured to speak to an App at ``127.0.0.1:1339``
-(these are the default values):
-
-.. code:: go
-
-    package main
-
-    import (
-      "time"
-
-      "github.com/mosaicnetworks/babble/src/crypto"
-      "github.com/mosaicnetworks/babble/src/hashgraph"
-      "github.com/mosaicnetworks/babble/src/proxy/socket/babble"
-    )
-
-    // Implements proxy.ProxyHandler interface
-    type Handler struct {
-      stateHash []byte
-    }
-
-    // Called when a new block is comming. This particular example just computes
-    // the stateHash incrementaly with incoming blocks
-    func (h *Handler) CommitHandler(block hashgraph.Block) (stateHash []byte, err error) {
-      hash := h.stateHash
-
-      for _, tx := range block.Transactions() {
-        hash = crypto.SimpleHashFromTwoHashes(hash, crypto.SHA256(tx))
-      }
-
-      h.stateHash = hash
-
-      receipts := []hashgraph.InternalTransactionReceipt{}
-      for _, it := range block.InternalTransactions() {
-        r := it.AsAccepted()
-        receipts = append(receipts, r)
-      }
-
-      response := proxy.CommitResponse{
-        StateHash:                   h.stateHash,
-        InternalTransactionReceipts: receipts,
-      }
-
-      return response, nil
-    }
-
-    // Called when syncing with the network
-    func (h *Handler) SnapshotHandler(blockIndex int) (snapshot []byte, err error) {
-      return []byte{}, nil
-    }
-
-    // Called when syncing with the network
-    func (h *Handler) RestoreHandler(snapshot []byte) (stateHash []byte, err error) {
-      return []byte{}, nil
-    }
-
-    func NewHandler() *Handler {
-      return &Handler{}
-    }
-
-    func main() {
-      // Connect to the babble proxy at :1338 and listen on :1339.
-      // The Handler ties back to the application state.
-      proxy, err := babble.NewSocketBabbleProxy("127.0.0.1:1338", "127.0.0.1:1339", NewHandler(), 1*time.Second, nil)
-          // Verify that it can listen
-      if err != nil {
-        panic(err)
-      }
-
-      // Verify that it can connect and submit a transaction
-      if err := proxy.SubmitTx([]byte("some content")); err != nil {
-        panic(err)
-      }
-
-      // Wait indefinitly
-      for {
-        time.Sleep(time.Second)
-      }
-    }
-
-Example SubmitTx request (from App to Babble):
-
-.. code:: http
-
-  request: {"method":"Babble.SubmitTx","params":["Y2xpZW50IDE6IGhlbGxv"],"id":0}
-  response: {"id":0,"result":true,"error":null}
-
-
-Note that the Proxy API is **not** over HTTP; It is raw JSON over TCP. Here is
-an example of how to make a SubmitTx request manually:
-
-.. code:: go
-
-  printf "{\"method\":\"Babble.SubmitTx\",\"params\":[\"Y2xpZW50IDE6IGhlbGxv\"],\"id\":0}" | nc -v  172.77.5.1 1338
-
-
-Example CommitBlock request (from Babble to App):
-
-.. code:: http
-
-  request:
-        {
-            "method": "State.CommitBlock",
-            "params": [
-                {
-                "Body": {
-                    "Index": 0,
-                    "RoundReceived": 7,
-                    "StateHash": null,
-                    "FrameHash": "gdwRCdwxoyLUyzzRK6N31rlJFBJu5By/vDk5gSQHJHQ=",
-                    "Transactions": [
-                    "Tm9kZTEgVHg5",
-                    "Tm9kZTEgVHgx",
-                    "Tm9kZTEgVHgy",
-                    "Tm9kZTEgVHgz",
-                    "Tm9kZTEgVHg0",
-                    "Tm9kZTEgVHg1",
-                    "Tm9kZTEgVHg2",
-                    "Tm9kZTEgVHg3",
-                    "Tm9kZTEgVHg4",
-                    "Tm9kZTEgVHgxMA=="
-                    ]
-                },
-                "Signatures": {}
-                }
-            ],
-            "id": 0
-        } 
-
-  response: {"id":0,"result":{"Hash":"6SKQataObI6oSY5n6mvf1swZR3T4Tek+C8yJmGijF00="},"error":null}
-
-The content of the request's "params" is the JSON representation of a Block
-with a RoundReceived of 7 and 10 transactions. The transactions themselves are
-base64 string encodings.
-
-The response's Hash value is the base64 representation of the application's
-State-hash resulting from processing the block's transaction sequentially.
+Please refer to the dummy package for an example implementing the socket 
+interface.
