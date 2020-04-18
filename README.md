@@ -2,24 +2,19 @@
 
 ## BFT Consensus platform for distributed applications
 
+[![GoDoc](https://godoc.org/github.com/mosaicnetworks/babble?status.svg)](https://godoc.org/github.com/mosaicnetworks/babble)
 [![CircleCI](https://circleci.com/gh/mosaicnetworks/babble.svg?style=svg)](https://circleci.com/gh/mosaicnetworks/babble)
 [![Documentation Status](https://readthedocs.org/projects/babbleio/badge/?version=latest)](https://babbleio.readthedocs.io/en/latest/?badge=latest)
 [![Go Report](https://goreportcard.com/badge/github.com/mosaicnetworks/babble)](https://goreportcard.com/report/github.com/mosaicnetworks/babble)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-
-
-Babble enables multiple computers to behave as one. It uses Peer to Peer (P2P)
-networking and a consensus algorithm to guarantee that a group of connected
-computers process the same commands in the same order; a technique known as
-state-machine replication. This makes for secure systems that can tolerate
-arbitrary failures, including malicious behavior.
+Babble uses Peer to Peer (P2P) networking and a consensus algorithm to guarantee
+that a group of connected computers process the same commands in the same order;
+a technique known as state-machine replication. This makes for secure systems 
+that can tolerate arbitrary failures, including malicious behavior.
 
 For guidance on how to install and use Babble please visit our
 [documentation](http://docs.babble.io) pages.
-
-**NOTE**:
-This is alpha software. Please contact us if you intend to run it in production.
 
 ## Consensus Algorithm and Blockchain
 
@@ -29,7 +24,7 @@ Baird. Hashgraph is best described in the
 [accompanying document](http://www.swirlds.com/downloads/SWIRLDS-TR-2016-02.pdf).
 The original algorithm is protected by [patents](http://www.swirlds.com/ip/) in
 the USA. Therefore, anyone intending to use this software in the USA should
-obtain a license from the patent holders.
+consider contacting the patent holders.
 
 Hashgraph is based on the intuitive idea that gossiping about gossip itself
 yields enough information to compute a consensus ordering of events. It attains
@@ -173,15 +168,15 @@ more details and a quick-start guide.
 ### Go
 
 Babble is written in [Golang](https://golang.org/). Hence, the first step is to
-install **Go version 1.9 or above** which is both the programming language and a
-CLI tool for managing Go code. Go is very opinionated and will require you to
+install **Go version 1.14 or above** which is both the programming language and 
+a CLI tool for managing Go code. Go is very opinionated and will require you to
 [define a workspace](https://golang.org/doc/code.html#Workspaces) where all your
 go code will reside.
 
 ### Babble and dependencies
 
-Clone the [repository](https://github.com/mosaicnetworks/babble) in the appropriate
-GOPATH subdirectory:
+Clone the [repository](https://github.com/mosaicnetworks/babble) in the 
+appropriate GOPATH subdirectory:
 
 ```bash
 $ mkdir -p $GOPATH/src/github.com/mosaicnetworks/
