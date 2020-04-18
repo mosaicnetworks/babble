@@ -10,6 +10,8 @@ FEATURES:
 
 IMPROVEMENTS:
 
+- doc: Improve comments and package documentation
+
 BUG FIXES:
 
 ## v0.7.0 (February 20, 2020)
