@@ -1,7 +1,7 @@
 
     Name	Synopsis
     
-    babble	    Package babble is the entry point to run a Babble node.
+ok  babble	    Package babble is the entry point to run a Babble node.
 ok  common	    Package common contains utilities that are used accross various Babble packages.
 ok  config	    Package config defines the configuration for a Babble node.
 ok  crypto	    Package crypto implements cryptographic functions for Babble.

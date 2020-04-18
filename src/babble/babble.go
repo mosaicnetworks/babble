@@ -16,7 +16,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Babble is a struct containing the key parts of a babble node
+// Babble encapsulates the components that make up a Babble node.
 type Babble struct {
 	Config       *config.Config
 	Node         *node.Node
@@ -28,8 +28,7 @@ type Babble struct {
 	logger       *logrus.Entry
 }
 
-// NewBabble is a factory method to produce
-// a Babble instance.
+// NewBabble returns a new Babble instance.
 func NewBabble(c *config.Config) *Babble {
 	engine := &Babble{
 		Config: c,
@@ -39,7 +38,7 @@ func NewBabble(c *config.Config) *Babble {
 	return engine
 }
 
-// Init initialises the babble engine
+// Init initialises Babble based on its configuration.
 func (b *Babble) Init() error {
 
 	b.logger.Debug("validateConfig")
@@ -86,7 +85,7 @@ func (b *Babble) Init() error {
 	return nil
 }
 
-// Run starts the Babble Node running
+// Run starts the Babble node.
 func (b *Babble) Run() {
 	if b.Service != nil && b.Config.ServiceAddr != "" {
 		go b.Service.Serve()
@@ -96,7 +95,7 @@ func (b *Babble) Run() {
 }
 
 func (b *Babble) validateConfig() error {
-	// If --datadir was explicitely set, but not --db, the following line will
+	// If --datadir was explicitly set, but not --db, the following line will
 	// update the default database dir to be inside the new datadir
 	b.Config.SetDataDir(b.Config.DataDir)
 
