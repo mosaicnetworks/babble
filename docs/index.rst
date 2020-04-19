@@ -7,6 +7,7 @@
    self
    design.rst
    api.rst
+   config.rst
    install.rst
    usage.rst
    consensus.rst

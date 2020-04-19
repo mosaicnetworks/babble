@@ -44,7 +44,7 @@ network; that is a potential enhancement on the roadmap.
 Consensus and Blockchain
 ------------------------
 
-At the core of Babble is an algorithm insuring that all participants process
+At the core of Babble is an algorithm ensuring that all participants process
 the same transactions in the same order. We have chosen to implement a system
 suitable for the most adversarial conditions - with powerful attackers. This is
 known as Byzantine Fault Tolerance (BFT) and has been a field of research for

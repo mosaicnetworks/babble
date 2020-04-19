@@ -4,9 +4,9 @@ Usage
 =====
 
 In this section we will guide you through deploying an application on top of
-Babble. Babble comes with the Dummy application which is used in this
-demonstration. It is a simple chat application where participants write
-messages on a channel and Babble guarantees that everyone sees the same
+Babble using the socket interface. Babble comes with the Dummy application which
+is used in this demonstration. It is a simple chat application where users 
+write messages on a channel and Babble guarantees that everyone sees the same
 messages in the same order.
 
 Docker
@@ -195,34 +195,39 @@ Let us take a look at the help provided by the Babble CLI:
 
 .. code:: bash
 
-  Run node
-  
-  Usage:
-    babble run [flags]
-  
-  Flags:
-    -a, --advertise string        Advertise IP:Port for babble node
-        --bootstrap               Load from database
-        --cache-size int          Number of items in LRU caches (default 5000)
-    -c, --client-connect string   IP:Port to connect to client (default "127.0.0.1:1339")
-        --datadir string          Top-level directory for configuration and data (default "/home/martin/.babble")
-        --db string               Dabatabase directory (default "/home/martin/.babble/badger_db")
-        --fast-sync               Enable FastSync
-        --heartbeat duration      Time between gossips (default 10ms)
-    -h, --help                    help for run
-    -j, --join-timeout duration   Join Timeout (default 10s)
-    -l, --listen string           Listen IP:Port for babble node (default "127.0.0.1:1337")
-        --log string              debug, info, warn, error, fatal, panic (default "debug")
-    -R, --maintenance-mode        Start Babble in a suspended (non-gossipping) state
-        --max-pool int            Connection pool size max (default 2)
-        --moniker string          Optional name
-    -p, --proxy-listen string     Listen IP:Port for babble proxy (default "127.0.0.1:1338")
-    -s, --service-listen string   Listen IP:Port for HTTP service (default "127.0.0.1:8000")
-        --standalone              Do not create a proxy
-        --store                   Use badgerDB instead of in-mem DB
-        --suspend-limit int       Limit of undetermined events before entering suspended state (default 300)
-        --sync-limit int          Max number of events for sync (default 1000)
-    -t, --timeout duration        TCP Timeout (default 1s)
+    Run node
+
+    Usage:
+      babble run [flags]
+    
+    Flags:
+      -a, --advertise string          Advertise IP:Port for babble node
+          --bootstrap                 Load from database
+          --cache-size int            Number of items in LRU caches (default 10000)
+      -c, --client-connect string     IP:Port to connect to client (default "127.0.0.1:1339")
+          --datadir string            Top-level directory for configuration and data (default "/home/martin/.babble")
+          --db string                 Dabatabase directory (default "/home/martin/.babble/badger_db")
+          --fast-sync                 Enable FastSync
+          --heartbeat duration        Timer frequency when there is something to gossip about (default 10ms)
+      -h, --help                      help for run
+      -j, --join-timeout duration     Join Timeout (default 10s)
+      -l, --listen string             Listen IP:Port for babble node (default "127.0.0.1:1337")
+          --log string                debug, info, warn, error, fatal, panic (default "debug")
+      -R, --maintenance-mode          Start Babble in a suspended (non-gossipping) state
+          --max-pool int              Connection pool size max (default 2)
+          --moniker string            Optional name
+          --no-service                Disable HTTP service
+      -p, --proxy-listen string       Listen IP:Port for babble proxy (default "127.0.0.1:1338")
+      -s, --service-listen string     Listen IP:Port for HTTP service (default "127.0.0.1:8000")
+          --signal-addr string        IP:Port of WebRTC signaling server (default "127.0.0.1:2443")
+          --signal-skip-verify        (Insecure) Accept any certificate presented by the signal server
+          --slow-heartbeat duration   Timer frequency when there is nothing to gossip about (default 1s)
+          --store                     Use badgerDB instead of in-mem DB
+          --suspend-limit int         Limit of undetermined events (per node) before entering suspended state (default 100)
+          --sync-limit int            Max number of events for sync (default 1000)
+      -t, --timeout duration          TCP Timeout (default 1s)
+          --webrtc                    Use WebRTC transport
+    
     
 
 The ``listen`` flag controls the local address:port where this node gossips with

@@ -25,8 +25,8 @@ type core struct {
 	// data reside.
 	hg *hg.Hashgraph
 
-	// genesisPeers is the validator-set that the hashgraph/blockchain was
-	// initialised with
+	// genesisPeers is the validator-set that the hashgraph was initialised
+	// with.
 	genesisPeers *peers.PeerSet
 
 	// validators reflects the latest validator-set used in the hashgraph
