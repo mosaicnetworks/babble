@@ -2,11 +2,14 @@ package dummy
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/mosaicnetworks/babble/src/babble"
 	"github.com/mosaicnetworks/babble/src/common"
+	"github.com/mosaicnetworks/babble/src/config"
 	bcrypto "github.com/mosaicnetworks/babble/src/crypto"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/node/state"
@@ -115,5 +118,40 @@ func TestInmemDummyServerSide(t *testing.T) {
 	if !reflect.DeepEqual(dummy.state.babbleState, state.Babbling) {
 		t.Fatalf("Babble State should be Babbling, not %v", dummy.state.babbleState.String())
 	}
+}
 
+func ExampleInmem() {
+	// Start from default Babble configuration.
+	babbleConfig := config.NewDefaultConfig()
+
+	// Create dummy InmemAppProxy
+	dummy := NewInmemDummyClient(babbleConfig.Logger())
+
+	// Set the proxy in the Babble configuration.
+	babbleConfig.Proxy = dummy
+
+	// Instantiate Babble.
+	babble := babble.NewBabble(babbleConfig)
+
+	// Read in the confiuration and initialise the node accordingly.
+	if err := babble.Init(); err != nil {
+		babbleConfig.Logger().Error("Cannot initialize babble:", err)
+		os.Exit(1)
+	}
+
+	// The application can submit transactions to Babble using the proxy's
+	// SubmitTx. Babble will broadcast the transactions to other nodes, run
+	// them through the consensus algorithm, and eventually call the callback
+	// methods implemented in the handler.
+	go func() {
+		dummy.SubmitTx([]byte("the test transaction"))
+	}()
+
+	// Run the node aynchronously.
+	babble.Run()
+
+	// Babble reacts to SIGINT (Ctrl + c) and SIGTERM by calling the leave
+	// method to politely leave a Babble network, but it can also be called
+	// manually.
+	defer babble.Node.Leave()
 }

@@ -96,7 +96,8 @@ type Config struct {
 	// routines.
 	MaxPool int `mapstructure:"max-pool"`
 
-	// TCPTimeout is the timeout of gossip TCP connections.
+	// TCPTimeout is the timeout of gossip RPC connections. It also applies to
+	// WebRTC connections.
 	TCPTimeout time.Duration `mapstructure:"timeout"`
 
 	// JoinTimeout is the timeout of Join Requests
@@ -129,7 +130,7 @@ type Config struct {
 	// bootstrapped from an existing database.
 	MaintenanceMode bool `mapstructure:"maintenance-mode"`
 
-	// SuspendLimit is the multiplyer that is dynamically applied to the number
+	// SuspendLimit is the multiplier that is dynamically applied to the number
 	// of validators to determine the limit of undetermined events (events which
 	// haven't reached consensus) that will cause the node to become suspended.
 	// For example, if there are 4 validators and SuspendLimit=100, then the
