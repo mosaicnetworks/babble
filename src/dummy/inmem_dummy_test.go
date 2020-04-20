@@ -120,11 +120,11 @@ func TestInmemDummyServerSide(t *testing.T) {
 	}
 }
 
-func ExampleInmem() {
+func ExampleInmemDummyClient() {
 	// Start from default Babble configuration.
 	babbleConfig := config.NewDefaultConfig()
 
-	// Create dummy InmemAppProxy
+	// Create dummy InmemProxy
 	dummy := NewInmemDummyClient(babbleConfig.Logger())
 
 	// Set the proxy in the Babble configuration.
@@ -133,16 +133,16 @@ func ExampleInmem() {
 	// Instantiate Babble.
 	babble := babble.NewBabble(babbleConfig)
 
-	// Read in the confiuration and initialise the node accordingly.
+	// Read in the configuration and initialise the node accordingly.
 	if err := babble.Init(); err != nil {
 		babbleConfig.Logger().Error("Cannot initialize babble:", err)
 		os.Exit(1)
 	}
 
 	// The application can submit transactions to Babble using the proxy's
-	// SubmitTx. Babble will broadcast the transactions to other nodes, run
-	// them through the consensus algorithm, and eventually call the callback
-	// methods implemented in the handler.
+	// SubmitTx. Babble will broadcast the transactions to other nodes, run them
+	// through the consensus algorithm, and eventually call the callback methods
+	// implemented in the handler.
 	go func() {
 		dummy.SubmitTx([]byte("the test transaction"))
 	}()

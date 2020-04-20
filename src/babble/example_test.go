@@ -83,7 +83,7 @@ func NewExampleHandler() *ExampleHandler {
 	}
 }
 
-func ExampleInmem() {
+func Example() {
 	// An application needs to implement the ProxyHandler interface and define
 	// the callbacks that will be automatically called by the proxy when Babble
 	// has things to communicate to the application.
@@ -101,7 +101,7 @@ func ExampleInmem() {
 	// Instantiate Babble.
 	babble := NewBabble(babbleConfig)
 
-	// Read in the confiuration and initialise the node accordingly.
+	// Read in the configuration and initialise the node accordingly.
 	if err := babble.Init(); err != nil {
 		babbleConfig.Logger().Error("Cannot initialize babble:", err)
 		os.Exit(1)

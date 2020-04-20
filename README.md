@@ -109,6 +109,42 @@ implementations:
 Refer to the [dummy](src/dummy) package for an example that implements both
 proxies.
 
+```go
+// Start from default Babble configuration.
+babbleConfig := config.NewDefaultConfig()
+
+// Create dummy InmemProxy
+dummy := NewInmemDummyClient(babbleConfig.Logger())
+
+// Set the proxy in the Babble configuration.
+babbleConfig.Proxy = dummy
+
+// Instantiate Babble.
+babble := babble.NewBabble(babbleConfig)
+
+// Read in the configuration and initialise the node accordingly.
+if err := babble.Init(); err != nil {
+    babbleConfig.Logger().Error("Cannot initialize babble:", err)
+    os.Exit(1)
+}
+
+// The application can submit transactions to Babble using the proxy's
+// SubmitTx. Babble will broadcast the transactions to other nodes, run them
+// through the consensus algorithm, and eventually call the callback methods
+// implemented in the handler.
+go func() {
+    dummy.SubmitTx([]byte("the test transaction"))
+}()
+
+// Run the node aynchronously.
+babble.Run()
+
+// Babble reacts to SIGINT (Ctrl + c) and SIGTERM by calling the leave
+// method to politely leave a Babble network, but it can also be called
+// manually.
+defer babble.Node.Leave()
+```
+
 ## Configuration
 
 Babble configuration is defined in the [config](src/config) package. 
