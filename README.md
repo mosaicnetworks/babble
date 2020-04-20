@@ -49,7 +49,7 @@ same order.
                                 malicious behavior.
 
 - **Finality**: Babble’s output can be used immediately, no need for block 
-                confirmations, etc.
+                confirmations.
 
 - **Dynamic Membership**: Members can join or leave a Babble network without 
                           undermining security.
@@ -64,7 +64,7 @@ same order.
 
 - **Mobile**: Bindings for Android and iOS.
 
-- **WebRTC**: Support for WebRTC connections for practical p2p connections.
+- **WebRTC**: Supports WebRTC connections for practical p2p connections.
 
 ## Consensus
 
