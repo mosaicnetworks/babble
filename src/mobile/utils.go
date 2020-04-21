@@ -1,8 +1,10 @@
 package mobile
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/mosaicnetworks/babble/src/crypto/keys"
 )
@@ -20,4 +22,24 @@ func GetPrivPublKeys() string {
 	pub := keys.PublicKeyHex(&key.PublicKey)
 
 	return pub + "=!@#@!=" + priv
+}
+
+// GetPublKey generates a  public key from the given private key and returns
+// it
+func GetPublKey(privKey string) string {
+
+	trimmedKeyString := strings.TrimSpace(privKey)
+	key, err := hex.DecodeString(trimmedKeyString)
+	if err != nil {
+		return ""
+	}
+
+	privateKey, err := keys.ParsePrivateKey(key)
+	if err != nil {
+		return ""
+	}
+
+	pub := keys.PublicKeyHex(&privateKey.PublicKey)
+
+	return pub
 }
