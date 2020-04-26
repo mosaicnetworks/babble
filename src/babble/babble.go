@@ -104,7 +104,6 @@ func (b *Babble) validateConfig() error {
 		"babble.ServiceAddr":      b.Config.ServiceAddr,
 		"babble.NoService":        b.Config.NoService,
 		"babble.MaxPool":          b.Config.MaxPool,
-		"babble.Store":            b.Config.Store,
 		"babble.LogLevel":         b.Config.LogLevel,
 		"babble.Moniker":          b.Config.Moniker,
 		"babble.HeartbeatTimeout": b.Config.HeartbeatTimeout,
@@ -130,17 +129,18 @@ func (b *Babble) validateConfig() error {
 
 	// Maintenance-mode only works with bootstrap
 	if b.Config.MaintenanceMode {
-		b.logger.Debug("Config --maintenance-mode => --bootstrap")
+		b.logger.Debug("Config maintenance-mode => bootstrap")
 		b.Config.Bootstrap = true
 	}
 
 	// Bootstrap only works with store
 	if b.Config.Bootstrap {
-		b.logger.Debug("Config --boostrap => --store")
+		b.logger.Debug("Config boostrap => store")
 		b.Config.Store = true
 	}
 
 	if b.Config.Store {
+		logFields["babble.Store"] = b.Config.Store
 		logFields["babble.DatabaseDir"] = b.Config.DatabaseDir
 		logFields["babble.Bootstrap"] = b.Config.Bootstrap
 	}
@@ -160,6 +160,11 @@ func (b *Babble) validateConfig() error {
 }
 
 func (b *Babble) initTransport() error {
+	// XXX
+	if b.Config.MaintenanceMode {
+		return nil
+	}
+
 	if b.Config.WebRTC {
 		signal, err := wamp.NewClient(
 			b.Config.SignalAddr,
@@ -180,7 +185,8 @@ func (b *Babble) initTransport() error {
 			b.Config.MaxPool,
 			b.Config.TCPTimeout,
 			b.Config.JoinTimeout,
-			b.Config.Logger().WithField("component", "webrtc-transport"))
+			b.Config.Logger().WithField("component", "webrtc-transport"),
+		)
 
 		if err != nil {
 			return err

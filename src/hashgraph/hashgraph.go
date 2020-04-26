@@ -1485,7 +1485,10 @@ func (h *Hashgraph) Bootstrap() error {
 		// Load Genesis PeerSet
 		peerSet, err := badgerStore.dbGetPeerSet(0)
 		if err != nil {
-			return fmt.Errorf("No Genesis PeerSet: %v", err)
+			// XXX
+			// return fmt.Errorf("No Genesis PeerSet: %v", err)
+			h.logger.Debug("No Genesis PeerSet, skip bootstrap")
+			return nil
 		}
 
 		// Initialize the InmemStore with Genesis PeerSet. This has

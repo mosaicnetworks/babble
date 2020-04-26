@@ -10,6 +10,7 @@ import (
 
 	"github.com/mosaicnetworks/babble/src/config"
 	bkeys "github.com/mosaicnetworks/babble/src/crypto/keys"
+	"github.com/mosaicnetworks/babble/src/dummy"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
 
@@ -71,4 +72,46 @@ func TestInitStore(t *testing.T) {
 	if len(dbFiles) != 2 {
 		t.Fatalf("initStore should have created a new db file")
 	}
+}
+
+func TestMaintenanceMode(t *testing.T) {
+	os.RemoveAll("test_data")
+	os.Mkdir("test_data", os.ModeDir|0777)
+	defer os.RemoveAll("test_data")
+
+	jsonPeerSet := peers.NewJSONPeerSet("test_data", true)
+
+	keys := map[string]*ecdsa.PrivateKey{}
+	peerSlice := []*peers.Peer{}
+	for i := 0; i < 3; i++ {
+		key, _ := bkeys.GenerateECDSAKey()
+		peer := &peers.Peer{
+			NetAddr:   fmt.Sprintf("addr%d", i),
+			PubKeyHex: bkeys.PublicKeyHex(&key.PublicKey),
+			Moniker:   fmt.Sprintf("peer%d", i),
+		}
+		peerSlice = append(peerSlice, peer)
+		keys[peer.NetAddr] = key
+	}
+
+	newPeerSet := peers.NewPeerSet(peerSlice)
+	newPeerSlice := newPeerSet.Peers
+
+	if err := jsonPeerSet.Write(newPeerSlice); err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	conf := config.NewDefaultConfig()
+	conf.SetDataDir("test_data")
+	conf.MaintenanceMode = true
+	conf.Key = keys["addr0"]
+	conf.Proxy = dummy.NewInmemDummyClient(conf.Logger())
+
+	babble := NewBabble(conf)
+
+	if err := babble.Init(); err != nil {
+		t.Fatal(err)
+	}
+
+	babble.Node.Shutdown()
 }

@@ -97,12 +97,17 @@ func NewNode(conf *config.Config,
 		conf.MaintenanceMode,
 		conf.Logger())
 
+	netCh := make(<-chan net.RPC)
+	if trans != nil {
+		netCh = trans.Consumer()
+	}
+
 	node := Node{
 		conf:         conf,
 		logger:       conf.Logger(),
 		core:         core,
 		trans:        trans,
-		netCh:        trans.Consumer(),
+		netCh:        netCh,
 		proxy:        proxy,
 		submitCh:     proxy.SubmitCh(),
 		sigCh:        sigCh,
@@ -161,6 +166,10 @@ func (n *Node) Init() error {
 // Run invokes the main loop of the node. The gossip parameter controls whether
 // to actively participate in gossip or not.
 func (n *Node) Run(gossip bool) {
+	if n.conf.MaintenanceMode {
+		return
+	}
+
 	// The ControlTimer allows the background routines to control the heartbeat
 	// timer when the node is in the Babbling state. The timer should only be
 	// running when there are uncommitted transactions in the system.
@@ -198,6 +207,10 @@ func (n *Node) RunAsync(gossip bool) {
 // Leave causes the node to politely leave the network with a LeaveRequest and
 // to wait for its validator to be removed from the validator-set via consensus.
 func (n *Node) Leave() error {
+	if n.conf.MaintenanceMode {
+		return nil
+	}
+
 	n.logger.Info("LEAVING")
 
 	defer n.Shutdown()
@@ -225,7 +238,9 @@ func (n *Node) Shutdown() {
 		n.WaitRoutines()
 
 		// close transport and store
-		n.trans.Close()
+		if n.trans != nil {
+			n.trans.Close()
+		}
 
 		n.core.hg.Store.Close()
 	}
@@ -713,6 +728,10 @@ Joining
 // join attempts to add the node's validator public-key to the current
 // validator-set via an InternalTransaction which has to go through consensus.
 func (n *Node) join() error {
+	if n.conf.MaintenanceMode {
+		return nil
+	}
+
 	n.logger.Info("JOINING")
 
 	peer := n.core.peerSelector.next()
