@@ -11,6 +11,7 @@ import (
 
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/proxy"
+	webrtc "github.com/pion/webrtc/v2"
 	"github.com/sirupsen/logrus"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 )
@@ -166,6 +167,11 @@ type Config struct {
 	// attacks. This should be used only for testing.
 	SignalSkipVerify bool `mapstructure:"signal-skip-verify"`
 
+	// ICEServers defines a slice describing servers available to be used by
+	// ICE, such as STUN and TURN servers.
+	// https://developer.mozilla.org/en-US/docs/Web/API/RTCIceServer/urls
+	ICEServers []webrtc.ICEServer
+
 	// Proxy is the application proxy that enables Babble to communicate with
 	// the application.
 	Proxy proxy.AppProxy
@@ -201,6 +207,7 @@ func NewDefaultConfig() *Config {
 		SignalAddr:           DefaultSignalAddr,
 		SignalRealm:          DefaultSignalRealm,
 		SignalSkipVerify:     DefaultSignalSkipVerify,
+		ICEServers:           DefaultICEServers(),
 	}
 
 	return config
@@ -297,5 +304,16 @@ func LogLevel(l string) logrus.Level {
 		return logrus.PanicLevel
 	default:
 		return logrus.DebugLevel
+	}
+}
+
+// DefaultICEServers returns a list containing a single ICEServer which
+// points to a public STUN server provided by Google. This default configuration
+// does not include a TURN server, so not all p2p connections will be possible.
+func DefaultICEServers() []webrtc.ICEServer {
+	return []webrtc.ICEServer{
+		{
+			URLs: []string{"stun:stun.l.google.com:19302"},
+		},
 	}
 }

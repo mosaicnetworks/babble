@@ -244,6 +244,9 @@ To use a WebRTC transport, use the following configuration properties:
 
 - `SignalRealm` or `--signal-realm`: routing domain within the signaling server.
 
+- `ICEServers`: a slice describing servers available to be used by ICE, such as 
+  STUN and TURN servers.
+
 WebRTC requires a signaling mechanism for peers to exchange connection 
 information. This requires a central server, so when the WebRTC transport is 
 used, Babble is not fully p2p anymore. That being said, all the  computation and
@@ -255,6 +258,10 @@ usage of WebRTC.
 It is not necessary to specify network addresses in the JSON peer files when 
 WebRTC is enabled because this information will be exchanged over the signaling 
 server. Likewise, the `BindAddr` and `AdvertiseAddr` options will be ignored.
+
+The default `ICEServers` points to a public STUN server hosted by Google 
+(`stun:stun.l.google.com:19302`). It does not include a TURN server, so not all 
+p2p connections will be possible.
 
 ### Store
 

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/common"
+	"github.com/mosaicnetworks/babble/src/config"
 	"github.com/mosaicnetworks/babble/src/net/signal/wamp"
 )
 
@@ -30,7 +31,7 @@ func TestWebRTCStreamLayerWithWampSignal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stream1 := newWebRTCStreamLayer(wampSignal1, common.NewTestEntry(t, common.TestLogLevel))
+	stream1 := newWebRTCStreamLayer(wampSignal1, config.DefaultICEServers(), common.NewTestEntry(t, common.TestLogLevel))
 	defer stream1.Close()
 
 	go func() {
@@ -40,7 +41,7 @@ func TestWebRTCStreamLayerWithWampSignal(t *testing.T) {
 		}
 	}()
 
-	stream2 := newWebRTCStreamLayer(wampSignal2, common.NewTestEntry(t, common.TestLogLevel))
+	stream2 := newWebRTCStreamLayer(wampSignal2, config.DefaultICEServers(), common.NewTestEntry(t, common.TestLogLevel))
 	defer stream2.Close()
 
 	_, err = stream2.Dial("alice", 5*time.Second)

@@ -20,18 +20,26 @@ type webRTCStreamLayer struct {
 	dataChannels map[uint16]datachannel.ReadWriteCloser
 	dataChanLock sync.Mutex
 
-	signal                 signal.Signal
+	signal signal.Signal
+
+	iceServers []webrtc.ICEServer
+
 	incomingConnAggregator chan net.Conn
-	logger                 *logrus.Entry
+
+	logger *logrus.Entry
 }
 
 // newwebRTCStreamLayer instantiates a new webRTCStreamLayer and fires up the
 // background connection aggregator (signaling process)
-func newWebRTCStreamLayer(signal signal.Signal, logger *logrus.Entry) *webRTCStreamLayer {
+func newWebRTCStreamLayer(signal signal.Signal,
+	iceServers []webrtc.ICEServer,
+	logger *logrus.Entry) *webRTCStreamLayer {
+
 	stream := &webRTCStreamLayer{
 		peerConnections:        make(map[string]*webrtc.PeerConnection),
 		dataChannels:           make(map[uint16]datachannel.ReadWriteCloser),
 		signal:                 signal,
+		iceServers:             iceServers,
 		incomingConnAggregator: make(chan net.Conn),
 		logger:                 logger,
 	}
@@ -100,11 +108,7 @@ func (w *webRTCStreamLayer) newPeerConnection(connCh chan net.Conn, createDataCh
 
 	// Prepare the configuration
 	config := webrtc.Configuration{
-		ICEServers: []webrtc.ICEServer{
-			{
-				URLs: []string{"stun:stun.l.google.com:19302"},
-			},
-		},
+		ICEServers: w.iceServers,
 	}
 
 	// Create a new RTCPeerConnection using the API object

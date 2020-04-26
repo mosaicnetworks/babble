@@ -176,6 +176,7 @@ func (b *Babble) initTransport() error {
 
 		webRTCTransport, err := net.NewWebRTCTransport(
 			signal,
+			b.Config.ICEServers,
 			b.Config.MaxPool,
 			b.Config.TCPTimeout,
 			b.Config.JoinTimeout,

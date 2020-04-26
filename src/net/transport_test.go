@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/common"
+	"github.com/mosaicnetworks/babble/src/config"
 	"github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net/signal/wamp"
 	"github.com/mosaicnetworks/babble/src/peers"
@@ -43,7 +44,7 @@ func NewTestTransport(ttype int, addr string, wampserver string, t *testing.T) T
 		if err != nil {
 			t.Fatal(err)
 		}
-		wt, err := NewWebRTCTransport(signal, 1, time.Second, 2*time.Second, common.NewTestEntry(t, common.TestLogLevel))
+		wt, err := NewWebRTCTransport(signal, config.DefaultICEServers(), 1, time.Second, 2*time.Second, common.NewTestEntry(t, common.TestLogLevel))
 		if err != nil {
 			t.Fatal(err)
 		}
