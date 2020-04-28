@@ -132,7 +132,7 @@ func (w *webRTCStreamLayer) newPeerConnection(
 	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
 		w.logger.WithFields(logrus.Fields{
 			"state": connectionState.String(),
-			"peer":  peerConnection.GetConfiguration().PeerIdentity, // XXX
+			"peer":  peerConnection.GetConfiguration().PeerIdentity,
 		}).Debug("ICE Connection State has changed")
 	})
 

@@ -14,6 +14,8 @@ IMPROVEMENTS:
 
 BUG FIXES:
 
+- transport: do not initialise when maintenance-mode is activated
+
 ## v0.7.0 (February 20, 2020)
 
 FEATURES:

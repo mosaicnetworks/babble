@@ -1485,7 +1485,6 @@ func (h *Hashgraph) Bootstrap() error {
 		// Load Genesis PeerSet
 		peerSet, err := badgerStore.dbGetPeerSet(0)
 		if err != nil {
-			// XXX
 			// return fmt.Errorf("No Genesis PeerSet: %v", err)
 			h.logger.Debug("No Genesis PeerSet, skip bootstrap")
 			return nil

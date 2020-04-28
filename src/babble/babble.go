@@ -160,7 +160,7 @@ func (b *Babble) validateConfig() error {
 }
 
 func (b *Babble) initTransport() error {
-	// XXX
+	// Leave nil transport if maintenance-mode is activated
 	if b.Config.MaintenanceMode {
 		return nil
 	}
