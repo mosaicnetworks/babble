@@ -54,7 +54,7 @@ same order.
 - **Dynamic Membership**: Members can join or leave a Babble network without 
                           undermining security.
 
-- **Fast Sync**: Joining nodes can sync straight to the current state of a 
+- **Fast Sync**: Joining nodes can sync directly to the current state of a 
                  network.
 
 - **Accountability**: Auditable history of the consensus algorithm’s output.
@@ -89,7 +89,7 @@ paper, but not specified:
   protocol, which enables peers to join or leave a group on demand.
 
 - A [fast-sync](http://docs.babble.io/en/latest/fastsync.html) protocol which
-  enables joining nodes to fast-forward straight to a point in the hashgraph
+  enables joining nodes to fast-forward directly to a point in the hashgraph
   without downloading the entire history. 
 
 ## API
@@ -277,7 +277,7 @@ one will be created and the node will start from a clean state.
 ### Maintenance Mode
 
 The node can also be started in `maintenance-mode` with the homonymous flag. The
-node is started normally but goes straight into the `Suspended` state, where it 
+node is started normally but goes directly into the `Suspended` state, where it 
 still  responds to sync-requests, and service API requests, but does not produce
 or insert new Events in the underlying hashgraph. The `Suspended` state is also 
 triggered automatically when more than `suspend-limit`, multiplied by the number

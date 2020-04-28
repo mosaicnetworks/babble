@@ -1,8 +1,6 @@
 # Change Log
 
-## Unreleased
-
-SECURITY:
+## v0.8.0 (April 28, 2020)
 
 FEATURES:
 
@@ -11,10 +9,11 @@ FEATURES:
 IMPROVEMENTS:
 
 - doc: Improve comments and package documentation
+- dependencies: Switch from using glide to go mod 
 
 BUG FIXES:
 
-- transport: do not initialise when maintenance-mode is activated
+- transport: Do not initialise transport when maintenance-mode is activated
 
 ## v0.7.0 (February 20, 2020)
 
