@@ -62,7 +62,10 @@ func (w *webRTCStreamLayer) listen() error {
 
 			w.logger.Debug("webRTCStreamLayer Processing Offer")
 
-			peerConnection, err := w.newPeerConnection(w.incomingConnAggregator, false)
+			peerConnection, err := w.newPeerConnection(
+				w.incomingConnAggregator,
+				offerPromise.From,
+				false)
 			if err != nil {
 				return err
 			}
@@ -93,12 +96,18 @@ func (w *webRTCStreamLayer) listen() error {
 }
 
 // newPeerConnection creates a PeerConnection and pipes corresponding
-// DataChannel connections into the provided channel. The createDataChannel
-// paratemer determines whether a new DataChannel is created for the
-// PeerConnection or if we just bind to its OnDataChannel handler. Basically,
-// set it to true when actively creating a PeerConnection (you are making the
-// offer) and vice-versa.
-func (w *webRTCStreamLayer) newPeerConnection(connCh chan net.Conn, createDataChannel bool) (*webrtc.PeerConnection, error) {
+// DataChannel connections into the provided channel. The peerIdentity parameter
+// is used to log the identity of the other end of the connections, but it not
+// otherwise important for the connection. The createDataChannel paratemer
+// determines whether a new DataChannel is created for the PeerConnection or if
+// we just bind to its OnDataChannel handler. Basically, set it to true when
+// actively creating a PeerConnection (you are making the offer) and vice-versa.
+func (w *webRTCStreamLayer) newPeerConnection(
+	connCh chan net.Conn,
+	peerIdentity string,
+	createDataChannel bool,
+) (*webrtc.PeerConnection, error) {
+
 	// Create a SettingEngine and enable Detach
 	s := webrtc.SettingEngine{}
 	s.DetachDataChannels()
@@ -108,7 +117,8 @@ func (w *webRTCStreamLayer) newPeerConnection(connCh chan net.Conn, createDataCh
 
 	// Prepare the configuration
 	config := webrtc.Configuration{
-		ICEServers: w.iceServers,
+		ICEServers:   w.iceServers,
+		PeerIdentity: peerIdentity,
 	}
 
 	// Create a new RTCPeerConnection using the API object
@@ -120,7 +130,10 @@ func (w *webRTCStreamLayer) newPeerConnection(connCh chan net.Conn, createDataCh
 	// Set the handler for ICE connection state
 	// This will notify you when the peer has connected/disconnected
 	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-		w.logger.WithField("state", connectionState.String()).Debug("ICE Connection State has changed")
+		w.logger.WithFields(logrus.Fields{
+			"state": connectionState.String(),
+			"peer":  peerConnection.GetConfiguration().PeerIdentity, // XXX
+		}).Debug("ICE Connection State has changed")
 	})
 
 	if createDataChannel {
@@ -171,7 +184,10 @@ func (w *webRTCStreamLayer) Dial(target string, timeout time.Duration) (net.Conn
 	connCh := make(chan net.Conn)
 
 	// Create or get PeerConnection and pipe DataChannel connections to connCh
-	pc, err := w.newPeerConnection(connCh, true)
+	pc, err := w.newPeerConnection(
+		connCh,
+		target,
+		true)
 	if err != nil {
 		return nil, err
 	}

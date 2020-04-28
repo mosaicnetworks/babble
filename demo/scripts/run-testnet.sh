@@ -19,7 +19,7 @@ if "$WEBRTC"; then
     # option copies the certificate and key files necessary to secure TLS 
     # connections
     docker run -d \
-     --name=signal \
+    --name=signal \
     --net=babblenet \
     --ip=172.77.15.1 \
     --volume "$(pwd)"/../src/net/signal/wamp/test_data:/signal \
