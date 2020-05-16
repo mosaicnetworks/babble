@@ -13,7 +13,7 @@ import (
 )
 
 var url = ":2443"
-var realm = "office"
+var realm = "main"
 var certFile = "cert.pem"
 var keyFile = "key.pem"
 

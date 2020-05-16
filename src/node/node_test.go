@@ -34,7 +34,7 @@ var ip = 9990
 //config for test WebRTC signaling service
 var certFile = "../net/signal/wamp/test_data/cert.pem"
 var keyFile = "../net/signal/wamp/test_data/key.pem"
-var realm = "office"
+var realm = config.DefaultSignalRealm
 
 func TestAddTransaction(t *testing.T) {
 	keys, peers := initPeers(t, 2)

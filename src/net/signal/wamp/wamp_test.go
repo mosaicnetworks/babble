@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/mosaicnetworks/babble/src/common"
+	"github.com/mosaicnetworks/babble/src/config"
 	"github.com/pion/webrtc/v2"
 	"github.com/sirupsen/logrus"
 )
@@ -15,7 +16,7 @@ const keyFile = "test_data/key.pem"
 
 func TestWampSelfSigned(t *testing.T) {
 	url := "localhost:2443"
-	realm := "office"
+	realm := config.DefaultSignalRealm
 	certFile := "test_data/cert.pem"
 	keyFile := "test_data/key.pem"
 

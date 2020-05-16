@@ -21,7 +21,7 @@ const (
 )
 
 var (
-	realm    = "office"
+	realm    = config.DefaultSignalRealm
 	wampPort = 8443
 	certFile = "signal/wamp/test_data/cert.pem"
 	keyFile  = "signal/wamp/test_data/key.pem"

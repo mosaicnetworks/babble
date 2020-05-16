@@ -48,7 +48,7 @@ const (
 	DefaultSuspendLimit         = 100
 	DefaultWebRTC               = false
 	DefaultSignalAddr           = "127.0.0.1:2443"
-	DefaultSignalRealm          = "office"
+	DefaultSignalRealm          = "main"
 	DefaultSignalSkipVerify     = false
 )
 
