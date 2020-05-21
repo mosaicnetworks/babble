@@ -21,12 +21,12 @@ func TestWebRTCStreamLayerWithWampSignal(t *testing.T) {
 	defer server.Shutdown()
 	time.Sleep(time.Second)
 
-	wampSignal1, err := wamp.NewClient(url, realm, "alice", certFile, false, common.NewTestEntry(t, common.TestLogLevel))
+	wampSignal1, err := wamp.NewClient(url, realm, "alice", certFile, false, signalTimeout, common.NewTestEntry(t, common.TestLogLevel))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	wampSignal2, err := wamp.NewClient(url, realm, "bob", certFile, false, common.NewTestEntry(t, common.TestLogLevel))
+	wampSignal2, err := wamp.NewClient(url, realm, "bob", certFile, false, signalTimeout, common.NewTestEntry(t, common.TestLogLevel))
 	if err != nil {
 		t.Fatal(err)
 	}

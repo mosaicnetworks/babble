@@ -172,6 +172,7 @@ func (b *Babble) initTransport() error {
 			keys.PublicKeyHex(&b.Config.Key.PublicKey),
 			b.Config.CertFile(),
 			b.Config.SignalSkipVerify,
+			b.Config.TCPTimeout,
 			b.Config.Logger().WithField("component", "webrtc-signal"),
 		)
 

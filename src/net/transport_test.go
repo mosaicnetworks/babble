@@ -21,10 +21,11 @@ const (
 )
 
 var (
-	realm    = config.DefaultSignalRealm
-	wampPort = 8443
-	certFile = "signal/wamp/test_data/cert.pem"
-	keyFile  = "signal/wamp/test_data/key.pem"
+	realm         = config.DefaultSignalRealm
+	wampPort      = 8443
+	certFile      = "signal/wamp/test_data/cert.pem"
+	keyFile       = "signal/wamp/test_data/key.pem"
+	signalTimeout = 5 * time.Second
 )
 
 func NewTestTransport(ttype int, addr string, wampserver string, t *testing.T) Transport {
@@ -40,7 +41,15 @@ func NewTestTransport(ttype int, addr string, wampserver string, t *testing.T) T
 		go tt.Listen()
 		return tt
 	case WEBRTC:
-		signal, err := wamp.NewClient(wampserver, realm, addr, certFile, false, common.NewTestEntry(t, common.TestLogLevel))
+		signal, err := wamp.NewClient(
+			wampserver,
+			realm,
+			addr,
+			certFile,
+			false,
+			signalTimeout,
+			common.NewTestEntry(t, common.TestLogLevel),
+		)
 		if err != nil {
 			t.Fatal(err)
 		}

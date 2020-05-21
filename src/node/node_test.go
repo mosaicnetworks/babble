@@ -361,6 +361,7 @@ func newNode(peer *peers.Peer,
 			peer.NetAddr,
 			certFile,
 			false,
+			conf.TCPTimeout,
 			common.NewTestEntry(t, common.TestLogLevel),
 		)
 

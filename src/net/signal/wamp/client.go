@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"time"
 
 	"github.com/gammazero/nexus/v3/client"
 	"github.com/gammazero/nexus/v3/wamp"
@@ -21,24 +22,30 @@ import (
 // Client implements the Signal interface. It sends and receives SDP offers
 // through a WAMP server using WebSockets.
 type Client struct {
-	pubKey   string
-	client   *client.Client
-	consumer chan signal.OfferPromise
-	logger   *logrus.Entry
+	pubKey    string
+	routerURL string
+	config    client.Config
+	client    *client.Client
+	consumer  chan signal.OfferPromise
+	logger    *logrus.Entry
 }
 
 // NewClient instantiates a new Client, and opens a connection to the WAMP
 // signaling server.
-func NewClient(server string,
+func NewClient(
+	server string,
 	realm string,
 	pubKey string,
 	caFile string,
 	insecureSkipVerify bool,
-	logger *logrus.Entry) (*Client, error) {
+	responseTimeout time.Duration,
+	logger *logrus.Entry,
+) (*Client, error) {
 
 	cfg := client.Config{
-		Realm:  realm,
-		Logger: logger,
+		Realm:           realm,
+		ResponseTimeout: responseTimeout,
+		Logger:          logger,
 	}
 
 	tlscfg := &tls.Config{}
@@ -85,23 +92,42 @@ func NewClient(server string,
 
 	cfg.TlsCfg = tlscfg
 
-	cli, err := client.ConnectNet(
-		context.Background(),
-		fmt.Sprintf("wss://%s", server),
-		cfg,
-	)
+	res := &Client{
+		pubKey:    pubKey,
+		routerURL: fmt.Sprintf("wss://%s", server),
+		config:    cfg,
+		consumer:  make(chan signal.OfferPromise),
+		logger:    logger,
+	}
+
+	err := res.Connect()
 	if err != nil {
 		return nil, err
 	}
 
-	res := &Client{
-		pubKey:   pubKey,
-		client:   cli,
-		consumer: make(chan signal.OfferPromise),
-		logger:   logger,
+	return res, nil
+}
+
+// Connect creates a new WAMP client connected to a WAMP router specified by the
+// client's routerURL. If a WAMP client already exists and is already connected,
+// it does nothing.
+func (c *Client) Connect() error {
+	if c.client != nil && c.client.Connected() {
+		return nil
 	}
 
-	return res, nil
+	cli, err := client.ConnectNet(
+		context.Background(),
+		c.routerURL,
+		c.config,
+	)
+	if err != nil {
+		return err
+	}
+
+	c.client = cli
+
+	return nil
 }
 
 // ID implements the Signal interface. It returns the pubKey indentifying this
@@ -130,19 +156,24 @@ func (c *Client) Offer(target string, offer webrtc.SessionDescription) (*webrtc.
 		return nil, err
 	}
 
-	// TODO formalise RPC args
 	callArgs := wamp.List{
 		string(c.pubKey),
 		string(raw),
 	}
 
-	result, err := c.client.Call(context.Background(), target, nil, callArgs, nil, nil)
+	// Create a context to cancel the call after timeout.
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		c.config.ResponseTimeout,
+	)
+	defer cancel()
+
+	result, err := c.client.Call(ctx, target, nil, callArgs, nil, nil)
 	if err != nil {
 		c.logger.Error(err)
 		return nil, err
 	}
 
-	// TODO formalise RPC args
 	sdp, ok := wamp.AsString(result.Arguments[0])
 	if !ok {
 		return nil, err
@@ -171,7 +202,7 @@ func (c *Client) Close() error {
 	return c.client.Close()
 }
 
-// TODO formalise RPC arguments and errors
+// callHandler is called when an offer is received from the signaling server.
 func (c *Client) callHandler(ctx context.Context, inv *wamp.Invocation) client.InvokeResult {
 	if len(inv.Arguments) != 2 {
 		return errResult(
@@ -205,8 +236,10 @@ func (c *Client) callHandler(ctx context.Context, inv *wamp.Invocation) client.I
 	c.consumer <- promise
 
 	// Wait for response
-	// TODO Timeout?
+	timer := time.NewTimer(c.config.ResponseTimeout)
 	select {
+	case <-timer.C:
+		return errResult("Callee TIMEOUT")
 	case resp := <-respCh:
 		if resp.Error != nil {
 			return errResult(resp.Error.Error())

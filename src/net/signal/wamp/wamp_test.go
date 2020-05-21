@@ -13,6 +13,7 @@ import (
 
 const certFile = "test_data/cert.pem"
 const keyFile = "test_data/key.pem"
+const signalTimeout = 5 * time.Second
 
 func TestWampSelfSigned(t *testing.T) {
 	url := "localhost:2443"
@@ -41,6 +42,7 @@ func TestWampSelfSigned(t *testing.T) {
 		"callee",
 		certFile,
 		false,
+		signalTimeout,
 		common.NewTestLogger(t, logrus.DebugLevel).WithField("component", "signal-client callee"))
 
 	if err != nil {
@@ -59,6 +61,7 @@ func TestWampSelfSigned(t *testing.T) {
 		"caller",
 		certFile,
 		false,
+		signalTimeout,
 		common.NewTestLogger(t, logrus.DebugLevel).WithField("component", "signal-client caller"))
 
 	if err != nil {
