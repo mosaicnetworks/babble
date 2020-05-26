@@ -113,6 +113,11 @@ func (n *Node) SubmitTx(tx []byte) {
 	n.proxy.SubmitCh() <- t
 }
 
+// GetPubKey returns the validator's public key in Hex format.
+func (n *Node) GetPubKey() string {
+	return n.node.GetPubKey()
+}
+
 // GetPeers returns the current list of peers.
 func (n *Node) GetPeers() string {
 	peers := n.node.GetPeers()

@@ -268,6 +268,12 @@ func (n *Node) GetID() uint32 {
 	return n.core.validator.ID()
 }
 
+// GetPubKey return the hexadecimal representation of the validator's public
+// key.
+func (n *Node) GetPubKey() string {
+	return n.core.validator.PublicKeyHex()
+}
+
 // GetStats returns information about the node.
 func (n *Node) GetStats() map[string]string {
 	toString := func(i *int) string {
