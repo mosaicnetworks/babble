@@ -244,8 +244,15 @@ To use a WebRTC transport, use the following configuration properties:
 
 - `SignalRealm` or `--signal-realm`: routing domain within the signaling server.
 
-- `ICEServers`: a slice describing servers available to be used by ICE, such as 
-  STUN and TURN servers.
+- `ICEAddress` or `--ice-addr`: URL of a server providing ICE services such as 
+                                STUN and TURN.
+
+- `ICEUsername` or `--ice-username`: Username to authenticate to the ICE server.
+
+- `ICEPassword` or `--ice-password`: Password to authenticate to the ICE server.
+
+Users of the library can also manipulate the ICE servers configuration directly
+by manually modifying the list returned by `Config.ICEServers()`.
 
 WebRTC requires a signaling mechanism for peers to exchange connection 
 information. This requires a central server, so when the WebRTC transport is 
@@ -261,7 +268,8 @@ server. Likewise, the `BindAddr` and `AdvertiseAddr` options will be ignored.
 
 The default `ICEServers` points to a public STUN server hosted by Google 
 (`stun:stun.l.google.com:19302`). It does not include a TURN server, so not all 
-p2p connections will be possible.
+p2p connections will be possible. For a full ICE server, have a look at our 
+[Disco server]("https://github.com/mosaicnetworks/disco).
 
 ### Store
 

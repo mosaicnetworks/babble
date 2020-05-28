@@ -116,12 +116,15 @@ func (b *Babble) validateConfig() error {
 		"babble.SuspendLimit":     b.Config.SuspendLimit,
 	}
 
-	// WebRTC requires a signaling server
+	// WebRTC requires signaling and ICE servers
 	if b.Config.WebRTC {
 		logFields["babble.WebRTC"] = b.Config.WebRTC
 		logFields["babble.SignalAddr"] = b.Config.SignalAddr
 		logFields["babble.SignalRealm"] = b.Config.SignalRealm
 		logFields["babble.SignalSkipVerify"] = b.Config.SignalSkipVerify
+		logFields["babble.ICEAddress"] = b.Config.ICEAddress
+		logFields["babble.ICEUsername"] = b.Config.ICEUsername
+
 	} else {
 		logFields["babble.BindAddr"] = b.Config.BindAddr
 		logFields["babble.AdvertiseAddr"] = b.Config.AdvertiseAddr
@@ -182,7 +185,7 @@ func (b *Babble) initTransport() error {
 
 		webRTCTransport, err := net.NewWebRTCTransport(
 			signal,
-			b.Config.ICEServers,
+			b.Config.ICEServers(),
 			b.Config.MaxPool,
 			b.Config.TCPTimeout,
 			b.Config.JoinTimeout,

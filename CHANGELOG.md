@@ -3,9 +3,16 @@
 ## Unreleased
 
 SECURITY:
+
 FEATURES:
+
 IMPROVEMTS:
+
+- config: Expose ICE server configuration.
+
 BUG FIXES:
+
+- net: Add timeouts in Signaling mechanism.
 
 ## v0.8.0 (April 28, 2020)
 

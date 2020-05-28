@@ -371,7 +371,7 @@ func newNode(peer *peers.Peer,
 
 		trans, err = net.NewWebRTCTransport(
 			signal,
-			conf.ICEServers,
+			conf.ICEServers(),
 			conf.MaxPool,
 			conf.TCPTimeout,
 			conf.JoinTimeout,
