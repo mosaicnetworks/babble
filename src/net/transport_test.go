@@ -53,7 +53,13 @@ func NewTestTransport(ttype int, addr string, wampserver string, t *testing.T) T
 		if err != nil {
 			t.Fatal(err)
 		}
-		wt, err := NewWebRTCTransport(signal, config.DefaultICEServers(), 1, time.Second, 2*time.Second, common.NewTestEntry(t, common.TestLogLevel))
+		wt, err := NewWebRTCTransport(
+			signal,
+			config.DefaultICEServers(),
+			1,
+			signalTimeout,
+			signalTimeout,
+			common.NewTestEntry(t, common.TestLogLevel))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -161,7 +167,7 @@ func TestTransport_Sync(t *testing.T) {
 				rpc.Respond(&resp, nil)
 			case <-stopCh:
 				return
-			case <-time.After(1000 * time.Millisecond):
+			case <-time.After(signalTimeout):
 				t.Logf("consumer timeout")
 			}
 		}()
@@ -242,7 +248,7 @@ func TestTransport_EagerSync(t *testing.T) {
 				rpc.Respond(&resp, nil)
 			case <-stopCh:
 				return
-			case <-time.After(1000 * time.Millisecond):
+			case <-time.After(signalTimeout):
 				t.Logf("consumer timeout")
 			}
 		}()
@@ -387,7 +393,7 @@ func TestTransport_FastForward(t *testing.T) {
 				rpc.Respond(&resp, nil)
 			case <-stopCh:
 				return
-			case <-time.After(1000 * time.Millisecond):
+			case <-time.After(signalTimeout):
 				t.Logf("consumer timeout")
 			}
 		}()
@@ -419,8 +425,8 @@ func TestTransport_FastForward(t *testing.T) {
 
 func TestTransport_Join(t *testing.T) {
 	wampserver := nextWampAddress()
-	addr1 := "127.0.0.1:2345"
-	addr2 := "127.0.0.1:2346"
+	addr1 := "127.0.0.1:1240"
+	addr2 := "127.0.0.1:1241"
 
 	for ttype := 0; ttype < numTestTransports; ttype++ {
 		s := checkStartWampServer(ttype, wampserver, t)
@@ -483,7 +489,7 @@ func TestTransport_Join(t *testing.T) {
 				rpc.Respond(&resp, nil)
 			case <-stopCh:
 				return
-			case <-time.After(1000 * time.Millisecond):
+			case <-time.After(signalTimeout):
 				t.Logf("consumer timeout")
 			}
 		}()

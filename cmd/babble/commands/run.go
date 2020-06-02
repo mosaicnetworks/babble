@@ -82,7 +82,7 @@ func AddRunFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool("webrtc", _config.Babble.WebRTC, "Use WebRTC transport")
 	cmd.Flags().String("signal-addr", _config.Babble.SignalAddr, "IP:Port of WebRTC signaling server")
 	cmd.Flags().Bool("signal-skip-verify", _config.Babble.SignalSkipVerify, "(Insecure) Accept any certificate presented by the signal server")
-	cmd.Flags().String("ice-addr", _config.Babble.ICEAddr, "URL of a server providing ICE services such as STUN and TURN")
+	cmd.Flags().String("ice-addr", _config.Babble.ICEAddress, "URI of a server providing ICE services such as STUN and TURN")
 	cmd.Flags().String("ice-username", _config.Babble.ICEUsername, "Username to authenticate to the ICE server")
 	cmd.Flags().String("ice-password", _config.Babble.ICEPassword, "Password to authenticate to the ICE server")
 

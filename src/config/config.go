@@ -170,10 +170,11 @@ type Config struct {
 	// attacks. This should be used only for testing.
 	SignalSkipVerify bool `mapstructure:"signal-skip-verify"`
 
-	// ICE address is the URL of a server providing services for ICE, such as
+	// ICE address is the URI of a server providing services for ICE, such as
 	// STUN and TURN. The server should support password-based authentication,
 	// as Babble will try to connect with the username and password provided in
-	// ICEUsername and ICEPassword below.
+	// ICEUsername and ICEPassword below. Username adn password can also be
+	// empty if the ICE server does not use authentication.
 	// https://developer.mozilla.org/en-US/docs/Web/API/RTCIceServer/urls
 	ICEAddress string `mapstructure:"ice-addr"`
 
