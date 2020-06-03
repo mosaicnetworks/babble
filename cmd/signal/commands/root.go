@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/mosaicnetworks/babble/src/config"
 	"github.com/mosaicnetworks/babble/src/net/signal/wamp"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -13,7 +14,7 @@ import (
 )
 
 var url = ":2443"
-var realm = "main"
+var realm = config.DefaultSignalRealm
 var certFile = "cert.pem"
 var keyFile = "key.pem"
 
@@ -25,7 +26,7 @@ func init() {
 	viper.BindPFlags(RootCmd.Flags())
 }
 
-//RootCmd is the root command for the signaling server
+// RootCmd is the root command for the signaling server
 var RootCmd = &cobra.Command{
 	Use:   "signal",
 	Short: "WebRTC signaling server using WebSocket Secure",

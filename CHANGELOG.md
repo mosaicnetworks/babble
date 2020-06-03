@@ -1,10 +1,6 @@
 # Change Log
 
-## Unreleased
-
-SECURITY:
-
-FEATURES:
+## v0.8.1 (June 3, 2020)
 
 IMPROVEMTS:
 
