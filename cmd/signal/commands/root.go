@@ -25,7 +25,7 @@ func init() {
 	viper.BindPFlags(RootCmd.Flags())
 }
 
-//RootCmd is the root command for the signaling server
+// RootCmd is the root command for the signaling server
 var RootCmd = &cobra.Command{
 	Use:   "signal",
 	Short: "WebRTC signaling server using WebSocket Secure",
