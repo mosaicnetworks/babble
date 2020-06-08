@@ -276,45 +276,17 @@ func (n *Node) GetPubKey() string {
 
 // GetStats returns information about the node.
 func (n *Node) GetStats() map[string]string {
-	toString := func(i *int) string {
-		if i == nil {
-			return "nil"
-		}
-
-		return strconv.Itoa(*i)
-	}
-
-	timeElapsed := time.Since(n.start)
-
-	consensusEvents := n.core.getConsensusEventsCount()
-
-	consensusEventsPerSecond := float64(consensusEvents) / timeElapsed.Seconds()
-
-	lastConsensusRound := n.core.getLastConsensusRoundIndex()
-
-	var consensusRoundsPerSecond float64
-
-	if lastConsensusRound != nil {
-		consensusRoundsPerSecond = float64(*lastConsensusRound) / timeElapsed.Seconds()
-	}
-
 	s := map[string]string{
-		"last_consensus_round":   toString(lastConsensusRound),
-		"last_block_index":       strconv.Itoa(n.core.getLastBlockIndex()),
-		"consensus_events":       strconv.Itoa(consensusEvents),
-		"consensus_transactions": strconv.Itoa(n.core.getConsensusTransactionsCount()),
-		"undetermined_events":    strconv.Itoa(len(n.core.getUndeterminedEvents())),
-		"transaction_pool":       strconv.Itoa(len(n.core.transactionPool)),
-		"num_peers":              strconv.Itoa(n.core.peerSelector.getPeers().Len()),
-		"last_peer_change":       strconv.Itoa(n.core.lastPeerChangeRound),
-		"sync_rate":              strconv.FormatFloat(n.syncRate(), 'f', 2, 64),
-		"events_per_second":      strconv.FormatFloat(consensusEventsPerSecond, 'f', 2, 64),
-		"rounds_per_second":      strconv.FormatFloat(consensusRoundsPerSecond, 'f', 2, 64),
-		"round_events":           strconv.Itoa(n.core.getLastCommitedRoundEventsCount()),
-		"id":                     fmt.Sprint(n.core.validator.ID()),
-		"state":                  n.GetState().String(),
-		"moniker":                n.core.validator.Moniker,
-		"time":                   strconv.FormatInt(time.Now().UnixNano(), 10),
+		"last_consensus_round": strconv.Itoa(n.GetLastConsensusRoundIndex()),
+		"last_block_index":     strconv.Itoa(n.GetLastBlockIndex()),
+		"undetermined_events":  strconv.Itoa(len(n.core.getUndeterminedEvents())),
+		"transaction_pool":     strconv.Itoa(len(n.core.transactionPool)),
+		"num_peers":            strconv.Itoa(n.core.peerSelector.getPeers().Len()),
+		"last_peer_change":     strconv.Itoa(n.core.lastPeerChangeRound),
+		"id":                   fmt.Sprint(n.core.validator.ID()),
+		"state":                n.GetState().String(),
+		"moniker":              n.core.validator.Moniker,
+		"time":                 strconv.FormatInt(time.Now().UnixNano(), 10),
 	}
 	return s
 }
@@ -820,30 +792,13 @@ func (n *Node) logStats() {
 	stats := n.GetStats()
 
 	n.logger.WithFields(logrus.Fields{
-		"last_consensus_round":   stats["last_consensus_round"],
-		"last_block_index":       stats["last_block_index"],
-		"consensus_events":       stats["consensus_events"],
-		"consensus_transactions": stats["consensus_transactions"],
-		"undetermined_events":    stats["undetermined_events"],
-		"transaction_pool":       stats["transaction_pool"],
-		"num_peers":              stats["num_peers"],
-		"sync_rate":              stats["sync_rate"],
-		"events/s":               stats["events_per_second"],
-		"rounds/s":               stats["rounds_per_second"],
-		"round_events":           stats["round_events"],
-		"id":                     stats["id"],
-		"state":                  stats["state"],
-		"moniker":                stats["moniker"],
+		"last_consensus_round": stats["last_consensus_round"],
+		"last_block_index":     stats["last_block_index"],
+		"undetermined_events":  stats["undetermined_events"],
+		"transaction_pool":     stats["transaction_pool"],
+		"num_peers":            stats["num_peers"],
+		"id":                   stats["id"],
+		"state":                stats["state"],
+		"moniker":              stats["moniker"],
 	}).Debug("Stats")
-}
-
-// syncRate computes the ratio of sync-errors over sync-requests
-func (n *Node) syncRate() float64 {
-	var syncErrorRate float64
-
-	if n.syncRequests != 0 {
-		syncErrorRate = float64(n.syncErrors) / float64(n.syncRequests)
-	}
-
-	return 1 - syncErrorRate
 }

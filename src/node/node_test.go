@@ -273,6 +273,7 @@ func BenchmarkGossip(b *testing.B) {
 		genesisPeerSet := clonePeerSet(b, peers.Peers)
 
 		nodes := initNodes(keys, peers, genesisPeerSet, 1000, 1000, 5, false, "inmem", 5*time.Millisecond, false, "", b)
+
 		gossip(nodes, 50, true)
 	}
 }
