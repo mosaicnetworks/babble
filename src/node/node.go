@@ -191,6 +191,16 @@ func (n *Node) Run(gossip bool) {
 		case _state.Joining:
 			n.join()
 		case _state.Suspended:
+			// XXX
+			faultyNodes, err := n.core.getFaultyNodes(n.conf.SuspendLimit)
+			if err != nil {
+				n.logger.WithError(err).Errorf("Error getting faulty nodes")
+			}
+
+			n.logger.WithFields(logrus.Fields{
+				"faulty_nodes": faultyNodes,
+			}).Debugf("Faulty Nodes")
+
 			time.Sleep(2000 * time.Millisecond)
 		case _state.Shutdown:
 			return

@@ -838,3 +838,32 @@ func (c *core) getLastCommitedRoundEventsCount() int {
 func (c *core) getLastBlockIndex() int {
 	return c.hg.Store.LastBlockIndex()
 }
+
+/*******************************************************************************
+XXX AUTOMATIC EVICTION
+*******************************************************************************/
+
+func (c *core) getFaultyNodes(limit int) ([]string, error) {
+	// What round are we stuck at
+	round, err := c.hg.Store.GetRound(c.hg.Store.LastRound())
+	if err != nil {
+		return []string{}, err
+	}
+
+	// How many event has each participant created in this round?
+	evCount := map[string]int{}
+	for eventHash, _ := range round.CreatedEvents {
+		ev, _ := c.hg.Store.GetEvent(eventHash)
+		evCount[ev.Creator()] = evCount[ev.Creator()] + 1
+	}
+
+	// Those who have less than specified limit are deemeed faulty
+	faultyNodes := []string{}
+	for p, c := range evCount {
+		if c < limit {
+			faultyNodes = append(faultyNodes, p)
+		}
+	}
+
+	return faultyNodes, nil
+}
