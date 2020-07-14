@@ -279,14 +279,15 @@ func (n *Node) GetStats() map[string]string {
 	s := map[string]string{
 		"last_consensus_round": strconv.Itoa(n.GetLastConsensusRoundIndex()),
 		"last_block_index":     strconv.Itoa(n.GetLastBlockIndex()),
+		"consensus_events":     strconv.Itoa(n.core.getConsensusEventsCount()),
 		"undetermined_events":  strconv.Itoa(len(n.core.getUndeterminedEvents())),
+		"transactions":         strconv.Itoa(n.core.getConsensusTransactionsCount()),
 		"transaction_pool":     strconv.Itoa(len(n.core.transactionPool)),
 		"num_peers":            strconv.Itoa(n.core.peerSelector.getPeers().Len()),
 		"last_peer_change":     strconv.Itoa(n.core.lastPeerChangeRound),
 		"id":                   fmt.Sprint(n.core.validator.ID()),
 		"state":                n.GetState().String(),
 		"moniker":              n.core.validator.Moniker,
-		"time":                 strconv.FormatInt(time.Now().UnixNano(), 10),
 	}
 	return s
 }
@@ -795,6 +796,7 @@ func (n *Node) logStats() {
 		"last_consensus_round": stats["last_consensus_round"],
 		"last_block_index":     stats["last_block_index"],
 		"undetermined_events":  stats["undetermined_events"],
+		"transactions":         stats["transactions"],
 		"transaction_pool":     stats["transaction_pool"],
 		"num_peers":            stats["num_peers"],
 		"id":                   stats["id"],

@@ -3,8 +3,13 @@
 ## Unreleased
 
 SECURITY:
+
 FEATURES:
+
 IMPROVEMENTS:
+
+- node: Remove unused stats.
+
 BUG FIXES:
 
 ## v0.8.1 (June 3, 2020)
