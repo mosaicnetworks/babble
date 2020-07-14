@@ -843,7 +843,7 @@ func (c *core) getLastBlockIndex() int {
 XXX AUTOMATIC EVICTION
 *******************************************************************************/
 
-func (c *core) getFaultyNodes(limit int) ([]string, error) {
+func (c *core) getFaultyPeers(limit int) ([]string, error) {
 	// What round are we stuck at
 	round, err := c.hg.Store.GetRound(c.hg.Store.LastRound())
 	if err != nil {
@@ -866,4 +866,39 @@ func (c *core) getFaultyNodes(limit int) ([]string, error) {
 	}
 
 	return faultyNodes, nil
+}
+
+func (c *core) removeFaultyPeers(faultyPeers []string, round int) error {
+	// create new peer-set excluding faulty peers
+	newValidators := c.validators
+	for _, fp := range faultyPeers {
+		p, ok := c.validators.ByPubKey[fp]
+		if ok {
+			newValidators = c.validators.WithRemovedPeer(p)
+		}
+	}
+
+	// XXX copy-pasted from processInternalTransactions
+
+	// Record the new validator-set in the underlying Hashgraph and in the
+	// core's validators field
+	c.lastPeerChangeRound = round
+
+	err := c.hg.Store.SetPeerSet(round, newValidators)
+	if err != nil {
+		return fmt.Errorf("Updating Store PeerSet: %s", err)
+	}
+
+	c.validators = newValidators
+
+	c.logger.WithFields(logrus.Fields{
+		"effective_round": round,
+		"validators":      len(newValidators.Peers),
+	}).Info("Validators changed")
+
+	// Update the current list of communicating peers. This is not
+	// necessarily equal to the latest recorded validator_set.
+	c.setPeers(newValidators)
+
+	return nil
 }

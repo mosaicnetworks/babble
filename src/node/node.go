@@ -192,14 +192,27 @@ func (n *Node) Run(gossip bool) {
 			n.join()
 		case _state.Suspended:
 			// XXX
-			faultyNodes, err := n.core.getFaultyNodes(n.conf.SuspendLimit)
+
+			// Get faulty peers
+			faultyPeers, err := n.core.getFaultyPeers(n.conf.SuspendLimit)
 			if err != nil {
 				n.logger.WithError(err).Errorf("Error getting faulty nodes")
 			}
 
 			n.logger.WithFields(logrus.Fields{
-				"faulty_nodes": faultyNodes,
-			}).Debugf("Faulty Nodes")
+				"faulty_peers": faultyPeers,
+			}).Debugf("Faulty Peers")
+
+			// Remove faulty peers
+			err = n.core.removeFaultyPeers(
+				faultyPeers,
+				n.core.hg.Store.LastRound(),
+			)
+			if err != nil {
+				n.logger.WithError(err).Errorf("Error removing faulty peers")
+			}
+
+			// Clear hg cashes
 
 			time.Sleep(2000 * time.Millisecond)
 		case _state.Shutdown:
