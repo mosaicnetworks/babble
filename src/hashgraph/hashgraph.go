@@ -593,6 +593,8 @@ func (h *Hashgraph) createRoot(participant string, head string) (*Root, error) {
 	return root, nil
 }
 
+// SetWireInfo populares the private fields that are used when represending an
+// Event in its lighweight wire format.
 func (h *Hashgraph) SetWireInfo(event *Event) error {
 	selfParentIndex := -1
 	otherParentCreatorID := uint32(0)
@@ -1679,5 +1681,57 @@ type InternalCommitCallback func(*Block) error
 
 //DummyInternalCommitCallback is used for testing
 func DummyInternalCommitCallback(b *Block) error {
+	return nil
+}
+
+/*******************************************************************************
+XXX
+*******************************************************************************/
+
+// RecomputeRound is used to re-evaluate some hashgraph functions after peers
+// have been evicted from a round.
+func (h *Hashgraph) RecomputeRound(round int) error {
+	// Clear RoundInfo
+	err := h.Store.SetRound(round, NewRoundInfo())
+	if err != nil {
+		return err
+	}
+
+	for _, eh := range h.UndeterminedEvents {
+		ev, err := h.Store.GetEvent(eh)
+		if err != nil {
+			return err
+		}
+
+		//	clear '.round'
+		ev.round = nil
+
+		// cleanup caches
+		h.roundCache.Remove(eh)
+		h.witnessCache.Remove(eh)
+	}
+
+	// Clear strongly see cache
+	h.stronglySeeCache.Purge()
+
+	// Run Consensus
+
+	if err := h.DivideRounds(); err != nil {
+		h.logger.WithError(err).Errorf("DivideRounds")
+		return err
+	}
+	if err := h.DecideFame(); err != nil {
+		h.logger.WithError(err).Errorf("DecideFame")
+		return err
+	}
+	if err := h.DecideRoundReceived(); err != nil {
+		h.logger.WithError(err).Errorf("DecideRoundReceived")
+		return err
+	}
+	if err := h.ProcessDecidedRounds(); err != nil {
+		h.logger.WithError(err).Errorf("ProcessDecidedRounds")
+		return err
+	}
+
 	return nil
 }
