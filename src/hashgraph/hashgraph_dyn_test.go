@@ -844,3 +844,207 @@ func TestMonologueDecideRoundReceived(t *testing.T) {
 		}
 	}
 }
+
+/*
+Round 2		|   x12
+P: [0,1,2]  | /  |
+		   x02   |
+            | \  |
+			|   x11
+		    | /  |
+		   x01   |
+            | \  |
+			|   x10
+		    | /  |
+		   x00   |
+            | \  |
+            |   w21
+            | /  |
+           w20   |
+            |  \ |
+            |    | \
+            |    |   w22
+        -----------/------
+Round 1     |   f10   |
+P:[0,1,2]   | /  |    |
+           w10   |    |
+            |  \ |    |
+            |    | \  |
+            |    |   w12
+            |    |  / |
+            |   w11   |
+         -----/------------
+Round 0	   e12   |    |
+P:[0,1,2]   |  \ |    |
+            |    | \  |
+            |    |   e21
+            |    | /  |
+            |   e10   |
+            |  / |    |
+           w00  w01  w02
+            |    |    |
+            R0   R1   R2
+            0    1    2
+*/
+func initEvictionHashgraph(t testing.TB) (*Hashgraph, []TestNode, map[string]string) {
+	nodes, index, orderedEvents, peerSet := initHashgraphNodes(3)
+
+	for i := range peerSet.Peers {
+		name := fmt.Sprintf("w0%d", i)
+		event := NewEvent([][]byte{[]byte(name)}, nil, nil, []string{"", ""}, nodes[i].PubBytes, 0)
+		nodes[i].signAndAddEvent(event, name, index, orderedEvents)
+	}
+
+	plays := []play{
+		{1, 1, "w01", "w00", "e10", [][]byte{[]byte("e10")}, nil},
+		{2, 1, "w02", "e10", "e21", [][]byte{[]byte("e21")}, nil},
+		{0, 1, "w00", "e21", "e12", [][]byte{[]byte("e12")}, nil},
+		{1, 2, "e10", "e12", "w11", [][]byte{[]byte("w11")}, nil},
+		{2, 2, "e21", "w11", "w12", [][]byte{[]byte("w12")}, nil},
+		{0, 2, "e12", "w12", "w10", [][]byte{[]byte("w10")}, nil},
+		{1, 3, "w11", "w10", "f10", [][]byte{[]byte("f10")}, nil},
+		{2, 3, "w12", "f10", "w22", [][]byte{[]byte("w22")}, nil},
+		{0, 3, "w10", "w22", "w20", [][]byte{[]byte("w20")}, nil},
+		{1, 4, "f10", "w20", "w21", [][]byte{[]byte("w21")}, nil},
+		{0, 4, "w20", "w21", "x00", [][]byte{[]byte("x00")}, nil},
+		{1, 5, "w21", "x00", "x10", [][]byte{[]byte("x10")}, nil},
+		{0, 5, "x00", "x10", "x01", [][]byte{[]byte("x01")}, nil},
+		{1, 6, "x10", "x01", "x11", [][]byte{[]byte("x11")}, nil},
+		{0, 6, "x01", "x11", "x02", [][]byte{[]byte("x02")}, nil},
+		{1, 7, "x11", "x02", "x12", [][]byte{[]byte("x12")}, nil},
+	}
+
+	playEvents(plays, nodes, index, orderedEvents)
+
+	hg := createHashgraph(false, orderedEvents, peerSet, t)
+
+	return hg, nodes, index
+}
+
+// TestRecomputeRound emulates a situation where 1 of 3 peers goes offline, and
+// tests how RecomputeRound can unblock the situation when the faulty peer is
+// removed from the last round.
+func TestRecomputeRound(t *testing.T) {
+	h, nodes, index := initEvictionHashgraph(t)
+
+	// Node 2 went offline at round 2. This should prevent the hashgraph from
+	// creating any consensus events.
+	if err := h.RunConsensus(); err != nil {
+		t.Fatal(err)
+	}
+
+	uv := h.Store.ConsensusEventsCount()
+	if uv != 0 {
+		t.Fatalf("Hashgraph should have 0 undetermined events, not %d", uv)
+	}
+
+	// Evict peer 2
+	round2Peers, err := h.Store.GetPeerSet(2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	p2, ok := round2Peers.ByPubKey[nodes[2].PubHex]
+	if !ok {
+		t.Fatal("Couldn't find peer 2")
+	}
+
+	newRound2Peers := round2Peers.WithRemovedPeer(p2)
+
+	err = h.Store.SetPeerSet(2, newRound2Peers)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = h.RecomputeRound(2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	/*
+		With peer 2 evicted, the hashgraph should look like this:
+
+		   	Round 5	   |   x12
+					   | /  |
+		   		      x02   |
+		           ------\------------
+		   	Round 4    |   x11
+		   		       | /  |
+		   		      x01   |
+		           ------\------------
+		   	Round 3    |   x10
+		   		       | /  |
+		   		   	  x00   |
+		           ------\------------
+			Round 2    |   w21
+		    P:[0,1]    | /  |
+		              w20   |
+		               |  \ |
+		               |    | \
+		               |    |   w22
+		           -----------/------
+		   Round 1     |   f10   |
+		   P:[0,1,2]   | /  |    |
+		              w10   |    |
+		               |  \ |    |
+		               |    | \  |
+		               |    |   w12
+		               |    |  / |
+		               |   w11   |
+		            -----/------------
+		   Round 0	  e12   |    |
+		   P:[0,1,2]   |  \ |    |
+		               |    | \  |
+		               |    |   e21
+		               |    | /  |
+		               |   e10   |
+		               |  / |    |
+		              w00  w01  w02
+		               |    |    |
+		               R0   R1   R2
+		               0    1    2
+	*/
+
+	expectedWitnesses := map[int][]string{
+		0: {"w00", "w01", "w02"},
+		1: {"w10", "w11", "w12"},
+		2: {"w20", "w21"},
+		3: {"x00", "x10"},
+		4: {"x01", "x11"},
+		5: {"x02", "x12"},
+	}
+
+	for i := 0; i < 6; i++ {
+		round, err := h.Store.GetRound(i)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if l := len(round.Witnesses()); l != len(expectedWitnesses[i]) {
+			t.Fatalf("round %d should have %d witnesses, not %d", i, len(expectedWitnesses[i]), l)
+		}
+		for _, w := range expectedWitnesses[i] {
+			if !contains(round.Witnesses(), index[w]) {
+				t.Fatalf("round %d witnesses should contain %s", i, w)
+			}
+		}
+	}
+
+	expectedConsensusEvents := map[int][]string{
+		0: {},
+		1: {index["w00"], index["w01"], index["w02"], index["e10"], index["e21"], index["e12"]},
+		2: {index["w11"], index["w12"], index["w10"], index["f10"]},
+		3: {index["w22"], index["w20"], index["w21"]},
+		4: {},
+		5: {},
+	}
+
+	for i := 0; i < 6; i++ {
+		round, err := h.Store.GetRound(i)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(round.ReceivedEvents, expectedConsensusEvents[i]) {
+			t.Fatalf("Round[%d].ReceivedEvents should be %v, not %v", i, expectedConsensusEvents[i], round.ReceivedEvents)
+		}
+	}
+}

@@ -9,4 +9,4 @@ TESTS
 
 - getFaultyPeers
 - removeFaultyPeers
-- RecomputeRound
+- ~~RecomputeRound~~

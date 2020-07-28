@@ -634,15 +634,15 @@ func (h *Hashgraph) SetWireInfo(event *Event) error {
 	return nil
 }
 
-//Remove processed Signatures from SigPool
+// Remove processed Signatures from SigPool
 func (h *Hashgraph) removeProcessedSignatures(processedSignatures map[string]bool) {
 	for k := range processedSignatures {
 		h.PendingSignatures.Remove(k)
 	}
 }
 
-//InsertEventAndRunConsensus inserts an Event in the Hashgraph and call the
-//consensus methods.
+// InsertEventAndRunConsensus inserts an Event in the Hashgraph and calls the
+// consensus methods.
 func (h *Hashgraph) InsertEventAndRunConsensus(event *Event, setWireInfo bool) error {
 	if err := h.InsertEvent(event, setWireInfo); err != nil {
 		if !IsNormalSelfParentError(err) {
@@ -650,29 +650,18 @@ func (h *Hashgraph) InsertEventAndRunConsensus(event *Event, setWireInfo bool) e
 		}
 		return err
 	}
-	if err := h.DivideRounds(); err != nil {
-		h.logger.WithError(err).Errorf("DivideRounds")
+
+	if err := h.RunConsensus(); err != nil {
 		return err
 	}
-	if err := h.DecideFame(); err != nil {
-		h.logger.WithError(err).Errorf("DecideFame")
-		return err
-	}
-	if err := h.DecideRoundReceived(); err != nil {
-		h.logger.WithError(err).Errorf("DecideRoundReceived")
-		return err
-	}
-	if err := h.ProcessDecidedRounds(); err != nil {
-		h.logger.WithError(err).Errorf("ProcessDecidedRounds")
-		return err
-	}
+
 	return nil
 }
 
-//InsertEvent attempts to insert an Event in the DAG. It verifies the signature,
-//checks the ancestors are known, and prevents the introduction of forks.
+// InsertEvent attempts to insert an Event in the DAG. It verifies the
+// signature, checks the ancestors are known, and prevents the introduction of forks.
 func (h *Hashgraph) InsertEvent(event *Event, setWireInfo bool) error {
-	//verify signature
+	// verify signature
 	if ok, err := event.Verify(); !ok {
 		if err != nil {
 			return err
@@ -751,21 +740,21 @@ func (h *Hashgraph) InsertEvent(event *Event, setWireInfo bool) error {
 	return nil
 }
 
-//InsertFrameEvent inserts the FrameEvent's core Event, without checking its
-//parents or signature. It doesnt add the Event to UndeterminedEvents either.
+// InsertFrameEvent inserts the FrameEvent's core Event, without checking its
+// parents or signature. It doesnt add the Event to UndeterminedEvents either.
 func (h *Hashgraph) InsertFrameEvent(frameEvent *FrameEvent) error {
 	event := frameEvent.Core
 
-	//Set caches so round, witness, and timestamp won't be recalculated
+	// Set caches so round, witness, and timestamp won't be recalculated
 	h.roundCache.Add(event.Hex(), frameEvent.Round)
 	h.witnessCache.Add(event.Hex(), frameEvent.Witness)
 	h.timestampCache.Add(event.Hex(), frameEvent.LamportTimestamp)
 
-	//Set the event's private fields for later use
+	// Set the event's private fields for later use
 	event.SetRound(frameEvent.Round)
 	event.SetLamportTimestamp(frameEvent.LamportTimestamp)
 
-	//Create/update RoundInfo object in store
+	// Create/update RoundInfo object in store
 	roundInfo, err := h.Store.GetRound(frameEvent.Round)
 	if err != nil {
 		if !common.IsStore(err, common.KeyNotFound) {
@@ -780,7 +769,7 @@ func (h *Hashgraph) InsertFrameEvent(frameEvent *FrameEvent) error {
 		return err
 	}
 
-	//Init EventCoordinates.
+	// Init EventCoordinates.
 	if err := h.initEventCoordinates(event); err != nil {
 		return fmt.Errorf("InitEventCoordinates: %s", err)
 	}
@@ -793,9 +782,9 @@ func (h *Hashgraph) InsertFrameEvent(frameEvent *FrameEvent) error {
 		return fmt.Errorf("UpdateAncestorFirstDescendant: %s", err)
 	}
 
-	//All FrameEvents are consensus events, ie. they have a round-received and
-	//were committed. We need to record FrameEvents as consensus events because
-	//it comes into play in GetFrame/CreateRoot
+	// All FrameEvents are consensus events, ie. they have a round-received and
+	// were committed. We need to record FrameEvents as consensus events because
+	// it comes into play in GetFrame/CreateRoot
 	if err := h.Store.AddConsensusEvent(event); err != nil {
 		return fmt.Errorf("AddConsensusEvent: %v", event)
 	}
@@ -803,8 +792,30 @@ func (h *Hashgraph) InsertFrameEvent(frameEvent *FrameEvent) error {
 	return nil
 }
 
-//DivideRounds assigns a Round and LamportTimestamp to Events, and flags them as
-//witnesses if necessary. Pushes Rounds in the PendingRounds queue if necessary.
+// RunConsensus runs the 4 consensus methods.
+func (h *Hashgraph) RunConsensus() error {
+	if err := h.DivideRounds(); err != nil {
+		h.logger.WithError(err).Errorf("DivideRounds")
+		return err
+	}
+	if err := h.DecideFame(); err != nil {
+		h.logger.WithError(err).Errorf("DecideFame")
+		return err
+	}
+	if err := h.DecideRoundReceived(); err != nil {
+		h.logger.WithError(err).Errorf("DecideRoundReceived")
+		return err
+	}
+	if err := h.ProcessDecidedRounds(); err != nil {
+		h.logger.WithError(err).Errorf("ProcessDecidedRounds")
+		return err
+	}
+	return nil
+}
+
+// DivideRounds assigns a Round and LamportTimestamp to Events, and flags them
+// as witnesses if necessary. Pushes Rounds in the PendingRounds queue if
+// necessary.
 func (h *Hashgraph) DivideRounds() error {
 
 	for _, hash := range h.UndeterminedEvents {
@@ -815,8 +826,8 @@ func (h *Hashgraph) DivideRounds() error {
 
 		updateEvent := false
 
-		//Compute Event's round, update the corresponding Round object, and add
-		//it to the PendingRounds queue if necessary.
+		// Compute Event's round, update the corresponding Round object, and add
+		// it to the PendingRounds queue if necessary.
 		if ev.round == nil {
 			roundNumber, err := h.round(hash)
 			if err != nil {
@@ -854,7 +865,7 @@ func (h *Hashgraph) DivideRounds() error {
 			}
 		}
 
-		//Compute the Event's LamportTimestamp
+		// Compute the Event's LamportTimestamp
 		if ev.lamportTimestamp == nil {
 			lamportTimestamp, err := h.lamportTimestamp(hash)
 			if err != nil {
@@ -872,10 +883,10 @@ func (h *Hashgraph) DivideRounds() error {
 	return nil
 }
 
-//DecideFame decides if witnesses are famous
+// DecideFame decides if witnesses are famous
 func (h *Hashgraph) DecideFame() error {
-	//Initialize the vote map
-	votes := make(map[string](map[string]bool)) //[x][y]=>vote(x,y)
+	// Initialize the vote map
+	votes := make(map[string](map[string]bool)) // [x][y]=>vote(x,y)
 	setVote := func(votes map[string]map[string]bool, x, y string, vote bool) {
 		if votes[x] == nil {
 			votes[x] = make(map[string]bool)
@@ -933,8 +944,8 @@ func (h *Hashgraph) DecideFame() error {
 							return err
 						}
 
-						//collection of witnesses from round j-1 that are
-						//strongly seen by y, based on round j-1 PeerSet.
+						// collection of witnesses from round j-1 that are
+						// strongly seen by y, based on round j-1 PeerSet.
 						ssWitnesses := []string{}
 						for _, w := range jPrevRoundInfo.Witnesses() {
 							ss, err := h.stronglySee(y, w, jPrevPeerSet)
@@ -946,7 +957,7 @@ func (h *Hashgraph) DecideFame() error {
 							}
 						}
 
-						//Collect votes from these witnesses.
+						// Collect votes from these witnesses.
 						yays := 0
 						nays := 0
 						for _, w := range ssWitnesses {
@@ -963,20 +974,20 @@ func (h *Hashgraph) DecideFame() error {
 							t = yays
 						}
 
-						//normal round
+						// normal round
 						if math.Mod(float64(diff), COIN_ROUND_FREQ) > 0 {
 							if t >= jPeerSet.SuperMajority() {
 								rRoundInfo.SetFame(x, v)
 								setVote(votes, y, x, v)
-								break VOTE_LOOP //break out of j loop
+								break VOTE_LOOP // break out of j loop
 							} else {
 								setVote(votes, y, x, v)
 							}
-						} else { //coin round
+						} else { // coin round
 							if t >= jPeerSet.SuperMajority() {
 								setVote(votes, y, x, v)
 							} else {
-								setVote(votes, y, x, middleBit(y)) //middle bit of y's hash
+								setVote(votes, y, x, middleBit(y)) // middle bit of y's hash
 							}
 						}
 					}
@@ -998,8 +1009,8 @@ func (h *Hashgraph) DecideFame() error {
 	return nil
 }
 
-//DecideRoundReceived assigns a RoundReceived to undetermined events when they
-//reach consensus
+// DecideRoundReceived assigns a RoundReceived to undetermined events when they
+// reach consensus
 func (h *Hashgraph) DecideRoundReceived() error {
 	newUndeterminedEvents := []string{}
 
@@ -1082,7 +1093,7 @@ func (h *Hashgraph) DecideRoundReceived() error {
 					return err
 				}
 
-				//break out of i loop
+				// break out of i loop
 				break
 			}
 		}
@@ -1097,22 +1108,20 @@ func (h *Hashgraph) DecideRoundReceived() error {
 	return nil
 }
 
-/*
-ProcessDecidedRounds takes Rounds whose witnesses are decided, computes the
-corresponding Frames, maps them into Blocks, and commits the Blocks via the
-commit channel
-*/
+// ProcessDecidedRounds takes Rounds whose witnesses are decided, computes the
+// corresponding Frames, maps them into Blocks, and commits the Blocks via the
+// commit channel
 func (h *Hashgraph) ProcessDecidedRounds() error {
-	//Defer removing processed Rounds from the PendingRounds Queue
+	// Defer removing processed Rounds from the PendingRounds Queue
 	processedRounds := []int{}
 	defer func() {
 		h.PendingRounds.Clean(processedRounds)
 	}()
 
 	for _, r := range h.PendingRounds.GetOrderedPendingRounds() {
-		//Although it is possible for a Round to be 'decided' before a previous
-		//round, we should NEVER process a decided round before all the earlier
-		//rounds are processed.
+		// Although it is possible for a Round to be 'decided' before a previous
+		// round, we should NEVER process a decided round before all the earlier
+		// rounds are processed.
 		if !r.Decided {
 			break
 		}
@@ -1185,15 +1194,15 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 	return nil
 }
 
-//GetFrame computes the Frame corresponding to a RoundReceived.
+// GetFrame computes the Frame corresponding to a RoundReceived.
 func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
-	//Try to get it from the Store first
+	// Try to get it from the Store first
 	frame, err := h.Store.GetFrame(roundReceived)
 	if err == nil || !common.IsStore(err, common.KeyNotFound) {
 		return frame, err
 	}
 
-	//Get the Round and corresponding consensus Events
+	// Get the Round and corresponding consensus Events
 	round, err := h.Store.GetRound(roundReceived)
 	if err != nil {
 		return nil, err
@@ -1215,11 +1224,10 @@ func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 
 	sort.Sort(SortedFrameEvents(events))
 
-	/*
-		Get/Create Roots. The events are in topological order; so each time we
-		run into the first Event of a participant, we create a Root for it. Then
-		we populate the root's Events slice.
-	*/
+	// Get/Create Roots. The events are in topological order; so each time we
+	// run into the first Event of a participant, we create a Root for it. Then
+	// we populate the root's Events slice.
+
 	roots := make(map[string]*Root)
 
 	for _, ev := range events {
@@ -1234,13 +1242,11 @@ func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 		}
 	}
 
-	/*
-		Every participant, that was known before roundReceived, needs a Root in
-		the Frame. For the participants that have no Events in this Frame, we
-		create a Root from their last consensus Event, or their last known Root
-	*/
+	// Every participant, that was known before roundReceived, needs a Root in
+	// the Frame. For the participants that have no Events in this Frame, we
+	// create a Root from their last consensus Event, or their last known Root
 	for p, peer := range h.Store.RepertoireByPubKey() {
-		//Ignore if participant wasn't added before roundReceived
+		// Ignore if participant wasn't added before roundReceived
 		firstRound, ok := h.Store.FirstRound(peer.ID())
 		if !ok || firstRound > roundReceived {
 			continue
@@ -1263,7 +1269,7 @@ func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 		}
 	}
 
-	//Get all PeerSets
+	// Get all PeerSets
 	allPeerSets, err := h.Store.GetAllPeerSets()
 	if err != nil {
 		return nil, err
@@ -1284,11 +1290,10 @@ func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 	return res, nil
 }
 
-/*
-ProcessSigPool runs through the SignaturePool and tries to map a Signature to
-a known Block. If a Signature is valid, it is appended to the block and removed
-from the SignaturePool. The function also updates the AnchorBlock if necessary.
-*/
+// ProcessSigPool runs through the SignaturePool and tries to map a Signature to
+// a known Block. If a Signature is valid, it is appended to the block and
+// removed from the SignaturePool. The function also updates the AnchorBlock if
+// necessary.
 func (h *Hashgraph) ProcessSigPool() error {
 	h.logger.WithField("pending_signatures", h.PendingSignatures.Len()).Debug("ProcessSigPool()")
 
@@ -1312,7 +1317,7 @@ func (h *Hashgraph) ProcessSigPool() error {
 			continue
 		}
 
-		//check if validator belongs to list of participants
+		// check if validator belongs to list of participants
 		if _, ok := peerSet.ByPubKey[bs.ValidatorHex()]; !ok {
 			h.logger.WithFields(logrus.Fields{
 				"index":     bs.Index,
@@ -1363,12 +1368,11 @@ func (h *Hashgraph) ProcessSigPool() error {
 	return nil
 }
 
-/*
-SetAnchorBlock sets the AnchorBlock index if the proposed block has collected
-enough signatures (+1/3) and is above the current AnchorBlock. The AnchorBlock
-is the latest Block that collected +1/3 signatures from validators. It is used
-in FastForward responses when a node wants to sync to the top of the hashgraph.
-*/
+// SetAnchorBlock sets the AnchorBlock index if the proposed block has collected
+// enough signatures (+1/3) and is above the current AnchorBlock. The
+// AnchorBlock is the latest Block that collected +1/3 signatures from
+// validators. It is used in FastForward responses when a node wants to sync to
+// the top of the hashgraph.
 func (h *Hashgraph) SetAnchorBlock(block *Block) error {
 	peerSet, err := h.Store.GetPeerSet(block.RoundReceived())
 	if err != nil {
@@ -1404,8 +1408,8 @@ func (h *Hashgraph) SetAnchorBlock(block *Block) error {
 	return nil
 }
 
-//GetAnchorBlockWithFrame returns the AnchorBlock and the corresponding Frame.
-//This can be used as a base to Reset a Hashgraph
+// GetAnchorBlockWithFrame returns the AnchorBlock and the corresponding Frame.
+// This can be used as a base to Reset a Hashgraph
 func (h *Hashgraph) GetAnchorBlockWithFrame() (*Block, *Frame, error) {
 	if h.AnchorBlock == nil {
 		return nil, nil, fmt.Errorf("No Anchor Block")
@@ -1424,9 +1428,9 @@ func (h *Hashgraph) GetAnchorBlockWithFrame() (*Block, *Frame, error) {
 	return block, frame, nil
 }
 
-//Reset clears the Hashgraph and resets it from a new base.
+// Reset clears the Hashgraph and resets it from a new base.
 func (h *Hashgraph) Reset(block *Block, frame *Frame) error {
-	//Clear all state
+	// Clear all state
 	h.LastConsensusRound = nil
 	h.FirstConsensusRound = nil
 	h.AnchorBlock = nil
@@ -1443,12 +1447,12 @@ func (h *Hashgraph) Reset(block *Block, frame *Frame) error {
 	h.roundCache = common.NewLRU(cacheSize, nil)
 	h.witnessCache = common.NewLRU(cacheSize, nil)
 
-	//Initialize new Roots
+	// Initialize new Roots
 	if err := h.Store.Reset(frame); err != nil {
 		return err
 	}
 
-	//Insert FrameEvents
+	// Insert FrameEvents
 	sortedFrameEvents := frame.SortedFrameEvents()
 	for _, rev := range sortedFrameEvents {
 		if err := h.InsertFrameEvent(rev); err != nil {
@@ -1456,7 +1460,7 @@ func (h *Hashgraph) Reset(block *Block, frame *Frame) error {
 		}
 	}
 
-	//Insert Block
+	// Insert Block
 	if err := h.Store.SetBlock(block); err != nil {
 		return err
 	}
@@ -1466,15 +1470,14 @@ func (h *Hashgraph) Reset(block *Block, frame *Frame) error {
 	return nil
 }
 
-/*
-Bootstrap loads all Events from the Store's DB (if there is one) and feeds
-them to the Hashgraph consensus methods in topological order. It is assumed that
-no events are skipped/lost when loading from the database - WE CAN ONLY
-BOOTSTRAP FROM 0. As Events are inserted and processed, Blocks will be created
-and committed to the App layer (via the commit callback), so it is also assumed
-that the application state was reset. During the bootstrap process, the badger
-store is put in maintenance-mode to avoid reinserting items in the database.
-*/
+// Bootstrap loads all Events from the Store's DB (if there is one) and feeds
+// them to the Hashgraph consensus methods in topological order. It is assumed
+// that no events are skipped/lost when loading from the database - WE CAN ONLY
+// BOOTSTRAP FROM 0. As Events are inserted and processed, Blocks will be
+// created and committed to the App layer (via the commit callback), so it is
+// also assumed that the application state was reset. During the bootstrap
+// process, the badger store is put in maintenance-mode to avoid reinserting
+// items in the database.
 func (h *Hashgraph) Bootstrap() error {
 	if badgerStore, ok := h.Store.(*BadgerStore); ok {
 
@@ -1532,8 +1535,8 @@ func (h *Hashgraph) Bootstrap() error {
 	return nil
 }
 
-//ReadWireInfo converts a WireEvent to an Event by replacing int IDs with the
-//corresponding public keys.
+// ReadWireInfo converts a WireEvent to an Event by replacing int IDs with the
+// corresponding public keys.
 func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 	selfParent := ""
 	otherParent := ""
@@ -1590,8 +1593,8 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 	return event, nil
 }
 
-//CheckBlock returns an error if the Block does not contain valid signatures
-//from MORE than 1/3 of participants
+// CheckBlock returns an error if the Block does not contain valid signatures
+// from MORE than 1/3 of participants
 func (h *Hashgraph) CheckBlock(block *Block, peerSet *peers.PeerSet) error {
 	psh, err := peerSet.Hash()
 	if err != nil {
@@ -1670,16 +1673,14 @@ func middleBit(ehex string) bool {
 	return true
 }
 
-/*
-InternalCommitCallback is called by the Hashgraph to commit a Block. The
-InternalCommitCallback will likely itself call the ProxyCommitCallback. We add
-a layer of indirection because processing the CommitResponse should be handled
-by the Core object, not the hashgraph; the hashgraph only knows if there was
-an error or not.
-*/
+// InternalCommitCallback is called by the Hashgraph to commit a Block. The
+// InternalCommitCallback will likely itself call the ProxyCommitCallback. We
+// add a layer of indirection because processing the CommitResponse should be
+// handled by the Core object, not the hashgraph; the hashgraph only knows if
+// there was an error or not.
 type InternalCommitCallback func(*Block) error
 
-//DummyInternalCommitCallback is used for testing
+// DummyInternalCommitCallback is used for testing
 func DummyInternalCommitCallback(b *Block) error {
 	return nil
 }
@@ -1688,8 +1689,9 @@ func DummyInternalCommitCallback(b *Block) error {
 XXX
 *******************************************************************************/
 
-// RecomputeRound is used to re-evaluate some hashgraph functions after peers
-// have been evicted from a round.
+// RecomputeRound is called after changing the peer-set of a round (when a peer
+// is evicted). It clears the RoundInfo and all the round-related cached values
+// of all undetermined events, and reruns the consensus methods.
 func (h *Hashgraph) RecomputeRound(round int) error {
 	// Clear RoundInfo
 	err := h.Store.SetRound(round, NewRoundInfo())
@@ -1697,16 +1699,15 @@ func (h *Hashgraph) RecomputeRound(round int) error {
 		return err
 	}
 
+	// Clear round-related cached values for undetermined events
 	for _, eh := range h.UndeterminedEvents {
 		ev, err := h.Store.GetEvent(eh)
 		if err != nil {
 			return err
 		}
 
-		//	clear '.round'
 		ev.round = nil
 
-		// cleanup caches
 		h.roundCache.Remove(eh)
 		h.witnessCache.Remove(eh)
 	}
@@ -1715,21 +1716,7 @@ func (h *Hashgraph) RecomputeRound(round int) error {
 	h.stronglySeeCache.Purge()
 
 	// Run Consensus
-
-	if err := h.DivideRounds(); err != nil {
-		h.logger.WithError(err).Errorf("DivideRounds")
-		return err
-	}
-	if err := h.DecideFame(); err != nil {
-		h.logger.WithError(err).Errorf("DecideFame")
-		return err
-	}
-	if err := h.DecideRoundReceived(); err != nil {
-		h.logger.WithError(err).Errorf("DecideRoundReceived")
-		return err
-	}
-	if err := h.ProcessDecidedRounds(); err != nil {
-		h.logger.WithError(err).Errorf("ProcessDecidedRounds")
+	if err := h.RunConsensus(); err != nil {
 		return err
 	}
 
