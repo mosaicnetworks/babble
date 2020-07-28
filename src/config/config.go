@@ -46,6 +46,7 @@ const (
 	DefaultStore                = false
 	DefaultMaintenanceMode      = false
 	DefaultSuspendLimit         = 100
+	DefaultAutomaticEviction    = false
 	DefaultWebRTC               = false
 	DefaultSignalAddr           = "127.0.0.1:2443"
 	DefaultSignalRealm          = "main"
@@ -141,6 +142,17 @@ type Config struct {
 	// node will suspend itself after registering 400 undetermined events.
 	SuspendLimit int `mapstructure:"suspend-limit"`
 
+	// AutomaticEviction causes a suspended node to automatically evict faulty
+	// peers from the validator-set. The suspended node will evict any peer that
+	// has less than SuspendLimit events in the current round ( at which the
+	// node is suspended ), and will recompute the hashgraph methods with the
+	// new peer-set to commit the accumulated undetermined events. Once faulty
+	// nodes are evicted, the node is un-suspended and resumes Babbling to allow
+	// the network to continue processing transactions. If AutomaticEviction is
+	// false, the node remains suspended without attempting to remove faulty
+	// peers and resume operation.
+	AutomaticEviction bool `mapstructure:"auto-evict"`
+
 	// Moniker defines the friendly name of this node
 	Moniker string `mapstructure:"moniker"`
 
@@ -217,6 +229,7 @@ func NewDefaultConfig() *Config {
 		MaintenanceMode:      DefaultMaintenanceMode,
 		DatabaseDir:          DefaultDatabaseDir(),
 		SuspendLimit:         DefaultSuspendLimit,
+		AutomaticEviction:    DefaultAutomaticEviction,
 		WebRTC:               DefaultWebRTC,
 		SignalAddr:           DefaultSignalAddr,
 		SignalRealm:          DefaultSignalRealm,

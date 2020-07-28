@@ -479,6 +479,105 @@ func (c *core) leave(leaveTimeout time.Duration) error {
 }
 
 /*******************************************************************************
+Evict
+*******************************************************************************/
+
+// evictFaultyPeers identifies peers that have less than 'limit' events in the
+// last round, removes them from that round's peer-set, and recomputes the
+// hashgraph consensus methods to allow the other nodes to continue committing
+// events.
+func (c *core) evictFaultyPeers(limit int) error {
+	faultyPeers, err := c.getFaultyPeers(limit)
+	if err != nil {
+		c.logger.WithError(err).Errorf("Error getting faulty nodes")
+		return err
+	}
+
+	c.logger.WithFields(logrus.Fields{
+		"faulty_peers": faultyPeers,
+	}).Debugf("Faulty Peers")
+
+	err = c.removeFaultyPeers(
+		faultyPeers,
+		c.hg.Store.LastRound(),
+	)
+	if err != nil {
+		c.logger.WithError(err).Errorf("Error removing faulty peers")
+		return err
+	}
+
+	err = c.hg.RecomputeRound(c.hg.Store.LastRound())
+	if err != nil {
+		c.logger.WithError(err).Errorf("Error recomputing round")
+		return err
+	}
+
+	return nil
+}
+
+// getFaultyPeers returns the public keys of peers that have less than 'limit'
+// events in the last round.
+func (c *core) getFaultyPeers(limit int) ([]string, error) {
+	// What round are we stuck at
+	round, err := c.hg.Store.GetRound(c.hg.Store.LastRound())
+	if err != nil {
+		return []string{}, err
+	}
+
+	// How many event has each participant created in this round?
+	evCount := map[string]int{}
+	for eventHash, _ := range round.CreatedEvents {
+		ev, _ := c.hg.Store.GetEvent(eventHash)
+		evCount[ev.Creator()] = evCount[ev.Creator()] + 1
+	}
+
+	// Those who have less than specified limit are deemeed faulty
+	faultyNodes := []string{}
+	for p, c := range evCount {
+		if c < limit {
+			faultyNodes = append(faultyNodes, p)
+		}
+	}
+
+	return faultyNodes, nil
+}
+
+// removeFaultyPeers removes peers from a round's peer-set and updates the
+// peer-set related variables of the core object.
+func (c *core) removeFaultyPeers(faultyPeers []string, round int) error {
+	// Create new peer-set excluding faulty peers
+	newValidators := c.validators
+	for _, fp := range faultyPeers {
+		p, ok := c.validators.ByPubKey[fp]
+		if ok {
+			newValidators = c.validators.WithRemovedPeer(p)
+		}
+	}
+
+	// Record the new validator-set in the underlying Hashgraph and in the
+	// core's validators field
+	c.lastPeerChangeRound = round
+
+	err := c.hg.Store.SetPeerSet(round, newValidators)
+	if err != nil {
+		return fmt.Errorf("Updating Store PeerSet: %s", err)
+	}
+
+	c.validators = newValidators
+
+	c.logger.WithFields(logrus.Fields{
+		"effective_round": round,
+		"validators":      len(newValidators.Peers),
+	}).Info("Validators changed")
+
+	// Update the current list of communicating peers. This is not
+	// necessarily equal to the latest recorded validator_set.
+	c.setPeers(newValidators)
+
+	return nil
+}
+
+/*******************************************************************************
 Commit
 *******************************************************************************/
 
@@ -837,68 +936,4 @@ func (c *core) getLastCommitedRoundEventsCount() int {
 // getLastBlockIndex returns last block index from the hashgraph store
 func (c *core) getLastBlockIndex() int {
 	return c.hg.Store.LastBlockIndex()
-}
-
-/*******************************************************************************
-XXX AUTOMATIC EVICTION
-*******************************************************************************/
-
-func (c *core) getFaultyPeers(limit int) ([]string, error) {
-	// What round are we stuck at
-	round, err := c.hg.Store.GetRound(c.hg.Store.LastRound())
-	if err != nil {
-		return []string{}, err
-	}
-
-	// How many event has each participant created in this round?
-	evCount := map[string]int{}
-	for eventHash, _ := range round.CreatedEvents {
-		ev, _ := c.hg.Store.GetEvent(eventHash)
-		evCount[ev.Creator()] = evCount[ev.Creator()] + 1
-	}
-
-	// Those who have less than specified limit are deemeed faulty
-	faultyNodes := []string{}
-	for p, c := range evCount {
-		if c < limit {
-			faultyNodes = append(faultyNodes, p)
-		}
-	}
-
-	return faultyNodes, nil
-}
-
-func (c *core) removeFaultyPeers(faultyPeers []string, round int) error {
-	// create new peer-set excluding faulty peers
-	newValidators := c.validators
-	for _, fp := range faultyPeers {
-		p, ok := c.validators.ByPubKey[fp]
-		if ok {
-			newValidators = c.validators.WithRemovedPeer(p)
-		}
-	}
-
-	// XXX copy-pasted from processInternalTransactions
-
-	// Record the new validator-set in the underlying Hashgraph and in the
-	// core's validators field
-	c.lastPeerChangeRound = round
-
-	err := c.hg.Store.SetPeerSet(round, newValidators)
-	if err != nil {
-		return fmt.Errorf("Updating Store PeerSet: %s", err)
-	}
-
-	c.validators = newValidators
-
-	c.logger.WithFields(logrus.Fields{
-		"effective_round": round,
-		"validators":      len(newValidators.Peers),
-	}).Info("Validators changed")
-
-	// Update the current list of communicating peers. This is not
-	// necessarily equal to the latest recorded validator_set.
-	c.setPeers(newValidators)
-
-	return nil
 }

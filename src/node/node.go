@@ -191,30 +191,7 @@ func (n *Node) Run(gossip bool) {
 		case _state.Joining:
 			n.join()
 		case _state.Suspended:
-			// XXX
-
-			// Get faulty peers
-			faultyPeers, err := n.core.getFaultyPeers(n.conf.SuspendLimit)
-			if err != nil {
-				n.logger.WithError(err).Errorf("Error getting faulty nodes")
-			}
-
-			n.logger.WithFields(logrus.Fields{
-				"faulty_peers": faultyPeers,
-			}).Debugf("Faulty Peers")
-
-			// Remove faulty peers
-			err = n.core.removeFaultyPeers(
-				faultyPeers,
-				n.core.hg.Store.LastRound(),
-			)
-			if err != nil {
-				n.logger.WithError(err).Errorf("Error removing faulty peers")
-			}
-
-			// Clear hg cashes
-
-			time.Sleep(2000 * time.Millisecond)
+			n.evictOrSleep()
 		case _state.Shutdown:
 			return
 		}
@@ -768,6 +745,29 @@ func (n *Node) join() error {
 		// is not an error.
 		n.logger.Info("JoinRequest rejected")
 		n.Shutdown()
+	}
+
+	return nil
+}
+
+/*******************************************************************************
+Suspended
+*******************************************************************************/
+
+// evictOrSleep evicts faulty peers from the validator-set and continues
+// Babbling if the AutomaticEviction option is set. Otherwise it just sleeps for
+// two seconds and stays suspended.
+func (n *Node) evictOrSleep() error {
+	defer time.Sleep(2000 * time.Millisecond)
+
+	if n.conf.AutomaticEviction {
+		err := n.core.evictFaultyPeers(n.conf.SuspendLimit)
+		if err != nil {
+			return err
+		}
+
+		// Go back to Babbling
+		n.SetState(_state.Babbling)
 	}
 
 	return nil
