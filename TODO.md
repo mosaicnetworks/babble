@@ -8,5 +8,5 @@
 TESTS
  
 - ~~RecomputeRound~~
-- core: evictFaultyNodes
+- ~~core: evictFaultyNodes~~
 - node: supsended state with AutomaticEviction on or off 

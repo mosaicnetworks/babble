@@ -987,6 +987,109 @@ func TestCoreFastForwardAfterJoin(t *testing.T) {
 
 }
 
+/*
+Round 2		|   x12
+P: [0,1,2]  | /  |
+		   x02   |
+            | \  |
+			|   x11
+		    | /  |
+		   x01   |
+            | \  |
+			|   x10
+		    | /  |
+		   x00   |
+            | \  |
+            |   w21
+            | /  |
+           w20   |
+            |  \ |
+            |    | \
+            |    |   w22
+        -----------/------
+Round 1     |   f10   |
+P:[0,1,2]   | /  |    |
+           w10   |    |
+            |  \ |    |
+            |    | \  |
+            |    |   w12
+            |    |  / |
+            |   w11   |
+         -----/------------
+Round 0	   e12   |    |
+P:[0,1,2]   |  \ |    |
+            |    | \  |
+            |    |   e21
+            |    | /  |
+            |   e10   |
+            |  / |    |
+           w00  w01  w02
+            |    |    |
+            R0   R1   R2
+            0    1    2
+*/
+func initEvictionHashgraph(t *testing.T) (cores []*core) {
+	cores, _, _ = initCores(3, t)
+
+	//Insert a JoinRequest in a Round0 Event
+	playbook := []play{
+		{from: 0, to: 1, payload: [][]byte{[]byte("e10")}},
+		{from: 1, to: 2, payload: [][]byte{[]byte("e21")}},
+		{from: 2, to: 0, payload: [][]byte{[]byte("e12")}},
+		{from: 0, to: 1, payload: [][]byte{[]byte("w11")}},
+		{from: 1, to: 2, payload: [][]byte{[]byte("w12")}},
+		{from: 2, to: 0, payload: [][]byte{[]byte("w10")}},
+		{from: 0, to: 1, payload: [][]byte{[]byte("f10")}},
+		{from: 1, to: 2, payload: [][]byte{[]byte("w22")}},
+		{from: 2, to: 0, payload: [][]byte{[]byte("w20")}},
+		{from: 0, to: 1, payload: [][]byte{[]byte("w21")}},
+		{from: 1, to: 0, payload: [][]byte{[]byte("x00")}},
+		{from: 0, to: 1, payload: [][]byte{[]byte("x10")}},
+		{from: 1, to: 0, payload: [][]byte{[]byte("x01")}},
+		{from: 0, to: 1, payload: [][]byte{[]byte("x11")}},
+		{from: 1, to: 0, payload: [][]byte{[]byte("x02")}},
+		{from: 0, to: 1, payload: [][]byte{[]byte("x12")}},
+	}
+
+	for k, play := range playbook {
+		if err := syncAndRunConsensus(cores, play.from, play.to, play.payload, play.internalTxs); err != nil {
+			t.Fatalf("play %d: %s", k, err)
+		}
+	}
+
+	return cores
+}
+
+func TestEvictFaultyPeers(t *testing.T) {
+	cores := initEvictionHashgraph(t)
+
+	for i, c := range cores[0:2] {
+		if ce := c.getConsensusEventsCount(); ce != 0 {
+			t.Fatalf("node %d should have 0 consensus events, not %d", i, ce)
+		}
+
+		// XXX cores[0] only sees 3 events for cores[1] in round 2.
+		// be careful with the limit (SuspendLimit might be wrong). Is everyone
+		// evicting the same people?
+		err := c.evictFaultyPeers(2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if ce := c.getConsensusEventsCount(); ce != 13 {
+			t.Fatalf("node %d should have 13 consensus events, not %d", i, ce)
+		}
+
+		if lpcr := c.lastPeerChangeRound; lpcr != 2 {
+			t.Fatalf("node %d should have lastPeerSetRound 2, not %d", i, lpcr)
+		}
+
+		if vl := c.validators.Len(); vl != 2 {
+			t.Fatalf("node %d validators should contain 2 peers, not %d", i, vl)
+		}
+	}
+}
+
 /******************************************************************************/
 
 func synchronizeCores(cores []*core, from int, to int, payload [][]byte, internalTxs []hg.InternalTransaction) error {
