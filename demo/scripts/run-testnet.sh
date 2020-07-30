@@ -5,6 +5,7 @@ set -eux
 N=${1:-4}
 FASTSYNC=${2:-false}
 WEBRTC=${3:-false}
+AUTOEVICT=${4:-true}
 MPWD=$(pwd)
 
 docker network create \
@@ -51,7 +52,8 @@ do
     --fast-sync=$FASTSYNC \
     --log="debug" \
     --webrtc=$WEBRTC \
-    --signal-addr="172.77.15.1:2443"
+    --signal-addr="172.77.15.1:2443" \
+    --auto-evict=$AUTOEVICT
 
     # --store \
     # --bootstrap \

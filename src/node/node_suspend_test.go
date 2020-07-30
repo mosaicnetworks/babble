@@ -38,7 +38,7 @@ func TestAutoSuspend(t *testing.T) {
 	// seconds.
 	runNodes(nodes, true)
 	submitTransaction(nodes[0], []byte("the tx that will never be committed"))
-	waitSuspend(nodes, 10*time.Second, t)
+	waitState(nodes, 10*time.Second, _state.Suspended, t)
 
 	if s := nodes[0].GetState(); s != _state.Suspended {
 		t.Fatalf("nodes[0] should be Suspended, not %v. UndeterminedEvents: %d",
@@ -64,7 +64,7 @@ func TestAutoSuspend(t *testing.T) {
 	// Gossip again until they create another SuspendLimit undetermined events.
 	runNodes(nodes, true)
 	submitTransaction(nodes[0], []byte("the tx that will never be committed"))
-	waitSuspend(nodes, 10*time.Second, t)
+	waitState(nodes, 10*time.Second, _state.Suspended, t)
 
 	if s := nodes[0].GetState(); s != _state.Suspended {
 		t.Fatalf("nodes[0] should be Suspended, not %v. UndeterminedEvents: %d",
@@ -89,7 +89,77 @@ func TestAutoSuspend(t *testing.T) {
 	}
 }
 
-func waitSuspend(nodes []*Node, timeout time.Duration, t *testing.T) {
+func TestEviction(t *testing.T) {
+	// define 3 validators
+	keys, peers := initPeers(t, 3)
+	genesisPeerSet := clonePeerSet(t, peers.Peers)
+
+	nodes := initNodes(
+		keys,
+		peers,
+		genesisPeerSet,
+		100000,
+		1000,
+		5,
+		false,
+		"inmem",
+		5*time.Millisecond,
+		false,
+		"",
+		t)
+	defer shutdownNodes(nodes)
+
+	for _, n := range nodes {
+		n.conf.AutomaticEviction = true
+	}
+
+	target := 20
+	err := gossip(nodes, target, false)
+	if err != nil {
+		t.Error("Fatal Error", err)
+		t.Fatal(err)
+	}
+	checkGossip(nodes, 0, t)
+
+	nodes[2].Shutdown()
+
+	waitState(nodes[0:2], 6*time.Second, _state.Suspended, t)
+
+	for i, n := range nodes[0:2] {
+		t.Logf("XXX nodes[%d] before: UE %d, LBI %d, Vals %d",
+			i,
+			len(n.core.getUndeterminedEvents()),
+			n.GetLastBlockIndex(),
+			n.core.validators.Len())
+	}
+
+	waitState(nodes[0:2], 3*time.Second, _state.Babbling, t)
+
+	for i, n := range nodes[0:2] {
+		t.Logf("XXX nodes[%d] between: UE %d, LBI %d, Vals %d",
+			i,
+			len(n.core.getUndeterminedEvents()),
+			n.GetLastBlockIndex(),
+			n.core.validators.Len())
+	}
+
+	target = 40
+	err = bombardAndWait(nodes[0:2], target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkGossip(nodes[0:2], 0, t)
+
+	for i, n := range nodes[0:2] {
+		t.Logf("XXX nodes[%d] after: UE %d, LBI %d, Vals %d",
+			i,
+			len(n.core.getUndeterminedEvents()),
+			n.GetLastBlockIndex(),
+			n.core.validators.Len())
+	}
+}
+
+func waitState(nodes []*Node, timeout time.Duration, state _state.State, t *testing.T) {
 	stopper := time.After(timeout)
 	for {
 		select {
@@ -100,7 +170,7 @@ func waitSuspend(nodes []*Node, timeout time.Duration, t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		done := true
 		for _, n := range nodes {
-			if n.GetState() != _state.Suspended {
+			if n.GetState() != state {
 				done = false
 				break
 			}

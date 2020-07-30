@@ -7,7 +7,7 @@ import (
 )
 
 // TestLogLevel is the level used in tests by default.
-var TestLogLevel = logrus.InfoLevel
+var TestLogLevel = logrus.DebugLevel
 
 // This can be used as the destination for a logger and it will map them into
 // calls to testing.T.Log, so that you only see the logging for failed tests.

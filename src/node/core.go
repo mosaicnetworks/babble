@@ -497,6 +497,10 @@ func (c *core) evictFaultyPeers(limit int) error {
 		"faulty_peers": faultyPeers,
 	}).Debugf("Faulty Peers")
 
+	if faultyPeers == nil || len(faultyPeers) == 0 {
+		return fmt.Errorf("No faulty peers detected")
+	}
+
 	err = c.removeFaultyPeers(
 		faultyPeers,
 		c.hg.Store.LastRound(),
@@ -519,13 +523,29 @@ func (c *core) evictFaultyPeers(limit int) error {
 // events in the last round.
 func (c *core) getFaultyPeers(limit int) ([]string, error) {
 	// What round are we stuck at
-	round, err := c.hg.Store.GetRound(c.hg.Store.LastRound())
+	roundIndex := c.hg.Store.LastRound()
+
+	// Get corresponding RoundInfo
+	round, err := c.hg.Store.GetRound(roundIndex)
 	if err != nil {
 		return []string{}, err
 	}
 
-	// How many event has each participant created in this round?
+	// and PeerSet
+	ps, err := c.hg.Store.GetPeerSet(roundIndex)
+	if err != nil {
+		return []string{}, err
+	}
+
+	// How many events has each participant created in this round?
+
+	// initialise the counter with all the current peers
 	evCount := map[string]int{}
+	for p, _ := range ps.ByPubKey {
+		evCount[p] = 0
+	}
+
+	// count
 	for eventHash, _ := range round.CreatedEvents {
 		ev, _ := c.hg.Store.GetEvent(eventHash)
 		evCount[ev.Creator()] = evCount[ev.Creator()] + 1
