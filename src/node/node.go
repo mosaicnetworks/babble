@@ -185,7 +185,6 @@ func (n *Node) Run(gossip bool) {
 
 		switch state {
 		case _state.Babbling:
-			n.logger.Debugf("XXX Calling babble()")
 			n.babble(gossip)
 		case _state.CatchingUp:
 			n.fastForward()
@@ -258,8 +257,6 @@ func (n *Node) Suspend() {
 		n.transition(_state.Suspended)
 
 		// Stop and wait for concurrent operations
-		// XXX
-		// n.suspendCh <- struct{}{}
 		close(n.suspendCh)
 		n.WaitRoutines()
 	}
@@ -435,10 +432,8 @@ func (n *Node) babble(gossip bool) {
 			n.resetTimer()
 			n.checkSuspend()
 		case <-n.suspendCh:
-			n.logger.Debug("XXX exiting babble() from suspendCh")
 			return
 		case <-n.shutdownCh:
-			n.logger.Debug("XXX exiting babble() from shutdownCh")
 			return
 		}
 	}
@@ -775,8 +770,8 @@ func (n *Node) evictOrSleep() error {
 			return err
 		}
 
-		// Go back to Babbling
-		// XXX reopen suspendCh ?
+		// Reopen suspendCh and go back to Babbling
+		n.suspendCh = make(chan struct{})
 		n.SetState(_state.Babbling)
 	}
 
