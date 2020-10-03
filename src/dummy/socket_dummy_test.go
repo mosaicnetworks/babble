@@ -90,6 +90,7 @@ func TestSocketProxyClient(t *testing.T) {
 				hashgraph.NewInternalTransaction(hashgraph.PEER_ADD, *peers.NewPeer("node0", "paris", "")),
 				hashgraph.NewInternalTransaction(hashgraph.PEER_REMOVE, *peers.NewPeer("node1", "london", "")),
 			},
+			0,
 		)
 	}
 

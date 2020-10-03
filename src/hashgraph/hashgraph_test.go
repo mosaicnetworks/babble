@@ -893,7 +893,8 @@ func initBlockHashgraph(t *testing.T) (*Hashgraph, []TestNode, map[string]string
 		[]InternalTransaction{
 			NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1", "paris", "peer1")),
 			NewInternalTransaction(PEER_REMOVE, *peers.NewPeer("peer2", "london", "peer2")),
-		})
+		},
+		0)
 
 	err := hashgraph.Store.SetBlock(block)
 	if err != nil {
@@ -982,7 +983,7 @@ func TestInsertEventsWithBlockSignatures(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		block1 := NewBlock(1, 2, []byte("framehash"), peerSet.Peers, [][]byte{}, []InternalTransaction{})
+		block1 := NewBlock(1, 2, []byte("framehash"), peerSet.Peers, [][]byte{}, []InternalTransaction{}, 0)
 		sig, _ := block1.Sign(nodes[2].Key)
 
 		//unknown block

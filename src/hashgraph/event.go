@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/crypto"
@@ -18,14 +19,15 @@ EventBody
 // EventBody contains the payload of an Event as well as the information that
 // ties it to other Events. The private fields are for local computations only.
 type EventBody struct {
-	Transactions         [][]byte              //the payload
-	InternalTransactions []InternalTransaction //peers add and removal internal consensus
-	Parents              []string              //hashes of the event's parents, self-parent first
-	Creator              []byte                //creator's public key
-	Index                int                   //index in the sequence of events created by Creator
-	BlockSignatures      []BlockSignature      //list of Block signatures signed by the Event's Creator ONLY
+	Transactions         [][]byte              // application transactions
+	InternalTransactions []InternalTransaction // internal transactions ( add / remove peers )
+	Parents              []string              // hashes of the event's parents, self-parent first
+	Creator              []byte                // creator's public key
+	Index                int                   // index in the sequence of events created by Creator
+	BlockSignatures      []BlockSignature      // list of Block signatures signed by the Event Creator ONLY
+	Timestamp            int64                 // Unix timestamp when Event was created (seconds since January 1st, 1970)
 
-	//These fields are not serialized
+	// These fields are not serialized
 	creatorID            uint32
 	otherParentCreatorID uint32
 	selfParentIndex      int
@@ -132,6 +134,7 @@ func NewEvent(transactions [][]byte,
 		Parents:              parents,
 		Creator:              creator,
 		Index:                index,
+		Timestamp:            time.Now().Unix(),
 	}
 	return &Event{
 		Body: body,
@@ -389,6 +392,7 @@ func (e *Event) ToWire() WireEvent {
 			OtherParentIndex:     e.Body.otherParentIndex,
 			CreatorID:            e.Body.creatorID,
 			Index:                e.Body.Index,
+			Timestamp:            e.Body.Timestamp,
 			BlockSignatures:      e.WireBlockSignatures(),
 		},
 		Signature: e.Signature,
@@ -405,12 +409,12 @@ type WireBody struct {
 	Transactions         [][]byte
 	InternalTransactions []InternalTransaction
 	BlockSignatures      []WireBlockSignature
-
 	CreatorID            uint32
 	OtherParentCreatorID uint32
 	Index                int
 	SelfParentIndex      int
 	OtherParentIndex     int
+	Timestamp            int64
 }
 
 // WireEvent is a light-weight representation of an Event that is used to send

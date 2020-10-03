@@ -14,14 +14,15 @@ import (
 
 // BlockBody is the content of a Block.
 type BlockBody struct {
-	Index                       int
-	RoundReceived               int
-	StateHash                   []byte
-	FrameHash                   []byte
-	PeersHash                   []byte
-	Transactions                [][]byte
-	InternalTransactions        []InternalTransaction
-	InternalTransactionReceipts []InternalTransactionReceipt
+	Index                       int                          // block index
+	RoundReceived               int                          // round received of corresponding hashgraph frame
+	Timestamp                   int64                        // unix timestamp (median of frame events timestamps)
+	StateHash                   []byte                       // root hash of the application after applying block payload; to be populated by application Commit
+	FrameHash                   []byte                       // hash of corresponding hashgraph frame
+	PeersHash                   []byte                       // hash of peer-set
+	Transactions                [][]byte                     // transaction payload
+	InternalTransactions        []InternalTransaction        // internal transaction payload (add/remove peers)
+	InternalTransactionReceipts []InternalTransactionReceipt // receipts for internal transactions; to be populated by application Commit
 }
 
 // Marshal produces the JSON encoding of a BlockBody.
@@ -139,12 +140,16 @@ func NewBlockFromFrame(blockIndex int, frame *Frame) (*Block, error) {
 
 	transactions := [][]byte{}
 	internalTransactions := []InternalTransaction{}
+	timestamps := []int64{}
 	for _, e := range frame.Events {
 		transactions = append(transactions, e.Core.Transactions()...)
 		internalTransactions = append(internalTransactions, e.Core.InternalTransactions()...)
+		timestamps = append(timestamps, e.Core.Body.Timestamp)
 	}
 
-	return NewBlock(blockIndex, frame.Round, frameHash, frame.Peers, transactions, internalTransactions), nil
+	blockTimestamp := common.Median(timestamps)
+
+	return NewBlock(blockIndex, frame.Round, frameHash, frame.Peers, transactions, internalTransactions, blockTimestamp), nil
 }
 
 // NewBlock creates a new Block.
@@ -153,7 +158,8 @@ func NewBlock(blockIndex,
 	frameHash []byte,
 	peerSlice []*peers.Peer,
 	txs [][]byte,
-	itxs []InternalTransaction) *Block {
+	itxs []InternalTransaction,
+	timestamp int64) *Block {
 
 	peerSet := peers.NewPeerSet(peerSlice)
 
@@ -170,6 +176,7 @@ func NewBlock(blockIndex,
 		PeersHash:            peersHash,
 		Transactions:         txs,
 		InternalTransactions: itxs,
+		Timestamp:            timestamp,
 	}
 
 	return &Block{
@@ -182,6 +189,11 @@ func NewBlock(blockIndex,
 // Index returns the block's index.
 func (b *Block) Index() int {
 	return b.Body.Index
+}
+
+// Timestamp returns the block's timestamp
+func (b *Block) Timestamp() int64 {
+	return b.Body.Timestamp
 }
 
 // Transactions return's the block's transactoins.

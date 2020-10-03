@@ -52,7 +52,7 @@ func TestInmemProxyBabbleSide(t *testing.T) {
 		[]byte("tx 3"),
 	}
 
-	block := hashgraph.NewBlock(0, 1, []byte{}, []*peers.Peer{}, transactions, []hashgraph.InternalTransaction{})
+	block := hashgraph.NewBlock(0, 1, []byte{}, []*peers.Peer{}, transactions, []hashgraph.InternalTransaction{}, 0)
 
 	/***************************************************************************
 	Commit

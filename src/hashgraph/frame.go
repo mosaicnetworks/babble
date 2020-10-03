@@ -19,7 +19,7 @@ type Frame struct {
 }
 
 // SortedFrameEvents returns all the events in the Frame, including event is
-// roots, sorted.
+// roots, sorted by LAMPORT timestamp
 func (f *Frame) SortedFrameEvents() []*FrameEvent {
 	sorted := SortedFrameEvents{}
 	for _, r := range f.Roots {

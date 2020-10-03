@@ -150,7 +150,7 @@ func TestSocketProxyClient(t *testing.T) {
 		hashgraph.NewInternalTransaction(hashgraph.PEER_REMOVE, *peers.NewPeer("node1", "london", "")),
 	}
 
-	block := hashgraph.NewBlock(0, 1, []byte{}, []*peers.Peer{}, transactions, internalTransactions)
+	block := hashgraph.NewBlock(0, 1, []byte{}, []*peers.Peer{}, transactions, internalTransactions, 0)
 
 	expectedStateHash := []byte("statehash")
 	expectedSnapshot := []byte("snapshot")

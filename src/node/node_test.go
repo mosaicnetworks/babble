@@ -113,6 +113,8 @@ func TestGossip(t *testing.T) {
 	}
 
 	checkGossip(nodes, 0, t)
+
+	checkTimestamps(nodes[0], t)
 }
 
 func TestWebRTCGossip(t *testing.T) {
@@ -687,6 +689,22 @@ func checkGossip(nodes []*Node, fromBlock int, t *testing.T) {
 				t.Fatalf("Fatal checkGossip: Difference in Block %d. ###### nodes[0]: %#v ###### nodes[%d]: %#v", block.Index(), block.Body, k, oBlock.Body)
 			}
 		}
+	}
+}
+
+func checkTimestamps(node *Node, t *testing.T) {
+	lastTimestamp := int64(0)
+	for i := 0; i < node.core.hg.Store.LastBlockIndex(); i++ {
+		block, err := node.core.hg.Store.GetBlock(i)
+		if err != nil {
+			t.Fatalf("Fatal checkTimestamps: %v ", err)
+		}
+
+		if block.Timestamp() < lastTimestamp {
+			t.Fatalf("not increasing timestamp: block %d (%d) <= %d", i, block.Timestamp(), lastTimestamp)
+		}
+
+		lastTimestamp = block.Timestamp()
 	}
 }
 

@@ -1573,6 +1573,7 @@ func (h *Hashgraph) ReadWireInfo(wevent WireEvent) (*Event, error) {
 		Parents:              []string{selfParent, otherParent},
 		Creator:              creatorBytes,
 		Index:                wevent.Body.Index,
+		Timestamp:            wevent.Body.Timestamp,
 
 		selfParentIndex:      wevent.Body.SelfParentIndex,
 		otherParentCreatorID: wevent.Body.OtherParentCreatorID,

@@ -38,8 +38,8 @@ func (t TransactionType) String() string {
 
 // InternalTransactionBody contains the payload of an InternalTransaction.
 type InternalTransactionBody struct {
-	Type TransactionType
-	Peer peers.Peer
+	Type TransactionType // Add or Remove
+	Peer peers.Peer      // Targeted Peer
 }
 
 // Marshal returns the JSON encoding of an InternalTransaction.
