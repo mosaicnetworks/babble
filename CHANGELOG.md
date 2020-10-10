@@ -1,16 +1,20 @@
 # Change Log
 
-## Unreleased
+## v0.8.3 (Oct 10, 2020)
 
-SECURITY:
+IMPROVEMENTS:
+
+- hashgraph: BFT block timestamp
+
+## v0.8.2 (Oct 3, 2020)
 
 FEATURES:
+
+- hashgraph: block timestamp
 
 IMPROVEMENTS:
 
 - node: Remove unused stats.
-
-BUG FIXES:
 
 ## v0.8.1 (June 3, 2020)
 
