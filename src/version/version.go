@@ -4,7 +4,7 @@ package version
 // Flag contains extra info about the version. It is helpful for tracking
 // versions while developing. It should always be empty on the master branch,
 // and this rule is inforced in a continuous integration test.
-const Flag = ""
+const Flag = "develop"
 
 var (
 	// Version is The full version string
