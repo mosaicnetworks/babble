@@ -1,11 +1,9 @@
 package hashgraph
 
 import (
-	"math/rand"
 	"reflect"
 	"testing"
 
-	"github.com/mosaicnetworks/babble/src/common"
 	"github.com/mosaicnetworks/babble/src/crypto/keys"
 	"github.com/mosaicnetworks/babble/src/peers"
 )
@@ -85,11 +83,8 @@ func TestAppendSignature(t *testing.T) {
 
 func TestNewBlockFromFrame(t *testing.T) {
 
-	timestamps := []int64{
-		rand.Int63(),
-		rand.Int63(),
-		rand.Int63(),
-	}
+	frameTimestamp := int64(123456789)
+
 	transactions := [][]byte{
 		[]byte("transaction1"),
 		[]byte("transaction2"),
@@ -101,6 +96,7 @@ func TestNewBlockFromFrame(t *testing.T) {
 		[]byte("transaction8"),
 		[]byte("transaction9"),
 	}
+
 	internalTransactions := []InternalTransaction{
 		NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1000.pub", "peer1000.addr", "peer1000")),
 		NewInternalTransaction(PEER_ADD, *peers.NewPeer("peer1001.pub", "peer1001.addr", "peer1001")),
@@ -121,7 +117,6 @@ func TestNewBlockFromFrame(t *testing.T) {
 					Body: EventBody{
 						Transactions:         transactions[0:3],
 						InternalTransactions: internalTransactions[:1],
-						Timestamp:            timestamps[0],
 					},
 				},
 			},
@@ -130,7 +125,6 @@ func TestNewBlockFromFrame(t *testing.T) {
 					Body: EventBody{
 						Transactions:         transactions[3:6],
 						InternalTransactions: internalTransactions[1:2],
-						Timestamp:            timestamps[1],
 					},
 				},
 			},
@@ -139,11 +133,11 @@ func TestNewBlockFromFrame(t *testing.T) {
 					Body: EventBody{
 						Transactions:         transactions[6:],
 						InternalTransactions: internalTransactions[2:],
-						Timestamp:            timestamps[2],
 					},
 				},
 			},
 		},
+		Timestamp: frameTimestamp,
 	}
 
 	block, err := NewBlockFromFrame(10, frame)
@@ -172,8 +166,7 @@ func TestNewBlockFromFrame(t *testing.T) {
 		t.Fatal("block has wrong internal transactions")
 	}
 
-	median := common.Median(timestamps)
-	if block.Timestamp() != median {
-		t.Fatalf("block timestamp should be %d, not %d", median, block.Timestamp())
+	if block.Timestamp() != frameTimestamp {
+		t.Fatalf("block timestamp should be %d, not %d", frameTimestamp, block.Timestamp())
 	}
 }

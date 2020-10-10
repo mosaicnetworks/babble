@@ -16,7 +16,7 @@ import (
 type BlockBody struct {
 	Index                       int                          // block index
 	RoundReceived               int                          // round received of corresponding hashgraph frame
-	Timestamp                   int64                        // unix timestamp (median of frame events timestamps)
+	Timestamp                   int64                        // unix timestamp ((median of timestamps in round-received famous witnesses))
 	StateHash                   []byte                       // root hash of the application after applying block payload; to be populated by application Commit
 	FrameHash                   []byte                       // hash of corresponding hashgraph frame
 	PeersHash                   []byte                       // hash of peer-set
@@ -140,16 +140,21 @@ func NewBlockFromFrame(blockIndex int, frame *Frame) (*Block, error) {
 
 	transactions := [][]byte{}
 	internalTransactions := []InternalTransaction{}
-	timestamps := []int64{}
 	for _, e := range frame.Events {
 		transactions = append(transactions, e.Core.Transactions()...)
 		internalTransactions = append(internalTransactions, e.Core.InternalTransactions()...)
-		timestamps = append(timestamps, e.Core.Body.Timestamp)
 	}
 
-	blockTimestamp := common.Median(timestamps)
+	block := NewBlock(
+		blockIndex,
+		frame.Round,
+		frameHash,
+		frame.Peers,
+		transactions,
+		internalTransactions,
+		frame.Timestamp)
 
-	return NewBlock(blockIndex, frame.Round, frameHash, frame.Peers, transactions, internalTransactions, blockTimestamp), nil
+	return block, nil
 }
 
 // NewBlock creates a new Block.

@@ -749,17 +749,17 @@ func (h *Hashgraph) InsertEvent(event *Event, setWireInfo bool) error {
 	return nil
 }
 
-//InsertFrameEvent inserts the FrameEvent's core Event, without checking its
-//parents or signature. It doesnt add the Event to UndeterminedEvents either.
+// InsertFrameEvent inserts the FrameEvent's core Event, without checking its
+// parents or signature. It doesnt add the Event to UndeterminedEvents either.
 func (h *Hashgraph) InsertFrameEvent(frameEvent *FrameEvent) error {
 	event := frameEvent.Core
 
-	//Set caches so round, witness, and timestamp won't be recalculated
+	// Set caches so round, witness, and timestamp won't be recalculated
 	h.roundCache.Add(event.Hex(), frameEvent.Round)
 	h.witnessCache.Add(event.Hex(), frameEvent.Witness)
 	h.timestampCache.Add(event.Hex(), frameEvent.LamportTimestamp)
 
-	//Set the event's private fields for later use
+	// Set the event's private fields for later use
 	event.SetRound(frameEvent.Round)
 	event.SetLamportTimestamp(frameEvent.LamportTimestamp)
 
@@ -778,7 +778,7 @@ func (h *Hashgraph) InsertFrameEvent(frameEvent *FrameEvent) error {
 		return err
 	}
 
-	//Init EventCoordinates.
+	// Init EventCoordinates.
 	if err := h.initEventCoordinates(event); err != nil {
 		return fmt.Errorf("InitEventCoordinates: %s", err)
 	}
@@ -791,9 +791,9 @@ func (h *Hashgraph) InsertFrameEvent(frameEvent *FrameEvent) error {
 		return fmt.Errorf("UpdateAncestorFirstDescendant: %s", err)
 	}
 
-	//All FrameEvents are consensus events, ie. they have a round-received and
-	//were committed. We need to record FrameEvents as consensus events because
-	//it comes into play in GetFrame/CreateRoot
+	// All FrameEvents are consensus events, ie. they have a round-received and
+	// were committed. We need to record FrameEvents as consensus events because
+	// it comes into play in GetFrame/CreateRoot
 	if err := h.Store.AddConsensusEvent(event); err != nil {
 		return fmt.Errorf("AddConsensusEvent: %v", event)
 	}
@@ -801,8 +801,9 @@ func (h *Hashgraph) InsertFrameEvent(frameEvent *FrameEvent) error {
 	return nil
 }
 
-//DivideRounds assigns a Round and LamportTimestamp to Events, and flags them as
-//witnesses if necessary. Pushes Rounds in the PendingRounds queue if necessary.
+// DivideRounds assigns a Round and LamportTimestamp to Events, and flags them
+// as witnesses if necessary. Pushes Rounds in the PendingRounds queue if
+// necessary.
 func (h *Hashgraph) DivideRounds() error {
 
 	for _, hash := range h.UndeterminedEvents {
@@ -813,8 +814,8 @@ func (h *Hashgraph) DivideRounds() error {
 
 		updateEvent := false
 
-		//Compute Event's round, update the corresponding Round object, and add
-		//it to the PendingRounds queue if necessary.
+		// Compute Event's round, update the corresponding Round object, and add
+		// it to the PendingRounds queue if necessary.
 		if ev.round == nil {
 			roundNumber, err := h.round(hash)
 			if err != nil {
@@ -852,7 +853,7 @@ func (h *Hashgraph) DivideRounds() error {
 			}
 		}
 
-		//Compute the Event's LamportTimestamp
+		// Compute the Event's LamportTimestamp
 		if ev.lamportTimestamp == nil {
 			lamportTimestamp, err := h.lamportTimestamp(hash)
 			if err != nil {
@@ -870,9 +871,9 @@ func (h *Hashgraph) DivideRounds() error {
 	return nil
 }
 
-//DecideFame decides if witnesses are famous
+// DecideFame decides if witnesses are famous
 func (h *Hashgraph) DecideFame() error {
-	//Initialize the vote map
+	// Initialize the vote map
 	votes := make(map[string](map[string]bool)) //[x][y]=>vote(x,y)
 	setVote := func(votes map[string]map[string]bool, x, y string, vote bool) {
 		if votes[x] == nil {
@@ -931,8 +932,8 @@ func (h *Hashgraph) DecideFame() error {
 							return err
 						}
 
-						//collection of witnesses from round j-1 that are
-						//strongly seen by y, based on round j-1 PeerSet.
+						// collection of witnesses from round j-1 that are
+						// strongly seen by y, based on round j-1 PeerSet.
 						ssWitnesses := []string{}
 						for _, w := range jPrevRoundInfo.Witnesses() {
 							ss, err := h.stronglySee(y, w, jPrevPeerSet)
@@ -944,7 +945,7 @@ func (h *Hashgraph) DecideFame() error {
 							}
 						}
 
-						//Collect votes from these witnesses.
+						// Collect votes from these witnesses.
 						yays := 0
 						nays := 0
 						for _, w := range ssWitnesses {
@@ -961,20 +962,20 @@ func (h *Hashgraph) DecideFame() error {
 							t = yays
 						}
 
-						//normal round
+						// normal round
 						if math.Mod(float64(diff), COIN_ROUND_FREQ) > 0 {
 							if t >= jPeerSet.SuperMajority() {
 								rRoundInfo.SetFame(x, v)
 								setVote(votes, y, x, v)
-								break VOTE_LOOP //break out of j loop
+								break VOTE_LOOP // break out of j loop
 							} else {
 								setVote(votes, y, x, v)
 							}
-						} else { //coin round
+						} else { // coin round
 							if t >= jPeerSet.SuperMajority() {
 								setVote(votes, y, x, v)
 							} else {
-								setVote(votes, y, x, middleBit(y)) //middle bit of y's hash
+								setVote(votes, y, x, middleBit(y)) // middle bit of y's hash
 							}
 						}
 					}
@@ -996,8 +997,8 @@ func (h *Hashgraph) DecideFame() error {
 	return nil
 }
 
-//DecideRoundReceived assigns a RoundReceived to undetermined events when they
-//reach consensus
+// DecideRoundReceived assigns a RoundReceived to undetermined events when they
+// reach consensus
 func (h *Hashgraph) DecideRoundReceived() error {
 	newUndeterminedEvents := []string{}
 
@@ -1029,15 +1030,13 @@ func (h *Hashgraph) DecideRoundReceived() error {
 				return err
 			}
 
-			/*
-				We are looping from earlier to later rounds; so if we encounter
-				one round with undecided witnesses, we are sure that this event
-				is not "received". Break out of i loop. This is not true for
-				events below the roundLowerBound because these rounds are never
-				processed by the DecideFame routine. It's ok because events
-				below this round are either already committed or will be
-				received later, so just continue through the i loop.
-			*/
+			// We are looping from earlier to later rounds; so if we encounter
+			// one round with undecided witnesses, we are sure that this event
+			// is not "received". Break out of i loop. This is not true for
+			// events below the roundLowerBound because these rounds are never
+			// processed by the DecideFame routine. It's ok because events below
+			// this round are either already committed or will be received
+			// later, so just continue through the i loop.
 			if !(tr.WitnessesDecided(tPeers)) {
 				if h.roundLowerBound == nil || *h.roundLowerBound < i {
 					break
@@ -1047,7 +1046,7 @@ func (h *Hashgraph) DecideRoundReceived() error {
 			}
 
 			fws := tr.FamousWitnesses()
-			//set of famous witnesses that see x
+			// set of famous witnesses that see x
 			s := []string{}
 			for _, w := range fws {
 				see, err := h.see(w, x)
@@ -1080,7 +1079,7 @@ func (h *Hashgraph) DecideRoundReceived() error {
 					return err
 				}
 
-				//break out of i loop
+				// break out of i loop
 				break
 			}
 		}
@@ -1095,22 +1094,20 @@ func (h *Hashgraph) DecideRoundReceived() error {
 	return nil
 }
 
-/*
-ProcessDecidedRounds takes Rounds whose witnesses are decided, computes the
-corresponding Frames, maps them into Blocks, and commits the Blocks via the
-commit channel
-*/
+// ProcessDecidedRounds takes Rounds whose witnesses are decided, computes the
+// corresponding Frames, maps them into Blocks, and commits the Blocks via the
+// commit channel
 func (h *Hashgraph) ProcessDecidedRounds() error {
-	//Defer removing processed Rounds from the PendingRounds Queue
+	// Defer removing processed Rounds from the PendingRounds Queue
 	processedRounds := []int{}
 	defer func() {
 		h.PendingRounds.Clean(processedRounds)
 	}()
 
 	for _, r := range h.PendingRounds.GetOrderedPendingRounds() {
-		//Although it is possible for a Round to be 'decided' before a previous
-		//round, we should NEVER process a decided round before all the earlier
-		//rounds are processed.
+		// Although it is possible for a Round to be 'decided' before a previous
+		// round, we should NEVER process a decided round before all the earlier
+		// rounds are processed.
 		if !r.Decided {
 			break
 		}
@@ -1183,15 +1180,15 @@ func (h *Hashgraph) ProcessDecidedRounds() error {
 	return nil
 }
 
-//GetFrame computes the Frame corresponding to a RoundReceived.
+// GetFrame computes the Frame corresponding to a RoundReceived.
 func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
-	//Try to get it from the Store first
+	// Try to get it from the Store first
 	frame, err := h.Store.GetFrame(roundReceived)
 	if err == nil || !common.IsStore(err, common.KeyNotFound) {
 		return frame, err
 	}
 
-	//Get the Round and corresponding consensus Events
+	// Get the Round and corresponding consensus Events
 	round, err := h.Store.GetRound(roundReceived)
 	if err != nil {
 		return nil, err
@@ -1213,11 +1210,10 @@ func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 
 	sort.Sort(SortedFrameEvents(events))
 
-	/*
-		Get/Create Roots. The events are in topological order; so each time we
-		run into the first Event of a participant, we create a Root for it. Then
-		we populate the root's Events slice.
-	*/
+	// Get/Create Roots. The events are in topological order; so each time we
+	// run into the first Event of a participant, we create a Root for it. Then
+	// we populate the root's Events slice.
+
 	roots := make(map[string]*Root)
 
 	for _, ev := range events {
@@ -1232,13 +1228,11 @@ func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 		}
 	}
 
-	/*
-		Every participant, that was known before roundReceived, needs a Root in
-		the Frame. For the participants that have no Events in this Frame, we
-		create a Root from their last consensus Event, or their last known Root
-	*/
+	// Every participant, that was known before roundReceived, needs a Root in
+	// the Frame. For the participants that have no Events in this Frame, we
+	// create a Root from their last consensus Event, or their last known Root
 	for p, peer := range h.Store.RepertoireByPubKey() {
-		//Ignore if participant wasn't added before roundReceived
+		// Ignore if participant wasn't added before roundReceived
 		firstRound, ok := h.Store.FirstRound(peer.ID())
 		if !ok || firstRound > roundReceived {
 			continue
@@ -1261,18 +1255,30 @@ func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 		}
 	}
 
-	//Get all PeerSets
+	// Get all PeerSets
 	allPeerSets, err := h.Store.GetAllPeerSets()
 	if err != nil {
 		return nil, err
 	}
 
+	// Compute BFT Timestamp
+	timestamps := []int64{}
+	for _, fw := range round.FamousWitnesses() {
+		ev, err := h.Store.GetEvent(fw)
+		if err != nil {
+			return nil, err
+		}
+		timestamps = append(timestamps, ev.Timestamp())
+	}
+	frameTimestamp := common.Median(timestamps)
+
 	res := &Frame{
-		Round:    roundReceived,
-		Peers:    peerSet.Peers,
-		Roots:    roots,
-		Events:   events,
-		PeerSets: allPeerSets,
+		Round:     roundReceived,
+		Peers:     peerSet.Peers,
+		Roots:     roots,
+		Events:    events,
+		PeerSets:  allPeerSets,
+		Timestamp: frameTimestamp,
 	}
 
 	if err := h.Store.SetFrame(res); err != nil {
@@ -1282,11 +1288,10 @@ func (h *Hashgraph) GetFrame(roundReceived int) (*Frame, error) {
 	return res, nil
 }
 
-/*
-ProcessSigPool runs through the SignaturePool and tries to map a Signature to
-a known Block. If a Signature is valid, it is appended to the block and removed
-from the SignaturePool. The function also updates the AnchorBlock if necessary.
-*/
+// ProcessSigPool runs through the SignaturePool and tries to map a Signature to
+// a known Block. If a Signature is valid, it is appended to the block and
+// removed from the SignaturePool. The function also updates the AnchorBlock if
+// necessary.
 func (h *Hashgraph) ProcessSigPool() error {
 	h.logger.WithField("pending_signatures", h.PendingSignatures.Len()).Debug("ProcessSigPool()")
 
@@ -1310,7 +1315,7 @@ func (h *Hashgraph) ProcessSigPool() error {
 			continue
 		}
 
-		//check if validator belongs to list of participants
+		// check if validator belongs to list of participants
 		if _, ok := peerSet.ByPubKey[bs.ValidatorHex()]; !ok {
 			h.logger.WithFields(logrus.Fields{
 				"index":     bs.Index,

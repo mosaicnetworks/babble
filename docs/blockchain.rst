@@ -157,7 +157,7 @@ Block Structure
       Body:{
           Index                       int                          // block index
 	      RoundReceived               int                          // round received of corresponding hashgraph frame
-	      Timestamp                   int64                        // unix timestamp (median of frame events timestamps)
+	      Timestamp                   int64                        // unix timestamp (median of timestamps in round-received famous witnesses)
 	      StateHash                   []byte                       // root hash of the application after applying block payload; to be populated by application Commit
 	      FrameHash                   []byte                       // hash of corresponding hashgraph frame
 	      PeersHash                   []byte                       // hash of peer-set
@@ -180,14 +180,12 @@ non-consecutive RoundReceived values and we use an additional property to index
 the blocks.
 
 The 'Timestamp' is a Unix timestamp (number of seconds since January 1st, 1970)
-corresponding to the median of the timestamps in the hashgraph Frame. Upon 
-creating a hashgraph Event, a Unix timestamp is automatically added to it using 
-the creator's system clock. The Block's timestamp is a median of the timestamps
-included in the Event's that make up the block's frame. Note that nodes may have
-non-synchronised clocks, and may purposefuly tinker with their clocks to bias 
-the block timestamp. It is possible for a subset of nodes (even less than 1/3) 
-to collude and manipulate the block timestamps, so this value should be used 
-cautiously.
+corresponding to the median of the timestamps of the famous witnesses in the 
+frame's round-received. Upon creating a hashgraph Event, a Unix timestamp is 
+automatically added to it using the creator's system clock. The Block's 
+timestamp is the median of the timestamps included in the famous witnesses of
+the block's round-received. Note that nodes may have non-synchronised clocks, 
+and may purposefuly tinker with their clocks to bias the block timestamp.
 
 The FrameHash corresponds to the Frame in the hashgraph at RoundReceived. It is
 used in the FastSync protocol to verify the relationship between the Block and

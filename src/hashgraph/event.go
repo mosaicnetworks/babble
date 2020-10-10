@@ -174,6 +174,11 @@ func (e *Event) Index() int {
 	return e.Body.Index
 }
 
+// Timestamp returns the Event's Timestamp
+func (e *Event) Timestamp() int64 {
+	return e.Body.Timestamp
+}
+
 // BlockSignatures returns the Event's BlockSignatures
 func (e *Event) BlockSignatures() []BlockSignature {
 	return e.Body.BlockSignatures
