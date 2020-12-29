@@ -502,15 +502,15 @@ func (h *Hashgraph) updateAncestorFirstDescendant(event *Event) error {
 				if err := h.Store.SetEvent(a); err != nil {
 					return err
 				}
+				// Stopping condition. We don't want to go all the way down to
+				// the bottom of the hashgraph (which could happen if the event
+				// is from a new participant). So we stop at the ancestors that
+				// are witnesses.
+				if w, err := h.witness(ah); err == nil && w {
+					break
+				}
 				ah = a.SelfParent()
 			} else {
-				break
-			}
-
-			// Stopping condition. When the event is from a new participant, we
-			// don't want to go all the way down to the bottom of the hashgraph.
-			// So we stop at the ancestors that are witnesses.
-			if w, err := h.witness(ah); err != nil && w {
 				break
 			}
 		}

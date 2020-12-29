@@ -3,9 +3,14 @@
 ## Unreleased
 
 SECURITY:
+
 FEATURES:
+
 IMPROVEMENTS:
+
 BUG FIXES:
+
+- hashgraph: stopping condition in updateAncestorFirstDescendant
 
 ## v0.8.3 (Oct 10, 2020)
 
