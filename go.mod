@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/btcsuite/btcd v0.0.0-20190523000118-16327141da8c
 	github.com/dgraph-io/badger v1.6.0
+	github.com/gogf/greuse v1.1.0
 	github.com/gammazero/nexus/v3 v3.0.0
 	github.com/jonknight73/badger v0.0.0-20200218142835-fa9c019859f6
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
