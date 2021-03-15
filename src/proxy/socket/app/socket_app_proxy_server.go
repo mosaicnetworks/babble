@@ -4,6 +4,7 @@ import (
 	"net"
 	"net/rpc"
 	"net/rpc/jsonrpc"
+	"github.com/gogf/greuse"
 
 	"github.com/sirupsen/logrus"
 )
@@ -37,8 +38,10 @@ func (p *SocketAppProxyServer) register(bindAddress string) error {
 	rpcServer.RegisterName("Babble", p)
 
 	p.rpcServer = rpcServer
+	
+	//then linux and windows can reuse same port
+	l, err := greuse.Listen("tcp", bindAddress)
 
-	l, err := net.Listen("tcp", bindAddress)
 
 	if err != nil {
 		p.logger.WithField("error", err).Error("Failed to listen")
