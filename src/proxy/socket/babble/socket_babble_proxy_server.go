@@ -10,6 +10,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/node/state"
 	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/sirupsen/logrus"
+	"github.com/gogf/greuse"
 )
 
 // SocketBabbleProxyServer is the server component of the BabbleProxy which
@@ -49,7 +50,8 @@ func (p *SocketBabbleProxyServer) register(bindAddress string) error {
 
 	p.rpcServer = rpcServer
 
-	l, err := net.Listen("tcp", bindAddress)
+	//then linux and windows can reuse same port
+	l, err := greuse.Listen("tcp", bindAddress)
 
 	if err != nil {
 		return err
