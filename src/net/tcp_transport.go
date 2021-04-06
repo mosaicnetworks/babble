@@ -23,9 +23,16 @@ func NewTCPTransport(
 	joinTimeout time.Duration,
 	logger *logrus.Entry,
 ) (*NetworkTransport, error) {
-	return newTCPTransport(bindAddr, advertise, maxPool, timeout, joinTimeout, func(stream StreamLayer) *NetworkTransport {
-		return NewNetworkTransport(stream, maxPool, timeout, joinTimeout, logger)
-	})
+	return newTCPTransport(
+		bindAddr,
+		advertise,
+		maxPool,
+		timeout,
+		joinTimeout,
+		func(stream StreamLayer) *NetworkTransport {
+			return NewNetworkTransport(stream, maxPool, timeout, joinTimeout, logger)
+		},
+	)
 }
 
 func newTCPTransport(bindAddr string,

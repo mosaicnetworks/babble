@@ -11,21 +11,25 @@ import (
 	"github.com/mosaicnetworks/babble/src/hashgraph"
 	"github.com/mosaicnetworks/babble/src/net/signal/wamp"
 	"github.com/mosaicnetworks/babble/src/peers"
+	"github.com/nknorg/nkn-sdk-go"
 )
 
 const (
-	INMEM = iota
-	TCP
-	WEBRTC
+	NKN               = iota
 	numTestTransports // NOTE: must be last
+	INMEM             // NOTE: move up to include in tests
+	TCP               // NOTE: move up to include in tests
+	WEBRTC            // NOTE: move up to include in tests
 )
 
 var (
-	realm         = config.DefaultSignalRealm
-	wampPort      = 8443
-	certFile      = "signal/wamp/test_data/cert.pem"
-	keyFile       = "signal/wamp/test_data/key.pem"
-	signalTimeout = 5 * time.Second
+	realm             = config.DefaultSignalRealm
+	wampPort          = 8443
+	certFile          = "signal/wamp/test_data/cert.pem"
+	keyFile           = "signal/wamp/test_data/key.pem"
+	signalTimeout     = 5 * time.Second
+	nknConnectTimeout = 10 * time.Second
+	listenTimeout     = 10 * time.Second
 )
 
 func NewTestTransport(ttype int, addr string, wampserver string, t *testing.T) Transport {
@@ -65,6 +69,26 @@ func NewTestTransport(ttype int, addr string, wampserver string, t *testing.T) T
 		}
 		go wt.Listen()
 		return wt
+	case NKN:
+		account, err := nkn.NewAccount(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		nt, err := NewNKNTransport(
+			account,
+			"babble",
+			3,
+			nil,
+			nknConnectTimeout,
+			1,
+			10*time.Second,
+			10*time.Second,
+			common.NewTestEntry(t, common.TestLogLevel))
+		if err != nil {
+			t.Fatal(err)
+		}
+		go nt.Listen()
+		return nt
 	default:
 		panic("Unknown transport type")
 	}
@@ -167,7 +191,7 @@ func TestTransport_Sync(t *testing.T) {
 				rpc.Respond(&resp, nil)
 			case <-stopCh:
 				return
-			case <-time.After(signalTimeout):
+			case <-time.After(listenTimeout):
 				t.Logf("consumer timeout")
 			}
 		}()
@@ -248,7 +272,7 @@ func TestTransport_EagerSync(t *testing.T) {
 				rpc.Respond(&resp, nil)
 			case <-stopCh:
 				return
-			case <-time.After(signalTimeout):
+			case <-time.After(listenTimeout):
 				t.Logf("consumer timeout")
 			}
 		}()
@@ -393,7 +417,7 @@ func TestTransport_FastForward(t *testing.T) {
 				rpc.Respond(&resp, nil)
 			case <-stopCh:
 				return
-			case <-time.After(signalTimeout):
+			case <-time.After(listenTimeout):
 				t.Logf("consumer timeout")
 			}
 		}()
@@ -489,7 +513,7 @@ func TestTransport_Join(t *testing.T) {
 				rpc.Respond(&resp, nil)
 			case <-stopCh:
 				return
-			case <-time.After(signalTimeout):
+			case <-time.After(listenTimeout):
 				t.Logf("consumer timeout")
 			}
 		}()

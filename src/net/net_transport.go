@@ -120,7 +120,6 @@ func (n *NetworkTransport) Close() error {
 	if !n.shutdown {
 		close(n.shutdownCh)
 		n.stream.Close()
-
 		n.shutdown = true
 	}
 	return nil
