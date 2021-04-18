@@ -206,7 +206,7 @@ func (b *Babble) initTransport() error {
 		nknTransport, err := net.NewNKNTransport(
 			nknAccount,
 			"",
-			3,
+			10,
 			nil,
 			10*time.Second,
 			b.Config.MaxPool,

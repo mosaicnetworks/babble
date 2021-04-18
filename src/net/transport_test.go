@@ -29,7 +29,7 @@ var (
 	keyFile           = "signal/wamp/test_data/key.pem"
 	signalTimeout     = 5 * time.Second
 	nknConnectTimeout = 10 * time.Second
-	listenTimeout     = 10 * time.Second
+	listenTimeout     = 20 * time.Second
 )
 
 func NewTestTransport(ttype int, addr string, wampserver string, t *testing.T) Transport {
@@ -38,7 +38,14 @@ func NewTestTransport(ttype int, addr string, wampserver string, t *testing.T) T
 		_, it := NewInmemTransport(addr)
 		return it
 	case TCP:
-		tt, err := NewTCPTransport(addr, "", 2, time.Second, 2*time.Second, common.NewTestEntry(t, common.TestLogLevel))
+		tt, err := NewTCPTransport(
+			addr,
+			"",
+			2,
+			time.Second,
+			2*time.Second,
+			common.NewTestEntry(t, common.TestLogLevel).WithField("node", addr),
+		)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -77,12 +84,12 @@ func NewTestTransport(ttype int, addr string, wampserver string, t *testing.T) T
 		nt, err := NewNKNTransport(
 			account,
 			"babble",
-			3,
+			10,
 			nil,
 			nknConnectTimeout,
 			1,
-			10*time.Second,
-			10*time.Second,
+			20*time.Second,
+			20*time.Second,
 			common.NewTestEntry(t, common.TestLogLevel))
 		if err != nil {
 			t.Fatal(err)

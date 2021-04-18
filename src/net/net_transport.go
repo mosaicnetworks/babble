@@ -325,6 +325,9 @@ func (n *NetworkTransport) Listen() {
 			"from": conn.RemoteAddr(),
 		}).Debug("accepted connection")
 
+		// XXX
+		// conn.SetDeadline(time.Now().Add(n.timeout))
+
 		// Handle the connection in dedicated routine
 		go n.handleConn(conn)
 	}
@@ -332,6 +335,8 @@ func (n *NetworkTransport) Listen() {
 
 // handleConn is used to handle an inbound connection for its lifespan.
 func (n *NetworkTransport) handleConn(conn net.Conn) {
+	fmt.Printf("XXX [%s] handleConn\n", n.AdvertiseAddr())
+
 	defer conn.Close()
 	r := bufio.NewReaderSize(conn, bufSize)
 	w := bufio.NewWriterSize(conn, bufSize)
@@ -340,18 +345,17 @@ func (n *NetworkTransport) handleConn(conn net.Conn) {
 
 	for {
 		if err := n.handleCommand(r, dec, enc); err != nil {
-
 			if err == ErrTransportShutdown {
-				n.logger.WithField("error", err).Warn("Failed to decode incoming command")
+				n.logger.WithError(err).Warn("failed to handle command")
 			} else {
 				if err != io.EOF {
-					n.logger.WithField("error", err).Error("Failed to decode incoming command")
+					n.logger.WithError(err).Error("failed to handle command")
 				}
 			}
 			return
 		}
 		if err := w.Flush(); err != nil {
-			n.logger.WithField("error", err).Error("Failed to flush response")
+			n.logger.WithField("error", err).Error("failed to flush response")
 			return
 		}
 	}
@@ -360,8 +364,10 @@ func (n *NetworkTransport) handleConn(conn net.Conn) {
 // handleCommand is used to decode and dispatch a single command.
 func (n *NetworkTransport) handleCommand(r *bufio.Reader, dec *json.Decoder, enc *json.Encoder) error {
 	// Get the rpc type
+	fmt.Printf("XXX [%s] %v reading byte\n", n.AdvertiseAddr(), time.Now())
 	rpcType, err := r.ReadByte()
 	if err != nil {
+		n.logger.WithError(err).Errorf("XXX [%s] failed to read first byte", n.AdvertiseAddr())
 		return err
 	}
 
@@ -401,6 +407,8 @@ func (n *NetworkTransport) handleCommand(r *bufio.Reader, dec *json.Decoder, enc
 		return fmt.Errorf("unknown rpc type %d", rpcType)
 	}
 
+	fmt.Printf("XXX [%s] %v command %d\n", n.AdvertiseAddr(), time.Now(), rpcType)
+
 	// Dispatch the RPC
 	select {
 	case n.consumeCh <- rpc:
@@ -419,7 +427,6 @@ func (n *NetworkTransport) handleCommand(r *bufio.Reader, dec *json.Decoder, enc
 		if err := enc.Encode(respErr); err != nil {
 			return err
 		}
-
 		// Send the response
 		if err := enc.Encode(resp.Response); err != nil {
 			return err
