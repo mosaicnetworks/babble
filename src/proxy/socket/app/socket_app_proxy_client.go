@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"net"
 	"net/rpc"
 	"net/rpc/jsonrpc"
@@ -54,13 +55,14 @@ func (p *SocketAppProxyClient) CommitBlock(block hashgraph.Block) (proxy.CommitR
 
 	if err := p.rpc.Call("State.CommitBlock", block, &commitResponse); err != nil {
 		p.rpc = nil
-
 		return commitResponse, err
 	}
 
+	jsonResp, _ := json.Marshal(commitResponse)
+
 	p.logger.WithFields(logrus.Fields{
 		"block":           block.Index(),
-		"commit_response": commitResponse,
+		"commit_response": string(jsonResp),
 	}).Debug("AppProxyClient.CommitBlock")
 
 	return commitResponse, nil

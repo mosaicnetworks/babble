@@ -1,0 +1,826 @@
+time="2021-05-19T17:05:28Z" level=debug msg="No config file found in: /.babble/babble.toml" prefix=babble
+time="2021-05-19T17:05:28Z" level=debug msg="Config Proxy" ClientAddr="172.77.10.1:1339" ProxyAddr="172.77.5.1:1338" prefix=babble
+time="2021-05-19T17:05:28Z" level=debug msg=validateConfig prefix=babble
+time="2021-05-19T17:05:28Z" level=debug msg=Config babble.AdvertiseAddr= babble.BindAddr="172.77.5.1:1337" babble.CacheSize=50000 babble.DataDir="/.babble" babble.EnableFastSync=false babble.HeartbeatTimeout=100ms babble.JoinTimeout=10s babble.LogLevel=debug babble.MaintenanceMode=false babble.MaxPool=2 babble.Moniker=node1 babble.NoService=false babble.ServiceAddr="172.77.5.1:80" babble.SlowHeartbeatTimeout=1s babble.SuspendLimit=100 babble.SyncLimit=100 babble.TCPTimeout=1s prefix=babble
+time="2021-05-19T17:05:28Z" level=debug msg=initKey prefix=babble
+time="2021-05-19T17:05:28Z" level=debug msg=initPeers prefix=babble
+time="2021-05-19T17:05:28Z" level=debug msg="Loaded Peers" prefix=babble
+time="2021-05-19T17:05:28Z" level=debug msg=initStore prefix=babble
+time="2021-05-19T17:05:28Z" level=debug msg="Creating InmemStore" prefix=babble
+time="2021-05-19T17:05:28Z" level=debug msg=initTransport prefix=babble
+time="2021-05-19T17:05:28Z" level=debug msg=initNode prefix=babble
+time="2021-05-19T17:05:28Z" level=debug msg=PARTICIPANTS genesis_peers=4 id=2477208946 moniker=node1 peers=4 prefix=babble
+time="2021-05-19T17:05:28Z" level=debug msg="Start Listening" prefix=babble
+time="2021-05-19T17:05:28Z" level=debug msg="Node belongs to PeerSet" prefix=babble
+time="2021-05-19T17:05:28Z" level=debug msg="FastSync not enabled => Babbling" prefix=babble
+time="2021-05-19T17:05:28Z" level=debug msg=SetHeadAndSeq core.Head= core.Seq=-1 prefix=babble
+time="2021-05-19T17:05:28Z" level=debug msg=AppProxyClient.OnStateChanged prefix=babble
+time="2021-05-19T17:05:28Z" level=debug msg=initService prefix=babble
+time="2021-05-19T17:05:28Z" level=debug msg="Registering Babble API handlers" prefix=babble
+time="2021-05-19T17:05:28Z" level=info msg=BABBLING prefix=babble
+time="2021-05-19T17:05:28Z" level=debug msg="Serving Babble API" bind_address="172.77.5.1:80" prefix=babble
+time="2021-05-19T17:05:29Z" level=debug msg="requestSync()" duration=847774579 prefix=babble
+time="2021-05-19T17:05:29Z" level=debug msg=SyncResponse events=0 from_id=157465506 known=map[157465506:-1 631216856:-1 2477208946:-1 2911404175:-1] prefix=babble
+time="2021-05-19T17:05:29Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:29Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:29Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:29Z" level=debug msg="Created Self-Event" block_signatures=0 index=0 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:29Z" level=debug msg="Sync()" duration=653496 prefix=babble
+time="2021-05-19T17:05:29Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:29Z" level=debug msg="ProcessSigPool()" duration=16747 prefix=babble
+time="2021-05-19T17:05:29Z" level=debug msg="Diff()" duration=8415 prefix=babble
+time="2021-05-19T17:05:29Z" level=debug msg="requestEagerSync()" duration=2236768 prefix=babble
+time="2021-05-19T17:05:29Z" level=debug msg=EagerSyncResponse from_id=157465506 prefix=babble success=true
+time="2021-05-19T17:05:29Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=-1 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=1
+time="2021-05-19T17:05:29Z" level=info msg=Connected peer_ID=157465506 peer_moniker=node2 prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg="accepted connection" from=172.77.5.2:44258 node=172.77.5.1:1337 prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg="process SyncRequest" from_id=157465506 known=map[157465506:0 631216856:-1 2477208946:0 2911404175:-1] prefix=babble sync_limit=100
+time="2021-05-19T17:05:30Z" level=debug msg="Diff()" duration=36321 prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:-1 631216856:-1 2477208946:0 2911404175:-1] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:30Z" level=debug msg=EagerSyncRequest events=2 from_id=157465506 prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg=Sync prefix=babble unknown_events=2
+time="2021-05-19T17:05:30Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=2 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:30Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg="Created Self-Event" block_signatures=0 index=1 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:30Z" level=debug msg="Sync()" duration=7149896 prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg="ProcessSigPool()" duration=37054 prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg="requestSync()" duration=896440 prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg=SyncResponse events=6 from_id=2911404175 known=map[157465506:4 631216856:-1 2477208946:0 2911404175:2] prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg=Sync prefix=babble unknown_events=6
+time="2021-05-19T17:05:30Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=3 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:30Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg="Created Self-Event" block_signatures=0 index=2 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:30Z" level=debug msg="Sync()" duration=2519712 prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg="ProcessSigPool()" duration=7737 prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg="Diff()" duration=5832 prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg="process SyncRequest" from_id=157465506 known=map[157465506:4 631216856:-1 2477208946:0 2911404175:-1] prefix=babble sync_limit=100
+time="2021-05-19T17:05:30Z" level=debug msg="Diff()" duration=26890 prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg="Selecting max 100 events" diff_length=5 own.sync_limit=100 prefix=babble req.sync_limit=100
+time="2021-05-19T17:05:30Z" level=debug msg="Responding to SyncRequest" events=5 known=map[157465506:4 631216856:-1 2477208946:2 2911404175:2] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:30Z" level=debug msg="requestEagerSync()" duration=2609397 prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg=EagerSyncResponse from_id=2911404175 prefix=babble success=true
+time="2021-05-19T17:05:30Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=-1 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=11
+time="2021-05-19T17:05:30Z" level=info msg=Connected peer_ID=2911404175 peer_moniker=node3 prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg=EagerSyncRequest events=1 from_id=157465506 prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg=Sync prefix=babble unknown_events=1
+time="2021-05-19T17:05:30Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=3 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:30Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg="Created Self-Event" block_signatures=0 index=3 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:30Z" level=debug msg="Sync()" duration=1347706 prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:30Z" level=debug msg="ProcessSigPool()" duration=7858 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="process SyncRequest" from_id=157465506 known=map[157465506:6 631216856:-1 2477208946:2 2911404175:3] prefix=babble sync_limit=100
+time="2021-05-19T17:05:31Z" level=debug msg="Diff()" duration=11068 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Selecting max 100 events" diff_length=1 own.sync_limit=100 prefix=babble req.sync_limit=100
+time="2021-05-19T17:05:31Z" level=debug msg="Responding to SyncRequest" events=1 known=map[157465506:5 631216856:-1 2477208946:3 2911404175:2] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:31Z" level=debug msg=EagerSyncRequest events=3 from_id=157465506 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=Sync prefix=babble unknown_events=3
+time="2021-05-19T17:05:31Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=3 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:31Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Created Self-Event" block_signatures=0 index=4 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:31Z" level=debug msg="Sync()" duration=2272962 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" duration=13828 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="accepted connection" from=172.77.5.3:35806 node=172.77.5.1:1337 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="process SyncRequest" from_id=2911404175 known=map[157465506:6 631216856:-1 2477208946:2 2911404175:4] prefix=babble sync_limit=100
+time="2021-05-19T17:05:31Z" level=debug msg="Diff()" duration=20234 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Selecting max 100 events" diff_length=3 own.sync_limit=100 prefix=babble req.sync_limit=100
+time="2021-05-19T17:05:31Z" level=debug msg="Responding to SyncRequest" events=3 known=map[157465506:7 631216856:-1 2477208946:4 2911404175:3] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:31Z" level=debug msg=EagerSyncRequest events=2 from_id=2911404175 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=Sync prefix=babble unknown_events=2
+time="2021-05-19T17:05:31Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=3 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:31Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Created Self-Event" block_signatures=0 index=5 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:31Z" level=debug msg="Sync()" duration=1382418 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" duration=4818 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="requestSync()" duration=171312598 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=SyncResponse events=0 from_id=631216856 known=map[157465506:-1 631216856:-1 2477208946:-1 2911404175:-1] prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:31Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=3 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:31Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Created Self-Event" block_signatures=0 index=6 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:31Z" level=debug msg="Sync()" duration=807695 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" duration=8039 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Diff()" duration=35558 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="requestSync()" duration=283794845 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=SyncResponse events=0 from_id=631216856 known=map[157465506:-1 631216856:-1 2477208946:-1 2911404175:-1] prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:31Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=3 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:31Z" level=debug msg="requestSync()" duration=475956223 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=SyncResponse events=0 from_id=631216856 known=map[157465506:-1 631216856:-1 2477208946:-1 2911404175:-1] prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="requestSync()" duration=603274040 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=SyncResponse events=0 from_id=631216856 known=map[157465506:-1 631216856:-1 2477208946:-1 2911404175:-1] prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="requestSync()" duration=19171329 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=SyncResponse events=0 from_id=631216856 known=map[157465506:-1 631216856:-1 2477208946:-1 2911404175:-1] prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Created Self-Event" block_signatures=0 index=7 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:31Z" level=debug msg="Sync()" duration=882791 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" duration=9216 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Diff()" duration=17171 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:31Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=3 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:31Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Created Self-Event" block_signatures=0 index=8 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:31Z" level=debug msg="Sync()" duration=780163 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" duration=9426 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Diff()" duration=21313 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:31Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=3 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:31Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Created Self-Event" block_signatures=0 index=9 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:31Z" level=debug msg="Sync()" duration=1594387 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" duration=8253 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Diff()" duration=18461 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:31Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=3 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:31Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Created Self-Event" block_signatures=0 index=10 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:31Z" level=debug msg="Sync()" duration=786442 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" duration=33427 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Diff()" duration=29710 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="requestEagerSync()" duration=26249459 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=EagerSyncResponse from_id=631216856 prefix=babble success=true
+time="2021-05-19T17:05:31Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=-1 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=25
+time="2021-05-19T17:05:31Z" level=info msg=Connected peer_ID=631216856 peer_moniker=node4 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="requestEagerSync()" duration=36194469 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=EagerSyncResponse from_id=631216856 prefix=babble success=true
+time="2021-05-19T17:05:31Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=-1 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=25
+time="2021-05-19T17:05:31Z" level=debug msg="requestEagerSync()" duration=55140962 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=EagerSyncResponse from_id=631216856 prefix=babble success=true
+time="2021-05-19T17:05:31Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=-1 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=25
+time="2021-05-19T17:05:31Z" level=debug msg="requestSync()" duration=1039804571 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=SyncResponse events=30 from_id=631216856 known=map[157465506:10 631216856:5 2477208946:8 2911404175:7] prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=Sync prefix=babble unknown_events=30
+time="2021-05-19T17:05:31Z" level=debug msg="Processing Decided Round" created_events=12 events=0 peer_sets=1 peers=4 prefix=babble roots=4 round_received=0 witnesses=[0X06D740C65896FF552E3F6D36F179A1D450019D747EE2DC31C3A4CD4D16A18AF6 0XDE979C991DD11A461FEDC3B4061281300D855F25358421D9F7D43DE2AA3AFCCF 0X0F1CC84718933EC33C4D687DE6BB7E312117317B4EE24EB57D4F14136B3F6DDA]
+time="2021-05-19T17:05:31Z" level=debug msg="No Events to commit for ConsensusRound 0" prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=4 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:31Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Created Self-Event" block_signatures=0 index=11 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:31Z" level=debug msg="Sync()" duration=18048116 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" duration=11880 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Diff()" duration=9283 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="requestEagerSync()" duration=93922260 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=EagerSyncResponse from_id=631216856 prefix=babble success=true
+time="2021-05-19T17:05:31Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=0 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=37
+time="2021-05-19T17:05:31Z" level=debug msg="requestEagerSync()" duration=109405942 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=EagerSyncResponse from_id=631216856 prefix=babble success=true
+time="2021-05-19T17:05:31Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=0 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=37
+time="2021-05-19T17:05:31Z" level=debug msg="requestEagerSync()" duration=60967993 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=EagerSyncResponse from_id=631216856 prefix=babble success=true
+time="2021-05-19T17:05:31Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=0 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=37
+time="2021-05-19T17:05:31Z" level=debug msg="requestSync()" duration=621233 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=SyncResponse events=5 from_id=157465506 known=map[157465506:11 631216856:5 2477208946:8 2911404175:11] prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=Sync prefix=babble unknown_events=5
+time="2021-05-19T17:05:31Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=4 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:31Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Created Self-Event" block_signatures=0 index=12 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:31Z" level=debug msg="Sync()" duration=3790094 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" duration=8435 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Diff()" duration=10874 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="requestEagerSync()" duration=3587300 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=EagerSyncResponse from_id=157465506 prefix=babble success=true
+time="2021-05-19T17:05:31Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=0 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=43
+time="2021-05-19T17:05:31Z" level=debug msg="process SyncRequest" from_id=2911404175 known=map[157465506:11 631216856:10 2477208946:10 2911404175:13] prefix=babble sync_limit=100
+time="2021-05-19T17:05:31Z" level=debug msg="Diff()" duration=13462 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Selecting max 100 events" diff_length=2 own.sync_limit=100 prefix=babble req.sync_limit=100
+time="2021-05-19T17:05:31Z" level=debug msg="Responding to SyncRequest" events=2 known=map[157465506:11 631216856:5 2477208946:12 2911404175:11] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:31Z" level=debug msg=EagerSyncRequest events=8 from_id=2911404175 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=Sync prefix=babble unknown_events=8
+time="2021-05-19T17:05:31Z" level=debug msg="Processing Decided Round" created_events=21 events=11 peer_sets=1 peers=4 prefix=babble roots=4 round_received=1 witnesses=[0X03B1AD00B812B8924FC1D685B717311A35C7E01B19E64D23F9A576A4662D154B 0XD53A09160E9640EE8FA6F124D037341DC1ABDA4D291BC24012C2ACE9FA232FCC 0X1DC9566B9587CD06388398CB025BF164B7BEC9480A5A0331194CB3D57C736769]
+time="2021-05-19T17:05:31Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=1 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:31Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Created Self-Event" block_signatures=0 index=13 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:31Z" level=debug msg="Sync()" duration=5942709 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" duration=42171 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="process SyncRequest" from_id=157465506 known=map[157465506:12 631216856:5 2477208946:12 2911404175:11] prefix=babble sync_limit=100
+time="2021-05-19T17:05:31Z" level=debug msg="Diff()" duration=19602 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Selecting max 100 events" diff_length=9 own.sync_limit=100 prefix=babble req.sync_limit=100
+time="2021-05-19T17:05:31Z" level=debug msg="Responding to SyncRequest" events=9 known=map[157465506:11 631216856:10 2477208946:13 2911404175:14] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:31Z" level=debug msg=EagerSyncRequest events=2 from_id=157465506 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=Sync prefix=babble unknown_events=2
+time="2021-05-19T17:05:31Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=1 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:31Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Created Self-Event" block_signatures=0 index=14 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:31Z" level=debug msg="Sync()" duration=2074874 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" duration=7809 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="requestSync()" duration=641535 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=SyncResponse events=0 from_id=2911404175 known=map[157465506:11 631216856:10 2477208946:12 2911404175:14] prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:31Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=1 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:31Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Created Self-Event" block_signatures=0 index=15 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:31Z" level=debug msg="Sync()" duration=649335 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="ProcessSigPool()" duration=11302 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="Diff()" duration=11151 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg="requestEagerSync()" duration=3362451 prefix=babble
+time="2021-05-19T17:05:31Z" level=debug msg=EagerSyncResponse from_id=2911404175 prefix=babble success=true
+time="2021-05-19T17:05:31Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=1 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=45
+time="2021-05-19T17:05:32Z" level=debug msg="requestSync()" duration=1781016 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg=SyncResponse events=6 from_id=631216856 known=map[157465506:13 631216856:14 2477208946:15 2911404175:16] prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg=Sync prefix=babble unknown_events=6
+time="2021-05-19T17:05:32Z" level=debug msg="Processing Decided Round" created_events=20 events=10 peer_sets=1 peers=4 prefix=babble roots=4 round_received=2 witnesses=[0X29ADB5C291AF358D1E5930E8A029F1290D06B56C026A58ED48A6F4A3CE1970AA 0X70B0EB2458EF7E60C4166DE134FB11D48AD28C160F3B7000BC923D63CFE9C190 0X49E088F1712844C9D8D66D4B579820F498AB267976AC4CE3408B73D3A925BBA1 0X43961EEB985424AA0B5993EE1226D6E04B4966F38D4256C0EE0143FB35A73CC9]
+time="2021-05-19T17:05:32Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=1 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:32Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg="Created Self-Event" block_signatures=0 index=16 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:32Z" level=debug msg="Sync()" duration=15744028 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg="ProcessSigPool()" duration=146670 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg="Diff()" duration=67626 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg="process SyncRequest" from_id=157465506 known=map[157465506:14 631216856:13 2477208946:15 2911404175:16] prefix=babble sync_limit=100
+time="2021-05-19T17:05:32Z" level=debug msg="Diff()" duration=23308 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg="Selecting max 100 events" diff_length=2 own.sync_limit=100 prefix=babble req.sync_limit=100
+time="2021-05-19T17:05:32Z" level=debug msg="Responding to SyncRequest" events=2 known=map[157465506:13 631216856:14 2477208946:16 2911404175:16] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:32Z" level=debug msg=EagerSyncRequest events=2 from_id=157465506 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg=Sync prefix=babble unknown_events=2
+time="2021-05-19T17:05:32Z" level=debug msg="requestEagerSync()" duration=9211028 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg=EagerSyncResponse from_id=631216856 prefix=babble success=true
+time="2021-05-19T17:05:32Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=2 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=42
+time="2021-05-19T17:05:32Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=1 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:32Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg="Created Self-Event" block_signatures=0 index=17 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:32Z" level=debug msg="Sync()" duration=6560741 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg="ProcessSigPool()" duration=23499 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg="requestSync()" duration=1105831 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg=SyncResponse events=2 from_id=2911404175 known=map[157465506:15 631216856:14 2477208946:16 2911404175:18] prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg=Sync prefix=babble unknown_events=2
+time="2021-05-19T17:05:32Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=1 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:32Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg="Processing Decided Round" created_events=6 events=28 peer_sets=1 peers=4 prefix=babble roots=4 round_received=3 witnesses=[0XFA44320EAC29897C8872BE245F6732D218F50E5F5D85B4583C55D5A979572CE6 0XFC8EC41328C4FC7D62DC238872B34FC971EF394E470258F0062F375A76A09D62 0X20979AEF73DB73D93E3904568040C9DDCE91065F8CE8A2F551A7EAC2F88B01AA 0X0F0C4FAC4C2E442BADB533EC02FD4F9E1FE18D0F05EB52414C4C8764FA85FF59]
+time="2021-05-19T17:05:32Z" level=debug msg="Created Self-Event" block_signatures=0 index=18 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:32Z" level=debug msg="Sync()" duration=9439455 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg="ProcessSigPool()" duration=16261 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg="Diff()" duration=17746 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg="requestEagerSync()" duration=9044784 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg=EagerSyncResponse from_id=2911404175 prefix=babble success=true
+time="2021-05-19T17:05:32Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=3 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=20
+time="2021-05-19T17:05:32Z" level=debug msg="requestSync()" duration=1316898 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg=SyncResponse events=1 from_id=631216856 known=map[157465506:15 631216856:15 2477208946:18 2911404175:18] prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg=Sync prefix=babble unknown_events=1
+time="2021-05-19T17:05:32Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:32Z" level=debug msg="Sync()" duration=1737534 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg="ProcessSigPool()" duration=30875 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg="Diff()" duration=16769 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=3 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=21
+time="2021-05-19T17:05:32Z" level=debug msg="process SyncRequest" from_id=157465506 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble sync_limit=100
+time="2021-05-19T17:05:32Z" level=debug msg="Diff()" duration=8958 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:15 631216856:15 2477208946:18 2911404175:18] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:32Z" level=debug msg=EagerSyncRequest events=1 from_id=157465506 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg=Sync prefix=babble unknown_events=1
+time="2021-05-19T17:05:32Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:32Z" level=debug msg="Sync()" duration=650226 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:32Z" level=debug msg="ProcessSigPool()" duration=8452 prefix=babble
+time="2021-05-19T17:05:33Z" level=debug msg="process SyncRequest" from_id=2911404175 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble sync_limit=100
+time="2021-05-19T17:05:33Z" level=debug msg="Diff()" duration=29462 prefix=babble
+time="2021-05-19T17:05:33Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:33Z" level=debug msg="requestSync()" duration=1307550 prefix=babble
+time="2021-05-19T17:05:33Z" level=debug msg=SyncResponse events=0 from_id=2911404175 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble
+time="2021-05-19T17:05:33Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:33Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:33Z" level=debug msg="Sync()" duration=246939 prefix=babble
+time="2021-05-19T17:05:33Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:33Z" level=debug msg="ProcessSigPool()" duration=64671 prefix=babble
+time="2021-05-19T17:05:33Z" level=debug msg="Diff()" duration=33244 prefix=babble
+time="2021-05-19T17:05:33Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=3 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=22
+time="2021-05-19T17:05:34Z" level=debug msg="accepted connection" from=172.77.5.4:41248 node=172.77.5.1:1337 prefix=babble
+time="2021-05-19T17:05:34Z" level=debug msg="process SyncRequest" from_id=631216856 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble sync_limit=100
+time="2021-05-19T17:05:34Z" level=debug msg="Diff()" duration=11094 prefix=babble
+time="2021-05-19T17:05:34Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:34Z" level=debug msg="requestSync()" duration=888884 prefix=babble
+time="2021-05-19T17:05:34Z" level=debug msg=SyncResponse events=0 from_id=631216856 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble
+time="2021-05-19T17:05:34Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:34Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:34Z" level=debug msg="Sync()" duration=102221 prefix=babble
+time="2021-05-19T17:05:34Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:34Z" level=debug msg="ProcessSigPool()" duration=47219 prefix=babble
+time="2021-05-19T17:05:34Z" level=debug msg="Diff()" duration=10862 prefix=babble
+time="2021-05-19T17:05:34Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=3 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=22
+time="2021-05-19T17:05:35Z" level=debug msg="process SyncRequest" from_id=2911404175 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble sync_limit=100
+time="2021-05-19T17:05:35Z" level=debug msg="Diff()" duration=6625 prefix=babble
+time="2021-05-19T17:05:35Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:36Z" level=debug msg="requestSync()" duration=352093 prefix=babble
+time="2021-05-19T17:05:36Z" level=debug msg=SyncResponse events=0 from_id=2911404175 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble
+time="2021-05-19T17:05:36Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:36Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:36Z" level=debug msg="Sync()" duration=86069 prefix=babble
+time="2021-05-19T17:05:36Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:36Z" level=debug msg="ProcessSigPool()" duration=10787 prefix=babble
+time="2021-05-19T17:05:36Z" level=debug msg="Diff()" duration=8071 prefix=babble
+time="2021-05-19T17:05:36Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=3 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=22
+time="2021-05-19T17:05:36Z" level=debug msg="process SyncRequest" from_id=631216856 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble sync_limit=100
+time="2021-05-19T17:05:36Z" level=debug msg="Diff()" duration=40549 prefix=babble
+time="2021-05-19T17:05:36Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:37Z" level=debug msg="requestSync()" duration=1634367 prefix=babble
+time="2021-05-19T17:05:37Z" level=debug msg=SyncResponse events=0 from_id=157465506 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble
+time="2021-05-19T17:05:37Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:37Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:37Z" level=debug msg="Sync()" duration=134633 prefix=babble
+time="2021-05-19T17:05:37Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:37Z" level=debug msg="ProcessSigPool()" duration=46924 prefix=babble
+time="2021-05-19T17:05:37Z" level=debug msg="Diff()" duration=47762 prefix=babble
+time="2021-05-19T17:05:37Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=3 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=22
+time="2021-05-19T17:05:39Z" level=debug msg="process SyncRequest" from_id=157465506 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble sync_limit=100
+time="2021-05-19T17:05:39Z" level=debug msg="Diff()" duration=35603 prefix=babble
+time="2021-05-19T17:05:39Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:39Z" level=debug msg="requestSync()" duration=430752 prefix=babble
+time="2021-05-19T17:05:39Z" level=debug msg=SyncResponse events=0 from_id=631216856 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble
+time="2021-05-19T17:05:39Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:39Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:39Z" level=debug msg="Sync()" duration=63116 prefix=babble
+time="2021-05-19T17:05:39Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:39Z" level=debug msg="ProcessSigPool()" duration=11703 prefix=babble
+time="2021-05-19T17:05:39Z" level=debug msg="Diff()" duration=13299 prefix=babble
+time="2021-05-19T17:05:39Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=3 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=22
+time="2021-05-19T17:05:39Z" level=debug msg="process SyncRequest" from_id=2911404175 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble sync_limit=100
+time="2021-05-19T17:05:39Z" level=debug msg="Diff()" duration=10390 prefix=babble
+time="2021-05-19T17:05:39Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:40Z" level=debug msg="requestSync()" duration=1198855 prefix=babble
+time="2021-05-19T17:05:40Z" level=debug msg=SyncResponse events=0 from_id=2911404175 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble
+time="2021-05-19T17:05:40Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:40Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:40Z" level=debug msg="Sync()" duration=180765 prefix=babble
+time="2021-05-19T17:05:40Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:40Z" level=debug msg="ProcessSigPool()" duration=102318 prefix=babble
+time="2021-05-19T17:05:40Z" level=debug msg="Diff()" duration=31325 prefix=babble
+time="2021-05-19T17:05:40Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=3 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=22
+time="2021-05-19T17:05:42Z" level=debug msg="requestSync()" duration=1315958 prefix=babble
+time="2021-05-19T17:05:42Z" level=debug msg=SyncResponse events=0 from_id=631216856 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble
+time="2021-05-19T17:05:42Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:42Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:42Z" level=debug msg="Sync()" duration=243922 prefix=babble
+time="2021-05-19T17:05:42Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:42Z" level=debug msg="ProcessSigPool()" duration=68889 prefix=babble
+time="2021-05-19T17:05:42Z" level=debug msg="Diff()" duration=39264 prefix=babble
+time="2021-05-19T17:05:42Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=3 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=22
+time="2021-05-19T17:05:42Z" level=debug msg="process SyncRequest" from_id=2911404175 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble sync_limit=100
+time="2021-05-19T17:05:42Z" level=debug msg="Diff()" duration=21609 prefix=babble
+time="2021-05-19T17:05:42Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:42Z" level=debug msg="process SyncRequest" from_id=631216856 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble sync_limit=100
+time="2021-05-19T17:05:42Z" level=debug msg="Diff()" duration=22763 prefix=babble
+time="2021-05-19T17:05:42Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:43Z" level=debug msg="requestSync()" duration=1287872 prefix=babble
+time="2021-05-19T17:05:43Z" level=debug msg=SyncResponse events=0 from_id=157465506 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble
+time="2021-05-19T17:05:43Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:43Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:43Z" level=debug msg="Sync()" duration=215913 prefix=babble
+time="2021-05-19T17:05:43Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:43Z" level=debug msg="ProcessSigPool()" duration=68158 prefix=babble
+time="2021-05-19T17:05:43Z" level=debug msg="Diff()" duration=32702 prefix=babble
+time="2021-05-19T17:05:43Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=3 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=22
+time="2021-05-19T17:05:44Z" level=debug msg="requestSync()" duration=444405 prefix=babble
+time="2021-05-19T17:05:44Z" level=debug msg=SyncResponse events=0 from_id=2911404175 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble
+time="2021-05-19T17:05:44Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:44Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:44Z" level=debug msg="Sync()" duration=70819 prefix=babble
+time="2021-05-19T17:05:44Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:44Z" level=debug msg="ProcessSigPool()" duration=11536 prefix=babble
+time="2021-05-19T17:05:44Z" level=debug msg="Diff()" duration=17085 prefix=babble
+time="2021-05-19T17:05:44Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=3 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=22
+time="2021-05-19T17:05:45Z" level=debug msg="requestSync()" duration=1368441 prefix=babble
+time="2021-05-19T17:05:45Z" level=debug msg=SyncResponse events=0 from_id=631216856 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble
+time="2021-05-19T17:05:45Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:45Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:45Z" level=debug msg="Sync()" duration=231451 prefix=babble
+time="2021-05-19T17:05:45Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:45Z" level=debug msg="ProcessSigPool()" duration=36575 prefix=babble
+time="2021-05-19T17:05:45Z" level=debug msg="Diff()" duration=20274 prefix=babble
+time="2021-05-19T17:05:45Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=3 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=22
+time="2021-05-19T17:05:46Z" level=debug msg="process SyncRequest" from_id=631216856 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble sync_limit=100
+time="2021-05-19T17:05:46Z" level=debug msg="Diff()" duration=20177 prefix=babble
+time="2021-05-19T17:05:46Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:47Z" level=debug msg="process SyncRequest" from_id=157465506 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble sync_limit=100
+time="2021-05-19T17:05:47Z" level=debug msg="Diff()" duration=20867 prefix=babble
+time="2021-05-19T17:05:47Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:47Z" level=debug msg="requestSync()" duration=1264691 prefix=babble
+time="2021-05-19T17:05:47Z" level=debug msg=SyncResponse events=0 from_id=157465506 known=map[157465506:16 631216856:15 2477208946:18 2911404175:18] prefix=babble
+time="2021-05-19T17:05:47Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:47Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:47Z" level=debug msg="Sync()" duration=183103 prefix=babble
+time="2021-05-19T17:05:47Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:47Z" level=debug msg="ProcessSigPool()" duration=25846 prefix=babble
+time="2021-05-19T17:05:47Z" level=debug msg="Diff()" duration=30510 prefix=babble
+time="2021-05-19T17:05:47Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=3 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=22
+time="2021-05-19T17:05:47Z" level=debug msg=SubmitTx prefix=babble
+time="2021-05-19T17:05:47Z" level=debug msg="Adding Transaction" prefix=babble
+time="2021-05-19T17:05:47Z" level=debug msg=SubmitTx prefix=babble
+time="2021-05-19T17:05:47Z" level=debug msg="Adding Transaction" prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg=SubmitTx prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="Adding Transaction" prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg=SubmitTx prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="Adding Transaction" prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg=SubmitTx prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="Adding Transaction" prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg=SubmitTx prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="Adding Transaction" prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg=SubmitTx prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="Adding Transaction" prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg=SubmitTx prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="Adding Transaction" prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg=SubmitTx prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="Adding Transaction" prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg=SubmitTx prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="Adding Transaction" prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="requestSync()" duration=1803505 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg=SyncResponse events=11 from_id=631216856 known=map[157465506:21 631216856:17 2477208946:18 2911404175:22] prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg=Sync prefix=babble unknown_events=11
+time="2021-05-19T17:05:48Z" level=debug msg="Processing Decided Round" created_events=9 events=7 peer_sets=1 peers=4 prefix=babble roots=4 round_received=4 witnesses=[0X4DC314ED43130FB199E506AA019EDF53CA48E0DB78305A37EB318BA57B0DD417 0XD0D06DA6F26D7B7647C735CE46947C45949C699D888403B710855922F2D315A2 0X81DA9692C36E9FA532D9A2E937FA8FE529A9B158142949DB8C603A86AFB99FCB 0X1ABF3FBA1B7CD10644CF803CC93523591C8DE7FD3E4C1BB89879074BBDCC933F]
+time="2021-05-19T17:05:48Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=3 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=10
+time="2021-05-19T17:05:48Z" level=debug msg="RecordHeads()" heads=2 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="Created Self-Event" block_signatures=0 index=19 internal_transactions=0 prefix=babble transactions=10
+time="2021-05-19T17:05:48Z" level=debug msg="Created Self-Event" block_signatures=0 index=20 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:48Z" level=debug msg="Sync()" duration=26474545 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="ProcessSigPool()" duration=195714 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="Diff()" duration=25483 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="requestEagerSync()" duration=3827454 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg=EagerSyncResponse from_id=631216856 prefix=babble success=true
+time="2021-05-19T17:05:48Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=4 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=28
+time="2021-05-19T17:05:48Z" level=debug msg="process SyncRequest" from_id=157465506 known=map[157465506:21 631216856:15 2477208946:18 2911404175:22] prefix=babble sync_limit=100
+time="2021-05-19T17:05:48Z" level=debug msg="Diff()" duration=15388 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="Selecting max 100 events" diff_length=4 own.sync_limit=100 prefix=babble req.sync_limit=100
+time="2021-05-19T17:05:48Z" level=debug msg="Responding to SyncRequest" events=4 known=map[157465506:21 631216856:17 2477208946:20 2911404175:22] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:48Z" level=debug msg=EagerSyncRequest events=1 from_id=157465506 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg=Sync prefix=babble unknown_events=1
+time="2021-05-19T17:05:48Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=4 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:48Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="Created Self-Event" block_signatures=0 index=21 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:48Z" level=debug msg="Sync()" duration=1133241 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="ProcessSigPool()" duration=15080 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="requestSync()" duration=437870 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg=SyncResponse events=0 from_id=157465506 known=map[157465506:22 631216856:17 2477208946:20 2911404175:22] prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:48Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=4 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:48Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="Created Self-Event" block_signatures=0 index=22 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:48Z" level=debug msg="Sync()" duration=716832 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="ProcessSigPool()" duration=15007 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="Diff()" duration=9477 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="requestEagerSync()" duration=2381841 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg=EagerSyncResponse from_id=157465506 prefix=babble success=true
+time="2021-05-19T17:05:48Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=4 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=31
+time="2021-05-19T17:05:48Z" level=debug msg="process SyncRequest" from_id=2911404175 known=map[157465506:24 631216856:18 2477208946:22 2911404175:24] prefix=babble sync_limit=100
+time="2021-05-19T17:05:48Z" level=debug msg="Diff()" duration=9167 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:22 631216856:17 2477208946:22 2911404175:22] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:48Z" level=debug msg=EagerSyncRequest events=6 from_id=2911404175 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg=Sync prefix=babble unknown_events=6
+time="2021-05-19T17:05:48Z" level=debug msg="Processing Decided Round" created_events=13 events=10 peer_sets=1 peers=4 prefix=babble roots=4 round_received=5 witnesses=[0XD60391D3E77E39A0F4C5DCCCFB877572112F8593BF4D6CFF2D40EDAF33DDD501 0XFD5C52D122C6FE57BE37D316C99F286C9C4493D50962084B9ECC1385B718DCBC 0XAE71698ACBD275DE5B29F107C50EB73BD35EAB7A6CC84962DC8774840DFEE656]
+time="2021-05-19T17:05:48Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=4 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:48Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="Created Self-Event" block_signatures=0 index=23 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:48Z" level=debug msg="Sync()" duration=3193503 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="ProcessSigPool()" duration=8456 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="requestSync()" duration=1219194 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg=SyncResponse events=1 from_id=631216856 known=map[157465506:21 631216856:19 2477208946:20 2911404175:23] prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg=Sync prefix=babble unknown_events=1
+time="2021-05-19T17:05:48Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=4 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:48Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="Created Self-Event" block_signatures=0 index=24 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:48Z" level=debug msg="Sync()" duration=5512537 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="ProcessSigPool()" duration=345218 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="Diff()" duration=53429 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg="requestEagerSync()" duration=21194376 prefix=babble
+time="2021-05-19T17:05:48Z" level=debug msg=EagerSyncResponse from_id=631216856 prefix=babble success=true
+time="2021-05-19T17:05:48Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=5 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=30
+time="2021-05-19T17:05:49Z" level=debug msg="requestSync()" duration=1468625 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg=SyncResponse events=0 from_id=2911404175 known=map[157465506:24 631216856:18 2477208946:22 2911404175:25] prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:49Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=4 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:49Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Created Self-Event" block_signatures=0 index=25 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:49Z" level=debug msg="Sync()" duration=2955267 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="ProcessSigPool()" duration=67140 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Diff()" duration=32738 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="requestEagerSync()" duration=10049181 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg=EagerSyncResponse from_id=2911404175 prefix=babble success=true
+time="2021-05-19T17:05:49Z" level=debug msg=Stats id=2477208946 last_block_index=-1 last_consensus_round=5 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=0 undetermined_events=31
+time="2021-05-19T17:05:49Z" level=debug msg="requestSync()" duration=1330857 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg=SyncResponse events=5 from_id=157465506 known=map[157465506:26 631216856:20 2477208946:25 2911404175:27] prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg=Sync prefix=babble unknown_events=5
+time="2021-05-19T17:05:49Z" level=debug msg="Processing Decided Round" created_events=11 events=14 peer_sets=1 peers=4 prefix=babble roots=4 round_received=6 witnesses=[0X5FCFA95A0A405B8F1DD111C3434FB2D6B06A8368FE1987CC1E38F0A6EF4663FF 0XEA3B8F41947FE31843A1B14ACCE0EA1CA631458394B072829A60EFA5528B315D 0XC1718462D29CD9A94C3D30F590A9655BE42AEC7BDDF92B9C0B9D88131109D943 0XA8C731CBCD1AA43C317278D8652DDC2BB7613D329F44DD9CD6542CA70ED5EA05]
+time="2021-05-19T17:05:49Z" level=info msg=Commit block=0 internal_txs=0 prefix=babble txs=20
+time="2021-05-19T17:05:49Z" level=debug msg=AppProxyClient.CommitBlock block=0 commit_response={[149 57 92 65 242 131 165 140 207 215 162 51 30 81 31 160 252 23 145 179 118 16 150 166 46 66 229 69 10 41 215 34] []} prefix=babble
+time="2021-05-19T17:05:49Z" level=info msg="Commit response" block=0 internal_txs_receipts=0 prefix=babble state_hash=0X95395C41F283A58CCFD7A2331E511FA0FC1791B3761096A62E42E5450A29D722
+time="2021-05-19T17:05:49Z" level=debug msg="Block is not a suitable Anchor" anchor_block="Anchor Block not set" index=0 prefix=babble sigs=1 trust_count=2
+time="2021-05-19T17:05:49Z" level=debug msg="Inserting pending signature 0-0X0406B90DFA4BC6BB685F0341617DDE4CDC4C77C7B7C778141732D0D4F8A117B8FCF2BD0F422752DB13D4CD88746D1A7BDE78AE38C3915CD82078B9D82FC6EFA458" prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=2 prefix=babble self_signature_pool=1 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:49Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Inserting pending signature 0-0X046D50018FFD1C8287307F34C0F9771FA1B8863129308B7DBAF77455DDD3C9060E88E364EFA288847D7E9B398A591C9C622A3EFE9C305137EAE887E27A91803515" prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Created Self-Event" block_signatures=1 index=26 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:49Z" level=debug msg="Sync()" duration=15964383 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="ProcessSigPool()" pending_signatures=2 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Block is not a suitable Anchor" anchor_block="Anchor Block not set" index=0 prefix=babble sigs=2 trust_count=2
+time="2021-05-19T17:05:49Z" level=debug msg="processed sig 0-0X0406B90DFA4BC6BB685F0341617DDE4CDC4C77C7B7C778141732D0D4F8A117B8FCF2BD0F422752DB13D4CD88746D1A7BDE78AE38C3915CD82078B9D82FC6EFA458" prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Block is not a suitable Anchor" anchor_block="Anchor Block not set" index=0 prefix=babble sigs=2 trust_count=2
+time="2021-05-19T17:05:49Z" level=debug msg="processed sig 0-0X046D50018FFD1C8287307F34C0F9771FA1B8863129308B7DBAF77455DDD3C9060E88E364EFA288847D7E9B398A591C9C622A3EFE9C305137EAE887E27A91803515" prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="ProcessSigPool()" duration=3018745 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Diff()" duration=23406 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="requestEagerSync()" duration=5439193 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg=EagerSyncResponse from_id=157465506 prefix=babble success=true
+time="2021-05-19T17:05:49Z" level=debug msg=Stats id=2477208946 last_block_index=0 last_consensus_round=6 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=20 undetermined_events=23
+time="2021-05-19T17:05:49Z" level=debug msg="process SyncRequest" from_id=157465506 known=map[157465506:27 631216856:20 2477208946:26 2911404175:27] prefix=babble sync_limit=100
+time="2021-05-19T17:05:49Z" level=debug msg="Diff()" duration=25355 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:26 631216856:20 2477208946:26 2911404175:27] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:49Z" level=debug msg=EagerSyncRequest events=2 from_id=157465506 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg=Sync prefix=babble unknown_events=2
+time="2021-05-19T17:05:49Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=2 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:49Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Created Self-Event" block_signatures=0 index=27 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:49Z" level=debug msg="Sync()" duration=4290645 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="ProcessSigPool()" duration=11806 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="process SyncRequest" from_id=2911404175 known=map[157465506:25 631216856:20 2477208946:25 2911404175:27] prefix=babble sync_limit=100
+time="2021-05-19T17:05:49Z" level=debug msg="Diff()" duration=53891 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Selecting max 100 events" diff_length=5 own.sync_limit=100 prefix=babble req.sync_limit=100
+time="2021-05-19T17:05:49Z" level=debug msg="Responding to SyncRequest" events=5 known=map[157465506:28 631216856:20 2477208946:27 2911404175:27] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:49Z" level=debug msg="requestSync()" duration=1353214 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg=SyncResponse events=1 from_id=631216856 known=map[157465506:25 631216856:21 2477208946:24 2911404175:25] prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg=Sync prefix=babble unknown_events=1
+time="2021-05-19T17:05:49Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=2 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:49Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Created Self-Event" block_signatures=0 index=28 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:49Z" level=debug msg="Sync()" duration=7295785 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="ProcessSigPool()" duration=497203 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Diff()" duration=146336 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg=EagerSyncRequest events=1 from_id=2911404175 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg=Sync prefix=babble unknown_events=1
+time="2021-05-19T17:05:49Z" level=debug msg="Inserting pending signature 0-0X0423C480891744DD6A78CC6ED8F1A57F8CC641425617D6D4ACBDE9381C051F9CBA2EF9BACA8DA329FA7BBAD5036D3A00978F19579B6EF4999E112D00B5D874D7F5" prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Processing Decided Round" created_events=9 events=11 peer_sets=1 peers=4 prefix=babble roots=4 round_received=7 witnesses=[0X555D04FE8B8C3B5E4D4B12E901A284A4F803B7B249D7573C6C74E25206C9812D 0XE6651DBB5908A574F02224D41D9E6A7CC55F29DE02775767F45CEC2AF76FF91D 0X8CEBBA2549E40BAD93FB16EE773F2C254C2CFB8E07A918235765BF7A34661630 0XCC23431E420389540743E2FC0A3CA496A6BEE261ADC342B062293CF18FBD4933]
+time="2021-05-19T17:05:49Z" level=info msg=Commit block=1 internal_txs=0 prefix=babble txs=20
+time="2021-05-19T17:05:49Z" level=debug msg=AppProxyClient.CommitBlock block=1 commit_response={[61 221 212 92 129 41 77 129 231 253 108 5 175 10 41 243 248 82 129 84 81 189 117 84 241 5 78 142 49 125 5 152] []} prefix=babble
+time="2021-05-19T17:05:49Z" level=info msg="Commit response" block=1 internal_txs_receipts=0 prefix=babble state_hash=0X3DDDD45C81294D81E7FD6C05AF0A29F3F852815451BD7554F1054E8E317D0598
+time="2021-05-19T17:05:49Z" level=debug msg="Block is not a suitable Anchor" anchor_block="Anchor Block not set" index=1 prefix=babble sigs=1 trust_count=2
+time="2021-05-19T17:05:49Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=1 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:49Z" level=debug msg="RecordHeads()" heads=1 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Inserting pending signature 1-0X046D50018FFD1C8287307F34C0F9771FA1B8863129308B7DBAF77455DDD3C9060E88E364EFA288847D7E9B398A591C9C622A3EFE9C305137EAE887E27A91803515" prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Created Self-Event" block_signatures=1 index=29 internal_transactions=0 prefix=babble transactions=0
+time="2021-05-19T17:05:49Z" level=debug msg="Sync()" duration=8770593 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="ProcessSigPool()" pending_signatures=2 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Setting AnchorBlock" block_index=0 prefix=babble signatures=3 trustCount=2
+time="2021-05-19T17:05:49Z" level=debug msg="processed sig 0-0X0423C480891744DD6A78CC6ED8F1A57F8CC641425617D6D4ACBDE9381C051F9CBA2EF9BACA8DA329FA7BBAD5036D3A00978F19579B6EF4999E112D00B5D874D7F5" prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Block is not a suitable Anchor" anchor_block=0 index=1 prefix=babble sigs=1 trust_count=2
+time="2021-05-19T17:05:49Z" level=debug msg="processed sig 1-0X046D50018FFD1C8287307F34C0F9771FA1B8863129308B7DBAF77455DDD3C9060E88E364EFA288847D7E9B398A591C9C622A3EFE9C305137EAE887E27A91803515" prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="ProcessSigPool()" duration=1246285 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="requestEagerSync()" duration=35799574 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg=EagerSyncResponse from_id=631216856 prefix=babble success=true
+time="2021-05-19T17:05:49Z" level=debug msg=Stats id=2477208946 last_block_index=1 last_consensus_round=7 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=40 undetermined_events=19
+time="2021-05-19T17:05:49Z" level=debug msg="requestSync()" duration=360185 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg=SyncResponse events=0 from_id=2911404175 known=map[157465506:28 631216856:20 2477208946:27 2911404175:28] prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:49Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:49Z" level=debug msg="Sync()" duration=60993 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="ProcessSigPool()" duration=9525 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Diff()" duration=13847 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="requestEagerSync()" duration=2818971 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg=EagerSyncResponse from_id=2911404175 prefix=babble success=true
+time="2021-05-19T17:05:49Z" level=debug msg=Stats id=2477208946 last_block_index=1 last_consensus_round=7 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=40 undetermined_events=19
+time="2021-05-19T17:05:49Z" level=debug msg="process SyncRequest" from_id=631216856 known=map[157465506:29 631216856:23 2477208946:28 2911404175:27] prefix=babble sync_limit=100
+time="2021-05-19T17:05:49Z" level=debug msg="Diff()" duration=14355 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Selecting max 100 events" diff_length=2 own.sync_limit=100 prefix=babble req.sync_limit=100
+time="2021-05-19T17:05:49Z" level=debug msg="Responding to SyncRequest" events=2 known=map[157465506:28 631216856:21 2477208946:29 2911404175:28] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:49Z" level=debug msg=EagerSyncRequest events=3 from_id=631216856 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg=Sync prefix=babble unknown_events=3
+time="2021-05-19T17:05:49Z" level=debug msg="Inserting pending signature 0-0X04DDA05DD7F8B1D13F4815FA5FE62A5DBEF2A5CD8C5070C6C0B4894C77234A4E2B393A321481925C2B43BE0D8FF5AC1490D59443A590C716178727E47CDE054287" prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Inserting pending signature 1-0X0406B90DFA4BC6BB685F0341617DDE4CDC4C77C7B7C778141732D0D4F8A117B8FCF2BD0F422752DB13D4CD88746D1A7BDE78AE38C3915CD82078B9D82FC6EFA458" prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Inserting pending signature 1-0X04DDA05DD7F8B1D13F4815FA5FE62A5DBEF2A5CD8C5070C6C0B4894C77234A4E2B393A321481925C2B43BE0D8FF5AC1490D59443A590C716178727E47CDE054287" prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:49Z" level=debug msg="Sync()" duration=2279316 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="ProcessSigPool()" pending_signatures=3 prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Block is not a suitable Anchor" anchor_block=0 index=0 prefix=babble sigs=4 trust_count=2
+time="2021-05-19T17:05:49Z" level=debug msg="processed sig 0-0X04DDA05DD7F8B1D13F4815FA5FE62A5DBEF2A5CD8C5070C6C0B4894C77234A4E2B393A321481925C2B43BE0D8FF5AC1490D59443A590C716178727E47CDE054287" prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Block is not a suitable Anchor" anchor_block=0 index=1 prefix=babble sigs=2 trust_count=2
+time="2021-05-19T17:05:49Z" level=debug msg="processed sig 1-0X0406B90DFA4BC6BB685F0341617DDE4CDC4C77C7B7C778141732D0D4F8A117B8FCF2BD0F422752DB13D4CD88746D1A7BDE78AE38C3915CD82078B9D82FC6EFA458" prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="Setting AnchorBlock" block_index=1 prefix=babble signatures=3 trustCount=2
+time="2021-05-19T17:05:49Z" level=debug msg="processed sig 1-0X04DDA05DD7F8B1D13F4815FA5FE62A5DBEF2A5CD8C5070C6C0B4894C77234A4E2B393A321481925C2B43BE0D8FF5AC1490D59443A590C716178727E47CDE054287" prefix=babble
+time="2021-05-19T17:05:49Z" level=debug msg="ProcessSigPool()" duration=1978512 prefix=babble
+time="2021-05-19T17:05:50Z" level=debug msg="requestSync()" duration=1291030 prefix=babble
+time="2021-05-19T17:05:50Z" level=debug msg=SyncResponse events=1 from_id=157465506 known=map[157465506:29 631216856:22 2477208946:29 2911404175:29] prefix=babble
+time="2021-05-19T17:05:50Z" level=debug msg=Sync prefix=babble unknown_events=1
+time="2021-05-19T17:05:50Z" level=debug msg="Inserting pending signature 1-0X0423C480891744DD6A78CC6ED8F1A57F8CC641425617D6D4ACBDE9381C051F9CBA2EF9BACA8DA329FA7BBAD5036D3A00978F19579B6EF4999E112D00B5D874D7F5" prefix=babble
+time="2021-05-19T17:05:50Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:50Z" level=debug msg="Sync()" duration=1925953 prefix=babble
+time="2021-05-19T17:05:50Z" level=debug msg="ProcessSigPool()" pending_signatures=1 prefix=babble
+time="2021-05-19T17:05:50Z" level=debug msg="Block is not a suitable Anchor" anchor_block=1 index=1 prefix=babble sigs=4 trust_count=2
+time="2021-05-19T17:05:50Z" level=debug msg="processed sig 1-0X0423C480891744DD6A78CC6ED8F1A57F8CC641425617D6D4ACBDE9381C051F9CBA2EF9BACA8DA329FA7BBAD5036D3A00978F19579B6EF4999E112D00B5D874D7F5" prefix=babble
+time="2021-05-19T17:05:50Z" level=debug msg="ProcessSigPool()" duration=1558193 prefix=babble
+time="2021-05-19T17:05:50Z" level=debug msg="Diff()" duration=18783 prefix=babble
+time="2021-05-19T17:05:50Z" level=debug msg="requestEagerSync()" duration=4495634 prefix=babble
+time="2021-05-19T17:05:50Z" level=debug msg=EagerSyncResponse from_id=157465506 prefix=babble success=true
+time="2021-05-19T17:05:50Z" level=debug msg=Stats id=2477208946 last_block_index=1 last_consensus_round=7 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=40 undetermined_events=23
+time="2021-05-19T17:05:51Z" level=debug msg="process SyncRequest" from_id=2911404175 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble sync_limit=100
+time="2021-05-19T17:05:51Z" level=debug msg="Diff()" duration=18560 prefix=babble
+time="2021-05-19T17:05:51Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:52Z" level=debug msg="requestSync()" duration=363667 prefix=babble
+time="2021-05-19T17:05:52Z" level=debug msg=SyncResponse events=0 from_id=631216856 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble
+time="2021-05-19T17:05:52Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:52Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:52Z" level=debug msg="Sync()" duration=49162 prefix=babble
+time="2021-05-19T17:05:52Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:52Z" level=debug msg="ProcessSigPool()" duration=8793 prefix=babble
+time="2021-05-19T17:05:52Z" level=debug msg="Diff()" duration=8312 prefix=babble
+time="2021-05-19T17:05:52Z" level=debug msg=Stats id=2477208946 last_block_index=1 last_consensus_round=7 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=40 undetermined_events=23
+time="2021-05-19T17:05:52Z" level=debug msg="process SyncRequest" from_id=631216856 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble sync_limit=100
+time="2021-05-19T17:05:52Z" level=debug msg="Diff()" duration=36697 prefix=babble
+time="2021-05-19T17:05:52Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:53Z" level=debug msg="requestSync()" duration=1014586 prefix=babble
+time="2021-05-19T17:05:53Z" level=debug msg=SyncResponse events=0 from_id=157465506 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble
+time="2021-05-19T17:05:53Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:53Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:53Z" level=debug msg="Sync()" duration=204438 prefix=babble
+time="2021-05-19T17:05:53Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:53Z" level=debug msg="ProcessSigPool()" duration=27703 prefix=babble
+time="2021-05-19T17:05:53Z" level=debug msg="Diff()" duration=23326 prefix=babble
+time="2021-05-19T17:05:53Z" level=debug msg=Stats id=2477208946 last_block_index=1 last_consensus_round=7 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=40 undetermined_events=23
+time="2021-05-19T17:05:54Z" level=debug msg="requestSync()" duration=865680 prefix=babble
+time="2021-05-19T17:05:54Z" level=debug msg=SyncResponse events=0 from_id=2911404175 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble
+time="2021-05-19T17:05:54Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:54Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:54Z" level=debug msg="Sync()" duration=158833 prefix=babble
+time="2021-05-19T17:05:54Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:54Z" level=debug msg="ProcessSigPool()" duration=28213 prefix=babble
+time="2021-05-19T17:05:54Z" level=debug msg="Diff()" duration=23850 prefix=babble
+time="2021-05-19T17:05:54Z" level=debug msg=Stats id=2477208946 last_block_index=1 last_consensus_round=7 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=40 undetermined_events=23
+time="2021-05-19T17:05:54Z" level=debug msg="process SyncRequest" from_id=631216856 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble sync_limit=100
+time="2021-05-19T17:05:54Z" level=debug msg="Diff()" duration=33421 prefix=babble
+time="2021-05-19T17:05:54Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:55Z" level=debug msg="process SyncRequest" from_id=2911404175 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble sync_limit=100
+time="2021-05-19T17:05:55Z" level=debug msg="Diff()" duration=22493 prefix=babble
+time="2021-05-19T17:05:55Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:56Z" level=debug msg="requestSync()" duration=1108187 prefix=babble
+time="2021-05-19T17:05:56Z" level=debug msg=SyncResponse events=0 from_id=157465506 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble
+time="2021-05-19T17:05:56Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:56Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:56Z" level=debug msg="Sync()" duration=204184 prefix=babble
+time="2021-05-19T17:05:56Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:56Z" level=debug msg="ProcessSigPool()" duration=44174 prefix=babble
+time="2021-05-19T17:05:56Z" level=debug msg="Diff()" duration=44292 prefix=babble
+time="2021-05-19T17:05:56Z" level=debug msg=Stats id=2477208946 last_block_index=1 last_consensus_round=7 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=40 undetermined_events=23
+time="2021-05-19T17:05:56Z" level=debug msg="process SyncRequest" from_id=157465506 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble sync_limit=100
+time="2021-05-19T17:05:56Z" level=debug msg="Diff()" duration=13725 prefix=babble
+time="2021-05-19T17:05:56Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:57Z" level=debug msg="requestSync()" duration=415330 prefix=babble
+time="2021-05-19T17:05:57Z" level=debug msg=SyncResponse events=0 from_id=631216856 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble
+time="2021-05-19T17:05:57Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:57Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:57Z" level=debug msg="Sync()" duration=44525 prefix=babble
+time="2021-05-19T17:05:57Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:57Z" level=debug msg="ProcessSigPool()" duration=7951 prefix=babble
+time="2021-05-19T17:05:57Z" level=debug msg="Diff()" duration=8541 prefix=babble
+time="2021-05-19T17:05:57Z" level=debug msg=Stats id=2477208946 last_block_index=1 last_consensus_round=7 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=40 undetermined_events=23
+time="2021-05-19T17:05:57Z" level=debug msg="process SyncRequest" from_id=2911404175 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble sync_limit=100
+time="2021-05-19T17:05:57Z" level=debug msg="Diff()" duration=12684 prefix=babble
+time="2021-05-19T17:05:57Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:58Z" level=debug msg="process SyncRequest" from_id=631216856 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble sync_limit=100
+time="2021-05-19T17:05:58Z" level=debug msg="Diff()" duration=10151 prefix=babble
+time="2021-05-19T17:05:58Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:05:58Z" level=debug msg="requestSync()" duration=373977 prefix=babble
+time="2021-05-19T17:05:58Z" level=debug msg=SyncResponse events=0 from_id=157465506 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble
+time="2021-05-19T17:05:58Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:05:58Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:05:58Z" level=debug msg="Sync()" duration=51689 prefix=babble
+time="2021-05-19T17:05:58Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:05:58Z" level=debug msg="ProcessSigPool()" duration=5099 prefix=babble
+time="2021-05-19T17:05:58Z" level=debug msg="Diff()" duration=5266 prefix=babble
+time="2021-05-19T17:05:58Z" level=debug msg=Stats id=2477208946 last_block_index=1 last_consensus_round=7 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=40 undetermined_events=23
+time="2021-05-19T17:06:00Z" level=debug msg="requestSync()" duration=1116882 prefix=babble
+time="2021-05-19T17:06:00Z" level=debug msg=SyncResponse events=0 from_id=631216856 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble
+time="2021-05-19T17:06:00Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:06:00Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:06:00Z" level=debug msg="Sync()" duration=204979 prefix=babble
+time="2021-05-19T17:06:00Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:06:00Z" level=debug msg="ProcessSigPool()" duration=31485 prefix=babble
+time="2021-05-19T17:06:00Z" level=debug msg="Diff()" duration=27171 prefix=babble
+time="2021-05-19T17:06:00Z" level=debug msg=Stats id=2477208946 last_block_index=1 last_consensus_round=7 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=40 undetermined_events=23
+time="2021-05-19T17:06:00Z" level=debug msg="process SyncRequest" from_id=157465506 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble sync_limit=100
+time="2021-05-19T17:06:00Z" level=debug msg="Diff()" duration=39946 prefix=babble
+time="2021-05-19T17:06:00Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:06:01Z" level=debug msg="requestSync()" duration=404127 prefix=babble
+time="2021-05-19T17:06:01Z" level=debug msg=SyncResponse events=0 from_id=2911404175 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble
+time="2021-05-19T17:06:01Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:06:01Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:06:01Z" level=debug msg="Sync()" duration=49401 prefix=babble
+time="2021-05-19T17:06:01Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:06:01Z" level=debug msg="ProcessSigPool()" duration=7839 prefix=babble
+time="2021-05-19T17:06:01Z" level=debug msg="Diff()" duration=9057 prefix=babble
+time="2021-05-19T17:06:01Z" level=debug msg=Stats id=2477208946 last_block_index=1 last_consensus_round=7 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=40 undetermined_events=23
+time="2021-05-19T17:06:02Z" level=debug msg="process SyncRequest" from_id=631216856 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble sync_limit=100
+time="2021-05-19T17:06:02Z" level=debug msg="Diff()" duration=21960 prefix=babble
+time="2021-05-19T17:06:02Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:06:03Z" level=debug msg="requestSync()" duration=556753 prefix=babble
+time="2021-05-19T17:06:03Z" level=debug msg=SyncResponse events=0 from_id=157465506 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble
+time="2021-05-19T17:06:03Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:06:03Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:06:03Z" level=debug msg="Sync()" duration=60827 prefix=babble
+time="2021-05-19T17:06:03Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:06:03Z" level=debug msg="ProcessSigPool()" duration=9079 prefix=babble
+time="2021-05-19T17:06:03Z" level=debug msg="Diff()" duration=11480 prefix=babble
+time="2021-05-19T17:06:03Z" level=debug msg=Stats id=2477208946 last_block_index=1 last_consensus_round=7 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=40 undetermined_events=23
+time="2021-05-19T17:06:04Z" level=debug msg="process SyncRequest" from_id=157465506 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble sync_limit=100
+time="2021-05-19T17:06:04Z" level=debug msg="Diff()" duration=9572 prefix=babble
+time="2021-05-19T17:06:04Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:06:05Z" level=debug msg="requestSync()" duration=424734 prefix=babble
+time="2021-05-19T17:06:05Z" level=debug msg=SyncResponse events=0 from_id=631216856 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble
+time="2021-05-19T17:06:05Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:06:05Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:06:05Z" level=debug msg="Sync()" duration=77746 prefix=babble
+time="2021-05-19T17:06:05Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:06:05Z" level=debug msg="ProcessSigPool()" duration=20841 prefix=babble
+time="2021-05-19T17:06:05Z" level=debug msg="Diff()" duration=12889 prefix=babble
+time="2021-05-19T17:06:05Z" level=debug msg=Stats id=2477208946 last_block_index=1 last_consensus_round=7 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=40 undetermined_events=23
+time="2021-05-19T17:06:05Z" level=debug msg="process SyncRequest" from_id=2911404175 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble sync_limit=100
+time="2021-05-19T17:06:05Z" level=debug msg="Diff()" duration=32454 prefix=babble
+time="2021-05-19T17:06:05Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:06:06Z" level=debug msg="requestSync()" duration=1313905 prefix=babble
+time="2021-05-19T17:06:06Z" level=debug msg=SyncResponse events=0 from_id=157465506 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble
+time="2021-05-19T17:06:06Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:06:06Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:06:06Z" level=debug msg="Sync()" duration=142563 prefix=babble
+time="2021-05-19T17:06:06Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:06:06Z" level=debug msg="ProcessSigPool()" duration=35745 prefix=babble
+time="2021-05-19T17:06:06Z" level=debug msg="Diff()" duration=27012 prefix=babble
+time="2021-05-19T17:06:06Z" level=debug msg=Stats id=2477208946 last_block_index=1 last_consensus_round=7 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=40 undetermined_events=23
+time="2021-05-19T17:06:08Z" level=debug msg="requestSync()" duration=362396 prefix=babble
+time="2021-05-19T17:06:08Z" level=debug msg=SyncResponse events=0 from_id=2911404175 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble
+time="2021-05-19T17:06:08Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:06:08Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:06:08Z" level=debug msg="Sync()" duration=52090 prefix=babble
+time="2021-05-19T17:06:08Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:06:08Z" level=debug msg="ProcessSigPool()" duration=5838 prefix=babble
+time="2021-05-19T17:06:08Z" level=debug msg="Diff()" duration=5771 prefix=babble
+time="2021-05-19T17:06:08Z" level=debug msg=Stats id=2477208946 last_block_index=1 last_consensus_round=7 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=40 undetermined_events=23
+time="2021-05-19T17:06:09Z" level=debug msg="process SyncRequest" from_id=631216856 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble sync_limit=100
+time="2021-05-19T17:06:09Z" level=debug msg="Diff()" duration=36795 prefix=babble
+time="2021-05-19T17:06:09Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:06:09Z" level=debug msg="process SyncRequest" from_id=157465506 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble sync_limit=100
+time="2021-05-19T17:06:09Z" level=debug msg="Diff()" duration=26715 prefix=babble
+time="2021-05-19T17:06:09Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:06:09Z" level=debug msg="requestSync()" duration=1406365 prefix=babble
+time="2021-05-19T17:06:09Z" level=debug msg=SyncResponse events=0 from_id=157465506 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble
+time="2021-05-19T17:06:09Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:06:09Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:06:09Z" level=debug msg="Sync()" duration=190337 prefix=babble
+time="2021-05-19T17:06:09Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:06:09Z" level=debug msg="ProcessSigPool()" duration=71222 prefix=babble
+time="2021-05-19T17:06:09Z" level=debug msg="Diff()" duration=31740 prefix=babble
+time="2021-05-19T17:06:09Z" level=debug msg=Stats id=2477208946 last_block_index=1 last_consensus_round=7 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=40 undetermined_events=23
+time="2021-05-19T17:06:11Z" level=debug msg="process SyncRequest" from_id=2911404175 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble sync_limit=100
+time="2021-05-19T17:06:11Z" level=debug msg="Diff()" duration=34811 prefix=babble
+time="2021-05-19T17:06:11Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:06:11Z" level=debug msg="requestSync()" duration=1673702 prefix=babble
+time="2021-05-19T17:06:11Z" level=debug msg=SyncResponse events=0 from_id=2911404175 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble
+time="2021-05-19T17:06:11Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:06:11Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:06:11Z" level=debug msg="Sync()" duration=141787 prefix=babble
+time="2021-05-19T17:06:11Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:06:11Z" level=debug msg="ProcessSigPool()" duration=51970 prefix=babble
+time="2021-05-19T17:06:11Z" level=debug msg="Diff()" duration=25358 prefix=babble
+time="2021-05-19T17:06:11Z" level=debug msg=Stats id=2477208946 last_block_index=1 last_consensus_round=7 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=40 undetermined_events=23
+time="2021-05-19T17:06:12Z" level=debug msg="process SyncRequest" from_id=631216856 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble sync_limit=100
+time="2021-05-19T17:06:12Z" level=debug msg="Diff()" duration=7380 prefix=babble
+time="2021-05-19T17:06:12Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:06:12Z" level=debug msg="requestSync()" duration=1026698 prefix=babble
+time="2021-05-19T17:06:12Z" level=debug msg=SyncResponse events=0 from_id=631216856 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble
+time="2021-05-19T17:06:12Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:06:12Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:06:12Z" level=debug msg="Sync()" duration=146888 prefix=babble
+time="2021-05-19T17:06:12Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:06:12Z" level=debug msg="ProcessSigPool()" duration=29019 prefix=babble
+time="2021-05-19T17:06:12Z" level=debug msg="Diff()" duration=26207 prefix=babble
+time="2021-05-19T17:06:12Z" level=debug msg=Stats id=2477208946 last_block_index=1 last_consensus_round=7 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=40 undetermined_events=23
+time="2021-05-19T17:06:13Z" level=debug msg="process SyncRequest" from_id=157465506 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble sync_limit=100
+time="2021-05-19T17:06:13Z" level=debug msg="Diff()" duration=49932 prefix=babble
+time="2021-05-19T17:06:13Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble rpc_err=<nil>
+time="2021-05-19T17:06:14Z" level=debug msg="requestSync()" duration=1185070 prefix=babble
+time="2021-05-19T17:06:14Z" level=debug msg=SyncResponse events=0 from_id=157465506 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble
+time="2021-05-19T17:06:14Z" level=debug msg=Sync prefix=babble unknown_events=0
+time="2021-05-19T17:06:14Z" level=debug msg=Sync internal_transaction_pool=0 loaded_events=0 prefix=babble self_signature_pool=0 target_round=-1 transaction_pool=0
+time="2021-05-19T17:06:14Z" level=debug msg="Sync()" duration=130956 prefix=babble
+time="2021-05-19T17:06:14Z" level=debug msg="ProcessSigPool()" pending_signatures=0 prefix=babble
+time="2021-05-19T17:06:14Z" level=debug msg="ProcessSigPool()" duration=73335 prefix=babble
+time="2021-05-19T17:06:14Z" level=debug msg="Diff()" duration=37493 prefix=babble
+time="2021-05-19T17:06:14Z" level=debug msg=Stats id=2477208946 last_block_index=1 last_consensus_round=7 moniker=node1 num_peers=4 prefix=babble state=Babbling transaction_pool=0 transactions=40 undetermined_events=23
+time="2021-05-19T17:06:14Z" level=debug msg="process SyncRequest" from_id=2911404175 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble sync_limit=100
+time="2021-05-19T17:06:14Z" level=debug msg="Diff()" duration=16926 prefix=babble
+time="2021-05-19T17:06:14Z" level=debug msg="Responding to SyncRequest" events=0 known=map[157465506:29 631216856:23 2477208946:29 2911404175:29] prefix=babble rpc_err=<nil>
