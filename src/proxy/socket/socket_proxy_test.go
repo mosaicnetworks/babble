@@ -80,8 +80,12 @@ func TestSocketProxyServer(t *testing.T) {
 	clientAddr := "127.0.0.1:6990"
 	proxyAddr := "127.0.0.1:6991"
 
-	appProxy, err := aproxy.NewSocketAppProxy(clientAddr, proxyAddr, 1*time.Second, common.NewTestEntry(t, common.TestLogLevel))
-
+	appProxy, err := aproxy.NewSocketAppProxy(
+		clientAddr,
+		proxyAddr,
+		1*time.Second,
+		common.NewTestEntry(t, common.TestLogLevel),
+	)
 	if err != nil {
 		t.Fatalf("Cannot create SocketAppProxy: %s", err)
 	}

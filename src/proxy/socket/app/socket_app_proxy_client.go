@@ -20,6 +20,7 @@ type SocketAppProxyClient struct {
 	timeout    time.Duration
 	logger     *logrus.Entry
 	rpc        *rpc.Client
+	retries    int
 }
 
 // NewSocketAppProxyClient creates a new SocketAppProxyClient
@@ -28,38 +29,52 @@ func NewSocketAppProxyClient(clientAddr string, timeout time.Duration, logger *l
 		clientAddr: clientAddr,
 		timeout:    timeout,
 		logger:     logger,
+		retries:    3,
 	}
 }
 
 func (p *SocketAppProxyClient) getConnection() error {
 	if p.rpc == nil {
 		conn, err := net.DialTimeout("tcp", p.clientAddr, p.timeout)
-
 		if err != nil {
 			return err
 		}
-
 		p.rpc = jsonrpc.NewClient(conn)
 	}
-
 	return nil
+}
+
+// call is a wrapper around rpc.Call, that implements a retry mechanism
+func (p *SocketAppProxyClient) call(serviceMethod string, args interface{}, reply interface{}) error {
+	var err error
+	for try := 0; try < p.retries; try++ {
+		err = p.getConnection()
+		if err != nil {
+			// this attempt failed; log and try again
+			p.logger.Debugf("proxy_client getConnection failed (%d of %d): %v", try+1, p.retries, err)
+			continue
+		}
+		err = p.rpc.Call(serviceMethod, args, reply)
+		if err != nil {
+			// this attempt failed; reset connection, log, and try again
+			p.rpc = nil
+			p.logger.Debugf("proxy_client call failed (%d of %d): %v", try+1, p.retries, err)
+			continue
+		}
+		// attempt succeeded, return
+		break
+	}
+	return err
 }
 
 // CommitBlock implements the AppProxy interface
 func (p *SocketAppProxyClient) CommitBlock(block hashgraph.Block) (proxy.CommitResponse, error) {
-	if err := p.getConnection(); err != nil {
-		return proxy.CommitResponse{}, err
-	}
-
 	var commitResponse proxy.CommitResponse
-
-	if err := p.rpc.Call("State.CommitBlock", block, &commitResponse); err != nil {
-		p.rpc = nil
+	if err := p.call("State.CommitBlock", block, &commitResponse); err != nil {
 		return commitResponse, err
 	}
 
 	jsonResp, _ := json.Marshal(commitResponse)
-
 	p.logger.WithFields(logrus.Fields{
 		"block":           block.Index(),
 		"commit_response": string(jsonResp),
@@ -70,15 +85,8 @@ func (p *SocketAppProxyClient) CommitBlock(block hashgraph.Block) (proxy.CommitR
 
 // GetSnapshot implementes the AppProxy interface
 func (p *SocketAppProxyClient) GetSnapshot(blockIndex int) ([]byte, error) {
-	if err := p.getConnection(); err != nil {
-		return []byte{}, err
-	}
-
 	var snapshot []byte
-
-	if err := p.rpc.Call("State.GetSnapshot", blockIndex, &snapshot); err != nil {
-		p.rpc = nil
-
+	if err := p.call("State.GetSnapshot", blockIndex, &snapshot); err != nil {
 		return []byte{}, err
 	}
 
@@ -92,15 +100,8 @@ func (p *SocketAppProxyClient) GetSnapshot(blockIndex int) ([]byte, error) {
 
 // Restore implements the AppProxy interface
 func (p *SocketAppProxyClient) Restore(snapshot []byte) error {
-	if err := p.getConnection(); err != nil {
-		return err
-	}
-
 	var stateHash []byte
-
-	if err := p.rpc.Call("State.Restore", snapshot, &stateHash); err != nil {
-		p.rpc = nil
-
+	if err := p.call("State.Restore", snapshot, &stateHash); err != nil {
 		return err
 	}
 
@@ -113,13 +114,7 @@ func (p *SocketAppProxyClient) Restore(snapshot []byte) error {
 
 // OnStateChanged implements the AppProxy interface
 func (p *SocketAppProxyClient) OnStateChanged(state state.State) error {
-	if err := p.getConnection(); err != nil {
-		return err
-	}
-
-	if err := p.rpc.Call("State.OnStateChanged", state, nil); err != nil {
-		p.rpc = nil
-
+	if err := p.call("State.OnStateChanged", state, nil); err != nil {
 		return err
 	}
 

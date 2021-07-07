@@ -50,7 +50,6 @@ func (p *SocketBabbleProxyServer) register(bindAddress string) error {
 	p.rpcServer = rpcServer
 
 	l, err := net.Listen("tcp", bindAddress)
-
 	if err != nil {
 		return err
 	}
@@ -63,7 +62,6 @@ func (p *SocketBabbleProxyServer) register(bindAddress string) error {
 func (p *SocketBabbleProxyServer) listen() error {
 	for {
 		conn, err := (*p.netListener).Accept()
-
 		if err != nil {
 			return err
 		}

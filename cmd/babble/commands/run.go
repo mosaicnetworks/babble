@@ -2,6 +2,7 @@ package commands
 
 import (
 	"path/filepath"
+	"time"
 
 	"github.com/mosaicnetworks/babble/src/babble"
 	aproxy "github.com/mosaicnetworks/babble/src/proxy/socket/app"
@@ -36,7 +37,7 @@ func runBabble(cmd *cobra.Command, args []string) error {
 	p, err := aproxy.NewSocketAppProxy(
 		_config.ClientAddr,
 		_config.ProxyAddr,
-		_config.Babble.HeartbeatTimeout,
+		1*time.Second,
 		_config.Babble.Logger(),
 	)
 

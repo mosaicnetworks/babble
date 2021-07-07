@@ -41,7 +41,6 @@ func NewSocketAppProxy(clientAddr string,
 	client := NewSocketAppProxyClient(clientAddr, timeout, logger)
 
 	server, err := NewSocketAppProxyServer(bindAddr, logger)
-
 	if err != nil {
 		return nil, err
 	}

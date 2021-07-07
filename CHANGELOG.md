@@ -3,8 +3,13 @@
 ## Unreleased
 
 SECURITY:
+
 FEATURES:
+
 IMPROVEMENTS:
+
+- proxy: implement retry mechanism for socket proxies
+
 BUG FIXES:
 
 ## v0.8.4 (Dec 29, 2020)

@@ -39,10 +39,8 @@ func (p *SocketAppProxyServer) register(bindAddress string) error {
 	p.rpcServer = rpcServer
 
 	l, err := net.Listen("tcp", bindAddress)
-
 	if err != nil {
 		p.logger.WithField("error", err).Error("Failed to listen")
-
 		return err
 	}
 
@@ -54,7 +52,6 @@ func (p *SocketAppProxyServer) register(bindAddress string) error {
 func (p *SocketAppProxyServer) listen() {
 	for {
 		conn, err := (*p.netListener).Accept()
-
 		if err != nil {
 			p.logger.WithField("error", err).Error("Failed to accept")
 		}

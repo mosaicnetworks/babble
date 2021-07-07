@@ -122,7 +122,7 @@ func (a *State) RestoreHandler(snapshot []byte) ([]byte, error) {
 	return a.stateHash, nil
 }
 
-// StateChangedHandler implements the ProxyHandler interface. It is called by
+// StateChangeHandler implements the ProxyHandler interface. It is called by
 // Babble to notify the application that the node has entered a new state (ex
 // Babbling, Joining, Suspended, etc.).
 func (a *State) StateChangeHandler(state state.State) error {

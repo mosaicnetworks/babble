@@ -63,7 +63,6 @@ func NewSocketBabbleProxy(
 // SubmitTx submits a transaction to Babble
 func (p *SocketBabbleProxy) SubmitTx(tx []byte) error {
 	ack, err := p.client.SubmitTx(tx)
-
 	if err != nil {
 		return err
 	}
