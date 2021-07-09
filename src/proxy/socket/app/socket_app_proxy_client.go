@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/rpc"
 	"net/rpc/jsonrpc"
@@ -12,6 +13,8 @@ import (
 	"github.com/mosaicnetworks/babble/src/proxy"
 	"github.com/sirupsen/logrus"
 )
+
+const DefaultProxyTimeout = time.Second
 
 // SocketAppProxyClient is the component of the AppProxy that sends RPC requests
 // to the App
@@ -54,13 +57,25 @@ func (p *SocketAppProxyClient) call(serviceMethod string, args interface{}, repl
 			p.logger.Debugf("proxy_client getConnection failed (%d of %d): %v", try+1, p.retries, err)
 			continue
 		}
-		err = p.rpc.Call(serviceMethod, args, reply)
+
+		call := p.rpc.Go(serviceMethod, args, reply, nil)
+		select {
+		case <-time.After(p.timeout):
+			err = fmt.Errorf("rpc timeout")
+			break
+		case <-call.Done:
+			err = call.Error
+			break
+		}
+
 		if err != nil {
 			// this attempt failed; reset connection, log, and try again
+			p.rpc.Close()
 			p.rpc = nil
 			p.logger.Debugf("proxy_client call failed (%d of %d): %v", try+1, p.retries, err)
 			continue
 		}
+
 		// attempt succeeded, return
 		break
 	}
