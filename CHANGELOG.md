@@ -1,16 +1,10 @@
 # Change Log
 
-## Unreleased
-
-SECURITY:
-
-FEATURES:
+## v0.8.5 (Jul 10, 2021)
 
 IMPROVEMENTS:
 
 - proxy: implement retry mechanism for socket proxies
-
-BUG FIXES:
 
 ## v0.8.4 (Dec 29, 2020)
 
