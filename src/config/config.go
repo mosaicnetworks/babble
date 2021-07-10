@@ -186,6 +186,9 @@ type Config struct {
 	// ICE server defined in ICEAddress.
 	ICEPassword string `mapstructure:"ice-password"`
 
+	// XXX
+	NKN bool `mapstructure:"nkn"`
+
 	// Proxy is the application proxy that enables Babble to communicate with
 	// the application.
 	Proxy proxy.AppProxy

@@ -13,6 +13,7 @@ import (
 	"github.com/mosaicnetworks/babble/src/node"
 	"github.com/mosaicnetworks/babble/src/peers"
 	"github.com/mosaicnetworks/babble/src/service"
+	"github.com/nknorg/nkn-sdk-go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -124,7 +125,6 @@ func (b *Babble) validateConfig() error {
 		logFields["babble.SignalSkipVerify"] = b.Config.SignalSkipVerify
 		logFields["babble.ICEAddress"] = b.Config.ICEAddress
 		logFields["babble.ICEUsername"] = b.Config.ICEUsername
-
 	} else {
 		logFields["babble.BindAddr"] = b.Config.BindAddr
 		logFields["babble.AdvertiseAddr"] = b.Config.AdvertiseAddr
@@ -197,6 +197,28 @@ func (b *Babble) initTransport() error {
 		}
 
 		b.Transport = webRTCTransport
+	} else if b.Config.NKN {
+		nknAccount, err := nkn.NewAccount(keys.DumpPrivateKey(b.Config.Key))
+		if err != nil {
+			return err
+		}
+
+		nknTransport, err := net.NewNKNTransport(
+			nknAccount,
+			"",
+			10,
+			nil,
+			10*time.Second,
+			b.Config.MaxPool,
+			b.Config.TCPTimeout,
+			b.Config.JoinTimeout,
+			b.Config.Logger().WithField("component", "nkn-transport"),
+		)
+		if err != nil {
+			return err
+		}
+
+		b.Transport = nknTransport
 	} else {
 		tcpTransport, err := net.NewTCPTransport(
 			b.Config.BindAddr,

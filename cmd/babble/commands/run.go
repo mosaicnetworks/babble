@@ -86,6 +86,9 @@ func AddRunFlags(cmd *cobra.Command) {
 	cmd.Flags().String("ice-username", _config.Babble.ICEUsername, "Username to authenticate to the ICE server")
 	cmd.Flags().String("ice-password", _config.Babble.ICEPassword, "Password to authenticate to the ICE server")
 
+	// NKN
+	cmd.Flags().Bool("nkn", _config.Babble.NKN, "Use NKN transport")
+
 	// Proxy
 	cmd.Flags().StringP("proxy-listen", "p", _config.ProxyAddr, "Listen IP:Port for babble proxy")
 	cmd.Flags().StringP("client-connect", "c", _config.ClientAddr, "IP:Port to connect to client")
