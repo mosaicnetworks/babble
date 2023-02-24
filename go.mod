@@ -23,5 +23,5 @@ require (
 	github.com/spf13/viper v1.3.2
 	github.com/ugorji/go/codec v1.1.7
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2
-	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b // indirect
+	golang.org/x/net v0.7.0 // indirect
 )
